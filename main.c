@@ -1,4 +1,5 @@
 #include <math.h>
+#include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
@@ -200,7 +201,36 @@ void sjs_add_fac_pt_src(sjs *sjs, int i0, int j0, dbl r0) {
   heap_insert(&sjs->heap, l0);
 }
 
+void sjs_tri(sjs *sjs, int l, int l0, int l1) {
+}
+
+void sjs_line(sjs *sjs, int l, int l0) {
+}
+
 void sjs_update(sjs *sjs, int l) {
+  bool updated[NUM_NB];
+  memset(updated, 0x0, NUM_NB*sizeof(bool));
+  for (int i = 1, l0, l1; i < 8; i += 2) {
+    l0 = l + sjs->nbs[i];
+    if (sjs->states[l0] == VALID) {
+      l1 = l + sjs->nbs[i - 1];
+      if (sjs->states[l1] == VALID) {
+        sjs_tri(sjs, l, l0, l1);
+        updated[l0] = updated[l1] = true;
+      }
+      l1 = l + sjs->nbs[i + 1];
+      if (sjs->states[l1] == VALID) {
+        sjs_tri(sjs, l, l0, l1);
+        updated[l0] = updated[l1] = true;
+      }
+    }
+  }
+  for (int i = 0, l0; i < 8; ++i) {
+    l0 = l + sjs->nbs[i];
+    if (!updated[l0] && sjs->states[l0] == VALID) {
+      sjs_line(sjs, l, l0);
+    }
+  }
 }
 
 void sjs_adjust(sjs *sjs, int l0) {
