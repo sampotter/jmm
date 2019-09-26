@@ -137,8 +137,18 @@ void heap_pop(heap *heap) {
   }
 }
 
+int sjs_lindex(sjs *sjs, int i, int j) {
+  return (sjs->shape.i + 2)*(j + 1) + i + 1;
+}
+
 void sjs_set_nb_inds(sjs *sjs) {
+  static int offsets[8][2] = {
+    {-1, -1}, {-1,  0}, {-1,  1},
+    { 0, -1},           { 0,  1},
+    { 1, -1}, { 1,  0}, { 1, -1}
+  };
   for (int i = 0; i < 8; ++i) {
+    sjs->nbs[i] = sjs_lindex(sjs, offsets[i][0], offsets[i][1]);
   }
 }
 
@@ -155,13 +165,11 @@ void sjs_init(sjs *sjs, ivec2 shape, dbl h, func *s) {
   sjs->states = malloc(nnodes*sizeof(state));
   sjs->parents = malloc(nnodes*sizeof(int));
 
+  sjs_set_nb_inds(sjs);
+
   for (int l = 0; l < nnodes; ++l) {
     sjs->states[l] = FAR;
   }
-}
-
-int sjs_lindex(sjs *sjs, int i, int j) {
-  return (sjs->shape.i + 2)*(j + 1) + i + 1;
 }
 
 void sjs_add_fac_pt_src(sjs *sjs, int i0, int j0, dbl r0) {
