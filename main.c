@@ -53,6 +53,7 @@ typedef struct sjs_ {
   jet *jets;
   state *states;
   int *parents;
+  int *positions;
   heap heap;
 } sjs;
 
@@ -174,6 +175,7 @@ void sjs_init(sjs *sjs, ivec2 shape, dbl h, func *s) {
   sjs->jets = malloc(nnodes*sizeof(jet));
   sjs->states = malloc(nnodes*sizeof(state));
   sjs->parents = malloc(nnodes*sizeof(int));
+  sjs->positions = malloc(nnodes*sizeof(int));
 
   sjs_set_nb_inds(sjs);
 
