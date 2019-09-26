@@ -193,12 +193,31 @@ void sjs_add_fac_pt_src(sjs *sjs, int i0, int j0, dbl r0) {
   heap_insert(&sjs->heap, l0);
 }
 
+void sjs_update(sjs *sjs, int l) {
+}
+
+void sjs_adjust(sjs *sjs, int l) {
+}
+
 void sjs_step(sjs *sjs) {
-  int l = heap_front(&sjs->heap);
+  int l0 = heap_front(&sjs->heap);
   heap_pop(&sjs->heap);
-  sjs->states[l] = VALID;
+  sjs->states[l0] = VALID;
 
+  for (int i = 0, l; i < NUM_NB; ++i) {
+    l = l0 + sjs->nbs[i];
+    if (sjs->states[l] == FAR) {
+      sjs->states[l] = TRIAL;
+    }
+  }
 
+  for (int i = 0, l; i < NUM_NB; ++i) {
+    l = l0 + sjs->nbs[i];
+    if (sjs->states[l] == TRIAL) {
+      sjs_update(sjs, l);
+      sjs_adjust(sjs, l);
+    }
+  }
 }
 
 void sjs_solve(sjs *sjs) {
