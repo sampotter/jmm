@@ -245,7 +245,7 @@ void sjs_update(sjs *sjs, int l) {
 }
 
 void sjs_adjust(sjs *sjs, int l0) {
-  heap_swim(sjs->heap, sjs->positions[l0]);
+  heap_swim(&sjs->heap, sjs->positions[l0]);
 }
 
 void sjs_step(sjs *sjs) {
