@@ -100,7 +100,8 @@ void swap(heap *heap, int pos1, int pos2) {
 
 void swim(heap *heap, int pos) {
   int par = parent(pos);
-  // TODO: this calls `value` about 2x as many times as necessary
+  // TODO: this calls `value` and `heap_set` about 2x as many times as
+  // necessary
   while (pos > 0 && value(heap, par) > value(heap, pos)) {
     swap(heap, par, pos);
     pos = par;
