@@ -97,7 +97,7 @@ typedef struct {
 typedef struct sjs_ {
   ivec2 shape;
   dbl h;
-  int nbs[NUM_NB];
+  int nbs[NUM_NB + 1];
   func *s;
   bicubic *bicubics;
   jet *jets;
