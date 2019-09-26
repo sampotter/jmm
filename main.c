@@ -202,6 +202,12 @@ int sjs_lindex(sjs *sjs, int i, int j) {
   return (sjs->shape.i + 2)*(j + 1) + i + 1;
 }
 
+void sjs_vindex(sjs *sjs, int l, int *i, int *j) {
+  int mpad = sjs->shape.i + 2;
+  *i = l/mpad - 1;
+  *j = l%mpad - 1;
+}
+
 int offsets[NUM_NB + 1][2] = {
   {-1, -1},
   {-1,  0},
@@ -258,6 +264,23 @@ void sjs_add_fac_pt_src(sjs *sjs, int i0, int j0, dbl r0) {
   J->f = J->fx = J->fy = J->fxy = 0;
   sjs->states[l0] = TRIAL;
   heap_insert(&sjs->heap, l0);
+}
+
+dvec2 sjs_xy(sjs *sjs, int l) {
+  int mpad = sjs->shape.i + 2;
+  dvec2 xy = {
+    .x = sjs->h*(l/mpad - 1),
+    .y = sjs->h*(l%mpad - 1)
+  };
+  return xy;
+}
+
+dbl sjs_s(sjs *sjs, int l) {
+  return sjs->s->f(sjs_xy(sjs, l));
+}
+
+dbl sjs_T(sjs *sjs, int l) {
+  return sjs->jets[l].f;
 }
 
 void sjs_tri(sjs *sjs, int l, int l0, int l1) {
