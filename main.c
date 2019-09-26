@@ -41,10 +41,12 @@ typedef struct {
   sjs *sjs;
 } heap;
 
+#define NUM_NB 8
+
 typedef struct sjs_ {
   ivec2 shape;
   dbl h;
-  int nbs[8];
+  int nbs[NUM_NB];
   func *s;
   cell *cells;
   jet *jets;
@@ -142,12 +144,12 @@ int sjs_lindex(sjs *sjs, int i, int j) {
 }
 
 void sjs_set_nb_inds(sjs *sjs) {
-  static int offsets[8][2] = {
+  static int offsets[NUM_NB][2] = {
     {-1, -1}, {-1,  0}, {-1,  1},
     { 0, -1},           { 0,  1},
     { 1, -1}, { 1,  0}, { 1, -1}
   };
-  for (int i = 0; i < 8; ++i) {
+  for (int i = 0; i < NUM_NB; ++i) {
     sjs->nbs[i] = sjs_lindex(sjs, offsets[i][0], offsets[i][1]);
   }
 }
