@@ -84,10 +84,18 @@ dbl value(heap *heap, int pos) {
   return heap->sjs->jets[heap->inds[pos]].f;
 }
 
+void heap_set(heap *heap, int pos, int ind) {
+  heap->inds[pos] = ind;
+  heap->sjs->positions[ind] = pos;
+}
+
 void swap(heap *heap, int pos1, int pos2) {
   int tmp = heap->inds[pos1];
   heap->inds[pos1] = heap->inds[pos2];
   heap->inds[pos2] = tmp;
+
+  heap_set(heap, pos1, heap->inds[pos1]);
+  heap_set(heap, pos2, heap->inds[pos2]);
 }
 
 void swim(heap *heap, int pos) {
@@ -105,7 +113,7 @@ void heap_insert(heap *heap, int ind) {
     heap_grow(heap);
   }
   int pos = heap->size++;
-  heap->inds[pos] = ind;
+  heap_set(heap, pos, ind);
   swim(heap, pos);
 }
 
@@ -236,7 +244,7 @@ void sjs_update(sjs *sjs, int l) {
 }
 
 void sjs_adjust(sjs *sjs, int l0) {
-
+  swim(sjs->heap, sjs->positions[l0]);
 }
 
 void sjs_step(sjs *sjs) {
