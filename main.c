@@ -284,9 +284,30 @@ dbl sjs_T(sjs *sjs, int l) {
 }
 
 void sjs_tri(sjs *sjs, int l, int l0, int l1) {
+
+}
+
+#define NO_INDEX -1
+
+dvec2 sjs_est_grad_T(sjs *sjs, int l, int l0, int l1) {
+  dvec2 Txy;
+  if (l1 == NO_INDEX) {
+  } else {
+  }
+  return Txy;
 }
 
 void sjs_line(sjs *sjs, int l, int l0) {
+  dbl s = sjs_s(sjs, l), s0 = sjs_s(sjs, l0);
+  dbl T0 = sjs_T(sjs, l0);
+  dbl T = T0 + sjs->h*(s + s0)/2;
+  jet *J = &sjs->jets[l];
+  if (T < J->f) {
+    J->f = T;
+    dvec2 grad_T = sjs_est_grad_T(sjs, l, l0, NO_INDEX);
+    J->fx = grad_T.x;
+    J->fy = grad_T.y;
+  }
 }
 
 void sjs_update(sjs *sjs, int l) {
