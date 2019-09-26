@@ -4,6 +4,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#define SQRT2 1.414213562373095
+
 typedef double dbl;
 
 typedef struct {
@@ -198,8 +200,8 @@ void heap_pop(heap *heap) {
   }
 }
 
-int sjs_lindex(sjs *sjs, int i, int j) {
-  return (sjs->shape.i + 2)*(j + 1) + i + 1;
+int sjs_lindex(sjs *sjs, ivec2 ind) {
+  return (sjs->shape.i + 2)*(ind.j + 1) + ind.i + 1;
 }
 
 void sjs_vindex(sjs *sjs, int l, int *i, int *j) {
@@ -208,19 +210,24 @@ void sjs_vindex(sjs *sjs, int l, int *i, int *j) {
   *j = l%mpad - 1;
 }
 
-int offsets[NUM_NB + 1][2] = {
-  {-1, -1},
-  {-1,  0},
-  {-1,  1},
-  { 0,  1},
-  { 1,  1},
-  { 1,  0},
-  { 1, -1},
-  { 0, -1},
-  {-1, -1}
+ivec2 offsets[NUM_NB + 1] = {
+  {.i = -1, .j = -1},
+  {.i = -1, .j =  0},
+  {.i = -1, .j =  1},
+  {.i =  0, .j =  1},
+  {.i =  1, .j =  1},
+  {.i =  1, .j =  0},
+  {.i =  1, .j = -1},
+  {.i =  0, .j = -1},
+  {.i = -1, .j = -1}
 };
 
 void sjs_set_nb_inds(sjs *sjs) {
+  for (int i = 0; i < NUM_NB + 1; ++i) {
+    sjs->nbs[i] = sjs_lindex(sjs, offsets[i]);
+  }
+}
+
   for (int i = 0; i < NUM_NB; ++i) {
     sjs->nbs[i] = sjs_lindex(sjs, offsets[i][0], offsets[i][1]);
   }
@@ -247,15 +254,16 @@ void sjs_init(sjs *sjs, ivec2 shape, dbl h, func *s) {
   }
 }
 
-void sjs_add_fac_pt_src(sjs *sjs, int i0, int j0, dbl r0) {
+void sjs_add_fac_pt_src(sjs *sjs, ivec2 ind0, dbl r0) {
   int m = sjs->shape.i, n = sjs->shape.j;
 
-  int l0 = sjs_lindex(sjs, i0, j0);
+  int l0 = sjs_lindex(sjs, ind0);
   for (int i = 0; i < m; ++i) {
     dbl x = ((dbl) i)/((dbl) (m - 1));
     for (int j = 0; j < n; ++j) {
       dbl y = ((dbl) j)/((dbl) (n - 1));
-      int l = sjs_lindex(sjs, i, j);
+      ivec2 ind = {.i = i, .j = j};
+      int l = sjs_lindex(sjs, ind);
       sjs->parents[l] = hypot(x, y) <= r0 ? l0 : -1;
     }
   }
@@ -287,14 +295,7 @@ void sjs_tri(sjs *sjs, int l, int l0, int l1) {
 
 }
 
-#define NO_INDEX -1
 
-dvec2 sjs_est_grad_T(sjs *sjs, int l, int l0, int l1) {
-  dvec2 Txy;
-  if (l1 == NO_INDEX) {
-  } else {
-  }
-  return Txy;
 }
 
 void sjs_line(sjs *sjs, int l, int l0) {
@@ -382,14 +383,14 @@ int main() {
   dbl h = 1.0/(n - 1);
   dbl rf = 0.1;
 
-  int i0 = m/2, j0 = n/2;
+  ivec2 ind0 = {m/2, n/2};
 
   ivec2 shape = {.i = m, .j = n};
   func s = {.f = f, .df = df};
 
   sjs sjs;
   sjs_init(&sjs, shape, h, &s);
-  sjs_add_fac_pt_src(&sjs, i0, j0, rf);
+  sjs_add_fac_pt_src(&sjs, ind0, rf);
   sjs_solve(&sjs);
 
   free(sjs.bicubics);
