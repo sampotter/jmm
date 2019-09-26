@@ -203,7 +203,8 @@ void sjs_add_fac_pt_src(sjs *sjs, int i0, int j0, dbl r0) {
 void sjs_update(sjs *sjs, int l) {
 }
 
-void sjs_adjust(sjs *sjs, int l) {
+void sjs_adjust(sjs *sjs, int l0) {
+
 }
 
 void sjs_step(sjs *sjs) {
