@@ -7,10 +7,6 @@
 typedef double dbl;
 
 typedef struct {
-  dbl A[16];
-} cell;
-
-typedef struct {
   dbl f, fx, fy, fxy;
 } jet;
 
@@ -33,6 +29,58 @@ typedef struct {
   dvec2 (*df)(dvec2);
 } func;
 
+typedef struct {
+  dbl A[4][4];
+} bicubic;
+
+typedef struct {
+  dbl a[4];
+} cubic;
+
+dbl cubic_f(cubic *cubic, dbl lam) {
+  dbl *a = cubic->a;
+  return a[0] + lam*(a[1] + lam*(a[2] + lam*a[3]));
+}
+
+dbl cubic_df(cubic *cubic, dbl lam) {
+  dbl *a = cubic->a;
+  return a[1] + lam*(2*a[2] + 3*lam*a[3]);
+}
+
+typedef enum {LAMBDA, MU} bicubic_variable;
+
+cubic bicubic_restrict(bicubic *bicubic, bicubic_variable var, int edge) {
+  cubic cubic;
+  if (var == LAMBDA) {
+    if (edge == 0) {
+      for (int alpha = 0; alpha < 4; ++alpha) {
+        cubic.a[alpha] = bicubic->A[alpha][0];
+      }
+    } else {
+      for (int alpha = 0; alpha < 4; ++alpha) {
+        cubic.a[alpha] = 0;
+        for (int beta = 0; beta < 4; ++beta) {
+          cubic.a[alpha] += bicubic->A[alpha][beta];
+        }
+      }
+    }
+  } else {
+    if (edge == 0) {
+      for (int beta = 0; beta < 4; ++beta) {
+        cubic.a[beta] = bicubic->A[0][beta];
+      }
+    } else {
+      for (int beta = 0; beta < 4; ++beta) {
+        cubic.a[beta] = 0;
+        for (int alpha = 0; alpha < 4; ++alpha) {
+          cubic.a[beta] += bicubic->A[alpha][beta];
+        }
+      }
+    }
+  }
+  return cubic;
+}
+
 typedef struct sjs_ sjs;
 
 typedef struct {
@@ -49,7 +97,7 @@ typedef struct sjs_ {
   dbl h;
   int nbs[NUM_NB];
   func *s;
-  cell *cells;
+  bicubic *bicubics;
   jet *jets;
   state *states;
   int *parents;
@@ -180,7 +228,7 @@ void sjs_init(sjs *sjs, ivec2 shape, dbl h, func *s) {
   sjs->shape = shape;
   sjs->h = h;
   sjs->s = s;
-  sjs->cells = malloc(ncells*sizeof(cell));
+  sjs->bicubics = malloc(ncells*sizeof(bicubic));
   sjs->jets = malloc(nnodes*sizeof(jet));
   sjs->states = malloc(nnodes*sizeof(state));
   sjs->parents = malloc(nnodes*sizeof(int));
@@ -300,7 +348,7 @@ int main() {
   sjs_add_fac_pt_src(&sjs, i0, j0, rf);
   sjs_solve(&sjs);
 
-  free(sjs.cells);
+  free(sjs.bicubics);
   free(sjs.jets);
   free(sjs.states);
 }
