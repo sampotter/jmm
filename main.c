@@ -143,12 +143,19 @@ int sjs_lindex(sjs *sjs, int i, int j) {
   return (sjs->shape.i + 2)*(j + 1) + i + 1;
 }
 
+int offsets[NUM_NB + 1][2] = {
+  {-1, -1},
+  {-1,  0},
+  {-1,  1},
+  { 0,  1},
+  { 1,  1},
+  { 1,  0},
+  { 1, -1},
+  { 0, -1},
+  {-1, -1}
+};
+
 void sjs_set_nb_inds(sjs *sjs) {
-  static int offsets[NUM_NB][2] = {
-    {-1, -1}, {-1,  0}, {-1,  1},
-    { 0, -1},           { 0,  1},
-    { 1, -1}, { 1,  0}, { 1, -1}
-  };
   for (int i = 0; i < NUM_NB; ++i) {
     sjs->nbs[i] = sjs_lindex(sjs, offsets[i][0], offsets[i][1]);
   }
