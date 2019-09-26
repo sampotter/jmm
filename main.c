@@ -89,7 +89,7 @@ void heap_set(heap *heap, int pos, int ind) {
   heap->sjs->positions[ind] = pos;
 }
 
-void swap(heap *heap, int pos1, int pos2) {
+void heap_swap(heap *heap, int pos1, int pos2) {
   int tmp = heap->inds[pos1];
   heap->inds[pos1] = heap->inds[pos2];
   heap->inds[pos2] = tmp;
@@ -98,12 +98,12 @@ void swap(heap *heap, int pos1, int pos2) {
   heap_set(heap, pos2, heap->inds[pos2]);
 }
 
-void swim(heap *heap, int pos) {
+void heap_swim(heap *heap, int pos) {
   int par = parent(pos);
   // TODO: this calls `value` and `heap_set` about 2x as many times as
   // necessary
   while (pos > 0 && value(heap, par) > value(heap, pos)) {
-    swap(heap, par, pos);
+    heap_swap(heap, par, pos);
     pos = par;
     par = parent(pos);
   }
@@ -115,14 +115,14 @@ void heap_insert(heap *heap, int ind) {
   }
   int pos = heap->size++;
   heap_set(heap, pos, ind);
-  swim(heap, pos);
+  heap_swim(heap, pos);
 }
 
 int heap_front(heap *heap) {
   return heap->inds[0];
 }
 
-void sink(heap *heap, int pos) {
+void heap_sink(heap *heap, int pos) {
   int ch = left(pos), next = ch + 1, n = heap->size;
   dbl cval, nval;
   while (ch < n) {
@@ -135,7 +135,7 @@ void sink(heap *heap, int pos) {
       }
     }
     if (value(heap, pos) > cval) {
-      swap(heap, pos, ch);
+      heap_swap(heap, pos, ch);
     }
     pos = ch;
     ch = left(pos);
@@ -145,8 +145,8 @@ void sink(heap *heap, int pos) {
 
 void heap_pop(heap *heap) {
   if (--heap->size > 0) {
-    swap(heap, 0, heap->size);
-    sink(heap, 0);
+    heap_swap(heap, 0, heap->size);
+    heap_sink(heap, 0);
   }
 }
 
@@ -245,7 +245,7 @@ void sjs_update(sjs *sjs, int l) {
 }
 
 void sjs_adjust(sjs *sjs, int l0) {
-  swim(sjs->heap, sjs->positions[l0]);
+  heap_swim(sjs->heap, sjs->positions[l0]);
 }
 
 void sjs_step(sjs *sjs) {
