@@ -94,12 +94,14 @@ typedef struct {
 } heap;
 
 #define NUM_NB 8
+#define NUM_CELL_VERTS 4
 
 typedef struct sjs_ {
   ivec2 shape;
   dbl h;
-  int nbs[NUM_NB + 1];
-  int tri_cell_inds[NUM_NB];
+  int nb_ind_offsets[NUM_NB + 1];
+  int tri_cell_ind_offsets[NUM_NB];
+  int cell_vert_ind_offsets[NUM_CELL_VERTS];
   func *s;
   bicubic *bicubics;
   jet *jets;
@@ -226,7 +228,7 @@ ivec2 offsets[NUM_NB + 1] = {
 
 void sjs_set_nb_inds(sjs *sjs) {
   for (int i = 0; i < NUM_NB + 1; ++i) {
-    sjs->nbs[i] = sjs_lindex(sjs, offsets[i]);
+    sjs->nb_ind_offsets[i] = sjs_lindex(sjs, offsets[i]);
   }
 }
 
@@ -243,7 +245,20 @@ ivec2 tri_cell_offsets[NUM_NB] = {
 
 void sjs_set_tri_cell_inds(sjs *sjs) {
   for (int i = 0; i < NUM_NB; ++i) {
-    sjs->tri_cell_inds[i] = sjs_lindex(sjs, tri_cell_offsets[i]);
+    sjs->tri_cell_ind_offsets[i] = sjs_lindex(sjs, tri_cell_offsets[i]);
+  }
+}
+
+ivec2 cell_vert_offsets[NUM_CELL_VERTS] = {
+  {.i = 0, .j = 0},
+  {.i = 1, .j = 0},
+  {.i = 0, .j = 1},
+  {.i = 1, .j = 1}
+};
+
+void sjs_set_cell_vert_ind_offsets(sjs *sjs) {
+  for (int i = 0; i < NUM_CELL_VERTS; ++i) {
+    sjs->cell_vert_ind_offsets[i] = sjs_lindex(sjs, cell_vert_offsets[i]);
   }
 }
 
@@ -263,6 +278,7 @@ void sjs_init(sjs *sjs, ivec2 shape, dbl h, func *s) {
 
   sjs_set_nb_inds(sjs);
   sjs_set_tri_cell_inds(sjs);
+  sjs_set_cell_vert_ind_offsets(sjs);
 
   for (int l = 0; l < nnodes; ++l) {
     sjs->states[l] = FAR;
@@ -359,7 +375,7 @@ int sgn(dbl x) {
 void sjs_tri(sjs *sjs, int l, int l0, int l1, int i0, int i1) {
   F_data data;
   data.sjs = sjs;
-  bicubic *bicubic = &sjs->bicubics[sjs->tri_cell_inds[i0]];
+  bicubic *bicubic = &sjs->bicubics[l + sjs->tri_cell_ind_offsets[i0]];
   data.var = tri_bicubic_vars[i0];
   data.cubic = bicubic_restrict(bicubic, data.var, tri_edges[i0]);
   data.xy0 = sjs_xy(sjs, l0);
@@ -454,14 +470,14 @@ void sjs_update(sjs *sjs, int l) {
   bool updated[NUM_NB];
   memset(updated, 0x0, NUM_NB*sizeof(bool));
   for (int i = 1, l0, l1; i < 8; i += 2) {
-    l0 = l + sjs->nbs[i];
+    l0 = l + sjs->nb_ind_offsets[i];
     if (sjs->states[l0] == VALID) {
-      l1 = l + sjs->nbs[i - 1];
+      l1 = l + sjs->nb_ind_offsets[i - 1];
       if (sjs->states[l1] == VALID) {
         sjs_tri(sjs, l, l0, l1, i, i - 1);
         updated[l0] = updated[l1] = true;
       }
-      l1 = l + sjs->nbs[i + 1];
+      l1 = l + sjs->nb_ind_offsets[i + 1];
       if (sjs->states[l1] == VALID) {
         sjs_tri(sjs, l, l0, l1, i, i + 1);
         updated[l0] = updated[l1] = true;
@@ -469,7 +485,7 @@ void sjs_update(sjs *sjs, int l) {
     }
   }
   for (int i = 0, l0; i < 8; ++i) {
-    l0 = l + sjs->nbs[i];
+    l0 = l + sjs->nb_ind_offsets[i];
     if (!updated[l0] && sjs->states[l0] == VALID) {
       sjs_line(sjs, l, l0, i);
     }
@@ -486,14 +502,14 @@ void sjs_step(sjs *sjs) {
   sjs->states[l0] = VALID;
 
   for (int i = 0, l; i < NUM_NB; ++i) {
-    l = l0 + sjs->nbs[i];
+    l = l0 + sjs->nb_ind_offsets[i];
     if (sjs->states[l] == FAR) {
       sjs->states[l] = TRIAL;
     }
   }
 
   for (int i = 0, l; i < NUM_NB; ++i) {
-    l = l0 + sjs->nbs[i];
+    l = l0 + sjs->nb_ind_offsets[i];
     if (sjs->states[l] == TRIAL) {
       sjs_update(sjs, l);
       sjs_adjust(sjs, l);
