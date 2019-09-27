@@ -36,6 +36,34 @@ typedef struct {
   dbl A[4][4];
 } bicubic;
 
+dbl V_inv[4][4] = {
+  { 1,  0,  0,  0},
+  { 0,  0,  1,  0},
+  {-3,  3, -2, -1},
+  { 2, -2,  1,  1}
+};
+
+void bicubic_set_A(bicubic *bicubic, dbl data[4][4]) {
+  dbl tmp[4][4];
+  for (int i = 0; i < 4; ++i) {
+    for (int j = 0; j < 4; ++j) {
+      tmp[i][j] = 0;
+      for (int k = 0; k < 4; ++k) {
+        tmp[i][j] += V_inv[i][k]*data[k][j];
+      }
+    }
+  }
+
+  for (int i = 0; i < 4; ++i) {
+    for (int j = 0; j < 4; ++j) {
+      bicubic->A[i][j] = 0;
+      for (int k = 0; k < 4; ++k) {
+        bicubic->A[i][j] += tmp[i][k]*V_inv[i][k];
+      }
+    }
+  }
+}
+
 typedef struct {
   dbl a[4];
 } cubic;
