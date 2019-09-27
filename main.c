@@ -226,7 +226,7 @@ ivec2 offsets[NUM_NB + 1] = {
   {.i = -1, .j = -1}
 };
 
-void sjs_set_nb_inds(sjs *sjs) {
+void sjs_set_nb_ind_offsets(sjs *sjs) {
   for (int i = 0; i < NUM_NB + 1; ++i) {
     sjs->nb_ind_offsets[i] = sjs_lindex(sjs, offsets[i]);
   }
@@ -243,7 +243,7 @@ ivec2 tri_cell_offsets[NUM_NB] = {
   {.i = -1, .j = -2}
 };
 
-void sjs_set_tri_cell_inds(sjs *sjs) {
+void sjs_set_tri_cell_ind_offsets(sjs *sjs) {
   for (int i = 0; i < NUM_NB; ++i) {
     sjs->tri_cell_ind_offsets[i] = sjs_lindex(sjs, tri_cell_offsets[i]);
   }
@@ -276,8 +276,8 @@ void sjs_init(sjs *sjs, ivec2 shape, dbl h, func *s) {
   sjs->parents = malloc(nnodes*sizeof(int));
   sjs->positions = malloc(nnodes*sizeof(int));
 
-  sjs_set_nb_inds(sjs);
-  sjs_set_tri_cell_inds(sjs);
+  sjs_set_nb_ind_offsets(sjs);
+  sjs_set_tri_cell_ind_offsets(sjs);
   sjs_set_cell_vert_ind_offsets(sjs);
 
   for (int l = 0; l < nnodes; ++l) {
