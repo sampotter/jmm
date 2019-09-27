@@ -112,19 +112,19 @@ cubic bicubic_restrict(bicubic *bicubic, bicubic_variable var, int edge) {
   return cubic;
 }
 
-struct sjs_;
+struct sjs;
 
 typedef struct heap {
   int capacity;
   int size;
   int* inds;
-  struct sjs_ *sjs;
+  struct sjs *sjs;
 } heap_s;
 
 #define NUM_NB 8
 #define NUM_CELL_VERTS 4
 
-typedef struct sjs_ {
+typedef struct sjs {
   ivec2 shape;
   dbl h;
   int nb_ind_offsets[NUM_NB + 1];
@@ -138,7 +138,7 @@ typedef struct sjs_ {
   int *parents;
   int *positions;
   heap_s heap;
-} sjs;
+} sjs_s;
 
 void heap_init(heap_s *heap, int capacity) {
   heap->capacity = capacity;
@@ -233,11 +233,11 @@ void heap_pop(heap_s *heap) {
   }
 }
 
-int sjs_lindex(sjs *sjs, ivec2 ind) {
+int sjs_lindex(sjs_s *sjs, ivec2 ind) {
   return (sjs->shape.i + 2)*(ind.j + 1) + ind.i + 1;
 }
 
-void sjs_vindex(sjs *sjs, int l, int *i, int *j) {
+void sjs_vindex(sjs_s *sjs, int l, int *i, int *j) {
   int mpad = sjs->shape.i + 2;
   *i = l/mpad - 1;
   *j = l%mpad - 1;
@@ -255,7 +255,7 @@ ivec2 offsets[NUM_NB + 1] = {
   {.i = -1, .j = -1}
 };
 
-void sjs_set_nb_ind_offsets(sjs *sjs) {
+void sjs_set_nb_ind_offsets(sjs_s *sjs) {
   for (int i = 0; i < NUM_NB + 1; ++i) {
     sjs->nb_ind_offsets[i] = sjs_lindex(sjs, offsets[i]);
   }
@@ -272,7 +272,7 @@ ivec2 tri_cell_offsets[NUM_NB] = {
   {.i = -1, .j = -2}
 };
 
-void sjs_set_tri_cell_ind_offsets(sjs *sjs) {
+void sjs_set_tri_cell_ind_offsets(sjs_s *sjs) {
   for (int i = 0; i < NUM_NB; ++i) {
     sjs->tri_cell_ind_offsets[i] = sjs_lindex(sjs, tri_cell_offsets[i]);
   }
@@ -285,7 +285,7 @@ ivec2 cell_vert_offsets[NUM_CELL_VERTS] = {
   {.i = 1, .j = 1}
 };
 
-void sjs_set_cell_vert_ind_offsets(sjs *sjs) {
+void sjs_set_cell_vert_ind_offsets(sjs_s *sjs) {
   for (int i = 0; i < NUM_CELL_VERTS; ++i) {
     sjs->cell_vert_ind_offsets[i] = sjs_lindex(sjs, cell_vert_offsets[i]);
   }
@@ -298,13 +298,13 @@ ivec2 nb_cell_offsets[NUM_CELL_VERTS] = {
   {.i =  0, .j = -1}
 };
 
-void sjs_set_nb_cell_ind_offsets(sjs *sjs) {
+void sjs_set_nb_cell_ind_offsets(sjs_s *sjs) {
   for (int i = 0; i < NUM_CELL_VERTS; ++i) {
     sjs->nb_cell_ind_offsets[i] = sjs_lindex(sjs, nb_cell_offsets[i]);
   }
 }
 
-void sjs_init(sjs *sjs, ivec2 shape, dbl h, func *s) {
+void sjs_init(sjs_s *sjs, ivec2 shape, dbl h, func *s) {
   int m = shape.i, n = shape.j;
   int ncells = (m + 1)*(n + 1);
   int nnodes = (m + 2)*(n + 2);
@@ -328,7 +328,7 @@ void sjs_init(sjs *sjs, ivec2 shape, dbl h, func *s) {
   }
 }
 
-void sjs_add_fac_pt_src(sjs *sjs, ivec2 ind0, dbl r0) {
+void sjs_add_fac_pt_src(sjs_s *sjs, ivec2 ind0, dbl r0) {
   int m = sjs->shape.i, n = sjs->shape.j;
 
   int l0 = sjs_lindex(sjs, ind0);
@@ -348,7 +348,7 @@ void sjs_add_fac_pt_src(sjs *sjs, ivec2 ind0, dbl r0) {
   heap_insert(&sjs->heap, l0);
 }
 
-dvec2 sjs_xy(sjs *sjs, int l) {
+dvec2 sjs_xy(sjs_s *sjs, int l) {
   int mpad = sjs->shape.i + 2;
   dvec2 xy = {
     .x = sjs->h*(l/mpad - 1),
@@ -357,11 +357,11 @@ dvec2 sjs_xy(sjs *sjs, int l) {
   return xy;
 }
 
-dbl sjs_s(sjs *sjs, int l) {
+dbl sjs_get_s(sjs_s *sjs, int l) {
   return sjs->s->f(sjs_xy(sjs, l));
 }
 
-dbl sjs_T(sjs *sjs, int l) {
+dbl sjs_T(sjs_s *sjs, int l) {
   return sjs->jets[l].f;
 }
 
@@ -380,7 +380,7 @@ dvec2 get_xylam(dvec2 xy0, dvec2 xy1, dbl lam) {
 }
 
 typedef struct {
-  sjs *sjs;
+  sjs_s *sjs;
   bicubic_variable var;
   cubic cubic;
   dvec2 xy0, xy1;
@@ -415,7 +415,7 @@ int sgn(dbl x) {
   }
 }
 
-bool sjs_tri(sjs *sjs, int l, int l0, int l1, int i0) {
+bool sjs_tri(sjs_s *sjs, int l, int l0, int l1, int i0) {
   F_data data;
   data.sjs = sjs;
   bicubic *bicubic = &sjs->bicubics[l + sjs->tri_cell_ind_offsets[i0]];
@@ -490,8 +490,8 @@ bool sjs_tri(sjs *sjs, int l, int l0, int l1, int i0) {
       dvec2 xy = sjs_xy(sjs, l);
       dvec2 xylam = get_xylam(data.xy0, data.xy1, lam);
       dbl L = sqrt(1 + lam*lam);
-      J->fx = sjs_s(sjs, l)*(xy.x - xylam.x)/L;
-      J->fy = sjs_s(sjs, l)*(xy.y - xylam.y)/L;
+      J->fx = sjs_get_s(sjs, l)*(xy.x - xylam.x)/L;
+      J->fy = sjs_get_s(sjs, l)*(xy.y - xylam.y)/L;
       return true;
     } else {
       return false;
@@ -499,8 +499,8 @@ bool sjs_tri(sjs *sjs, int l, int l0, int l1, int i0) {
   }
 }
 
-bool sjs_line(sjs *sjs, int l, int l0, int i0) {
-  dbl s = sjs_s(sjs, l), s0 = sjs_s(sjs, l0);
+bool sjs_line(sjs_s *sjs, int l, int l0, int i0) {
+  dbl s = sjs_get_s(sjs, l), s0 = sjs_get_s(sjs, l0);
   dbl T0 = sjs_T(sjs, l0);
   dbl T = T0 + sjs->h*(s + s0)/2;
   jet *J = &sjs->jets[l];
@@ -515,7 +515,7 @@ bool sjs_line(sjs *sjs, int l, int l0, int i0) {
   }
 }
 
-bool sjs_valid_cell(sjs *sjs, int lc) {
+bool sjs_valid_cell(sjs_s *sjs, int lc) {
   for (int i = 0; i < NUM_CELL_VERTS; ++i) {
     if (sjs->states[lc + sjs->cell_vert_ind_offsets[i]] != VALID) {
       return false;
@@ -524,7 +524,7 @@ bool sjs_valid_cell(sjs *sjs, int lc) {
   return true;
 }
 
-dbl sjs_est_fxy(sjs *sjs, int l, int lc) {
+dbl sjs_est_fxy(sjs_s *sjs, int l, int lc) {
   dbl fx[NUM_CELL_VERTS], fy[NUM_CELL_VERTS];
 
   for (int i = 0, l; i < NUM_CELL_VERTS; ++i) {
@@ -552,7 +552,7 @@ dbl sjs_est_fxy(sjs *sjs, int l, int lc) {
     mu*((1 - lam)*fxy[2] + lam*fxy[3]);
 }
 
-void sjs_update_cell(sjs *sjs, int lc) {
+void sjs_update_cell(sjs_s *sjs, int lc) {
   jet *J[4];
   for (int i = 0; i < NUM_CELL_VERTS; ++i) {
     J[i] = &sjs->jets[lc + sjs->cell_vert_ind_offsets[i]];
@@ -568,7 +568,7 @@ void sjs_update_cell(sjs *sjs, int lc) {
   bicubic_set_A(&sjs->bicubics[lc], data);
 }
 
-void sjs_update_adj_cells(sjs *sjs, int l) {
+void sjs_update_adj_cells(sjs_s *sjs, int l) {
   int lc[NUM_CELL_VERTS];
   for (int i = 0; i < NUM_CELL_VERTS; ++i) {
     lc[i] = l + sjs->nb_cell_ind_offsets[i];
@@ -598,7 +598,7 @@ void sjs_update_adj_cells(sjs *sjs, int l) {
   }
 }
 
-void sjs_update(sjs *sjs, int l) {
+void sjs_update(sjs_s *sjs, int l) {
   // TODO: need to incorporate factoring...
 
   bool done[NUM_NB], updated = false;
@@ -630,11 +630,11 @@ void sjs_update(sjs *sjs, int l) {
   }
 }
 
-void sjs_adjust(sjs *sjs, int l0) {
+void sjs_adjust(sjs_s *sjs, int l0) {
   heap_swim(&sjs->heap, sjs->positions[l0]);
 }
 
-void sjs_step(sjs *sjs) {
+void sjs_step(sjs_s *sjs) {
   int l0 = heap_front(&sjs->heap);
   heap_pop(&sjs->heap);
   sjs->states[l0] = VALID;
@@ -655,7 +655,7 @@ void sjs_step(sjs *sjs) {
   }
 }
 
-void sjs_solve(sjs *sjs) {
+void sjs_solve(sjs_s *sjs) {
   while (sjs->heap.size > 0) {
     sjs_step(sjs);
   }
@@ -681,7 +681,7 @@ int main() {
   ivec2 shape = {.i = m, .j = n};
   func s = {.f = f, .df = df};
 
-  sjs sjs;
+  sjs_s sjs;
   sjs_init(&sjs, shape, h, &s);
   sjs_add_fac_pt_src(&sjs, ind0, rf);
   sjs_solve(&sjs);
