@@ -102,6 +102,7 @@ typedef struct sjs_ {
   int nb_ind_offsets[NUM_NB + 1];
   int tri_cell_ind_offsets[NUM_NB];
   int cell_vert_ind_offsets[NUM_CELL_VERTS];
+  int nb_cell_ind_offsets[NUM_CELL_VERTS];
   func *s;
   bicubic *bicubics;
   jet *jets;
@@ -262,6 +263,19 @@ void sjs_set_cell_vert_ind_offsets(sjs *sjs) {
   }
 }
 
+ivec2 nb_cell_offsets[NUM_CELL_VERTS] = {
+  {.i = -1, .j = -1},
+  {.i =  0, .j = -1},
+  {.i = -1, .j =  0},
+  {.i =  0, .j = -1}
+};
+
+void sjs_set_nb_cell_ind_offsets(sjs *sjs) {
+  for (int i = 0; i < NUM_CELL_VERTS; ++i) {
+    sjs->nb_cell_ind_offsets[i] = sjs_lindex(sjs, nb_cell_offsets[i]);
+  }
+}
+
 void sjs_init(sjs *sjs, ivec2 shape, dbl h, func *s) {
   int m = shape.i, n = shape.j;
   int ncells = (m + 1)*(n + 1);
@@ -279,6 +293,7 @@ void sjs_init(sjs *sjs, ivec2 shape, dbl h, func *s) {
   sjs_set_nb_ind_offsets(sjs);
   sjs_set_tri_cell_ind_offsets(sjs);
   sjs_set_cell_vert_ind_offsets(sjs);
+  sjs_set_nb_cell_ind_offsets(sjs);
 
   for (int l = 0; l < nnodes; ++l) {
     sjs->states[l] = FAR;
