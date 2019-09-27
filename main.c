@@ -114,12 +114,12 @@ cubic bicubic_restrict(bicubic *bicubic, bicubic_variable var, int edge) {
 
 struct sjs_;
 
-typedef struct {
+typedef struct heap {
   int capacity;
   int size;
   int* inds;
   struct sjs_ *sjs;
-} heap;
+} heap_s;
 
 #define NUM_NB 8
 #define NUM_CELL_VERTS 4
@@ -137,16 +137,16 @@ typedef struct sjs_ {
   state *states;
   int *parents;
   int *positions;
-  heap heap;
+  heap_s heap;
 } sjs;
 
-void heap_init(heap *heap, int capacity) {
+void heap_init(heap_s *heap, int capacity) {
   heap->capacity = capacity;
   heap->size = 0;
   heap->inds = malloc(heap->capacity*sizeof(int));
 }
 
-void heap_grow(heap *heap) {
+void heap_grow(heap_s *heap) {
   heap->capacity *= 2;
   heap->inds = realloc(heap->inds, heap->capacity);
 }
@@ -163,16 +163,16 @@ int parent(int pos) {
   return (pos - 1)/2;
 }
 
-dbl value(heap *heap, int pos) {
+dbl value(heap_s *heap, int pos) {
   return heap->sjs->jets[heap->inds[pos]].f;
 }
 
-void heap_set(heap *heap, int pos, int ind) {
+void heap_set(heap_s *heap, int pos, int ind) {
   heap->inds[pos] = ind;
   heap->sjs->positions[ind] = pos;
 }
 
-void heap_swap(heap *heap, int pos1, int pos2) {
+void heap_swap(heap_s *heap, int pos1, int pos2) {
   int tmp = heap->inds[pos1];
   heap->inds[pos1] = heap->inds[pos2];
   heap->inds[pos2] = tmp;
@@ -181,7 +181,7 @@ void heap_swap(heap *heap, int pos1, int pos2) {
   heap_set(heap, pos2, heap->inds[pos2]);
 }
 
-void heap_swim(heap *heap, int pos) {
+void heap_swim(heap_s *heap, int pos) {
   int par = parent(pos);
   // TODO: this calls `value` and `heap_set` about 2x as many times as
   // necessary
@@ -192,7 +192,7 @@ void heap_swim(heap *heap, int pos) {
   }
 }
 
-void heap_insert(heap *heap, int ind) {
+void heap_insert(heap_s *heap, int ind) {
   if (heap->size == heap->capacity) {
     heap_grow(heap);
   }
@@ -201,11 +201,11 @@ void heap_insert(heap *heap, int ind) {
   heap_swim(heap, pos);
 }
 
-int heap_front(heap *heap) {
+int heap_front(heap_s *heap) {
   return heap->inds[0];
 }
 
-void heap_sink(heap *heap, int pos) {
+void heap_sink(heap_s *heap, int pos) {
   int ch = left(pos), next = ch + 1, n = heap->size;
   dbl cval, nval;
   while (ch < n) {
@@ -226,7 +226,7 @@ void heap_sink(heap *heap, int pos) {
   }
 }
 
-void heap_pop(heap *heap) {
+void heap_pop(heap_s *heap) {
   if (--heap->size > 0) {
     heap_swap(heap, 0, heap->size);
     heap_sink(heap, 0);
