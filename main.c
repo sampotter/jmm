@@ -140,10 +140,11 @@ typedef struct sjs {
   heap_s heap;
 } sjs_s;
 
-void heap_init(heap_s *heap, int capacity) {
-  heap->capacity = capacity;
+void heap_init(heap_s *heap, sjs_s *sjs) {
+  heap->capacity = (int) 3*sqrt(sjs->shape.i*sjs->shape.j);
   heap->size = 0;
   heap->inds = malloc(heap->capacity*sizeof(int));
+  heap->sjs = sjs;
 }
 
 void heap_grow(heap_s *heap) {
@@ -317,6 +318,8 @@ void sjs_init(sjs_s *sjs, ivec2 shape, dbl h, func *s) {
   sjs->states = malloc(nnodes*sizeof(state));
   sjs->parents = malloc(nnodes*sizeof(int));
   sjs->positions = malloc(nnodes*sizeof(int));
+
+  heap_init(&sjs->heap, sjs);
 
   sjs_set_nb_ind_offsets(sjs);
   sjs_set_tri_cell_ind_offsets(sjs);
