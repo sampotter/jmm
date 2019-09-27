@@ -524,29 +524,69 @@ dbl sjs_est_fxy(sjs *sjs, int l, int lc) {
     mu*((1 - lam)*fxy[2] + lam*fxy[3]);
 }
 
+void sjs_update_cell(sjs *sjs, int lc) {
+
+}
+
+void sjs_update_adj_cells(sjs *sjs, int l) {
+  int lc[NUM_CELL_VERTS];
+  for (int i = 0; i < NUM_CELL_VERTS; ++i) {
+    lc[i] = l + sjs->nb_cell_ind_offsets[i];
+  }
+
+  int nvalid = 0;
+  bool valid[NUM_CELL_VERTS];
+  for (int i = 0; i < NUM_CELL_VERTS; ++i) {
+    valid[i] = sjs_valid_cell(sjs, lc[i]);
+    if (valid[i]) {
+      ++nvalid;
+    }
+  }
+
+  dbl fxy_mean = 0;
+  for (int i = 0; i < NUM_CELL_VERTS; ++i) {
+    fxy_mean += sjs_est_fxy(sjs, l, lc[i]);
+  }
+  fxy_mean /= nvalid;
+
+  sjs->jets[l].fxy = fxy_mean;
+
+  for (int i = 0; i < NUM_CELL_VERTS; ++i) {
+    if (valid[i]) {
+      sjs_update_cell(sjs, lc[i]);
+    }
+  }
+}
+
 void sjs_update(sjs *sjs, int l) {
-  bool updated[NUM_NB];
-  memset(updated, 0x0, NUM_NB*sizeof(bool));
+  // TODO: need to incorporate factoring...
+
+  bool done[NUM_NB], updated = false;
+  memset(done, 0x0, NUM_NB*sizeof(bool));
   for (int i = 1, l0, l1; i < 8; i += 2) {
     l0 = l + sjs->nb_ind_offsets[i];
     if (sjs->states[l0] == VALID) {
       l1 = l + sjs->nb_ind_offsets[i - 1];
       if (sjs->states[l1] == VALID) {
-        sjs_tri(sjs, l, l0, l1, i, i - 1);
-        updated[l0] = updated[l1] = true;
+        updated |= sjs_tri(sjs, l, l0, l1, i, i - 1);
+        done[l0] = done[l1] = true;
       }
       l1 = l + sjs->nb_ind_offsets[i + 1];
       if (sjs->states[l1] == VALID) {
-        sjs_tri(sjs, l, l0, l1, i, i + 1);
-        updated[l0] = updated[l1] = true;
+        updated |= sjs_tri(sjs, l, l0, l1, i, i + 1);
+        done[l0] = done[l1] = true;
       }
     }
   }
   for (int i = 0, l0; i < 8; ++i) {
     l0 = l + sjs->nb_ind_offsets[i];
-    if (!updated[l0] && sjs->states[l0] == VALID) {
-      sjs_line(sjs, l, l0, i);
+    if (!done[l0] && sjs->states[l0] == VALID) {
+      updated |= sjs_line(sjs, l, l0, i);
     }
+  }
+
+  if (updated) {
+    sjs_update_adj_cells(sjs, l);
   }
 }
 
