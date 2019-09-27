@@ -387,7 +387,7 @@ int sgn(dbl x) {
   }
 }
 
-void sjs_tri(sjs *sjs, int l, int l0, int l1, int i0, int i1) {
+bool sjs_tri(sjs *sjs, int l, int l0, int l1, int i0, int i1) {
   F_data data;
   data.sjs = sjs;
   bicubic *bicubic = &sjs->bicubics[l + sjs->tri_cell_ind_offsets[i0]];
@@ -464,11 +464,14 @@ void sjs_tri(sjs *sjs, int l, int l0, int l1, int i0, int i1) {
       dbl L = sqrt(1 + lam*lam);
       J->fx = sjs_s(sjs, l)*(xy.x - xylam.x)/L;
       J->fy = sjs_s(sjs, l)*(xy.y - xylam.y)/L;
+      return true;
+    } else {
+      return false;
     }
   }
 }
 
-void sjs_line(sjs *sjs, int l, int l0, int i0) {
+bool sjs_line(sjs *sjs, int l, int l0, int i0) {
   dbl s = sjs_s(sjs, l), s0 = sjs_s(sjs, l0);
   dbl T0 = sjs_T(sjs, l0);
   dbl T = T0 + sjs->h*(s + s0)/2;
@@ -478,6 +481,9 @@ void sjs_line(sjs *sjs, int l, int l0, int i0) {
     dbl dist = i0 % 2 == 0 ? SQRT2 : 1;
     J->fx = s*offsets[i0].i/dist;
     J->fy = s*offsets[i0].j/dist;
+    return true;
+  } else {
+    return false;
   }
 }
 
