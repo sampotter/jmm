@@ -415,7 +415,7 @@ int sgn(dbl x) {
   }
 }
 
-bool sjs_tri(sjs *sjs, int l, int l0, int l1, int i0, int i1) {
+bool sjs_tri(sjs *sjs, int l, int l0, int l1, int i0) {
   F_data data;
   data.sjs = sjs;
   bicubic *bicubic = &sjs->bicubics[l + sjs->tri_cell_ind_offsets[i0]];
@@ -608,12 +608,12 @@ void sjs_update(sjs *sjs, int l) {
     if (sjs->states[l0] == VALID) {
       l1 = l + sjs->nb_ind_offsets[i - 1];
       if (sjs->states[l1] == VALID) {
-        updated |= sjs_tri(sjs, l, l0, l1, i, i - 1);
+        updated |= sjs_tri(sjs, l, l0, l1, i);
         done[l0] = done[l1] = true;
       }
       l1 = l + sjs->nb_ind_offsets[i + 1];
       if (sjs->states[l1] == VALID) {
-        updated |= sjs_tri(sjs, l, l0, l1, i, i + 1);
+        updated |= sjs_tri(sjs, l, l0, l1, i);
         done[l0] = done[l1] = true;
       }
     }
