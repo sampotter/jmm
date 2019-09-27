@@ -553,7 +553,19 @@ dbl sjs_est_fxy(sjs *sjs, int l, int lc) {
 }
 
 void sjs_update_cell(sjs *sjs, int lc) {
+  jet *J[4];
+  for (int i = 0; i < NUM_CELL_VERTS; ++i) {
+    J[i] = &sjs->jets[lc + sjs->cell_vert_ind_offsets[i]];
+  }
 
+  dbl data[4][4] = {
+    {J[0]->f,  J[2]->f,  J[0]->fy,  J[2]->fy},
+    {J[1]->f,  J[3]->f,  J[1]->fy,  J[3]->fy},
+    {J[0]->fx, J[2]->fx, J[0]->fxy, J[2]->fxy},
+    {J[1]->fx, J[3]->fx, J[1]->fxy, J[3]->fxy}
+  };
+
+  bicubic_set_A(&sjs->bicubics[lc], data);
 }
 
 void sjs_update_adj_cells(sjs *sjs, int l) {
