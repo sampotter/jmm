@@ -83,13 +83,13 @@ cubic bicubic_restrict(bicubic *bicubic, bicubic_variable var, int edge) {
   return cubic;
 }
 
-typedef struct sjs_ sjs;
+struct sjs_;
 
 typedef struct {
   int capacity;
   int size;
   int* inds;
-  sjs *sjs;
+  struct sjs_ *sjs;
 } heap;
 
 #define NUM_NB 8
