@@ -475,6 +475,34 @@ bool sjs_valid_cell(sjs *sjs, int l) {
   return true;
 }
 
+dbl sjs_est_fxy(sjs *sjs, int ln, int lc) {
+  dbl fx[NUM_CELL_VERTS], fy[NUM_CELL_VERTS];
+
+  for (int i = 0, l; i < NUM_CELL_VERTS; ++i) {
+    l = lc + sjs->cell_vert_ind_offsets[i];
+    fx[i] = sjs->jets[l].fx;
+    fy[i] = sjs->jets[l].fy;
+  }
+
+  dbl fxy[NUM_CELL_VERTS] = {
+    (fy[1] - fy[0])/sjs->h, // left
+    (fx[3] - fx[1])/sjs->h, // bottom
+    (fx[2] - fx[0])/sjs->h, // top
+    (fy[3] - fy[2])/sjs->h // right
+  };
+
+  static dbl lams[4] = {-1/2, 1/2, 1/2, 3/2};
+  static dbl mus[4] = {1/2, -1/2, 3/2, 1/2};
+
+  int i = 0, dl = ln - lc;
+  while (dl != sjs->cell_vert_ind_offsets[i]) ++i;
+
+  dbl lam = lams[i], mu = mus[i];
+
+  return (1 - mu)*((1 - lam)*fxy[0] + lam*fxy[1]) +
+    mu*((1 - lam)*fxy[2] + lam*fxy[3]);
+}
+
 void sjs_update(sjs *sjs, int l) {
   bool updated[NUM_NB];
   memset(updated, 0x0, NUM_NB*sizeof(bool));
