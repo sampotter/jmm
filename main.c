@@ -466,6 +466,15 @@ void sjs_line(sjs *sjs, int l, int l0, int i0) {
   }
 }
 
+bool sjs_valid_cell(sjs *sjs, int l) {
+  for (int i = 0; i < NUM_CELL_VERTS; ++i) {
+    if (sjs->states[l + sjs->cell_vert_ind_offsets[i]] != VALID) {
+      return false;
+    }
+  }
+  return true;
+}
+
 void sjs_update(sjs *sjs, int l) {
   bool updated[NUM_NB];
   memset(updated, 0x0, NUM_NB*sizeof(bool));
