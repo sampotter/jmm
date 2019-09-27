@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#define EPS 1e-13
 #define SQRT2 1.414213562373095
 
 typedef double dbl;
