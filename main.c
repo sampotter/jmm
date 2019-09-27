@@ -306,23 +306,147 @@ dbl sjs_T(sjs *sjs, int l) {
   return sjs->jets[l].f;
 }
 
-void sjs_tri(sjs *sjs, int l, int l0, int l1) {
+bicubic_variable tri_bicubic_vars[NUM_NB] = {
+  MU, MU, LAMBDA, LAMBDA, MU, MU, LAMBDA, LAMBDA
+};
 
+int tri_edges[NUM_NB] = {1, 1, 0, 0, 0, 0, 1, 1};
+
+dvec2 get_xylam(dvec2 xy0, dvec2 xy1, dbl lam) {
+  dvec2 xylam = {
+    .x = (1 - lam)*xy0.x + lam*xy1.x,
+    .y = (1 - lam)*xy0.y + lam*xy1.y
+  };
+  return xylam;
 }
 
+typedef struct {
+  sjs *sjs;
+  bicubic_variable var;
+  cubic cubic;
+  dvec2 xy0, xy1;
+} F_data;
 
+dbl F(F_data *data, dbl lam) {
+  dvec2 xylam = get_xylam(data->xy0, data->xy1, lam);
+  dbl T = cubic_f(&data->cubic, lam);
+  dbl s = data->sjs->s->f(xylam);
+  dbl L = sqrt(1 + lam*lam);
+  return T + data->sjs->h*s*L;
 }
 
-void sjs_line(sjs *sjs, int l, int l0) {
+dbl dF_dlam(F_data *data, dbl lam) {
+  dvec2 xylam = get_xylam(data->xy0, data->xy1, lam);
+  dbl s = data->sjs->s->f(xylam);
+  dvec2 ds = data->sjs->s->df(xylam);
+  dbl ds_dlam = data->var == LAMBDA ? ds.x : ds.y;
+  dbl dT_dlam = cubic_df(&data->cubic, lam);
+  dbl L = sqrt(1 + lam*lam);
+  dbl dL_dlam = lam/L;
+  return dT_dlam + data->sjs->h*(ds_dlam*L + s*dL_dlam);
+}
+
+int sgn(dbl x) {
+  if (x > 0) {
+    return 1;
+  } else if (x < 0) {
+    return -1;
+  } else {
+    return 0;
+  }
+}
+
+void sjs_tri(sjs *sjs, int l, int l0, int l1, int i0, int i1) {
+  F_data data;
+  data.sjs = sjs;
+  bicubic *bicubic = &sjs->bicubics[sjs->tri_cell_inds[i0]];
+  data.var = tri_bicubic_vars[i0];
+  data.cubic = bicubic_restrict(bicubic, data.var, tri_edges[i0]);
+  data.xy0 = sjs_xy(sjs, l0);
+  data.xy1 = sjs_xy(sjs, l1);
+
+  dbl lam, a, b, c, d, fa, fb, fc, fd, dm, df, ds, dd, tmp;
+
+  fa = dF_dlam(&data, 0);
+  if (fabs(fa) <= EPS) {
+    lam = 0;
+    goto found;
+  }
+
+  fb = dF_dlam(&data, 1);
+  if (fabs(fb) <= EPS) {
+    lam = 1;
+    goto found;
+  }
+
+  if (sgn(fa) == sgn(fb)) {
+    lam = sgn(fa) == 1 ? 0 : 1;
+    goto found;
+  }
+
+  c = 0;
+  fc = fa;
+  for (;;) {
+    if (fabs(fc) < fabs(fb)) {
+      tmp = b; b = c; c = tmp;
+      tmp = fb; fb = fc; fc = tmp;
+      a = c;
+      fa = fc;
+    }
+    if (fabs(b - c) <= EPS) {
+      break;
+    }
+    dm = (c - b)/2;
+    df = fa - fb;
+    ds = df == 0 ? dm : -fb*(a - b)/df;
+    dd = sgn(ds) != sgn(dm) || fabs(ds) > fabs(dm) ? dm : ds;
+    if (fabs(dd) < EPS) {
+      dd = EPS*sgn(dm)/2;
+    }
+    d = b + dd;
+    fd = dF_dlam(&data, d);
+    if (fd == 0) {
+      c = d;
+      b = c;
+      fc = fd;
+      fb = fc;
+      break;
+    }
+    a = b;
+    b = d;
+    fa = fb;
+    fb = fd;
+    if (sgn(fb) == sgn(fc)) {
+      c = a;
+      fc = fa;
+    }
+  }
+  lam = (b + c)/2;
+
+  found: {
+    dbl T = F(&data, lam);
+    jet *J = &sjs->jets[l];
+    if (T < J->f) {
+      J->f = T;
+      dvec2 xy = sjs_xy(sjs, l);
+      dvec2 xylam = get_xylam(data.xy0, data.xy1, lam);
+      dbl L = sqrt(1 + lam*lam);
+      J->fx = sjs_s(sjs, l)*(xy.x - xylam.x)/L;
+      J->fy = sjs_s(sjs, l)*(xy.y - xylam.y)/L;
+    }
+  }
+}
+
+void sjs_line(sjs *sjs, int l, int l0, int i0) {
   dbl s = sjs_s(sjs, l), s0 = sjs_s(sjs, l0);
   dbl T0 = sjs_T(sjs, l0);
   dbl T = T0 + sjs->h*(s + s0)/2;
   jet *J = &sjs->jets[l];
   if (T < J->f) {
     J->f = T;
-    dvec2 grad_T = sjs_est_grad_T(sjs, l, l0, NO_INDEX);
-    J->fx = grad_T.x;
-    J->fy = grad_T.y;
+    dbl dist = i0 % 2 == 0 ? SQRT2 : 1;
+    J->fx = s*offsets[i0].i/dist;
+    J->fy = s*offsets[i0].j/dist;
   }
 }
 
@@ -334,12 +458,12 @@ void sjs_update(sjs *sjs, int l) {
     if (sjs->states[l0] == VALID) {
       l1 = l + sjs->nbs[i - 1];
       if (sjs->states[l1] == VALID) {
-        sjs_tri(sjs, l, l0, l1);
+        sjs_tri(sjs, l, l0, l1, i, i - 1);
         updated[l0] = updated[l1] = true;
       }
       l1 = l + sjs->nbs[i + 1];
       if (sjs->states[l1] == VALID) {
-        sjs_tri(sjs, l, l0, l1);
+        sjs_tri(sjs, l, l0, l1, i, i + 1);
         updated[l0] = updated[l1] = true;
       }
     }
@@ -347,7 +471,7 @@ void sjs_update(sjs *sjs, int l) {
   for (int i = 0, l0; i < 8; ++i) {
     l0 = l + sjs->nbs[i];
     if (!updated[l0] && sjs->states[l0] == VALID) {
-      sjs_line(sjs, l, l0);
+      sjs_line(sjs, l, l0, i);
     }
   }
 }
