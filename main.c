@@ -487,16 +487,16 @@ bool sjs_line(sjs *sjs, int l, int l0, int i0) {
   }
 }
 
-bool sjs_valid_cell(sjs *sjs, int l) {
+bool sjs_valid_cell(sjs *sjs, int lc) {
   for (int i = 0; i < NUM_CELL_VERTS; ++i) {
-    if (sjs->states[l + sjs->cell_vert_ind_offsets[i]] != VALID) {
+    if (sjs->states[lc + sjs->cell_vert_ind_offsets[i]] != VALID) {
       return false;
     }
   }
   return true;
 }
 
-dbl sjs_est_fxy(sjs *sjs, int ln, int lc) {
+dbl sjs_est_fxy(sjs *sjs, int l, int lc) {
   dbl fx[NUM_CELL_VERTS], fy[NUM_CELL_VERTS];
 
   for (int i = 0, l; i < NUM_CELL_VERTS; ++i) {
@@ -515,7 +515,7 @@ dbl sjs_est_fxy(sjs *sjs, int ln, int lc) {
   static dbl lams[4] = {-1/2, 1/2, 1/2, 3/2};
   static dbl mus[4] = {1/2, -1/2, 3/2, 1/2};
 
-  int i = 0, dl = ln - lc;
+  int i = 0, dl = l - lc;
   while (dl != sjs->cell_vert_ind_offsets[i]) ++i;
 
   dbl lam = lams[i], mu = mus[i];
