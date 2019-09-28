@@ -9,6 +9,7 @@
 #include <unistd.h>
 
 #define EPS 1e-13
+#define NO_INDEX -1
 #define NO_PARENT -1
 #define SQRT2 1.414213562373095
 
@@ -142,6 +143,7 @@ typedef struct heap {
 typedef struct sjs {
   ivec2 shape;
   dbl h;
+  int nnodes, ncells;
   int nb_ind_offsets[NUM_NB + 1];
   int tri_cell_ind_offsets[NUM_NB];
   int cell_vert_ind_offsets[NUM_CELL_VERTS];
@@ -159,12 +161,24 @@ void heap_init(heap_s *heap, sjs_s *sjs) {
   heap->capacity = (int) 3*sqrt(sjs->shape.i*sjs->shape.j);
   heap->size = 0;
   heap->inds = malloc(heap->capacity*sizeof(int));
+  assert(heap->inds != NULL);
+#ifndef NDEBUG
+  for (int i = 0; i < heap->capacity; ++i) {
+    heap->inds[i] = NO_INDEX;
+  }
+#endif
   heap->sjs = sjs;
 }
 
 void heap_grow(heap_s *heap) {
   heap->capacity *= 2;
   heap->inds = realloc(heap->inds, heap->capacity);
+  assert(heap->inds != NULL);
+#ifndef NDEBUG
+  for (int i = heap->size; i < heap->capacity; ++i) {
+    heap->inds[i] = NO_INDEX;
+  }
+#endif
 }
 
 int left(int pos) {
@@ -180,15 +194,31 @@ int parent(int pos) {
 }
 
 dbl value(heap_s *heap, int pos) {
+  assert(pos >= 0);
+  assert(pos < heap->size);
+
+  int ind = heap->inds[pos];
+  assert(ind != NO_INDEX);
+
   return heap->sjs->jets[heap->inds[pos]].f;
 }
 
 void heap_set(heap_s *heap, int pos, int ind) {
+  assert(pos >= 0);
+  assert(pos < heap->size);
+  assert(ind >= 0);
+  assert(ind < heap->sjs->nnodes);
+
   heap->inds[pos] = ind;
   heap->sjs->positions[ind] = pos;
 }
 
 void heap_swap(heap_s *heap, int pos1, int pos2) {
+  assert(pos1 >= 0);
+  assert(pos1 < heap->size);
+  assert(pos2 >= 0);
+  assert(pos2 < heap->size);
+
   int tmp = heap->inds[pos1];
   heap->inds[pos1] = heap->inds[pos2];
   heap->inds[pos2] = tmp;
@@ -197,11 +227,13 @@ void heap_swap(heap_s *heap, int pos1, int pos2) {
   heap_set(heap, pos2, heap->inds[pos2]);
 }
 
+// TODO: this calls `value` and `heap_set` about 2x as many times as
+// necessary
 void heap_swim(heap_s *heap, int pos) {
+  assert(pos >= 0);
   assert(pos < heap->size);
+
   int par = parent(pos);
-  // TODO: this calls `value` and `heap_set` about 2x as many times as
-  // necessary
   while (pos > 0 && value(heap, par) > value(heap, pos)) {
     heap_swap(heap, par, pos);
     pos = par;
@@ -210,19 +242,33 @@ void heap_swim(heap_s *heap, int pos) {
 }
 
 void heap_insert(heap_s *heap, int ind) {
+  assert(ind >= 0);
+  assert(ind < heap->sjs->nnodes);
+
   if (heap->size == heap->capacity) {
     heap_grow(heap);
   }
+
   int pos = heap->size++;
   heap_set(heap, pos, ind);
   heap_swim(heap, pos);
 }
 
 int heap_front(heap_s *heap) {
+#ifndef NDEBUG
+  int ind = heap->inds[0];
+  assert(ind >= 0);
+  assert(ind < heap->sjs->nnodes);
+  return ind;
+#else
   return heap->inds[0];
+#endif
 }
 
 void heap_sink(heap_s *heap, int pos) {
+  assert(pos >= 0);
+  assert(pos < heap->size);
+
   int ch = left(pos), next = ch + 1, n = heap->size;
   dbl cval, nval;
   while (ch < n) {
@@ -244,8 +290,11 @@ void heap_sink(heap_s *heap, int pos) {
 }
 
 void heap_pop(heap_s *heap) {
+#ifndef NDEBUG
+  heap->sjs->positions[heap->inds[0]] = NO_INDEX;
+#endif
+  heap_swap(heap, 0, heap->size - 1);
   if (--heap->size > 0) {
-    heap_swap(heap, 0, heap->size);
     heap_sink(heap, 0);
   }
 }
@@ -326,18 +375,28 @@ void sjs_set_nb_cell_ind_offsets(sjs_s *sjs) {
 }
 
 void sjs_init(sjs_s *sjs, ivec2 shape, dbl h, func *s) {
-  int m = shape.i, n = shape.j;
-  int ncells = (m + 1)*(n + 1);
-  int nnodes = (m + 2)*(n + 2);
-
   sjs->shape = shape;
+  sjs->ncells = (shape.i + 1)*(shape.j + 1);
+  sjs->nnodes = (shape.i + 2)*(shape.j + 2);
   sjs->h = h;
   sjs->s = s;
-  sjs->bicubics = malloc(ncells*sizeof(bicubic));
-  sjs->jets = malloc(nnodes*sizeof(jet));
-  sjs->states = malloc(nnodes*sizeof(state));
-  sjs->parents = malloc(nnodes*sizeof(int));
-  sjs->positions = malloc(nnodes*sizeof(int));
+  sjs->bicubics = malloc(sjs->ncells*sizeof(bicubic));
+  sjs->jets = malloc(sjs->nnodes*sizeof(jet));
+  sjs->states = malloc(sjs->nnodes*sizeof(state));
+  sjs->parents = malloc(sjs->nnodes*sizeof(int));
+  sjs->positions = malloc(sjs->nnodes*sizeof(int));
+
+  assert(sjs->bicubics != NULL);
+  assert(sjs->jets != NULL);
+  assert(sjs->states != NULL);
+  assert(sjs->parents != NULL);
+  assert(sjs->positions != NULL);
+
+#ifndef NDEBUG
+  for (int l = 0; l < sjs->nnodes; ++l) {
+    sjs->positions[l] = NO_INDEX;
+  }
+#endif
 
   heap_init(&sjs->heap, sjs);
 
@@ -346,12 +405,12 @@ void sjs_init(sjs_s *sjs, ivec2 shape, dbl h, func *s) {
   sjs_set_cell_vert_ind_offsets(sjs);
   sjs_set_nb_cell_ind_offsets(sjs);
 
-  for (int l = 0; l < nnodes; ++l) {
+  for (int l = 0; l < sjs->nnodes; ++l) {
     sjs->jets[l].f = INFINITY;
     sjs->states[l] = FAR;
   }
 
-  for (int lc = 0; lc < ncells; ++lc) {
+  for (int lc = 0; lc < sjs->ncells; ++lc) {
     sjs->parents[lc] = NO_PARENT;
   }
 }
@@ -739,24 +798,35 @@ void sjs_update(sjs_s *sjs, int l) {
 }
 
 void sjs_adjust(sjs_s *sjs, int l0) {
+  assert(sjs->states[l0] == TRIAL);
+  assert(l0 >= 0);
+  assert(l0 < sjs->nnodes);
+
   heap_swim(&sjs->heap, sjs->positions[l0]);
+}
+
+bool sjs_inbounds(sjs_s *sjs, int l) {
+  return 0 <= l && l < sjs->nnodes;
 }
 
 void sjs_step(sjs_s *sjs) {
   int l0 = heap_front(&sjs->heap);
+  printf("%d\n", l0);
   heap_pop(&sjs->heap);
+  assert(sjs->states[l0] == TRIAL);
   sjs->states[l0] = VALID;
 
   for (int i = 0, l; i < NUM_NB; ++i) {
     l = l0 + sjs->nb_ind_offsets[i];
-    if (sjs->states[l] == FAR) {
+    if (sjs_inbounds(sjs, l) && sjs->states[l] == FAR) {
       sjs->states[l] = TRIAL;
+      heap_insert(&sjs->heap, l);
     }
   }
 
   for (int i = 0, l; i < NUM_NB; ++i) {
     l = l0 + sjs->nb_ind_offsets[i];
-    if (sjs->states[l] == TRIAL) {
+    if (sjs_inbounds(sjs, l) && sjs->states[l] == TRIAL) {
       sjs_update(sjs, l);
       sjs_adjust(sjs, l);
     }
@@ -812,6 +882,7 @@ int main(int argc, char *argv[]) {
       break;
     case 'o':
       path = malloc(strlen(optarg) + 1);
+      assert(path != NULL);
       strcpy(path, optarg);
       break;
     case 'v':
