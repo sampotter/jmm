@@ -370,20 +370,27 @@ dvec2 sjs_cell_center(sjs_s *sjs, int lc) {
   return xyc;
 }
 
-void sjs_add_fac_pt_src(sjs_s *sjs, ivec2 ind0, dbl r0) {
+int sjs_add_fac_pt_src(sjs_s *sjs, ivec2 ind0, dbl r0) {
   int ncells = (sjs->shape.i + 1)*(sjs->shape.j + 1);
 
+  int nf = 0;
   int l0 = sjs_lindexe(sjs, ind0);
   dvec2 xy0 = sjs_xy(sjs, l0);
   for (int lc = 0; lc < ncells; ++lc) {
     dvec2 xyc = sjs_cell_center(sjs, lc);
     sjs->parents[lc] = dvec2_dist(xyc, xy0) <= r0 ? l0 : -1;
+
+    if (sjs->parents[lc] != NO_PARENT) {
+      ++nf;
+    }
   }
 
   jet *J = &sjs->jets[l0];
   J->f = J->fx = J->fy = J->fxy = 0;
   sjs->states[l0] = TRIAL;
   heap_insert(&sjs->heap, l0);
+
+  return nf;
 }
 
 dbl sjs_get_s(sjs_s *sjs, int l) {
@@ -837,7 +844,17 @@ int main(int argc, char *argv[]) {
 
   sjs_s sjs;
   sjs_init(&sjs, shape, h, &s);
-  sjs_add_fac_pt_src(&sjs, ind, r);
+
+  int nf = sjs_add_fac_pt_src(&sjs, ind, r);
+  if (nf == 0) {
+    printf("ERROR: nf = 0\n");
+    exit(EXIT_FAILURE);
+  } else {
+    if (verbose) {
+      printf("nf = %d\n", nf);
+    }
+  }
+
   sjs_solve(&sjs);
 
   FILE *f = fopen(path ? path : "A.bin", "w");
