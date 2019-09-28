@@ -612,18 +612,18 @@ void sjs_update(sjs_s *sjs, int l) {
       l1 = l + sjs->nb_ind_offsets[i - 1];
       if (sjs->states[l1] == VALID) {
         updated |= sjs_tri(sjs, l, l0, l1, i);
-        done[l0] = done[l1] = true;
+        done[i] = done[i - 1] = true;
       }
       l1 = l + sjs->nb_ind_offsets[i + 1];
       if (sjs->states[l1] == VALID) {
         updated |= sjs_tri(sjs, l, l0, l1, i);
-        done[l0] = done[l1] = true;
+        done[i] = done[(i + 1) % NUM_NB] = true;
       }
     }
   }
   for (int i = 0, l0; i < 8; ++i) {
     l0 = l + sjs->nb_ind_offsets[i];
-    if (!done[l0] && sjs->states[l0] == VALID) {
+    if (!done[i] && sjs->states[l0] == VALID) {
       updated |= sjs_line(sjs, l, l0, i);
     }
   }
