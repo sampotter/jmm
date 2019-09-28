@@ -376,12 +376,9 @@ bicubic_variable tri_bicubic_vars[NUM_NB] = {
 
 int tri_edges[NUM_NB] = {1, 1, 0, 0, 0, 0, 1, 1};
 
-dvec2 get_xylam(dvec2 xy0, dvec2 xy1, dbl lam) {
-  dvec2 xylam = {
-    .x = (1 - lam)*xy0.x + lam*xy1.x,
-    .y = (1 - lam)*xy0.y + lam*xy1.y
-  };
-  return xylam;
+dvec2 dvec2_ccomb(dvec2 v0, dvec2 v1, dbl t) {
+  dvec2 vt = {(1 - t)*v0.x + t*v1.x, (1 - t)*v0.y + t*v1.y};
+  return vt;
 }
 
 typedef struct {
@@ -391,23 +388,24 @@ typedef struct {
   dvec2 xy0, xy1;
 } F_data;
 
-dbl F(F_data *data, dbl lam) {
-  dvec2 xylam = get_xylam(data->xy0, data->xy1, lam);
-  dbl T = cubic_f(&data->cubic, lam);
-  dbl s = data->sjs->s->f(xylam);
-  dbl L = sqrt(1 + lam*lam);
+dbl F(F_data *data, dbl t) {
+  dvec2 xyt = dvec2_ccomb(data->xy0, data->xy1, t);
+  dbl T = cubic_f(&data->cubic, t);
+  dbl s = data->sjs->s->f(xyt);
+  dbl L = sqrt(1 + t*t);
   return T + data->sjs->h*s*L;
 }
 
-dbl dF_dlam(F_data *data, dbl lam) {
-  dvec2 xylam = get_xylam(data->xy0, data->xy1, lam);
-  dbl s = data->sjs->s->f(xylam);
-  dvec2 ds = data->sjs->s->df(xylam);
-  dbl ds_dlam = data->var == LAMBDA ? ds.x : ds.y;
-  dbl dT_dlam = cubic_df(&data->cubic, lam);
-  dbl L = sqrt(1 + lam*lam);
-  dbl dL_dlam = lam/L;
-  return dT_dlam + data->sjs->h*(ds_dlam*L + s*dL_dlam);
+dbl dF_dt(F_data *data, dbl t) {
+  dvec2 xyt = dvec2_ccomb(data->xy0, data->xy1, t);
+  dbl s = data->sjs->s->f(xyt);
+  dvec2 ds = data->sjs->s->df(xyt);
+  dbl ds_dt = data->var == LAMBDA ? ds.x : ds.y;
+  dbl dT_dt = cubic_df(&data->cubic, t);
+  dbl L = sqrt(1 + t*t);
+  dbl dL_dt = t/L;
+  return dT_dt + data->sjs->h*(ds_dt*L + s*dL_dt);
+}
 }
 
 int sgn(dbl x) {
@@ -431,13 +429,13 @@ bool sjs_tri(sjs_s *sjs, int l, int l0, int l1, int i0) {
 
   dbl lam, a, b, c, d, fa, fb, fc, fd, dm, df, ds, dd, tmp;
 
-  fa = dF_dlam(&data, 0);
+  fa = dF_dt(&data, 0);
   if (fabs(fa) <= EPS) {
     lam = 0;
     goto found;
   }
 
-  fb = dF_dlam(&data, 1);
+  fb = dF_dt(&data, 1);
   if (fabs(fb) <= EPS) {
     lam = 1;
     goto found;
@@ -468,7 +466,7 @@ bool sjs_tri(sjs_s *sjs, int l, int l0, int l1, int i0) {
       dd = EPS*sgn(dm)/2;
     }
     d = b + dd;
-    fd = dF_dlam(&data, d);
+    fd = dF_dt(&data, d);
     if (fd == 0) {
       c = d;
       b = c;
@@ -493,7 +491,7 @@ bool sjs_tri(sjs_s *sjs, int l, int l0, int l1, int i0) {
     if (T < J->f) {
       J->f = T;
       dvec2 xy = sjs_xy(sjs, l);
-      dvec2 xylam = get_xylam(data.xy0, data.xy1, lam);
+      dvec2 xylam = dvec2_ccomb(data.xy0, data.xy1, lam);
       dbl L = sqrt(1 + lam*lam);
       J->fx = sjs_get_s(sjs, l)*(xy.x - xylam.x)/L;
       J->fy = sjs_get_s(sjs, l)*(xy.y - xylam.y)/L;
