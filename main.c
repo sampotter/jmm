@@ -1,3 +1,5 @@
+#include <assert.h>
+#include <getopt.h>
 #include <math.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -196,6 +198,7 @@ void heap_swap(heap_s *heap, int pos1, int pos2) {
 }
 
 void heap_swim(heap_s *heap, int pos) {
+  assert(pos < heap->size);
   int par = parent(pos);
   // TODO: this calls `value` and `heap_set` about 2x as many times as
   // necessary
