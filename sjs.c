@@ -293,7 +293,12 @@ int sgn(dbl x) {
 }
 
 bool sjs_tri(sjs_s *sjs, int l, int l0, int l1, int i0) {
+  assert(i0 >= 0);
+  assert(i0 < NUM_NB);
+
   int lc = l + sjs->tri_cell_ind_offsets[i0];
+  assert(lc >= 0);
+  assert(lc < sjs->ncells);
 
   bicubic *bicubic = &sjs->bicubics[lc];
 
