@@ -1,12 +1,9 @@
 #include <assert.h>
 #include <getopt.h>
-#include <math.h>
 #include <stdbool.h>
 #include <stdio.h>
-#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
 
 #include "sjs.h"
 
