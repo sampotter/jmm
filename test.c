@@ -62,6 +62,30 @@ void heap_basic() {
   assert(heap == NULL);
 }
 
+dbl one(dvec2 xy) {
+  return hypot(xy.x, xy.y);
+}
+
+dvec2 grad_one(dvec2 p) {
+  dvec2 zero = {0, 0};
+  return zero;
+}
+
+void sjs_basic() {
+  ivec2 shape = {2, 2};
+  ivec2 ind = {1, 1};
+  dbl h = 1, r = 1;
+
+  sjs_s *sjs;
+  sjs_alloc(&sjs);
+  sjs_init(sjs, shape, h, one, grad_one);
+  int nf = sjs_add_fac_pt_src(sjs, ind, r);
+  assert(nf == 4);
+  sjs_solve(sjs);
+  sjs_deinit(sjs);
+  sjs_dealloc(&sjs);
+}
+
 int main() {
   heap_basic();
 }
