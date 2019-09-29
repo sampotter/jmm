@@ -1,14 +1,67 @@
-#include <cgreen/cgreen.h>
-
 #include "heap.h"
 
-Describe(heap);
-BeforeEach(heap) {}
-AfterEach(heap) {}
+#include <assert.h>
+#include <stddef.h>
+#include <stdio.h>
 
-Ensure (heap, basic) {
+void heap_basic() {
   heap_s *heap = NULL;
   heap_alloc(&heap);
-  assert_that(heap, is_not_null);
-  assert_that(heap, is_null);
+
+  dbl values[4] = {4, 3, 2, 1}, *values_ptr;
+  values_ptr = values;
+
+  int positions[4] = {-1, -1, -1, -1}, *positions_ptr;
+  positions_ptr = positions;
+
+  value_b value = ^(int l) {
+    return values_ptr[l];
+  };
+
+  setpos_b setpos = ^(int l, int pos) {
+    positions_ptr[l] = pos;
+  };
+
+  heap_init(heap, 4, value, setpos);
+  assert(heap_size(heap) == 0);
+
+  heap_insert(heap, 0);
+  assert(heap_size(heap) == 1);
+  assert(heap_front(heap) == 0);
+
+  heap_insert(heap, 1);
+  assert(heap_size(heap) == 2);
+  assert(heap_front(heap) == 1);
+
+  heap_insert(heap, 2);
+  assert(heap_size(heap) == 3);
+  assert(heap_front(heap) == 2);
+
+  heap_insert(heap, 3);
+  assert(heap_size(heap) == 4);
+  assert(heap_front(heap) == 3);
+
+  heap_pop(heap);
+  assert(heap_front(heap) == 2);
+  assert(heap_size(heap) == 3);
+
+  heap_pop(heap);
+  assert(heap_front(heap) == 1);
+  assert(heap_size(heap) == 2);
+
+  heap_pop(heap);
+  assert(heap_front(heap) == 0);
+  assert(heap_size(heap) == 1);
+
+  heap_pop(heap);
+  assert(heap_size(heap) == 0);
+
+  heap_deinit(heap);
+  heap_dealloc(&heap);
+
+  assert(heap == NULL);
+}
+
+int main() {
+  heap_basic();
 }
