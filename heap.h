@@ -1,10 +1,18 @@
 #pragma once
 
+#include <Block.h>
+
 #include "sjs.h"
 
 typedef struct heap heap_s;
 
-void heap_init(heap_s *heap, int capacity);
+typedef dbl (^value_b)(int);
+typedef void (^setpos_b)(int, int);
+
+void heap_alloc(heap_s **heap);
+void heap_dealloc(heap_s **heap);
+void heap_init(heap_s *heap, int capacity, value_b value, setpos_b setpos);
+void heap_deinit(heap_s *heap);
 void heap_insert(heap_s *heap, int ind);
 void heap_swim(heap_s *heap, int ind);
 int heap_front(heap_s *heap);

@@ -8,11 +8,21 @@ typedef struct heap {
   int capacity;
   int size;
   int* inds;
-  dbl (*value)(int);
-  void (*set_pos)(int, int);
+  value_b value;
+  setpos_b setpos;
 } heap_s;
 
-void heap_init(heap_s *heap, int capacity) {
+void heap_alloc(heap_s **heap) {
+  *heap = malloc(sizeof(heap_s));
+  assert(*heap != NULL);
+}
+
+void heap_dealloc(heap_s **heap) {
+  free(*heap);
+  *heap = NULL;
+}
+
+void heap_init(heap_s *heap, int capacity, value_b value, setpos_b setpos) {
   heap->capacity = capacity;
   heap->size = 0;
   heap->inds = malloc(heap->capacity*sizeof(int));
@@ -22,6 +32,13 @@ void heap_init(heap_s *heap, int capacity) {
     heap->inds[i] = NO_INDEX;
   }
 #endif
+  heap->value = Block_copy(value);
+  heap->setpos = Block_copy(setpos);
+}
+
+void heap_deinit(heap_s *heap) {
+  free(heap->inds);
+  heap->inds = NULL;
 }
 
 void heap_grow(heap_s *heap) {
@@ -63,7 +80,7 @@ void heap_set(heap_s *heap, int pos, int ind) {
   assert(pos < heap->size);
 
   heap->inds[pos] = ind;
-  heap->set_pos(ind, pos);
+  heap->setpos(ind, pos);
 }
 
 void heap_swap(heap_s *heap, int pos1, int pos2) {
@@ -139,7 +156,7 @@ void heap_sink(heap_s *heap, int pos) {
 
 void heap_pop(heap_s *heap) {
 #ifndef NDEBUG
-  heap->set_pos(heap->inds[0], NO_INDEX);
+  heap->setpos(heap->inds[0], NO_INDEX);
   // heap->sjs->positions[heap->inds[0]] = NO_INDEX;
 #endif
   heap_swap(heap, 0, heap->size - 1);

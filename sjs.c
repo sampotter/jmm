@@ -124,6 +124,7 @@ void sjs_init(sjs_s *sjs, ivec2 shape, dbl h, sfield s, vfield grad_s) {
   sjs->nnodes = (shape.i + 2)*(shape.j + 2);
   sjs->h = h;
   sjs->s = s;
+  sjs->grad_s = grad_s;
   sjs->bicubics = malloc(sjs->ncells*sizeof(bicubic));
   sjs->jets = malloc(sjs->nnodes*sizeof(jet));
   sjs->states = malloc(sjs->nnodes*sizeof(state));
@@ -142,8 +143,18 @@ void sjs_init(sjs_s *sjs, ivec2 shape, dbl h, sfield s, vfield grad_s) {
   }
 #endif
 
+  heap_alloc(&sjs->heap);
+
+  value_b value = ^(int l) {
+    return sjs->jets[l].f;
+  };
+
+  setpos_b setpos = ^(int l, int pos) {
+    sjs->positions[l] = pos;
+  };
+
   int capacity = (int) 3*sqrt(sjs->shape.i*sjs->shape.j);
-  heap_init(sjs->heap, capacity);
+  heap_init(sjs->heap, capacity, value, setpos);
 
   sjs_set_nb_ind_offsets(sjs);
   sjs_set_tri_cell_ind_offsets(sjs);
@@ -164,6 +175,17 @@ void sjs_deinit(sjs_s *sjs) {
   free(sjs->bicubics);
   free(sjs->jets);
   free(sjs->states);
+  free(sjs->parents);
+  free(sjs->positions);
+
+  sjs->bicubics = NULL;
+  sjs->jets = NULL;
+  sjs->states = NULL;
+  sjs->parents = NULL;
+  sjs->positions = NULL;
+
+  heap_deinit(sjs->heap);
+  heap_dealloc(&sjs->heap);
 }
 
 dvec2 sjs_xy(sjs_s *sjs, int l) {
@@ -556,7 +578,7 @@ void sjs_adjust(sjs_s *sjs, int l0) {
   heap_swim(sjs->heap, sjs->positions[l0]);
 }
 
-bool sjs_inbounds(sjs_s *sjs, int l) {
+static bool inbounds(sjs_s *sjs, int l) {
   return 0 <= l && l < sjs->nnodes;
 }
 
@@ -568,7 +590,7 @@ void sjs_step(sjs_s *sjs) {
 
   for (int i = 0, l; i < NUM_NB; ++i) {
     l = l0 + sjs->nb_ind_offsets[i];
-    if (sjs_inbounds(sjs, l) && sjs->states[l] == FAR) {
+    if (inbounds(sjs, l) && sjs->states[l] == FAR) {
       sjs->states[l] = TRIAL;
       heap_insert(sjs->heap, l);
     }
@@ -576,7 +598,7 @@ void sjs_step(sjs_s *sjs) {
 
   for (int i = 0, l; i < NUM_NB; ++i) {
     l = l0 + sjs->nb_ind_offsets[i];
-    if (sjs_inbounds(sjs, l) && sjs->states[l] == TRIAL) {
+    if (inbounds(sjs, l) && sjs->states[l] == TRIAL) {
       sjs_update(sjs, l);
       sjs_adjust(sjs, l);
     }
