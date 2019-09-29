@@ -115,5 +115,6 @@ int main(int argc, char *argv[]) {
     free(path);
   }
 
+  sjs_deinit(sjs);
   sjs_dealloc(&sjs);
 }
