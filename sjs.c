@@ -269,7 +269,7 @@ dvec2 sjs_cell_center(sjs_s *sjs, int lc) {
   return xyc;
 }
 
-void sjs_add_fac_pt_src(sjs_s *sjs, ivec2 ind0, dbl r0, int *nf, int *nfc) {
+void sjs_add_fac_pt_src(sjs_s *sjs, ivec2 indf, dbl rmax, int *nf, int *nfc) {
   if (nf != NULL) {
     *nf = 0;
   }
@@ -277,28 +277,29 @@ void sjs_add_fac_pt_src(sjs_s *sjs, ivec2 ind0, dbl r0, int *nf, int *nfc) {
     *nfc = 0;
   }
 
-  int l0 = sjs_lindexe(sjs, ind0);
-  dvec2 xy0 = sjs_xy(sjs, l0);
+  int lf = sjs_lindexe(sjs, indf);
+  dvec2 xyf = sjs_xy(sjs, lf);
+  dbl r;
   for (int l = 0; l < sjs->nnodes; ++l) {
-    sjs->node_parents[l] = dvec2_dist(sjs_xy(sjs, l), xy0) <= r0 + EPS ?
-      l0 : NO_PARENT;
+    r = dvec2_dist(sjs_xy(sjs, l), xyf);
+    sjs->node_parents[l] = r <= rmax + EPS ? lf : NO_PARENT;
     if (nf != NULL && sjs->node_parents[l] != NO_PARENT) {
       ++*nf;
     }
   }
   for (int lc = 0; lc < sjs->ncells; ++lc) {
     dvec2 xyc = sjs_cell_center(sjs, lc);
-    sjs->cell_parents[lc] = dvec2_dist(xyc, xy0) <= r0 + EPS ?
-      l0 : NO_PARENT;
+    r = dvec2_dist(xyc, xyf);
+    sjs->cell_parents[lc] = r <= rmax + EPS ? lf : NO_PARENT;
     if (nfc != NULL && sjs->cell_parents[lc] != NO_PARENT) {
       ++*nfc;
     }
   }
 
-  jet *J = &sjs->jets[l0];
+  jet *J = &sjs->jets[lf];
   J->f = J->fx = J->fy = J->fxy = 0;
-  sjs->states[l0] = TRIAL;
-  heap_insert(sjs->heap, l0);
+  sjs->states[lf] = TRIAL;
+  heap_insert(sjs->heap, lf);
 }
 
 dbl sjs_get_s(sjs_s *sjs, int l) {
