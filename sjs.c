@@ -728,11 +728,11 @@ int sjs_xy_to_lc_and_cc(sjs_s *sjs, dvec2 xy, dvec2 *cc) {
   ivec2 ind = {(int) floor(cc->x), (int) floor(cc->y)};
   cc->x = fmod(cc->x, 1.0);
   cc->y = fmod(cc->y, 1.0);
-  if (ind.i == sjs->shape.i) {
+  if (ind.i == sjs->shape.i - 1) {
     --ind.i;
     cc->x = 1.0;
   }
-  if (ind.j == sjs->shape.j) {
+  if (ind.j == sjs->shape.j - 1) {
     --ind.j;
     cc->y = 1.0;
   }

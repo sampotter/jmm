@@ -108,7 +108,16 @@ void sjs_basic() {
   check(-1,  0);
   check(-1,  1);
   check( 0, -1);
-  check( 0,  0);
+
+  // Handle (0, 0) as special case
+  {
+    dvec2 xy = {0, 0};
+    assert(approx_eq(sjs_T(sjs, xy), 0, EPS));
+    assert(isnan(sjs_Tx(sjs, xy)));
+    assert(isnan(sjs_Ty(sjs, xy)));
+    assert(isnan(sjs_Txy(sjs, xy)));
+  }
+
   check( 0,  1);
   check( 1, -1);
   check( 1,  0);
