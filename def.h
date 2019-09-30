@@ -6,6 +6,6 @@
 #define SQRT2 1.414213562373095
 #define UNFACTORED -1
 
-typedef enum {FAR, TRIAL, VALID, BOUNDARY} state;
+typedef enum state {FAR, TRIAL, VALID, BOUNDARY} state_e;
 
 typedef double dbl;

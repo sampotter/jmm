@@ -69,3 +69,55 @@ cubic bicubic_restrict(bicubic *bicubic, bicubic_variable var, int edge) {
   }
   return cubic;
 }
+
+dbl bicubic_f(bicubic *bicubic, dvec2 cc) {
+  dbl f = 0, (*A)[4] = bicubic->A, lam = cc.x, mu = cc.y, lam_pow = 1, mu_pow;
+  for (int alpha = 0; alpha < 4; ++alpha) {
+    mu_pow = 1;
+    for (int beta = 0; beta < 4; ++beta) {
+      f += A[alpha][beta]*lam_pow*mu_pow;
+      mu_pow *= mu;
+    }
+    lam_pow *= lam;
+  }
+  return f;
+}
+
+dbl bicubic_fx(bicubic *bicubic, dvec2 cc) {
+  dbl fx = 0, (*A)[4] = bicubic->A, lam = cc.x, mu = cc.y, lam_pow = 1, mu_pow;
+  for (int alpha = 1; alpha < 4; ++alpha) {
+    mu_pow = 1;
+    for (int beta = 0; beta < 4; ++beta) {
+      fx += alpha*A[alpha][beta]*lam_pow*mu_pow;
+      mu_pow *= mu;
+    }
+    lam_pow *= lam;
+  }
+  return fx;
+}
+
+dbl bicubic_fy(bicubic *bicubic, dvec2 cc) {
+  dbl fy = 0, (*A)[4] = bicubic->A, lam = cc.x, mu = cc.y, lam_pow = 1, mu_pow;
+  for (int alpha = 0; alpha < 4; ++alpha) {
+    mu_pow = 1;
+    for (int beta = 1; beta < 4; ++beta) {
+      fy += beta*A[alpha][beta]*lam_pow*mu_pow;
+      mu_pow *= mu;
+    }
+    lam_pow *= lam;
+  }
+  return fy;
+}
+
+dbl bicubic_fxy(bicubic *bicubic, dvec2 cc) {
+  dbl fxy = 0, (*A)[4] = bicubic->A, lam = cc.x, mu = cc.y, lam_pow = 1, mu_pow;
+  for (int alpha = 1; alpha < 4; ++alpha) {
+    mu_pow = 1;
+    for (int beta = 1; beta < 4; ++beta) {
+      fxy += alpha*beta*A[alpha][beta]*lam_pow*mu_pow;
+      mu_pow *= mu;
+    }
+    lam_pow *= lam;
+  }
+  return fxy;
+}

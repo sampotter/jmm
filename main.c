@@ -87,23 +87,25 @@ int main(int argc, char *argv[]) {
   sjs_alloc(&sjs);
   sjs_init(sjs, shape, h, f, df);
 
-  int nf = sjs_add_fac_pt_src(sjs, ind, r);
-  if (nf == 0) {
-    printf("ERROR: nf = 0\n");
+  int nfc;
+  sjs_add_fac_pt_src(sjs, ind, r, NULL, &nfc);
+  if (nfc == 0) {
+    printf("ERROR: nfc = 0\n");
     exit(EXIT_FAILURE);
   } else {
     if (verbose) {
-      printf("nf = %d\n", nf);
+      printf("nfc = %d\n", nfc);
     }
   }
 
   sjs_solve(sjs);
 
   FILE *f = fopen(path ? path : "A.bin", "w");
-  for (int i = 0; i < m; ++i) {
-    for (int j = 0, l; j < n; ++j) {
-      ivec2 ind = {i, j};
-      fwrite(sjs_bicubic(sjs, ind)->A, sizeof(dbl), 16, f);
+  for (int i = 0; i < m - 1; ++i) {
+    for (int j = 0, l; j < n - 1; ++j) {
+      ivec2 cind = {i, j};
+      bicubic *bicubic = sjs_bicubic(sjs, cind);
+      fwrite(bicubic->A, sizeof(dbl), 16, f);
     }
   }
   fclose(f);
