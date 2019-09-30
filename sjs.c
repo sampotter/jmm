@@ -261,7 +261,8 @@ void sjs_deinit(sjs_s *sjs) {
 }
 
 dvec2 sjs_cell_center(sjs_s *sjs, int lc) {
-  dvec2 xyc = sjs_xy(sjs, lc);
+  int l = sjs_lc2l(sjs, lc);
+  dvec2 xyc = sjs_xy(sjs, l);
   dbl hhalf = sjs->h/2;
   xyc.x += hhalf;
   xyc.y += hhalf;
