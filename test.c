@@ -92,25 +92,27 @@ void sjs_basic() {
 
   sjs_solve(sjs);
 
-  void (^check_node)(dbl, dbl) = ^(dbl x, dbl y) {
+  void (^check)(dbl, dbl) = ^(dbl x, dbl y) {
     dvec2 xy = {x, y};
-    dbl T = hypot(x - 1, y - 1), Tx = (x - 1)/r, Ty = (y - 1)/r;
-    dbl Txy = -(x - 1)*(y - 1)/pow(r, 3);
+    dbl T = hypot(x, y);
+    dbl Tx = x/T;
+    dbl Ty = y/T;
+    dbl Txy = -x*y/pow(T, 3);
     assert(approx_eq(sjs_T(sjs, xy), T, EPS));
     assert(approx_eq(sjs_Tx(sjs, xy), Tx, EPS));
     assert(approx_eq(sjs_Ty(sjs, xy), Ty, EPS));
     assert(approx_eq(sjs_Txy(sjs, xy), Txy, EPS));
   };
 
-  check_node(0, 0);
-  check_node(0, 1);
-  check_node(0, 2);
-  check_node(1, 0);
-  check_node(1, 1);
-  check_node(1, 2);
-  check_node(2, 0);
-  check_node(2, 1);
-  check_node(2, 2);
+  check(-1, -1);
+  check(-1,  0);
+  check(-1,  1);
+  check( 0, -1);
+  check( 0,  0);
+  check( 0,  1);
+  check( 1, -1);
+  check( 1,  0);
+  check( 1,  1);
 
   sjs_deinit(sjs);
   sjs_dealloc(&sjs);
