@@ -77,13 +77,13 @@ bool approx_eq(dbl x, dbl y, dbl tol) {
 }
 
 void sjs_basic() {
-  ivec2 shape = {3, 3};
-  ivec2 ind = {1, 1};
+  ivec2 shape = {3, 3}, ind = {1, 1};
+  dvec2 xymin = {-1, -1};
   dbl h = 1, r = SQRT2;
 
   sjs_s *sjs;
   sjs_alloc(&sjs);
-  sjs_init(sjs, shape, h, one, grad_one);
+  sjs_init(sjs, shape, xymin, h, one, grad_one);
 
   int nf, nfc;
   sjs_add_fac_pt_src(sjs, ind, r, &nf, &nfc);

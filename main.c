@@ -80,12 +80,12 @@ int main(int argc, char *argv[]) {
     printf("path: %s\n", path ? path : "A.bin");
   }
 
-  ivec2 ind = {i, j};
-  ivec2 shape = {m, n};
+  ivec2 shape = {m, n}, ind = {i, j};
+  dvec2 xymin = {0, 0};
 
   sjs_s *sjs;
   sjs_alloc(&sjs);
-  sjs_init(sjs, shape, h, f, df);
+  sjs_init(sjs, shape, xymin, h, f, df);
 
   int nfc;
   sjs_add_fac_pt_src(sjs, ind, r, NULL, &nfc);

@@ -18,6 +18,7 @@ typedef struct {
 
 struct sjs {
   ivec2 shape;
+  dvec2 xymin;
   dbl h;
   int nnodes, ncells;
   int nb_dl[NUM_NB + 1];
@@ -147,8 +148,8 @@ void sjs_set_nearby_dlc(sjs_s *sjs) {
 dvec2 sjs_xy(sjs_s *sjs, int l) {
   int mpad = sjs->shape.i + 2;
   dvec2 xy = {
-    .x = sjs->h*(l%mpad - 1),
-    .y = sjs->h*(l/mpad - 1)
+    .x = sjs->xymin.x + sjs->h*(l%mpad - 1),
+    .y = sjs->xymin.y + sjs->h*(l/mpad - 1)
   };
   return xy;
 }
@@ -157,10 +158,12 @@ dvec2 sjs_xy(sjs_s *sjs, int l) {
 // to allocate an extra margin of cells, since they will never be
 // initialized (i.e., they will never have all of their vertex nodes
 // become VALID because of the margin...)
-void sjs_init(sjs_s *sjs, ivec2 shape, dbl h, sfield s, vfield grad_s) {
+void sjs_init(sjs_s *sjs, ivec2 shape, dvec2 xymin, dbl h, sfield s,
+              vfield grad_s) {
   sjs->shape = shape;
   sjs->ncells = (shape.i + 1)*(shape.j + 1);
   sjs->nnodes = (shape.i + 2)*(shape.j + 2);
+  sjs->xymin = xymin;
   sjs->h = h;
   sjs->s = s;
   sjs->grad_s = grad_s;
@@ -718,8 +721,8 @@ void sjs_solve(sjs_s *sjs) {
 
 int sjs_xy_to_lc_and_cc(sjs_s *sjs, dvec2 xy, dvec2 *cc) {
   assert(cc != NULL);
-  cc->x = xy.x/sjs->h;
-  cc->y = xy.y/sjs->h;
+  cc->x = (xy.x - sjs->xymin.x)/sjs->h;
+  cc->y = (xy.y - sjs->xymin.y)/sjs->h;
   ivec2 ind = {(int) floor(cc->x), (int) floor(cc->y)};
   cc->x = fmod(cc->x, 1.0);
   cc->y = fmod(cc->y, 1.0);
