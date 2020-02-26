@@ -2,7 +2,7 @@
 
 #include <Block.h>
 
-#include "sjs.h"
+#include "sjs_eikonal.h"
 
 typedef struct heap heap_s;
 

@@ -5,7 +5,22 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "sjs.h"
+#include "sjs_eikonal.h"
+
+/**
+ * TODO:
+ *
+ * some important stuff:
+ * - [ ] fix unused -lm flag warning
+ *
+ * some miscellaneous stuff:
+ * - [ ] use BoehmGC
+ * - [ ] read problem from YAML file
+ * - [ ] use from MATLAB
+ * - [ ] use from Python
+ * - [ ] write output to good format (e.g. HDF5)
+ * - [ ] return error code on failure from functions
+ */
 
 dbl f(dvec2 p) {
   return 1.0 + 0.3*p.x - 0.2*p.y;

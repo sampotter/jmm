@@ -6,7 +6,7 @@ if (LINUX)
   find_library (BLOCKS_RUNTIME_LIBRARY NAMES BlocksRuntime)
 endif ()
 
-add_library (sjs_eikonal heap.c sjs.c hermite.c vec.c)
+add_library (sjs_eikonal sjs_eikonal.c heap.c hermite.c vec.c)
 target_compile_options (sjs_eikonal PRIVATE -lm)
 if (LINUX)
   target_compile_options (sjs_eikonal PRIVATE -fblocks)
