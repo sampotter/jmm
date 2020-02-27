@@ -13,6 +13,7 @@ typedef struct {
   dbl a[4];
 } cubic;
 
+void cubic_set_data(cubic *cubic, dbl const data[4]);
 dbl cubic_f(cubic const *cubic, dbl lam);
 dbl cubic_df(cubic const *cubic, dbl lam);
 

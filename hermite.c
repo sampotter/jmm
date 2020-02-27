@@ -1,5 +1,26 @@
 #include "hermite.h"
 
+/**
+ * TODO: replace the multiplications with V_inv below with calls to a
+ * matrix multiplication provided by a new mat.h module
+ */
+
+dbl V_inv[4][4] = {
+  { 1,  0,  0,  0},
+  { 0,  0,  1,  0},
+  {-3,  3, -2, -1},
+  { 2, -2,  1,  1}
+};
+
+void cubic_set_data(cubic *cubic, dbl const a[4]) {
+  for (int i = 0; i < 4; ++i) {
+    cubic->a[i] = 0;
+    for (int j = 0; j < 4; ++j) {
+      cubic->a[i] += V_inv[i][j]*a[j];
+    }
+  }
+}
+
 dbl cubic_f(cubic const *cubic, dbl lam) {
   dbl const *a = cubic->a;
   return a[0] + lam*(a[1] + lam*(a[2] + lam*a[3]));
@@ -9,13 +30,6 @@ dbl cubic_df(cubic const *cubic, dbl lam) {
   dbl const *a = cubic->a;
   return a[1] + lam*(2*a[2] + 3*lam*a[3]);
 }
-
-dbl V_inv[4][4] = {
-  { 1,  0,  0,  0},
-  { 0,  0,  1,  0},
-  {-3,  3, -2, -1},
-  { 2, -2,  1,  1}
-};
 
 void bicubic_set_A(bicubic *bicubic, dbl data[4][4]) {
   dbl tmp[4][4];

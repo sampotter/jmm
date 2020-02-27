@@ -106,12 +106,18 @@ TODO!
 
   py::class_<cubic>(m, "Cubic")
     .def(py::init(
-           [] (std::array<dbl, 4> const & a) {
+           [] (std::array<dbl, 4> const & data) {
              auto ptr = std::make_unique<cubic>();
-             std::copy(std::begin(a), std::end(a), ptr->a);
+             cubic_set_data(ptr.get(), &data[0]);
              return ptr;
            }
          ))
+    .def(
+      "set_data",
+      [] (cubic & C, std::array<dbl, 4> const & data) {
+        cubic_set_data(&C, &data[0]);
+      }
+    )
     .def(
       "f",
       [] (cubic const & C, dbl lam) { return cubic_f(&C, lam); }
