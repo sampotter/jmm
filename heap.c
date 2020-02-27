@@ -68,8 +68,10 @@ dbl value(heap_s *heap, int pos) {
   assert(pos >= 0);
   assert(pos < heap->size);
 
+#ifdef SJS_EIK_DEBUG
   int ind = heap->inds[pos];
   assert(ind != NO_INDEX);
+#endif
 
   return heap->value(heap->inds[pos]);
   // return heap->sjs->jets[heap->inds[pos]].f;

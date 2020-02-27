@@ -4,6 +4,10 @@
 extern "C" {
 #endif
 
+#ifndef NDEBUG
+#define SJS_EIK_DEBUG
+#endif
+
 #define EPS 1e-13
 #define NO_INDEX -1
 #define NO_PARENT -1
