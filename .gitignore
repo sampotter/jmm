@@ -1,5 +1,7 @@
 *.bin
-build
+*.egg-info
 GPATH
 GRTAGS
 GTAGS
+build
+dist
