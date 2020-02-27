@@ -9,8 +9,8 @@ struct sjs;
 #include "hermite.h"
 #include "vec.h"
 
-typedef dbl (*sfield)(dvec2);
-typedef dvec2 (*vfield)(dvec2);
+typedef dbl (^sfield)(dvec2);
+typedef dvec2 (^vfield)(dvec2);
 
 typedef struct sjs sjs_s;
 
