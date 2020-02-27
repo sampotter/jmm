@@ -7,6 +7,7 @@ namespace py = pybind11;
 #include "heap.h"
 #include "hermite.h"
 #include "jet.h"
+#include "sjs_eik.h"
 
 struct heap_wrapper {
   heap * ptr {nullptr};
@@ -24,6 +25,32 @@ struct heap_wrapper {
   ~heap_wrapper() {
     heap_deinit(ptr);
     heap_dealloc(&ptr);
+  }
+};
+
+struct sjs_wrapper {
+  sjs * ptr {nullptr};
+  sjs_wrapper(std::array<int, 2> const & shape,
+              std::array<dbl, 2> const & xymin,
+              dbl h,
+              std::function<dbl(dbl, dbl)> const & s,
+              std::function<std::tuple<dbl, dbl>(dbl, dbl)> const & grad_s) {
+    sjs_alloc(&ptr);
+    sjs_init(
+      ptr,
+      ivec2 {shape[0], shape[1]},
+      dvec2 {xymin[0], xymin[1]},
+      h,
+      ^(dvec2 xy) { return s(xy.x, xy.y); },
+      ^(dvec2 xy) {
+        auto tmp = grad_s(xy.x, xy.y);
+        return dvec2 {std::get<0>(tmp), std::get<1>(tmp)};
+      }
+    );
+  }
+  ~sjs_wrapper() {
+    sjs_deinit(ptr);
+    sjs_dealloc(&ptr);
   }
 };
 
@@ -174,6 +201,80 @@ TODO!
     .def_readwrite("fy", &jet::fy)
     .def_readwrite("fxy", &jet::fxy)
     ;
+
+  // sjs_eik.h
+
+  py::class_<sjs_wrapper>(m, "StaticJetScheme")
+    .def(py::init<
+           std::array<int, 2> const &,
+           std::array<dbl, 2> const &,
+           dbl,
+           std::function<dbl(dbl, dbl)> const &,
+           std::function<std::tuple<dbl, dbl>(dbl, dbl)> const &
+         >())
+    .def(
+      "solve",
+      [] (sjs_wrapper const & w) { sjs_solve(w.ptr); }
+    )
+    .def(
+      "T",
+      [] (sjs_wrapper const & w, dbl x, dbl y) {
+        return sjs_T(w.ptr, dvec2 {x, y});
+      }
+    )
+    .def(
+      "Tx",
+      [] (sjs_wrapper const & w, dbl x, dbl y) {
+        return sjs_Tx(w.ptr, dvec2 {x, y});
+      }
+    )
+    .def(
+      "Ty",
+      [] (sjs_wrapper const & w, dbl x, dbl y) {
+        return sjs_Ty(w.ptr, dvec2 {x, y});
+      }
+    )
+    .def(
+      "Txy",
+      [] (sjs_wrapper const & w, dbl x, dbl y) {
+        return sjs_Txy(w.ptr, dvec2 {x, y});
+      }
+    )
+    .def(
+      "bicubic",
+      [] (sjs_wrapper const & w, int i, int j) {
+        return sjs_bicubic(w.ptr, ivec2 {i, j});
+      }
+    )
+    ;
+
+  // vec.h
+
+  py::class_<dvec2>(m, "Dvec2")
+    .def(py::init<dbl, dbl>())
+    .def_readwrite("x", &dvec2::x)
+    .def_readwrite("y", &dvec2::y)
+    ;
+
+  py::class_<ivec2>(m, "Ivec2")
+    .def(py::init<int, int>())
+    .def_readwrite("i", &ivec2::i)
+    .def_readwrite("j", &ivec2::j)
+    ;
+
+  m.def(
+    "ccomb",
+    [] (dvec2 const & v0, dvec2 const & v1, dbl t) {
+      return dvec2_ccomb(v0, v1, t);
+    }
+  );
+
+  m.def(
+    "dist",
+    [] (dvec2 const & v0, dvec2 const & v1) {
+      return dvec2_dist(v0, v1);
+    }
+  );
 
 #ifdef VERSION_INFO
   m.attr("__version__") = VERSION_INFO;
