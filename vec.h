@@ -1,5 +1,9 @@
 #pragma once
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include "def.h"
 
 #include <math.h>
@@ -16,3 +20,7 @@ typedef struct {
   int i;
   int j;
 } ivec2;
+
+#ifdef __cplusplus
+}
+#endif

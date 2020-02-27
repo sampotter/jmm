@@ -1,12 +1,12 @@
 #include "hermite.h"
 
-dbl cubic_f(cubic *cubic, dbl lam) {
-  dbl *a = cubic->a;
+dbl cubic_f(cubic const *cubic, dbl lam) {
+  dbl const *a = cubic->a;
   return a[0] + lam*(a[1] + lam*(a[2] + lam*a[3]));
 }
 
-dbl cubic_df(cubic *cubic, dbl lam) {
-  dbl *a = cubic->a;
+dbl cubic_df(cubic const *cubic, dbl lam) {
+  dbl const *a = cubic->a;
   return a[1] + lam*(2*a[2] + 3*lam*a[3]);
 }
 
@@ -38,7 +38,7 @@ void bicubic_set_A(bicubic *bicubic, dbl data[4][4]) {
   }
 }
 
-cubic bicubic_restrict(bicubic *bicubic, bicubic_variable var, int edge) {
+cubic bicubic_restrict(bicubic const *bicubic, bicubic_variable var, int edge) {
   cubic cubic;
   if (var == LAMBDA) {
     if (edge == 0) {
@@ -70,8 +70,9 @@ cubic bicubic_restrict(bicubic *bicubic, bicubic_variable var, int edge) {
   return cubic;
 }
 
-dbl bicubic_f(bicubic *bicubic, dvec2 cc) {
-  dbl f = 0, (*A)[4] = bicubic->A, lam = cc.x, mu = cc.y, lam_pow = 1, mu_pow;
+dbl bicubic_f(bicubic const *bicubic, dvec2 cc) {
+  dbl const (*A)[4] = bicubic->A;
+  dbl f = 0, lam = cc.x, mu = cc.y, lam_pow = 1, mu_pow;
   for (int alpha = 0; alpha < 4; ++alpha) {
     mu_pow = 1;
     for (int beta = 0; beta < 4; ++beta) {
@@ -83,8 +84,9 @@ dbl bicubic_f(bicubic *bicubic, dvec2 cc) {
   return f;
 }
 
-dbl bicubic_fx(bicubic *bicubic, dvec2 cc) {
-  dbl fx = 0, (*A)[4] = bicubic->A, lam = cc.x, mu = cc.y, lam_pow = 1, mu_pow;
+dbl bicubic_fx(bicubic const *bicubic, dvec2 cc) {
+  dbl const (*A)[4] = bicubic->A;
+  dbl fx = 0, lam = cc.x, mu = cc.y, lam_pow = 1, mu_pow;
   for (int alpha = 1; alpha < 4; ++alpha) {
     mu_pow = 1;
     for (int beta = 0; beta < 4; ++beta) {
@@ -96,8 +98,9 @@ dbl bicubic_fx(bicubic *bicubic, dvec2 cc) {
   return fx;
 }
 
-dbl bicubic_fy(bicubic *bicubic, dvec2 cc) {
-  dbl fy = 0, (*A)[4] = bicubic->A, lam = cc.x, mu = cc.y, lam_pow = 1, mu_pow;
+dbl bicubic_fy(bicubic const *bicubic, dvec2 cc) {
+  dbl const (*A)[4] = bicubic->A;
+  dbl fy = 0, lam = cc.x, mu = cc.y, lam_pow = 1, mu_pow;
   for (int alpha = 0; alpha < 4; ++alpha) {
     mu_pow = 1;
     for (int beta = 1; beta < 4; ++beta) {
@@ -109,8 +112,9 @@ dbl bicubic_fy(bicubic *bicubic, dvec2 cc) {
   return fy;
 }
 
-dbl bicubic_fxy(bicubic *bicubic, dvec2 cc) {
-  dbl fxy = 0, (*A)[4] = bicubic->A, lam = cc.x, mu = cc.y, lam_pow = 1, mu_pow;
+dbl bicubic_fxy(bicubic const *bicubic, dvec2 cc) {
+  dbl const (*A)[4] = bicubic->A;
+  dbl fxy = 0, lam = cc.x, mu = cc.y, lam_pow = 1, mu_pow;
   for (int alpha = 1; alpha < 4; ++alpha) {
     mu_pow = 1;
     for (int beta = 1; beta < 4; ++beta) {

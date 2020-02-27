@@ -1,5 +1,9 @@
 #pragma once
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 struct sjs;
 
 #include "hermite.h"
@@ -41,19 +45,6 @@ void sjs_init(sjs_s *sjs, ivec2 shape, dvec2 xymin, dbl h, sfield s, vfield grad
 void sjs_deinit(sjs_s *sjs);
 
 /**
- * Add the node at `ind` to the boundary with boundary value `T`. If
- * `T == NULL`, then the boundary value is set to a default value of
- * 0.
- */
-void sjs_add_bd(sjs *sjs, ivec2 ind, dbl const *T);
-
-/**
- * TODO: we're going to forget about local factoring for now---it's
- * easy enough to provide the correct boundary data
- */
-// void sjs_add_fac_pt_src(sjs_s *sjs, ivec2 ind, dbl r, int *nf, int *nfc);
-
-/**
  * Solve the problem specified by `sjs` with the given boundary
  * data. This assumes that `sjs_init` has been called, and boundary
  * data has been provided through at least one call to `sjs_add_bd`.
@@ -87,3 +78,7 @@ dbl sjs_Txy(sjs_s *sjs, dvec2 xy);
  * indexed by `cind`.
  */
 bicubic *sjs_bicubic(sjs_s *sjs, ivec2 cind);
+
+#ifdef __cplusplus
+}
+#endif

@@ -1,5 +1,9 @@
 #pragma once
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define EPS 1e-13
 #define NO_INDEX -1
 #define NO_PARENT -1
@@ -8,4 +12,11 @@
 
 typedef enum state {FAR, TRIAL, VALID, BOUNDARY} state_e;
 
+/**
+ * Change this to float to use single precision instead.
+ */
 typedef double dbl;
+
+#ifdef __cplusplus
+}
+#endif

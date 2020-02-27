@@ -1,8 +1,12 @@
 #pragma once
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <Block.h>
 
-#include "sjs_eikonal.h"
+#include "sjs_eik.h"
 
 typedef struct heap heap_s;
 
@@ -18,3 +22,7 @@ void heap_swim(heap_s *heap, int ind);
 int heap_front(heap_s *heap);
 void heap_pop(heap_s *heap);
 int heap_size(heap_s *heap);
+
+#ifdef __cplusplus
+}
+#endif

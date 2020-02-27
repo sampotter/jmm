@@ -1,4 +1,4 @@
-#include "sjs_eikonal.h"
+#include "sjs_eik.h"
 
 #include <assert.h>
 #include <math.h>
@@ -7,14 +7,11 @@
 #include <string.h>
 
 #include "heap.h"
+#include "jet.h"
 
 #define NUM_CELL_VERTS 4
 #define NUM_NB 8
 #define NUM_NEARBY_CELLS 16
-
-typedef struct {
-  dbl f, fx, fy, fxy;
-} jet;
 
 struct sjs {
   ivec2 shape;
@@ -29,7 +26,7 @@ struct sjs {
   sfield s;
   vfield grad_s;
   bicubic *bicubics;
-  jet *jets;
+  jet_s *jets;
   state_e *states;
   int *cell_parents;
   int *node_parents;
@@ -168,7 +165,7 @@ void sjs_init(sjs_s *sjs, ivec2 shape, dvec2 xymin, dbl h, sfield s,
   sjs->s = s;
   sjs->grad_s = grad_s;
   sjs->bicubics = malloc(sjs->ncells*sizeof(bicubic));
-  sjs->jets = malloc(sjs->nnodes*sizeof(jet));
+  sjs->jets = malloc(sjs->nnodes*sizeof(jet_s));
   sjs->states = malloc(sjs->nnodes*sizeof(state_e));
   sjs->cell_parents = malloc(sjs->ncells*sizeof(int));
   sjs->node_parents = malloc(sjs->nnodes*sizeof(int));
@@ -268,39 +265,6 @@ dvec2 sjs_cell_center(sjs_s *sjs, int lc) {
   xyc.y += hhalf;
   return xyc;
 }
-
-// void sjs_add_fac_pt_src(sjs_s *sjs, ivec2 indf, dbl rmax, int *nf, int *nfc) {
-//   if (nf != NULL) {
-//     *nf = 0;
-//   }
-//   if (nfc != NULL) {
-//     *nfc = 0;
-//   }
-
-//   int lf = sjs_lindexe(sjs, indf);
-//   dvec2 xyf = sjs_xy(sjs, lf);
-//   dbl r;
-//   for (int l = 0; l < sjs->nnodes; ++l) {
-//     r = dvec2_dist(sjs_xy(sjs, l), xyf);
-//     sjs->node_parents[l] = r <= rmax + EPS ? lf : NO_PARENT;
-//     if (nf != NULL && sjs->node_parents[l] != NO_PARENT) {
-//       ++*nf;
-//     }
-//   }
-//   for (int lc = 0; lc < sjs->ncells; ++lc) {
-//     dvec2 xyc = sjs_cell_center(sjs, lc);
-//     r = dvec2_dist(xyc, xyf);
-//     sjs->cell_parents[lc] = r <= rmax + EPS ? lf : NO_PARENT;
-//     if (nfc != NULL && sjs->cell_parents[lc] != NO_PARENT) {
-//       ++*nfc;
-//     }
-//   }
-
-//   jet *J = &sjs->jets[lf];
-//   J->f = J->fx = J->fy = J->fxy = 0;
-//   sjs->states[lf] = TRIAL;
-//   heap_insert(sjs->heap, lf);
-// }
 
 dbl sjs_get_s(sjs_s *sjs, int l) {
   return sjs->s(sjs_xy(sjs, l));
@@ -441,7 +405,7 @@ static bool tri(sjs_s *sjs, int l, int l0, int l1, int i0) {
   bool updated = false;
   found: {
     dbl T = F(&data, lam);
-    jet *J = &sjs->jets[l];
+    jet_s *J = &sjs->jets[l];
     if (T < J->f) {
       updated = true;
 
@@ -470,7 +434,7 @@ static bool line(sjs_s *sjs, int l, int l0, int i0) {
   dbl T0 = sjs->jets[l0].f;
   dbl dist = i0 % 2 == 0 ? SQRT2 : 1;
   dbl T = T0 + sjs->h*dist*(s + s0)/2;
-  jet *J = &sjs->jets[l];
+  jet_s *J = &sjs->jets[l];
 
   bool updated = false;
   if (T < J->f) {
@@ -534,7 +498,7 @@ void sjs_est_Txy_values(sjs_s *sjs, int lc, dbl Txy[4]) {
 
 void sjs_update_cell(sjs_s *sjs, int lc) {
   int l[4];
-  jet *J[4];
+  jet_s *J[4];
   for (int i = 0; i < NUM_CELL_VERTS; ++i) {
     l[i] = sjs_lc2l(sjs, lc) + sjs->vert_dl[i];
     J[i] = &sjs->jets[l[i]];

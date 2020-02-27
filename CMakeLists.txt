@@ -1,26 +1,16 @@
 cmake_minimum_required (VERSION 3.15.3)
 
-project (sjs_eikonal C)
+project (sjs_eik)
 
-if (LINUX)
-  find_library (BLOCKS_RUNTIME_LIBRARY NAMES BlocksRuntime)
-endif ()
+set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIC -Wall -Wextra -Werror")
+set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC -Wall -Wextra -Werror")
 
-add_library (sjs_eikonal sjs_eikonal.c heap.c hermite.c vec.c)
-target_compile_options (sjs_eikonal PRIVATE -lm)
-if (LINUX)
-  target_compile_options (sjs_eikonal PRIVATE -fblocks)
-  target_link_libraries (sjs_eikonal PRIVATE ${BLOCKS_RUNTIME_LIBRARY})
-endif ()
+find_package (pybind11 REQUIRED)
 
-add_executable (main main.c)
-target_link_libraries (main PRIVATE sjs_eikonal)
+file (GLOB SJS_EIK_SRCS *.c *.h)
 
-if (NOT ${CMAKE_BUILD_TYPE} STREQUAL "Release")
-  add_executable (test test.c)
-  target_link_libraries (test PRIVATE sjs_eikonal)
-  if (LINUX)
-    target_compile_options (test PRIVATE -fblocks)
-    target_link_libraries (test PRIVATE ${BLOCKS_RUNTIME_LIBRARY})
-  endif ()
-endif ()
+message (${SJS_EIK_SRCS})
+
+pybind11_add_module (sjs_eik MODULE sjs_eik.cpp ${SJS_EIK_SRCS})
+target_compile_definitions (sjs_eik PRIVATE USING_PYBIND11=1)
+set_property (TARGET sjs_eik PROPERTY CXX_STANDARD 17)
