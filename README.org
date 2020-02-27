@@ -28,4 +28,7 @@ $ python setup.py install
 
    Since the Python interface exposes exactly the same interface as
    the C library, we opt to just implement the tests using Python's
-   unit testing facilities for simplicity and flexibility.q
+   unit testing facilities for simplicity and flexibility. These tests
+   do double duty and make sure that the Python bindings are
+   implemented correctly, and also that the library's implementation
+   itself is correct.
