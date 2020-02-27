@@ -1,0 +1,31 @@
+* sjs-eik
+
+  This is a C library implementing a static jet scheme for solving the
+  eikonal equation in 2D on a regular grid. This is mostly a proof of
+  concept library but could potentially be useful to someone.
+
+  The library comes with a Python interface written using pybind11 and
+  which is a straightforward mapping of the "object-oriented" C
+  interface to an object-oriented Python library. All of the "classes"
+  in the C library are exposed to make things transparent and simple.
+
+** Compilation
+
+   To compile, just run:
+
+#+BEGIN_SRC sh
+$ python setup.py install
+#+END_SRC
+
+   This will install a Python module named ~sjs_eik~ which contains
+   everything in a flat namespace.
+
+** Tests
+
+   To run the included unit tests, first install the module as
+   described above, and then run ~test.sh~. This will in turn run the
+   tests contained in each of the ~*.test.py~ files.
+
+   Since the Python interface exposes exactly the same interface as
+   the C library, we opt to just implement the tests using Python's
+   unit testing facilities for simplicity and flexibility.q
