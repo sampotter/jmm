@@ -12,10 +12,9 @@ dmat44 dmat44_dmat44_mul(dmat44 const A, dmat44 const B) {
   dmat44 C;
   for (int i = 0; i < 4; ++i) {
     for (int j = 0; j < 4; ++j) {
-      int l = 4*i + j;
-      C.data[l] = 0;
+      C.data[i][j] = 0;
       for (int k = 0; k < 4; ++k) {
-        C.data[l] += A.data[4*i + k]*B.data[4*k + j];
+        C.data[i][j] += A.data[i][k]*B.data[k][j];
       }
     }
   }

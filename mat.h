@@ -8,7 +8,7 @@ extern "C" {
 
 typedef struct {
   union {
-    dbl data[16];
+    dbl data[4][4];
     dvec4 rows[4];
   };
 } dmat44;
