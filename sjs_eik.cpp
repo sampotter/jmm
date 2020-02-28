@@ -369,7 +369,25 @@ TODO!
         return v.data[i];
       }
     )
+    .def(
+      "dot",
+      [] (dvec4 const & u, dvec4 const & v) { return dvec4_dot(u, v); }
+    )
+    .def(
+      "sum",
+      [] (dvec4 const & u) { return dvec4_sum(u); }
+    )
     ;
+
+  m.def(
+    "dot",
+    [] (dvec4 const & u, dvec4 const & v) { return dvec4_dot(u, v); }
+  );
+
+  m.def(
+    "sum",
+    [] (dvec4 const & u) { return dvec4_sum(u); }
+  );
 
   py::class_<ivec2>(m, "Ivec2")
     .def(py::init<int, int>())

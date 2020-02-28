@@ -22,5 +22,26 @@ class TestDvec2(unittest.TestCase):
             d = np.sqrt((v1 - u1)**2 + (v2 - u2)**2)
             self.assertAlmostEqual(sjs.dist(u, v), d)
 
+class TestDvec4(unittest.TestCase):
+
+    def test_basic(self):
+        u = sjs.Dvec4(list(range(4)))
+        for i in range(4):
+            self.assertEqual(u[i], i)
+
+    def test_dot(self):
+        for _ in range(10):
+            u_data, v_data = np.random.randn(2, 4)
+            u, v = sjs.Dvec4(u_data), sjs.Dvec4(v_data)
+            self.assertAlmostEqual(sjs.dot(u, v), u_data@v_data)
+            self.assertAlmostEqual(u.dot(v), u_data@v_data)
+
+    def test_sum(self):
+        for _ in range(10):
+            u_data = np.random.randn(4)
+            u = sjs.Dvec4(u_data)
+            self.assertAlmostEqual(u.sum(), u_data.sum())
+            self.assertAlmostEqual(sjs.sum(u), u_data.sum())
+
 if __name__ == '__main__':
     unittest.main()
