@@ -25,7 +25,7 @@ struct sjs {
   int nearby_dlc[NUM_NEARBY_CELLS];
   sfield_f s;
   vfield_f grad_s;
-  bicubic *bicubics;
+  bicubic_s *bicubics;
   jet_s *jets;
   state_e *states;
   int *cell_parents;
@@ -182,7 +182,7 @@ void sjs_init(sjs_s *sjs, ivec2 shape, dvec2 xymin, dbl h, sfield_f s,
   sjs->h = h;
   sjs->s = s;
   sjs->grad_s = grad_s;
-  sjs->bicubics = malloc(sjs->ncells*sizeof(bicubic));
+  sjs->bicubics = malloc(sjs->ncells*sizeof(bicubic_s));
   sjs->jets = malloc(sjs->nnodes*sizeof(jet_s));
   sjs->states = malloc(sjs->nnodes*sizeof(state_e));
   sjs->cell_parents = malloc(sjs->ncells*sizeof(int));
@@ -283,7 +283,7 @@ int tri_edges[NUM_NB] = {1, 1, 0, 0, 0, 0, 1, 1};
 typedef struct {
   sjs_s *sjs;
   bicubic_variable var;
-  cubic cubic;
+  cubic_s cubic;
   dvec2 xy0, xy1;
   int parent;
 } F_data;
@@ -340,7 +340,7 @@ static bool tri(sjs_s *sjs, int l, int l0, int l1, int i0) {
   assert(lc >= 0);
   assert(lc < sjs->ncells);
 
-  bicubic *bicubic = &sjs->bicubics[lc];
+  bicubic_s *bicubic = &sjs->bicubics[lc];
 
   F_data data;
   data.sjs = sjs;
@@ -510,31 +510,31 @@ void sjs_update_cell(sjs_s *sjs, int lc) {
     J[i] = &sjs->jets[l[i]];
   }
 
-  dbl data[4][4];
+  dmat44 data;
 
   dbl h = sjs->h, h_sq = h*h;
 
   // TODO: this is a screwy way to do this---we want to lay this out
   // in memory so it will eventually be easy to just do this using
   // SIMD instructions
-  data[0][0] = J[0]->f;
-  data[0][1] = J[2]->f;
-  data[0][2] = h*J[0]->fy;
-  data[0][3] = h*J[2]->fy;
-  data[1][0] = J[1]->f;
-  data[1][1] = J[3]->f;
-  data[1][2] = h*J[1]->fy;
-  data[1][3] = h*J[3]->fy;
-  data[2][0] = h*J[0]->fx;
-  data[2][1] = h*J[2]->fx;
-  data[2][2] = h_sq*J[0]->fxy;
-  data[2][3] = h_sq*J[2]->fxy;
-  data[3][0] = h*J[1]->fx;
-  data[3][1] = h*J[3]->fx;
-  data[3][2] = h_sq*J[1]->fxy;
-  data[3][3] = h_sq*J[3]->fxy;
+  data.rows[0].data[0] = J[0]->f;
+  data.rows[0].data[1] = J[2]->f;
+  data.rows[0].data[2] = h*J[0]->fy;
+  data.rows[0].data[3] = h*J[2]->fy;
+  data.rows[1].data[0] = J[1]->f;
+  data.rows[1].data[1] = J[3]->f;
+  data.rows[1].data[2] = h*J[1]->fy;
+  data.rows[1].data[3] = h*J[3]->fy;
+  data.rows[2].data[0] = h*J[0]->fx;
+  data.rows[2].data[1] = h*J[2]->fx;
+  data.rows[2].data[2] = h_sq*J[0]->fxy;
+  data.rows[2].data[3] = h_sq*J[2]->fxy;
+  data.rows[3].data[0] = h*J[1]->fx;
+  data.rows[3].data[1] = h*J[3]->fx;
+  data.rows[3].data[2] = h_sq*J[1]->fxy;
+  data.rows[3].data[3] = h_sq*J[3]->fxy;
 
-  bicubic_set_A(&sjs->bicubics[lc], data);
+  bicubic_set_data(&sjs->bicubics[lc], data);
 }
 
 static bool update(sjs_s *sjs, int l) {
@@ -713,7 +713,7 @@ int sjs_xy_to_lc_and_cc(sjs_s *sjs, dvec2 xy, dvec2 *cc) {
 dbl sjs_T(sjs_s *sjs, dvec2 xy) {
   dvec2 cc;
   int lc = sjs_xy_to_lc_and_cc(sjs, xy, &cc);
-  bicubic *bicubic = &sjs->bicubics[lc];
+  bicubic_s *bicubic = &sjs->bicubics[lc];
   dbl T = bicubic_f(bicubic, cc);
   int lf = sjs->cell_parents[lc];
   if (lf != NO_PARENT) {
@@ -726,7 +726,7 @@ dbl sjs_T(sjs_s *sjs, dvec2 xy) {
 dbl sjs_Tx(sjs_s *sjs, dvec2 xy) {
   dvec2 cc;
   int lc = sjs_xy_to_lc_and_cc(sjs, xy, &cc);
-  bicubic *bicubic = &sjs->bicubics[lc];
+  bicubic_s *bicubic = &sjs->bicubics[lc];
   dbl Tx = bicubic_fx(bicubic, cc);
   int lf = sjs->cell_parents[lc];
   if (lf != NO_PARENT) {
@@ -739,7 +739,7 @@ dbl sjs_Tx(sjs_s *sjs, dvec2 xy) {
 dbl sjs_Ty(sjs_s *sjs, dvec2 xy) {
   dvec2 cc;
   int lc = sjs_xy_to_lc_and_cc(sjs, xy, &cc);
-  bicubic *bicubic = &sjs->bicubics[lc];
+  bicubic_s *bicubic = &sjs->bicubics[lc];
   dbl Ty = bicubic_fy(bicubic, cc);
   int lf = sjs->cell_parents[lc];
   if (lf != NO_PARENT) {
@@ -752,7 +752,7 @@ dbl sjs_Ty(sjs_s *sjs, dvec2 xy) {
 dbl sjs_Txy(sjs_s *sjs, dvec2 xy) {
   dvec2 cc;
   int lc = sjs_xy_to_lc_and_cc(sjs, xy, &cc);
-  bicubic *bicubic = &sjs->bicubics[lc];
+  bicubic_s *bicubic = &sjs->bicubics[lc];
   dbl Txy = bicubic_fxy(bicubic, cc);
   int lf = sjs->cell_parents[lc];
   if (lf != NO_PARENT) {
@@ -762,7 +762,7 @@ dbl sjs_Txy(sjs_s *sjs, dvec2 xy) {
   return Txy;
 }
 
-bicubic *sjs_bicubic(sjs_s *sjs, ivec2 cind) {
+bicubic_s *sjs_bicubic(sjs_s *sjs, ivec2 cind) {
   int lc = sjs_clindexe(sjs, cind);
   return &sjs->bicubics[lc];
 }

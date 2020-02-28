@@ -5,9 +5,8 @@
 
 namespace py = pybind11;
 
-#include "def.h"
+#include "bicubic.h"
 #include "heap.h"
-#include "hermite.h"
 #include "jet.h"
 #include "sjs_eik.h"
 
@@ -170,14 +169,14 @@ TODO!
     .def(py::init(
            [] (std::array<dbl, 4> const & data) {
              auto ptr = std::make_unique<cubic>();
-             cubic_set_data(ptr.get(), &data[0]);
+             cubic_set_data_from_ptr(ptr.get(), &data[0]);
              return ptr;
            }
          ))
     .def(
       "set_data",
       [] (cubic & C, std::array<dbl, 4> const & data) {
-        cubic_set_data(&C, &data[0]);
+        cubic_set_data_from_ptr(&C, &data[0]);
       }
     )
     .def(
@@ -194,13 +193,13 @@ TODO!
     .def(py::init(
            [] (std::array<std::array<dbl, 4>, 4> const & data) {
              auto ptr = std::make_unique<bicubic>();
-             dbl data_arr[4][4];
+             dmat44 data_;
              for (int i = 0; i < 4; ++i) {
                for (int j = 0; j < 4; ++j) {
-                 data_arr[i][j] = data[i][j];
+                 data_.rows[i].data[j] = data[i][j];
                }
              }
-             bicubic_set_A(ptr.get(), data_arr);
+             bicubic_set_data(ptr.get(), data_);
              return ptr;
            }
          ))
@@ -210,22 +209,22 @@ TODO!
         std::array<std::array<dbl, 4>, 4> A;
         for (int i = 0; i < 4; ++i) {
           for (int j = 0; j < 4; ++j) {
-            A[i][j] = B.A[i][j];
+            A[i][j] = B.A.rows[i].data[j];
           }
         }
         return A;
       }
     )
     .def(
-      "set_A",
+      "set_data",
       [] (bicubic & B, std::array<std::array<dbl, 4>, 4> const & data) {
-        dbl data_arr[4][4];
+        dmat44 data_;
         for (int i = 0; i < 4; ++i) {
           for (int j = 0; j < 4; ++j) {
-            data_arr[i][j] = data[i][j];
+            data_.rows[i].data[j] = data[i][j];
           }
         }
-        bicubic_set_A(&B, data_arr);
+        bicubic_set_data(&B, data_);
       }
     )
     .def(
@@ -268,6 +267,31 @@ TODO!
     .def_readwrite("fx", &jet::fx)
     .def_readwrite("fy", &jet::fy)
     .def_readwrite("fxy", &jet::fxy)
+    ;
+
+  // mat.h
+
+  py::class_<dmat44>(m, "Dmat44")
+    .def(py::init(
+           [] (std::array<std::array<dbl, 4>, 4> const & data) {
+             auto ptr = std::make_unique<dmat44>();
+             for (int i = 0; i < 4; ++i) {
+               for (int j = 0; j < 4; ++j) {
+                 ptr->rows[i].data[j] = data[i][j];
+               }
+             }
+             return ptr;
+           }
+         ))
+    .def(py::init(
+           [] (std::array<dvec4, 4> const & data) {
+             auto ptr = std::make_unique<dmat44>();
+             for (int i = 0; i < 4; ++i) {
+               ptr->rows[i] = data[i];
+             }
+             return ptr;
+           }
+         ))
     ;
 
   // sjs_eik.h
@@ -322,6 +346,29 @@ TODO!
     .def(py::init<dbl, dbl>())
     .def_readwrite("x", &dvec2::x)
     .def_readwrite("y", &dvec2::y)
+    ;
+
+  py::class_<dvec4>(m, "Dvec4")
+    .def(py::init(
+           [] (std::array<dbl, 4> const & data) {
+             auto ptr = std::make_unique<dvec4>();
+             for (int i = 0; i < 4; ++i) {
+               ptr->data[i] = data[i];
+             }
+             return ptr;
+           }
+         ))
+    .def(
+      "__getitem__",
+      [] (dvec4 const & v, int i) {
+        if (i < 0 || 4 <= i) {
+          throw std::runtime_error {
+            "index for Dvec4 must be in the interval [0, 4)"
+          };
+        }
+        return v.data[i];
+      }
+    )
     ;
 
   py::class_<ivec2>(m, "Ivec2")

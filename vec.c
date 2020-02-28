@@ -9,3 +9,19 @@ dbl dvec2_dist(dvec2 v0, dvec2 v1) {
   dbl dx = v1.x - v0.x, dy = v1.y - v0.y;
   return sqrt(dx*dx + dy*dy);
 }
+
+dbl dvec4_dot(dvec4 v0, dvec4 v1) {
+  dbl tmp = 0;
+  for (int i = 0; i < 4; ++i) {
+    tmp += v0.data[i]*v1.data[i];
+  }
+  return tmp;
+}
+
+dbl dvec4_sum(dvec4 v) {
+  dbl tmp = 0;
+  for (int i = 0; i < 4; ++i) {
+    tmp += v.data[i];
+  }
+  return tmp;
+}

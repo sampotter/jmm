@@ -4,9 +4,7 @@
 extern "C" {
 #endif
 
-struct sjs;
-
-#include "hermite.h"
+#include "bicubic.h"
 #include "vec.h"
 
 typedef dbl (*sfield_f)(void *, dvec2);
@@ -78,7 +76,7 @@ dbl sjs_Txy(sjs_s *sjs, dvec2 xy);
  * Get the coefficients of the bicubic corresponding to the cell
  * indexed by `cind`.
  */
-bicubic *sjs_bicubic(sjs_s *sjs, ivec2 cind);
+bicubic_s *sjs_bicubic(sjs_s *sjs, ivec2 cind);
 
 #ifdef __cplusplus
 }

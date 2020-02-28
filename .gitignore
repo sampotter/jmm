@@ -1,7 +1,9 @@
 *.bin
 *.egg-info
+*.eggs
 GPATH
 GRTAGS
 GTAGS
+__pycache__
 build
 dist
