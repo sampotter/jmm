@@ -5,7 +5,7 @@ import unittest
 
 class TestBicubic(unittest.TestCase):
 
-    def test_basic(self):
+    def test_ctor(self):
         for _ in range(10):
             data = np.random.randn(4, 4)
             bicubic = sjs_eik.Bicubic(data)

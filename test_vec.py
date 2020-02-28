@@ -4,7 +4,7 @@ import unittest
 
 class TestDvec2(unittest.TestCase):
 
-    def test_basic(self):
+    def test_ctor(self):
         v = sjs.Dvec2(1, 2)
         self.assertEqual(v.x, 1)
         self.assertEqual(v.y, 2)
