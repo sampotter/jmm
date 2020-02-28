@@ -1,4 +1,6 @@
 #include <pybind11/pybind11.h>
+
+#include <pybind11/functional.h>
 #include <pybind11/stl.h>
 
 namespace py = pybind11;
@@ -9,50 +11,104 @@ namespace py = pybind11;
 #include "jet.h"
 #include "sjs_eik.h"
 
-struct heap_wrapper {
+static dbl value_wrapper(void * vp, int l);
+static void setpos_wrapper(void * vp, int l, int pos);
+
+struct heap_wrapper
+{
   heap * ptr {nullptr};
-  heap_wrapper(int capacity,
-               std::function<dbl(int)> const & value,
-               std::function<void(int,int)> const & setpos) {
+
+  std::optional<std::function<dbl(int)>> value;
+  std::optional<std::function<void(int, int)>> setpos;
+
+  heap_wrapper(int capacity, decltype(value) value, decltype(setpos) setpos):
+    value {value},
+    setpos {setpos}
+  {
     heap_alloc(&ptr);
     heap_init(
       ptr,
       capacity,
-      ^(int l) { return value(l); },
-      ^(int l, int pos) { setpos(l, pos); }
+      value_wrapper,
+      setpos_wrapper,
+      (void *) this
     );
   }
+
   ~heap_wrapper() {
     heap_deinit(ptr);
     heap_dealloc(&ptr);
   }
 };
 
+static dbl value_wrapper(void * vp, int l) {
+  heap_wrapper * hwp = (heap_wrapper *) vp;
+  if (!hwp->value) {
+    throw std::runtime_error {"ERROR: No value function for heap!"};
+  }
+  return (*hwp->value)(l);
+}
+
+static void setpos_wrapper(void * vp, int l, int pos) {
+  heap_wrapper * hwp = (heap_wrapper *) vp;
+  if (!hwp->setpos) {
+    throw std::runtime_error {"ERROR: No setpos function for heap!"};
+  }
+  (*hwp->setpos)(l, pos);
+}
+
+static dbl s_wrapper(void *vp, dvec2 xy);
+static dvec2 grad_s_wrapper(void *vp, dvec2 xy);
+
 struct sjs_wrapper {
   sjs * ptr {nullptr};
+
+  std::optional<std::function<dbl(dbl, dbl)>> s;
+  std::optional<std::function<std::tuple<dbl, dbl>(dbl, dbl)>> grad_s;
+
   sjs_wrapper(std::array<int, 2> const & shape,
               std::array<dbl, 2> const & xymin,
               dbl h,
-              std::function<dbl(dbl, dbl)> const & s,
-              std::function<std::tuple<dbl, dbl>(dbl, dbl)> const & grad_s) {
+              std::function<dbl(dbl, dbl)> s,
+              std::function<std::tuple<dbl, dbl>(dbl, dbl)> grad_s):
+    s {s},
+    grad_s {grad_s}
+  {
     sjs_alloc(&ptr);
     sjs_init(
       ptr,
       ivec2 {shape[0], shape[1]},
       dvec2 {xymin[0], xymin[1]},
       h,
-      ^(dvec2 xy) { return s(xy.x, xy.y); },
-      ^(dvec2 xy) {
-        auto tmp = grad_s(xy.x, xy.y);
-        return dvec2 {std::get<0>(tmp), std::get<1>(tmp)};
-      }
+      s_wrapper,
+      grad_s_wrapper,
+      (void *) this
     );
   }
+
   ~sjs_wrapper() {
     sjs_deinit(ptr);
     sjs_dealloc(&ptr);
   }
 };
+
+static dbl s_wrapper(void *vp, dvec2 xy) {
+  sjs_wrapper * swp = (sjs_wrapper *) vp;
+  if (!swp->s) {
+    throw std::runtime_error {"ERROR: No s function for sjs!"};
+  }
+  return (*swp->s)(xy.x, xy.y);
+}
+
+static dvec2 grad_s_wrapper(void *vp, dvec2 xy) {
+  sjs_wrapper * swp = (sjs_wrapper *) vp;
+  if (!swp->grad_s) {
+    throw std::runtime_error {"ERROR: No grad_s function for sjs!"};
+  }
+  dvec2 tmp;
+  std::tie(tmp.x, tmp.y) = (*swp->grad_s)(xy.x, xy.y);
+  return tmp;
+}
 
 PYBIND11_MODULE (sjs_eik, m) {
   m.doc() = R"pbdoc(
@@ -83,9 +139,15 @@ TODO!
       "swim",
       [] (heap_wrapper & w, int ind) { heap_swim(w.ptr, ind); }
     )
-    .def(
+    .def_property_readonly(
       "front",
-      [] (heap_wrapper const & w) { return heap_front(w.ptr); }
+      [] (heap_wrapper const & w) {
+        std::optional<int> size;
+        if (heap_size(w.ptr) > 0) {
+          *size = heap_size(w.ptr);
+        }
+        return size;
+      }
     )
     .def(
       "pop",

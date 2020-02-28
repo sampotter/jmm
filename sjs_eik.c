@@ -23,8 +23,8 @@ struct sjs {
   int tri_dlc[NUM_NB];
   int nb_dlc[NUM_CELL_VERTS];
   int nearby_dlc[NUM_NEARBY_CELLS];
-  sfield s;
-  vfield grad_s;
+  sfield_f s;
+  vfield_f grad_s;
   bicubic *bicubics;
   jet_s *jets;
   state_e *states;
@@ -32,6 +32,7 @@ struct sjs {
   int *node_parents;
   int *positions;
   heap_s *heap;
+  void *context;
 };
 
 void sjs_alloc(sjs_s **sjs) {
@@ -151,12 +152,29 @@ dvec2 sjs_xy(sjs_s *sjs, int l) {
   return xy;
 }
 
+static dbl value(void *vp, int l) {
+  sjs_s *sjs = (sjs_s *)vp;
+  dbl T = sjs->jets[l].f;
+  int lf = sjs->node_parents[l];
+  if (lf != NO_PARENT) {
+    dvec2 xy = sjs_xy(sjs, l), xyf = sjs_xy(sjs, lf);
+    dbl rf = dvec2_dist(xy, xyf);
+    T += rf;
+  }
+  return T;
+}
+
+static void setpos(void *vp, int l, int pos) {
+  sjs_s *sjs = (sjs_s *)vp;
+  sjs->positions[l] = pos;
+}
+
 // TODO: since the margins are BOUNDARY nodes, we actually don't need
 // to allocate an extra margin of cells, since they will never be
 // initialized (i.e., they will never have all of their vertex nodes
 // become VALID because of the margin...)
-void sjs_init(sjs_s *sjs, ivec2 shape, dvec2 xymin, dbl h, sfield s,
-              vfield grad_s) {
+void sjs_init(sjs_s *sjs, ivec2 shape, dvec2 xymin, dbl h, sfield_f s,
+              vfield_f grad_s, void *context) {
   sjs->shape = shape;
   sjs->ncells = (shape.i + 1)*(shape.j + 1);
   sjs->nnodes = (shape.i + 2)*(shape.j + 2);
@@ -170,6 +188,7 @@ void sjs_init(sjs_s *sjs, ivec2 shape, dvec2 xymin, dbl h, sfield s,
   sjs->cell_parents = malloc(sjs->ncells*sizeof(int));
   sjs->node_parents = malloc(sjs->nnodes*sizeof(int));
   sjs->positions = malloc(sjs->nnodes*sizeof(int));
+  sjs->context = context;
 
   assert(sjs->bicubics != NULL);
   assert(sjs->jets != NULL);
@@ -185,23 +204,8 @@ void sjs_init(sjs_s *sjs, ivec2 shape, dvec2 xymin, dbl h, sfield s,
 
   heap_alloc(&sjs->heap);
 
-  value_b value = ^(int l) {
-    dbl T = sjs->jets[l].f;
-    int lf = sjs->node_parents[l];
-    if (lf != NO_PARENT) {
-      dvec2 xy = sjs_xy(sjs, l), xyf = sjs_xy(sjs, lf);
-      dbl rf = dvec2_dist(xy, xyf);
-      T += rf;
-    }
-    return T;
-  };
-
-  setpos_b setpos = ^(int l, int pos) {
-    sjs->positions[l] = pos;
-  };
-
   int capacity = (int) 3*sqrt(sjs->shape.i*sjs->shape.j);
-  heap_init(sjs->heap, capacity, value, setpos);
+  heap_init(sjs->heap, capacity, value, setpos, (void *)sjs);
 
   sjs_set_nb_dl(sjs);
   sjs_set_vert_dl(sjs);
@@ -267,7 +271,7 @@ dvec2 sjs_cell_center(sjs_s *sjs, int lc) {
 }
 
 dbl sjs_get_s(sjs_s *sjs, int l) {
-  return sjs->s(sjs_xy(sjs, l));
+  return sjs->s(sjs->context, sjs_xy(sjs, l));
 }
 
 bicubic_variable tri_bicubic_vars[NUM_NB] = {
@@ -285,33 +289,35 @@ typedef struct {
 } F_data;
 
 dbl F(F_data *data, dbl t) {
+  sjs_s *sjs = data->sjs;
   dvec2 xyt = dvec2_ccomb(data->xy0, data->xy1, t);
   dbl T = cubic_f(&data->cubic, t);
-  dbl s = data->sjs->s(xyt);
+  dbl s = sjs->s(sjs->context, xyt);
   dbl L = sqrt(1 + t*t);
-  dbl tmp = T + data->sjs->h*s*L;
+  dbl tmp = T + sjs->h*s*L;
   if (data->parent != NO_PARENT) {
-    dvec2 xyf = sjs_xy(data->sjs, data->parent);
+    dvec2 xyf = sjs_xy(sjs, data->parent);
     tmp += dvec2_dist(xyt, xyf);
   }
   return tmp;
 }
 
 dbl dF_dt(F_data *data, dbl t) {
+  sjs_s *sjs = data->sjs;
   dvec2 xyt = dvec2_ccomb(data->xy0, data->xy1, t);
-  dbl s = data->sjs->s(xyt);
-  dvec2 ds = data->sjs->grad_s(xyt);
+  dbl s = sjs->s(sjs->context, xyt);
+  dvec2 ds = sjs->grad_s(sjs->context, xyt);
   dbl ds_dt = data->var == LAMBDA ? ds.x : ds.y;
   dbl dT_dt = cubic_df(&data->cubic, t);
   dbl L = sqrt(1 + t*t);
   dbl dL_dt = t/L;
-  dbl tmp = dT_dt + data->sjs->h*(ds_dt*L + s*dL_dt);
+  dbl tmp = dT_dt + sjs->h*(ds_dt*L + s*dL_dt);
   if (data->parent != NO_PARENT) {
-    dvec2 xyf = sjs_xy(data->sjs, data->parent);
+    dvec2 xyf = sjs_xy(sjs, data->parent);
     dbl rf = dvec2_dist(xyt, xyf);
     tmp += data->var == LAMBDA ?
-      data->sjs->h*(xyt.x + data->sjs->h*t - xyt.x)/pow(rf, 3) :
-      data->sjs->h*(xyt.y + data->sjs->h*t - xyt.y)/pow(rf, 3);
+      sjs->h*(xyt.x + sjs->h*t - xyt.x)/pow(rf, 3) :
+      sjs->h*(xyt.y + sjs->h*t - xyt.y)/pow(rf, 3);
   }
   return tmp;
 }

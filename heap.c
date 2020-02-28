@@ -8,8 +8,9 @@ typedef struct heap {
   int capacity;
   int size;
   int* inds;
-  value_b value;
-  setpos_b setpos;
+  value_f value;
+  setpos_f setpos;
+  void *context;
 } heap_s;
 
 void heap_alloc(heap_s **heap) {
@@ -22,7 +23,8 @@ void heap_dealloc(heap_s **heap) {
   *heap = NULL;
 }
 
-void heap_init(heap_s *heap, int capacity, value_b value, setpos_b setpos) {
+void heap_init(heap_s *heap, int capacity, value_f value, setpos_f setpos,
+               void *context) {
   heap->capacity = capacity;
   heap->size = 0;
   heap->inds = malloc(heap->capacity*sizeof(int));
@@ -32,8 +34,9 @@ void heap_init(heap_s *heap, int capacity, value_b value, setpos_b setpos) {
     heap->inds[i] = NO_INDEX;
   }
 #endif
-  heap->value = Block_copy(value);
-  heap->setpos = Block_copy(setpos);
+  heap->value = value;
+  heap->setpos = setpos;
+  heap->context = context;
 }
 
 void heap_deinit(heap_s *heap) {
@@ -73,8 +76,7 @@ dbl value(heap_s *heap, int pos) {
   assert(ind != NO_INDEX);
 #endif
 
-  return heap->value(heap->inds[pos]);
-  // return heap->sjs->jets[heap->inds[pos]].f;
+  return heap->value(heap->context, heap->inds[pos]);
 }
 
 void heap_set(heap_s *heap, int pos, int ind) {
@@ -82,7 +84,7 @@ void heap_set(heap_s *heap, int pos, int ind) {
   assert(pos < heap->size);
 
   heap->inds[pos] = ind;
-  heap->setpos(ind, pos);
+  heap->setpos(heap->context, ind, pos);
 }
 
 void heap_swap(heap_s *heap, int pos1, int pos2) {

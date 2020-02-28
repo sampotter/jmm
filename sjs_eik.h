@@ -9,8 +9,8 @@ struct sjs;
 #include "hermite.h"
 #include "vec.h"
 
-typedef dbl (^sfield)(dvec2);
-typedef dvec2 (^vfield)(dvec2);
+typedef dbl (*sfield_f)(void *, dvec2);
+typedef dvec2 (*vfield_f)(void *, dvec2);
 
 typedef struct sjs sjs_s;
 
@@ -34,7 +34,8 @@ void sjs_dealloc(sjs_s **sjs);
  * `h`. Additionally, the slowness and its gradient are provided by
  * `s` and `grad_s` respectively.
  */
-void sjs_init(sjs_s *sjs, ivec2 shape, dvec2 xymin, dbl h, sfield s, vfield grad_s);
+void sjs_init(sjs_s *sjs, ivec2 shape, dvec2 xymin, dbl h, sfield_f s,
+              vfield_f grad_s, void *context);
 
 /**
  * Deinitialize `sjs`. This should be called before `sjs_dealloc` is
