@@ -21,7 +21,7 @@ dmat44 dmat44_dmat44_mul(dmat44 const A, dmat44 const B) {
   return C;
 }
 
-dvec4 dmat4_col(dmat44 const A, int j) {
+dvec4 dmat44_col(dmat44 const A, int j) {
   dvec4 a;
   for (int i = 0; i < 4; ++i) {
     a.data[i] = A.rows[i].data[j];
