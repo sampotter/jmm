@@ -12,19 +12,21 @@
 ** Compilation
 
    To compile, just run:
-
 #+BEGIN_SRC sh
 $ python setup.py install
 #+END_SRC
-
    This will install a Python module named ~sjs_eik~ which contains
    everything in a flat namespace.
 
 ** Tests
 
    To run the included unit tests, first install the module as
-   described above, and then run ~test.sh~. This will in turn run the
-   tests contained in each of the ~*.test.py~ files.
+   described above, and then run:
+#+BEGIN_SRC sh
+$ python -m unittest
+#+END_SRC
+   This will in turn run the
+   tests contained in each of the ~test_*.py~ files.
 
    Since the Python interface exposes exactly the same interface as
    the C library, we opt to just implement the tests using Python's
