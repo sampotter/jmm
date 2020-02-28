@@ -292,7 +292,26 @@ TODO!
              return ptr;
            }
          ))
+    .def(
+      "__getitem__",
+      [] (dmat44 const & A, std::pair<int, int> ij) {
+        return A.data[ij.first][ij.second];
+      }
+    )
+    .def(
+      "__mul__",
+      [] (dmat44 const & A, dvec4 const & x) { return dmat44_dvec4_mul(A, x); }
+    )
+    .def(
+      "__mul__",
+      [] (dmat44 const & A, dmat44 const & B) { return dmat44_dmat44_mul(A, B); }
+    )
     ;
+
+  m.def(
+    "col",
+    [] (dmat44 const & A, int j) { return dmat44_col(A, j); }
+  );
 
   // sjs_eik.h
 
