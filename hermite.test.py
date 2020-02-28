@@ -4,7 +4,7 @@ import unittest
 
 class TestCubic(unittest.TestCase):
 
-    def test_ctor(self):
+    def test_basic(self):
         for _ in range(10):
             data = np.random.randn(4)
             cubic = sjs_eik.Cubic(data)
