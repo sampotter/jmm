@@ -117,76 +117,11 @@ sjs_eik
 TODO!
 )pbdoc";
 
-  // def.h
-
-  py::enum_<state>(m, "State")
-    .value("Far", state::FAR)
-    .value("Trial", state::TRIAL)
-    .value("Valid", state::VALID)
-    .value("Boundary", state::BOUNDARY)
-    ;
-
-  // heap.h
-
-  py::class_<heap_wrapper>(m, "Heap")
-    .def(py::init<int, std::function<dbl(int)>, std::function<void(int,int)>>())
-    .def(
-      "insert",
-      [] (heap_wrapper & w, int ind) { heap_insert(w.ptr, ind); }
-    )
-    .def(
-      "swim",
-      [] (heap_wrapper & w, int ind) { heap_swim(w.ptr, ind); }
-    )
-    .def_property_readonly(
-      "front",
-      [] (heap_wrapper const & w) {
-        std::optional<int> size;
-        if (heap_size(w.ptr) > 0) {
-          *size = heap_size(w.ptr);
-        }
-        return size;
-      }
-    )
-    .def(
-      "pop",
-      [] (heap_wrapper & w) { heap_pop(w.ptr); }
-    )
-    .def_property_readonly(
-      "size",
-      [] (heap_wrapper const & w) { return heap_size(w.ptr); }
-    )
-    ;
-
-  // hermite.h
+  // bicubic.h
 
   py::enum_<bicubic_variable>(m, "BicubicVariable")
     .value("Lambda", bicubic_variable::LAMBDA)
     .value("Mu", bicubic_variable::MU)
-    ;
-
-  py::class_<cubic>(m, "Cubic")
-    .def(py::init(
-           [] (std::array<dbl, 4> const & data) {
-             auto ptr = std::make_unique<cubic>();
-             cubic_set_data_from_ptr(ptr.get(), &data[0]);
-             return ptr;
-           }
-         ))
-    .def(
-      "set_data",
-      [] (cubic & C, std::array<dbl, 4> const & data) {
-        cubic_set_data_from_ptr(&C, &data[0]);
-      }
-    )
-    .def(
-      "f",
-      [] (cubic const & C, dbl lam) { return cubic_f(&C, lam); }
-    )
-    .def(
-      "df",
-      [] (cubic const & C, dbl lam) { return cubic_df(&C, lam); }
-    )
     ;
 
   py::class_<bicubic>(m, "Bicubic")
@@ -256,6 +191,79 @@ TODO!
       [] (bicubic const & B, dbl lambda, dbl mu) {
         return bicubic_fxy(&B, dvec2 {lambda, mu});
       }
+    )
+    ;
+
+  // cubic.h
+
+  py::class_<cubic>(m, "Cubic")
+    .def(py::init(
+           [] (std::array<dbl, 4> const & data) {
+             auto ptr = std::make_unique<cubic>();
+             cubic_set_data_from_ptr(ptr.get(), &data[0]);
+             return ptr;
+           }
+         ))
+    .def(
+      "set_data",
+      [] (cubic & C, std::array<dbl, 4> const & data) {
+        cubic_set_data_from_ptr(&C, &data[0]);
+      }
+    )
+    .def_property_readonly(
+      "a",
+      [] (cubic const & C) {
+        return C.a;
+      }
+    )
+    .def(
+      "f",
+      [] (cubic const & C, dbl lam) { return cubic_f(&C, lam); }
+    )
+    .def(
+      "df",
+      [] (cubic const & C, dbl lam) { return cubic_df(&C, lam); }
+    )
+    ;
+
+  // def.h
+
+  py::enum_<state>(m, "State")
+    .value("Far", state::FAR)
+    .value("Trial", state::TRIAL)
+    .value("Valid", state::VALID)
+    .value("Boundary", state::BOUNDARY)
+    ;
+
+  // heap.h
+
+  py::class_<heap_wrapper>(m, "Heap")
+    .def(py::init<int, std::function<dbl(int)>, std::function<void(int,int)>>())
+    .def(
+      "insert",
+      [] (heap_wrapper & w, int ind) { heap_insert(w.ptr, ind); }
+    )
+    .def(
+      "swim",
+      [] (heap_wrapper & w, int ind) { heap_swim(w.ptr, ind); }
+    )
+    .def_property_readonly(
+      "front",
+      [] (heap_wrapper const & w) {
+        std::optional<int> size;
+        if (heap_size(w.ptr) > 0) {
+          *size = heap_size(w.ptr);
+        }
+        return size;
+      }
+    )
+    .def(
+      "pop",
+      [] (heap_wrapper & w) { heap_pop(w.ptr); }
+    )
+    .def_property_readonly(
+      "size",
+      [] (heap_wrapper const & w) { return heap_size(w.ptr); }
     )
     ;
 
@@ -395,6 +403,14 @@ TODO!
     .def(
       "sum",
       [] (dvec4 const & u) { return dvec4_sum(u); }
+    )
+    .def_static(
+      "m",
+      [] (dbl x) { return dvec4_m(x); }
+    )
+    .def_static(
+      "dm",
+      [] (dbl x) { return dvec4_dm(x); }
     )
     ;
 

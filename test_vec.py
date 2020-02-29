@@ -43,5 +43,19 @@ class TestDvec4(unittest.TestCase):
             self.assertAlmostEqual(u.sum(), u_data.sum())
             self.assertAlmostEqual(sjs.sum(u), u_data.sum())
 
+    def test_m(self):
+        for _ in range(10):
+            x = np.random.randn()
+            m = sjs.Dvec4.m(x)
+            for i in range(4):
+                self.assertAlmostEqual(m[i], x**i);
+
+    def test_dm(self):
+        for _ in range(10):
+            x = np.random.randn()
+            dm = sjs.Dvec4.dm(x)
+            for i in range(4):
+                self.assertAlmostEqual(dm[i], i*x**(i - 1))
+
 if __name__ == '__main__':
     unittest.main()

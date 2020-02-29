@@ -25,3 +25,21 @@ dbl dvec4_sum(dvec4 v) {
   }
   return tmp;
 }
+
+dvec4 dvec4_m(dbl x) {
+  dvec4 m;
+  m.data[0] = 1.0;
+  m.data[1] = x;
+  m.data[2] = x*x;
+  m.data[3] = x*x*x;
+  return m;
+}
+
+dvec4 dvec4_dm(dbl x) {
+  dvec4 dm;
+  dm.data[0] = 0.0;
+  dm.data[1] = 1.0;
+  dm.data[2] = 2.0*x;
+  dm.data[3] = 3.0*x*x;
+  return dm;
+}
