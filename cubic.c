@@ -18,7 +18,9 @@ void cubic_set_data(cubic_s *cubic, dvec4 data) {
 }
 
 void cubic_set_data_from_ptr(cubic_s *cubic, dbl const *data_ptr) {
-  memcpy((void *)cubic->a.data, (void *)data_ptr, 4*sizeof(dbl));
+  dvec4 data;
+  memcpy((void *)data.data, (void *)data_ptr, 4*sizeof(dbl));
+  cubic_set_data(cubic, data);
 }
 
 dbl cubic_f(cubic_s const *cubic, dbl lam) {
