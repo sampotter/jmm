@@ -397,6 +397,10 @@ TODO!
       }
     )
     .def(
+      "__mul__",
+      [] (dvec4 const & x, dmat44 const & A) { return dvec4_dmat44_mul(x, A); }
+    )
+    .def(
       "dot",
       [] (dvec4 const & u, dvec4 const & v) { return dvec4_dot(u, v); }
     )

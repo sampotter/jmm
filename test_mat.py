@@ -12,6 +12,16 @@ class TestDmat44(unittest.TestCase):
             for i, j in it.product(range(4), repeat=2):
                 self.assertEqual(A[i, j], A_data[i, j])
 
+    def test_vec_mat_mul(self):
+        for _ in range(10):
+            x_data = np.random.randn(4)
+            A_data = np.random.randn(4, 4)
+            x, A = sjs.Dvec4(x_data), sjs.Dmat44(A_data)
+            y = x*A
+            y_gt = x_data@A_data
+            for i in range(4):
+                self.assertAlmostEqual(y[i], y_gt[i])
+
     def test_mat_vec_mul(self):
         for _ in range(10):
             A_data = np.random.randn(4, 4)
