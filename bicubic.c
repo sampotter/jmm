@@ -31,52 +31,37 @@ void bicubic_set_data_from_ptr(bicubic_s *bicubic, dbl const *data_ptr) {
 
 cubic_s
 bicubic_restrict(bicubic_s const *bicubic, bicubic_variable var, int edge) {
-  // TODO: a bunch of this is wrong---fix
   cubic_s cubic;
-  if (var == LAMBDA) {
-    if (edge == 0) {
-      cubic.a = bicubic->A.rows[0];
-    } else {
-      for (int i = 0; i < 4; ++i) {
-        cubic.a.data[i] = dvec4_sum(bicubic->A.rows[i]);
-      }
-    }
-  } else {
-    if (edge == 0) {
-      cubic.a = dmat44_col(bicubic->A, 0);
-    } else {
-      for (int i = 0; i < 4; ++i) {
-        cubic.a.data[i] = dvec4_sum(bicubic->A.rows[i]);
-      }
-    }
-  }
+  cubic.a = var == LAMBDA ?
+      dmat44_dvec4_mul(bicubic->A, edge == 0 ? dvec4_e1() : dvec4_one()) :
+      dvec4_dmat44_mul(edge == 0 ? dvec4_e1() : dvec4_one(), bicubic->A);
   return cubic;
 }
 
 dbl bicubic_f(bicubic_s const *bicubic, dvec2 cc) {
-  (void) bicubic;
-  (void) cc;
-  dbl f = 0;
-  return f;
+  return dvec4_dot(
+    dvec4_m(cc.x),
+    dmat44_dvec4_mul(bicubic->A, dvec4_m(cc.y))
+  );
 }
 
 dbl bicubic_fx(bicubic_s const *bicubic, dvec2 cc) {
-  (void) bicubic;
-  (void) cc;
-  dbl fx = 0;
-  return fx;
+  return dvec4_dot(
+    dvec4_dm(cc.x),
+    dmat44_dvec4_mul(bicubic->A, dvec4_m(cc.y))
+  );
 }
 
 dbl bicubic_fy(bicubic_s const *bicubic, dvec2 cc) {
-  (void) bicubic;
-  (void) cc;
-  dbl fy = 0;
-  return fy;
+  return dvec4_dot(
+    dvec4_m(cc.x),
+    dmat44_dvec4_mul(bicubic->A, dvec4_dm(cc.y))
+  );
 }
 
 dbl bicubic_fxy(bicubic_s const *bicubic, dvec2 cc) {
-  (void) bicubic;
-  (void) cc;
-  dbl fxy = 0;
-  return fxy;
+  return dvec4_dot(
+    dvec4_dm(cc.x),
+    dmat44_dvec4_mul(bicubic->A, dvec4_dm(cc.y))
+  );
 }
