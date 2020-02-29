@@ -5,6 +5,7 @@ extern "C" {
 #endif
 
 #include "bicubic.h"
+#include "jet.h"
 #include "vec.h"
 
 typedef dbl (*sfield_f)(void *, dvec2);
@@ -44,11 +45,32 @@ void sjs_init(sjs_s *sjs, ivec2 shape, dvec2 xymin, dbl h, sfield_f s,
 void sjs_deinit(sjs_s *sjs);
 
 /**
+ * Run the solver for one step. See comments below about
+ * `sjs_solve`. This function is just called repeatedly by `sjs_solve`
+ * until there are no more `TRIAL` or `FAR` nodes.
+ */
+void sjs_step(sjs_s *sjs);
+
+/**
  * Solve the problem specified by `sjs` with the given boundary
  * data. This assumes that `sjs_init` has been called, and boundary
- * data has been provided through at least one call to `sjs_add_bd`.
+ * data has been provided through at least one call to
+ * `sjs_add_bd`. See also `sjs_step`.
  */
 void sjs_solve(sjs_s *sjs);
+
+/**
+ * Set the jet at the node at `ind` to `jet`, set its state to
+ * `TRIAL`, and insert it into the heap. This function should be
+ * called to set the boundary data for the problem before solving it.
+ */
+void sjs_add_trial(sjs_s *sjs, ivec2 ind, jet_s jet);
+
+/**
+ * Set the state of the node at `ind` to `BOUNDARY`, effectively
+ * removing it from the domain.
+ */
+void sjs_make_bd(sjs_s *sjs, ivec2 ind);
 
 /**
  * Get $T(x, y)$ (the value of `T` at the possibly non-grid-aligned
