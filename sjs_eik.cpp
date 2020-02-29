@@ -109,10 +109,10 @@ static dvec2 grad_s_wrapper(void *vp, dvec2 xy) {
   return tmp;
 }
 
-PYBIND11_MODULE (sjs_eik, m) {
+PYBIND11_MODULE (_sjs_eik, m) {
   m.doc() = R"pbdoc(
-sjs_eik
--------
+_sjs_eik
+--------
 
 TODO!
 )pbdoc";

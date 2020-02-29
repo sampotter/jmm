@@ -4,7 +4,7 @@ import sys
 import platform
 import subprocess
 
-from setuptools import setup, Extension
+from setuptools import find_packages, setup, Extension
 from setuptools.command.build_ext import build_ext
 from distutils.version import LooseVersion
 
@@ -59,7 +59,7 @@ class CMakeBuild(build_ext):
         subprocess.check_call(['cmake', '--build', '.'] + build_args, cwd=self.build_temp)
 
 ext_modules=[
-    CMakeExtension('sjs_eik')
+    CMakeExtension('_sjs_eik')
 ]
 
 setup(
@@ -69,6 +69,7 @@ setup(
     author_email='sfp@umiacs.umd.edu',
     description='TODO',
     long_description='',
+    packages=find_packages(),
     ext_modules=ext_modules,
     install_requires=['pybind11>=2.4'],
     setup_requires=['pybind11>=2.4'],
