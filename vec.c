@@ -43,3 +43,21 @@ dvec4 dvec4_dm(dbl x) {
   dm.data[3] = 3.0*x*x;
   return dm;
 }
+
+dvec4 dvec4_one() {
+  dvec4 one;
+  one.data[0] = 1.0;
+  one.data[1] = 1.0;
+  one.data[2] = 1.0;
+  one.data[3] = 1.0;
+  return one;
+}
+
+dvec4 dvec4_iota() {
+  dvec4 iota;
+  iota.data[0] = 0.0;
+  iota.data[1] = 1.0;
+  iota.data[2] = 2.0;
+  iota.data[3] = 3.0;
+  return iota;
+}

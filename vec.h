@@ -33,6 +33,8 @@ dbl dvec4_dot(dvec4 v0, dvec4 v1);
 dbl dvec4_sum(dvec4 v);
 dvec4 dvec4_m(dbl x);
 dvec4 dvec4_dm(dbl x);
+dvec4 dvec4_one();
+dvec4 dvec4_iota();
 
 typedef struct {
   int i;

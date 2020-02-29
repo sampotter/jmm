@@ -416,6 +416,14 @@ TODO!
       "dm",
       [] (dbl x) { return dvec4_dm(x); }
     )
+    .def_static(
+      "one",
+      [] () { return dvec4_one(); }
+    )
+    .def_static(
+      "iota",
+      [] () { return dvec4_iota(); }
+    )
     ;
 
   m.def(
