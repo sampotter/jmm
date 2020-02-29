@@ -44,6 +44,15 @@ dvec4 dvec4_dm(dbl x) {
   return dm;
 }
 
+dvec4 dvec4_e1() {
+  dvec4 e1;
+  e1.data[0] = 1.0;
+  e1.data[1] = 0.0;
+  e1.data[2] = 0.0;
+  e1.data[3] = 0.0;
+  return e1;
+}
+
 dvec4 dvec4_one() {
   dvec4 one;
   one.data[0] = 1.0;

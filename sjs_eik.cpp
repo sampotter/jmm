@@ -417,6 +417,10 @@ TODO!
       [] (dbl x) { return dvec4_dm(x); }
     )
     .def_static(
+      "e1",
+      [] () { return dvec4_e1(); }
+    )
+    .def_static(
       "one",
       [] () { return dvec4_one(); }
     )

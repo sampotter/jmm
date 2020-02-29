@@ -57,6 +57,12 @@ class TestDvec4(unittest.TestCase):
             for i in range(4):
                 self.assertAlmostEqual(dm[i], i*x**(i - 1))
 
+    def test_e1(self):
+        e1 = sjs.Dvec4.e1()
+        self.assertEqual(e1[0], 1)
+        for i in range(1, 4):
+            self.assertEqual(e1[i], 0)
+
     def test_one(self):
         one = sjs.Dvec4.one()
         for i in range(4):
