@@ -24,11 +24,9 @@ void cubic_set_data_from_ptr(cubic_s *cubic, dbl const *data_ptr) {
 }
 
 dbl cubic_f(cubic_s const *cubic, dbl lam) {
-  dbl const *a = cubic->a.data;
-  return a[0] + lam*(a[1] + lam*(a[2] + lam*a[3]));
+  return dvec4_dot(cubic->a, dvec4_m(lam));
 }
 
 dbl cubic_df(cubic_s const *cubic, dbl lam) {
-  dbl const *a = cubic->a.data;
-  return a[1] + lam*(2*a[2] + 3*lam*a[3]);
+  return dvec4_dot(cubic->a, dvec4_dm(lam));
 }
