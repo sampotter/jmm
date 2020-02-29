@@ -13,10 +13,5 @@ class TestCubic(unittest.TestCase):
             self.assertTrue(np.isclose(cubic.df(0), data[2]))
             self.assertTrue(np.isclose(cubic.df(1), data[3]))
 
-class TestBicubic(unittest.TestCase):
-
-    def test_ctor(self):
-        pass
-
 if __name__ == '__main__':
     unittest.main()
