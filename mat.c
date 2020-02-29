@@ -19,12 +19,7 @@ dvec4 dvec4_dmat44_mul(dvec4 const x, dmat44 const A) {
 dmat44 dmat44_dmat44_mul(dmat44 const A, dmat44 const B) {
   dmat44 C;
   for (int i = 0; i < 4; ++i) {
-    for (int j = 0; j < 4; ++j) {
-      C.data[i][j] = 0;
-      for (int k = 0; k < 4; ++k) {
-        C.data[i][j] += A.data[i][k]*B.data[k][j];
-      }
-    }
+    C.rows[i] = dvec4_dmat44_mul(A.rows[i], B);
   }
   return C;
 }
