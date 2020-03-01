@@ -332,6 +332,10 @@ TODO!
            std::function<std::tuple<dbl, dbl>(dbl, dbl)> const &
          >())
     .def(
+      "step",
+      [] (sjs_wrapper const & w) { sjs_step(w.ptr); }
+    )
+    .def(
       "solve",
       [] (sjs_wrapper const & w) { sjs_solve(w.ptr); }
     )
