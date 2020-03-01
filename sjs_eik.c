@@ -694,6 +694,18 @@ void sjs_solve(sjs_s *sjs) {
   }
 }
 
+void sjs_add_trial(sjs_s *sjs, ivec2 ind, jet_s jet) {
+  int l = lindexe(sjs, ind);
+  sjs->jets[l] = jet;
+  sjs->states[l] = TRIAL;
+  adjust(sjs, l);
+}
+
+void sjs_make_bd(sjs_s *sjs, ivec2 ind) {
+  int l = lindexe(sjs, ind);
+  sjs->states[l] = BOUNDARY;
+}
+
 jet_s sjs_get_jet(sjs_s *sjs, ivec2 ind) {
   int l = lindexe(sjs, ind);
   return sjs->jets[l];
