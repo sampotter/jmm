@@ -72,6 +72,9 @@ void sjs_add_trial(sjs_s *sjs, ivec2 ind, jet_s jet);
  */
 void sjs_make_bd(sjs_s *sjs, ivec2 ind);
 
+jet_s sjs_get_jet(sjs_s *sjs, ivec2 ind);
+void sjs_set_jet(sjs_s *sjs, ivec2 ind, jet_s jet);
+
 /**
  * Get $T(x, y)$ (the value of `T` at the possibly non-grid-aligned
  * point specified by `xy`). The value will be interpolated from

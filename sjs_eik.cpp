@@ -336,6 +336,18 @@ TODO!
       [] (sjs_wrapper const & w) { sjs_solve(w.ptr); }
     )
     .def(
+      "get_jet",
+      [] (sjs_wrapper const & w, int i, int j) {
+        return sjs_get_jet(w.ptr, {i, j});
+      }
+    )
+    .def(
+      "set_jet",
+      [] (sjs_wrapper const & w, int i, int j, jet_s jet) {
+        sjs_set_jet(w.ptr, {i, j}, jet);
+      }
+    )
+    .def(
       "T",
       [] (sjs_wrapper const & w, dbl x, dbl y) {
         return sjs_T(w.ptr, dvec2 {x, y});

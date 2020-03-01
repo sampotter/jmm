@@ -694,6 +694,16 @@ void sjs_solve(sjs_s *sjs) {
   }
 }
 
+jet_s sjs_get_jet(sjs_s *sjs, ivec2 ind) {
+  int l = lindexe(sjs, ind);
+  return sjs->jets[l];
+}
+
+void sjs_set_jet(sjs_s *sjs, ivec2 ind, jet_s jet) {
+  int l = lindexe(sjs, ind);
+  sjs->jets[l] = jet;
+}
+
 dbl sjs_T(sjs_s *sjs, dvec2 xy) {
   dvec2 cc;
   int lc = xy_to_lc_and_cc(sjs, xy, &cc);
