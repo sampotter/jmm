@@ -8,6 +8,10 @@ extern "C" {
 #define SJS_EIK_DEBUG 1
 #endif
 
+#define ROW_MAJOR_ORDERING 0
+#define COLUMN_MAJOR_ORDERING 1
+#define ORDERING ROW_MAJOR_ORDERING
+
 #define EPS 1e-13
 #define NO_INDEX -1
 #define NO_PARENT -1
