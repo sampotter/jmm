@@ -4,7 +4,7 @@ import sys
 import platform
 import subprocess
 
-from setuptools import find_packages, setup, Extension
+from setuptools import setup, Extension
 from setuptools.command.build_ext import build_ext
 from distutils.version import LooseVersion
 
@@ -69,8 +69,8 @@ setup(
     author_email='sfp@umiacs.umd.edu',
     description='TODO',
     long_description='',
-    packages=find_packages(),
     ext_modules=ext_modules,
+    py_modules=['sjs_eik'],
     install_requires=['pybind11>=2.4'],
     setup_requires=['pybind11>=2.4'],
     cmdclass={'build_ext': CMakeBuild},
