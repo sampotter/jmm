@@ -470,6 +470,14 @@ TODO!
 
   py::class_<ivec2>(m, "Ivec2")
     .def(py::init<int, int>())
+    .def(py::init(
+           [] (std::pair<int, int> const & ind) {
+             auto ptr = std::make_unique<ivec2>();
+             ptr->i = ind.first;
+             ptr->j = ind.second;
+             return ptr;
+           }
+         ))
     .def_readwrite("i", &ivec2::i)
     .def_readwrite("j", &ivec2::j)
     ;
