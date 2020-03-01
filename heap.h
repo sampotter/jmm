@@ -4,7 +4,7 @@
 extern "C" {
 #endif
 
-#include "sjs_eik.h"
+#include "def.h"
 
 typedef struct heap heap_s;
 
