@@ -6,7 +6,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "heap.h"
 #include "jet.h"
 #include "math.h"
 
@@ -114,56 +113,56 @@ static int updated2dirty[NUM_NB][NUM_CELL_VERTS] = {
   {4, 5, 8, 9}
 };
 
-static int lindexi(sjs_s *sjs, ivec2 ind) {
+static int ind2l_i(sjs_s const *sjs, ivec2 ind) {
   return (sjs->shape.i + 2)*ind.j + ind.i;
 }
 
-static int lindexe(sjs_s *sjs, ivec2 ind) {
+static int ind2l_e(sjs_s const *sjs, ivec2 ind) {
   return (sjs->shape.i + 2)*(ind.j + 1) + ind.i + 1;
 }
 
-static int clindexi(sjs_s *sjs, ivec2 ind) {
+static int ind2lc_i(sjs_s const *sjs, ivec2 ind) {
   return (sjs->shape.i + 1)*ind.j + ind.i;
 }
 
-static int clindexe(sjs_s *sjs, ivec2 cind) {
-  return (sjs->shape.i + 1)*(cind.j + 1) + cind.i + 1;
+static int indc2lc_e(sjs_s const *sjs, ivec2 indc) {
+  return (sjs->shape.i + 1)*(indc.j + 1) + indc.i + 1;
 }
 
-static int l2lc(sjs_s *sjs, int l) {
+static int l2lc(sjs_s const *sjs, int l) {
   return l - l/(sjs->shape.i + 2);
 }
 
-static int lc2l(sjs_s *sjs, int lc) {
+static int lc2l(sjs_s const *sjs, int lc) {
   return lc + lc/(sjs->shape.i + 1);
 }
 
 static void set_nb_dl(sjs_s *sjs) {
   for (int i = 0; i < NUM_NB + 1; ++i) {
-    sjs->nb_dl[i] = lindexi(sjs, offsets[i]);
+    sjs->nb_dl[i] = ind2l_i(sjs, offsets[i]);
   }
 }
 
 static void set_vert_dl(sjs_s *sjs) {
   for (int i = 0; i < NUM_CELL_VERTS; ++i) {
-    sjs->vert_dl[i] = lindexi(sjs, cell_vert_offsets[i]);
+    sjs->vert_dl[i] = ind2l_i(sjs, cell_vert_offsets[i]);
   }
 }
 
 static void set_tri_dlc(sjs_s *sjs) {
   for (int i = 0; i < NUM_NB; ++i) {
-    sjs->tri_dlc[i] = clindexi(sjs, tri_cell_offsets[i]);
+    sjs->tri_dlc[i] = ind2lc_i(sjs, tri_cell_offsets[i]);
   }
 }
 static void set_nb_dlc(sjs_s *sjs) {
   for (int i = 0; i < NUM_CELL_VERTS; ++i) {
-    sjs->nb_dlc[i] = clindexi(sjs, nb_cell_offsets[i]);
+    sjs->nb_dlc[i] = ind2lc_i(sjs, nb_cell_offsets[i]);
   }
 }
 
 static void set_nearby_dlc(sjs_s *sjs) {
   for (int i = 0; i < NUM_NEARBY_CELLS; ++i) {
-    sjs->nearby_dlc[i] = clindexi(sjs, nearby_cell_offsets[i]);
+    sjs->nearby_dlc[i] = ind2lc_i(sjs, nearby_cell_offsets[i]);
   }
 }
 
@@ -208,7 +207,7 @@ static int xy_to_lc_and_cc(sjs_s *sjs, dvec2 xy, dvec2 *cc) {
     --ind.j;
     cc->y = 1.0;
   }
-  int l = lindexe(sjs, ind);
+  int l = ind2l_e(sjs, ind);
   return l2lc(sjs, l);
 }
 
@@ -420,38 +419,49 @@ static void est_Txy_values(sjs_s *sjs, int lc, dbl Txy[4]) {
   }
 }
 
-static void update_cell(sjs_s *sjs, int lc) {
+/**
+ * Build the cell at index `lc`. This uses the jets at the cells
+ * vertices to assemble the data matrix for the bicubic
+ * interpolant. This function doesn't make any assumptions about the
+ * state of the nodes, so it's assumed that the caller has already
+ * made sure this is a reasonable thing to try to do.
+ */
+static void build_cell(sjs_s *sjs, int lc) {
+  /* Get linear indices of cell vertices */
   int l[4];
-  jet_s *J[4];
   for (int i = 0; i < NUM_CELL_VERTS; ++i) {
     l[i] = lc2l(sjs, lc) + sjs->vert_dl[i];
+  }
+
+  /* Get jet at each cell vertex */
+  jet_s *J[4];
+  for (int i = 0; i < NUM_CELL_VERTS; ++i) {
     J[i] = &sjs->jets[l[i]];
   }
 
-  dmat44 data;
-
+  /* Precompute scaling factors for partial derivatives */
   dbl h = sjs->h, h_sq = h*h;
 
-  // TODO: this is a screwy way to do this---we want to lay this out
-  // in memory so it will eventually be easy to just do this using
-  // SIMD instructions
+  /* Compute cell data from jets and scaling factors */
+  dmat44 data;
   data.data[0][0] = J[0]->f;
-  data.data[0][1] = J[2]->f;
-  data.data[0][2] = h*J[0]->fy;
-  data.data[0][3] = h*J[2]->fy;
   data.data[1][0] = J[1]->f;
+  data.data[0][1] = J[2]->f;
   data.data[1][1] = J[3]->f;
-  data.data[1][2] = h*J[1]->fy;
-  data.data[1][3] = h*J[3]->fy;
   data.data[2][0] = h*J[0]->fx;
-  data.data[2][1] = h*J[2]->fx;
-  data.data[2][2] = h_sq*J[0]->fxy;
-  data.data[2][3] = h_sq*J[2]->fxy;
   data.data[3][0] = h*J[1]->fx;
+  data.data[2][1] = h*J[2]->fx;
   data.data[3][1] = h*J[3]->fx;
+  data.data[0][2] = h*J[0]->fy;
+  data.data[1][2] = h*J[1]->fy;
+  data.data[0][3] = h*J[2]->fy;
+  data.data[1][3] = h*J[3]->fy;
+  data.data[2][2] = h_sq*J[0]->fxy;
   data.data[3][2] = h_sq*J[1]->fxy;
+  data.data[2][3] = h_sq*J[2]->fxy;
   data.data[3][3] = h_sq*J[3]->fxy;
 
+  /* Set cell data */
   bicubic_set_data(&sjs->bicubics[lc], data);
 }
 
@@ -679,11 +689,11 @@ void sjs_step(sjs_s *sjs) {
     }
   }
 
-  // Update dirty cells.
+  // Rebuild dirty cells.
   for (int i = 0, lc; i < NUM_NEARBY_CELLS; ++i) {
     if (dirty[i]) {
       lc = l2lc(sjs, l0) + sjs->nearby_dlc[i];
-      update_cell(sjs, lc);
+      build_cell(sjs, lc);
     }
   }
 }
@@ -695,25 +705,38 @@ void sjs_solve(sjs_s *sjs) {
 }
 
 void sjs_add_trial(sjs_s *sjs, ivec2 ind, jet_s jet) {
-  int l = lindexe(sjs, ind);
+  int l = ind2l_e(sjs, ind);
   sjs->jets[l] = jet;
   sjs->states[l] = TRIAL;
-  adjust(sjs, l);
+  heap_insert(sjs->heap, l);
 }
 
 void sjs_make_bd(sjs_s *sjs, ivec2 ind) {
-  int l = lindexe(sjs, ind);
+  int l = ind2l_e(sjs, ind);
   sjs->states[l] = BOUNDARY;
 }
 
+ivec2 sjs_get_shape(sjs_s const *sjs) {
+  return sjs->shape;
+}
+
 jet_s sjs_get_jet(sjs_s *sjs, ivec2 ind) {
-  int l = lindexe(sjs, ind);
+  int l = ind2l_e(sjs, ind);
   return sjs->jets[l];
 }
 
 void sjs_set_jet(sjs_s *sjs, ivec2 ind, jet_s jet) {
-  int l = lindexe(sjs, ind);
+  int l = ind2l_e(sjs, ind);
   sjs->jets[l] = jet;
+}
+
+state_e sjs_get_state(sjs_s const *sjs, ivec2 ind) {
+  int l = ind2l_e(sjs, ind);
+  return sjs->states[l];
+}
+
+state_e *sjs_get_states_ptr(sjs_s const *sjs) {
+  return sjs->states;
 }
 
 dbl sjs_T(sjs_s *sjs, dvec2 xy) {
@@ -768,7 +791,19 @@ dbl sjs_Txy(sjs_s *sjs, dvec2 xy) {
   return Txy;
 }
 
-bicubic_s *sjs_bicubic(sjs_s *sjs, ivec2 cind) {
-  int lc = clindexe(sjs, cind);
+void sjs_build_cells(sjs_s *sjs) {
+  for (int lc = 0; lc < sjs->ncells; ++lc) {
+    if (cell_is_ready(sjs, lc)) {
+      build_cell(sjs, lc);
+    }
+  }
+}
+
+bicubic_s *sjs_get_bicubic(sjs_s const *sjs, ivec2 indc) {
+  int lc = indc2lc_e(sjs, indc);
   return &sjs->bicubics[lc];
+}
+
+heap_s *sjs_get_heap(sjs_s const *sjs) {
+  return sjs->heap;
 }

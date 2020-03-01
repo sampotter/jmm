@@ -1,6 +1,7 @@
 #include <pybind11/pybind11.h>
 
 #include <pybind11/functional.h>
+#include <pybind11/numpy.h>
 #include <pybind11/stl.h>
 
 namespace py = pybind11;
@@ -16,11 +17,15 @@ static void setpos_wrapper(void * vp, int l, int pos);
 struct heap_wrapper
 {
   heap * ptr {nullptr};
+  bool should_call_dtor {false};
 
   std::optional<std::function<dbl(int)>> value;
   std::optional<std::function<void(int, int)>> setpos;
 
+  heap_wrapper(heap * ptr): ptr {ptr} {}
+
   heap_wrapper(int capacity, decltype(value) value, decltype(setpos) setpos):
+    should_call_dtor {true},
     value {value},
     setpos {setpos}
   {
@@ -35,8 +40,10 @@ struct heap_wrapper
   }
 
   ~heap_wrapper() {
-    heap_deinit(ptr);
-    heap_dealloc(&ptr);
+    if (should_call_dtor) {
+      heap_deinit(ptr);
+      heap_dealloc(&ptr);
+    }
   }
 };
 
@@ -351,6 +358,10 @@ TODO!
         sjs_make_bd(w.ptr, ivec2 {i, j});
       }
     )
+    .def_property_readonly(
+      "shape",
+      [] (sjs_wrapper const &w) { return sjs_get_shape(w.ptr); }
+    )
     .def(
       "get_jet",
       [] (sjs_wrapper const & w, int i, int j) {
@@ -361,6 +372,23 @@ TODO!
       "set_jet",
       [] (sjs_wrapper const & w, int i, int j, jet_s jet) {
         sjs_set_jet(w.ptr, {i, j}, jet);
+      }
+    )
+    .def(
+      "get_state",
+      [] (sjs_wrapper const & w, int i, int j) {
+        return sjs_get_state(w.ptr, {i, j});
+      }
+    )
+    .def_property_readonly(
+      "states",
+      [] (sjs_wrapper const & w) {
+        ivec2 shape = sjs_get_shape(w.ptr);
+        return py::array {
+          {shape.i, shape.j},
+          {sizeof(state)*(shape.j + 2), sizeof(state)},
+          sjs_get_states_ptr(w.ptr)
+        };
       }
     )
     .def(
@@ -388,9 +416,19 @@ TODO!
       }
     )
     .def(
-      "bicubic",
+      "build_cells",
+      [] (sjs_wrapper const & w) { sjs_build_cells(w.ptr); }
+    )
+    .def(
+      "get_bicubic",
       [] (sjs_wrapper const & w, int i, int j) {
-        return sjs_bicubic(w.ptr, ivec2 {i, j});
+        return sjs_get_bicubic(w.ptr, ivec2 {i, j});
+      }
+    )
+    .def_property_readonly(
+      "heap",
+      [] (sjs_wrapper const & w) {
+        return heap_wrapper {sjs_get_heap(w.ptr)};
       }
     )
     ;
