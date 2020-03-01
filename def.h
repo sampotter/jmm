@@ -5,7 +5,7 @@ extern "C" {
 #endif
 
 #ifndef NDEBUG
-#define SJS_EIK_DEBUG
+#define SJS_EIK_DEBUG 1
 #endif
 
 #define EPS 1e-13
