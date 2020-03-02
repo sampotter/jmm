@@ -146,7 +146,7 @@ int xy_to_lc_and_cc(ivec2 shape, dvec2 xymin, dbl h, dvec2 xy, dvec2 *cc) {
 #endif
 
   *cc = dvec2_sub(xy, xymin);
-  *cc = dvec2_dbl_div(xy, h);
+  *cc = dvec2_dbl_div(*cc, h);
   dvec2 ind_ = dvec2_floor(*cc);
   *cc = dvec2_sub(*cc, ind_);
   ivec2 ind = dvec2_to_ivec2(ind_);

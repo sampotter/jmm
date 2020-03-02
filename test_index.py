@@ -118,5 +118,32 @@ class TestIndex(unittest.TestCase):
             self.assertEqual(x, cc.x)
             self.assertEqual(y, cc.y)
 
+        for _ in range(10):
+            shape = np.random.randint((2, 1), 99) + 1
+            xymin = np.random.randn(2)
+            h = np.random.rand()
+
+            xy = h*np.random.randint(shape) + xymin
+            assert(all(xy[i] >= xymin[i] for i in range(2)))
+            assert(all(xy[i] <= xymin[i] + h*shape[i] for i in range(2)))
+
+            cc_gt = (xy - xymin)/h
+            ind_gt = np.floor(cc_gt).astype(int)
+            cc_gt -= ind_gt
+            for i in range(2):
+                if ind_gt[i] < 0:
+                    ind_gt[i] = 0
+                    cc_gt[i] = 0.0
+                if ind_gt[i] >= shape[i] - 1:
+                    ind_gt[i] -= 1
+                    cc_gt[i] = 1.0
+            lc_gt = np.ravel_multi_index(ind_gt, shape - 1, order='C')
+
+            lc, cc = sjs._xy_to_lc_and_cc(shape, xymin, h, xy)
+
+            self.assertEqual(lc, lc_gt)
+            self.assertEqual(cc.x, cc_gt[0])
+            self.assertEqual(cc.y, cc_gt[1])
+
 if __name__ == '__main__':
     unittest.main()
