@@ -11,10 +11,13 @@ class TestStaticJetScheme(unittest.TestCase):
         s = lambda x, y: 1.0 + 0.0*x + 0.0*y
         grad_s = lambda x, y: 0.0 + 0.0*x + 0.0*y
         scheme = sjs.StaticJetScheme(shape, xymin, h, s, grad_s)
-        scheme.set_jet(0, 0, sjs.Jet(1, 0, 0, 0))
-        scheme.set_jet(1, 0, sjs.Jet(1, 0, 0, 0))
-        scheme.set_jet(0, 1, sjs.Jet(1, 0, 0, 0))
-        scheme.set_jet(1, 1, sjs.Jet(1, 0, 0, 0))
+        scheme.add_trial(0, 0, sjs.Jet(1, 0, 0, 0))
+        scheme.add_trial(1, 0, sjs.Jet(1, 0, 0, 0))
+        scheme.add_trial(0, 1, sjs.Jet(1, 0, 0, 0))
+        scheme.add_trial(1, 1, sjs.Jet(1, 0, 0, 0))
+        self.assertTrue(scheme.can_build_cell(0, 0))
+        scheme.build_cells()
+        print(scheme.get_jet(0, 0))
         for _ in range(100):
             x, y = np.random.rand(2)
             self.assertAlmostEqual(scheme.T(x, y), 1.0)
