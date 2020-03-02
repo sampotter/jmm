@@ -149,23 +149,6 @@ static dvec2 get_xy(sjs_s *sjs, int l) {
   return xy;
 }
 
-static dbl value(void *vp, int l) {
-  sjs_s *sjs = (sjs_s *)vp;
-  dbl T = sjs->jets[l].f;
-  int lf = sjs->node_parents[l];
-  if (lf != NO_PARENT) {
-    dvec2 xy = get_xy(sjs, l), xyf = get_xy(sjs, lf);
-    dbl rf = dvec2_dist(xy, xyf);
-    T += rf;
-  }
-  return T;
-}
-
-static void setpos(void *vp, int l, int pos) {
-  sjs_s *sjs = (sjs_s *)vp;
-  sjs->positions[l] = pos;
-}
-
 static dbl get_s(sjs_s *sjs, int l) {
   return sjs->s(sjs->context, get_xy(sjs, l));
 }
@@ -428,6 +411,17 @@ static void adjust(sjs_s *sjs, int l0) {
  */
 static bool inbounds(sjs_s *sjs, int l) {
   return 0 <= l && l < sjs->nnodes;
+}
+
+static dbl value(void *vp, int l) {
+  sjs_s *sjs = (sjs_s *)vp;
+  dbl T = sjs->jets[l].f;
+  return T;
+}
+
+static void setpos(void *vp, int l, int pos) {
+  sjs_s *sjs = (sjs_s *)vp;
+  sjs->positions[l] = pos;
 }
 
 void sjs_alloc(sjs_s **sjs) {
