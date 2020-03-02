@@ -505,6 +505,12 @@ TODO!
       }
     )
     .def(
+      "can_build_cell",
+      [] (sjs_wrapper const & w, int i, int j) {
+        return sjs_can_build_cell(w.ptr, ivec2 {i, j});
+      }
+    )
+    .def(
       "build_cells",
       [] (sjs_wrapper const & w) { sjs_build_cells(w.ptr); }
     )
