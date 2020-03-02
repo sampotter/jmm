@@ -22,6 +22,30 @@ class TestDvec2(unittest.TestCase):
             d = np.sqrt((v1 - u1)**2 + (v2 - u2)**2)
             self.assertAlmostEqual(sjs.dist(u, v), d)
 
+    def test_sub(self):
+        for _ in range(10):
+            u1, u2, v1, v2 = np.random.randn(4)
+            u, v = sjs.Dvec2(u1, u2), sjs.Dvec2(v1, v2)
+            w = u - v
+            self.assertAlmostEqual(w.x, u1 - v1)
+            self.assertAlmostEqual(w.y, u2 - v2)
+
+    def test_dbl_div(self):
+        for _ in range(10):
+            u1, u2, a = np.random.randn(3)
+            u = sjs.Dvec2(u1, u2)
+            v = u/a
+            self.assertAlmostEqual(v.x, u1/a)
+            self.assertAlmostEqual(v.y, u2/a)
+
+    def test_floor(self):
+        for _ in range(10):
+            u1, u2 = np.random.randn(2)
+            u = sjs.Dvec2(u1, u2)
+            v = u.floor()
+            self.assertAlmostEqual(v.x, np.floor(u1))
+            self.assertAlmostEqual(v.y, np.floor(u2))
+
 class TestDvec4(unittest.TestCase):
 
     def test_basic(self):
@@ -72,6 +96,16 @@ class TestDvec4(unittest.TestCase):
         iota = sjs.Dvec4.iota()
         for i in range(4):
             self.assertEqual(iota[i], i)
+
+class TestIvec2(unittest.TestCase):
+
+    def test_dvec2_to_ivec2(self):
+        for _ in range(10):
+            u1, u2 = np.random.randn(2)
+            u = sjs.Dvec2(u1, u2)
+            v = sjs.Ivec2(u)
+            self.assertAlmostEqual(v.i, int(u1))
+            self.assertAlmostEqual(v.j, int(u2))
 
 if __name__ == '__main__':
     unittest.main()

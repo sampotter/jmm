@@ -439,6 +439,24 @@ TODO!
     .def(py::init<dbl, dbl>())
     .def_readwrite("x", &dvec2::x)
     .def_readwrite("y", &dvec2::y)
+    .def(
+      "__sub__",
+      [] (dvec2 const & u, dvec2 const & v) {
+        return dvec2_sub(u, v);
+      }
+    )
+    .def(
+      "__truediv__",
+      [] (dvec2 const & v, dbl a) {
+        return dvec2_dbl_div(v, a);
+      }
+    )
+    .def(
+      "floor",
+      [] (dvec2 const & v) {
+        return dvec2_floor(v);
+      }
+    )
     ;
 
   py::class_<dvec4>(m, "Dvec4")
@@ -514,6 +532,11 @@ TODO!
              ptr->i = ind.first;
              ptr->j = ind.second;
              return ptr;
+           }
+         ))
+    .def(py::init(
+           [] (dvec2 const & u) {
+             return std::make_unique<ivec2>(dvec2_to_ivec2(u));
            }
          ))
     .def_readwrite("i", &ivec2::i)

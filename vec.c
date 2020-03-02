@@ -10,6 +10,21 @@ dbl dvec2_dist(dvec2 v0, dvec2 v1) {
   return sqrt(dx*dx + dy*dy);
 }
 
+dvec2 dvec2_sub(dvec2 u, dvec2 v) {
+  dvec2 w = {.x = u.x - v.x, .y = u.y - v.y};
+  return w;
+}
+
+dvec2 dvec2_dbl_div(dvec2 v, dbl a) {
+  dvec2 w = {.x = v.x/a, .y = v.y/a};
+  return w;
+}
+
+dvec2 dvec2_floor(dvec2 v) {
+  dvec2 w = {.x = floor(v.x), .y = floor(v.y)};
+  return w;
+}
+
 dbl dvec4_dot(dvec4 v0, dvec4 v1) {
   dbl tmp = 0;
   for (int i = 0; i < 4; ++i) {
@@ -69,4 +84,9 @@ dvec4 dvec4_iota() {
   iota.data[2] = 2.0;
   iota.data[3] = 3.0;
   return iota;
+}
+
+ivec2 dvec2_to_ivec2(dvec2 v) {
+  ivec2 ij = {.i = (int)v.x, .j = (int)v.y};
+  return ij;
 }

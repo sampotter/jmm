@@ -16,6 +16,9 @@ typedef struct {
 
 dvec2 dvec2_ccomb(dvec2 v0, dvec2 v1, dbl t);
 dbl dvec2_dist(dvec2 v0, dvec2 v1);
+dvec2 dvec2_sub(dvec2 u, dvec2 v);
+dvec2 dvec2_dbl_div(dvec2 v, dbl a);
+dvec2 dvec2_floor(dvec2 v);
 
 typedef struct {
   union {
@@ -41,6 +44,8 @@ typedef struct {
   int i;
   int j;
 } ivec2;
+
+ivec2 dvec2_to_ivec2(dvec2 v);
 
 #ifdef __cplusplus
 }
