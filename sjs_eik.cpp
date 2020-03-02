@@ -8,6 +8,7 @@ namespace py = pybind11;
 
 #include "bicubic.h"
 #include "heap.h"
+#include "index.h"
 #include "jet.h"
 #include "sjs_eik.h"
 
@@ -274,6 +275,94 @@ TODO!
     )
     ;
 
+  // index.h
+
+  m.def(
+    "_ind2l",
+    [] (std::array<int, 2> shape, std::array<int, 2> ind) {
+      return ind2l({shape[0], shape[1]}, {ind[0], ind[1]});
+    }
+  );
+
+  m.def(
+    "_ind2lc",
+    [] (std::array<int, 2> shape, std::array<int, 2> ind) {
+      return ind2lc({shape[0], shape[1]}, {ind[0], ind[1]});
+    }
+  );
+
+  m.def(
+    "_indc2l",
+    [] (std::array<int, 2> shape, std::array<int, 2> indc) {
+      return indc2l({shape[0], shape[1]}, {indc[0], indc[1]});
+    }
+  );
+
+  m.def(
+    "_indc2lc",
+    [] (std::array<int, 2> shape, std::array<int, 2> indc) {
+      return indc2lc({shape[0], shape[1]}, {indc[0], indc[1]});
+    }
+  );
+
+  m.def(
+    "_l2ind",
+    [] (std::array<int, 2> shape, int l) {
+      return l2ind({shape[0], shape[1]}, l);
+    }
+  );
+
+  m.def(
+    "_l2indc",
+    [] (std::array<int, 2> shape, int l) {
+      return l2indc({shape[0], shape[1]}, l);
+    }
+  );
+
+  m.def(
+    "_lc2ind",
+    [] (std::array<int, 2> shape, int lc) {
+      return lc2ind({shape[0], shape[1]}, lc);
+    }
+  );
+
+  m.def(
+    "_lc2indc",
+    [] (std::array<int, 2> shape, int lc) {
+      return lc2indc({shape[0], shape[1]}, lc);
+    }
+  );
+
+  m.def(
+    "_l2lc",
+    [] (std::array<int, 2> shape, int l) {
+      return l2lc({shape[0], shape[1]}, l);
+    }
+  );
+
+  m.def(
+    "_lc2l",
+    [] (std::array<int, 2> shape, int lc) {
+      return lc2l({shape[0], shape[1]}, lc);
+    }
+  );
+
+  m.def(
+    "_xy_to_lc_and_cc",
+    [] (std::array<int, 2> shape, std::array<dbl, 2> xymin, dbl h,
+        std::array<dbl, 2> xy) {
+      dvec2 cc;
+      int lc = xy_to_lc_and_cc(
+        {shape[0], shape[1]},
+        {xymin[0], xymin[1]},
+        h,
+        {xy[0], xy[1]},
+        &cc
+      );
+      return std::make_pair(lc, cc);
+    }
+  );
+
   // jet.h
 
   py::class_<jet>(m, "Jet")
@@ -386,7 +475,7 @@ TODO!
         ivec2 shape = sjs_get_shape(w.ptr);
         return py::array {
           {shape.i, shape.j},
-          {sizeof(state)*(shape.j + 2), sizeof(state)},
+          {sizeof(state)*shape.j, sizeof(state)},
           sjs_get_states_ptr(w.ptr)
         };
       }

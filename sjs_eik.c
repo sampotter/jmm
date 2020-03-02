@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "index.h"
 #include "jet.h"
 #include "math.h"
 
@@ -110,56 +111,33 @@ static int updated2dirty[NUM_NB][NUM_CELL_VERTS] = {
   {4, 5, 8, 9}
 };
 
-static int ind2l_i(sjs_s const *sjs, ivec2 ind) {
-  return (sjs->shape.i + 2)*ind.j + ind.i;
-}
-
-static int ind2l_e(sjs_s const *sjs, ivec2 ind) {
-  return (sjs->shape.i + 2)*(ind.j + 1) + ind.i + 1;
-}
-
-static int ind2lc_i(sjs_s const *sjs, ivec2 ind) {
-  return (sjs->shape.i + 1)*ind.j + ind.i;
-}
-
-static int indc2lc_e(sjs_s const *sjs, ivec2 indc) {
-  return (sjs->shape.i + 1)*(indc.j + 1) + indc.i + 1;
-}
-
-static int l2lc(sjs_s const *sjs, int l) {
-  return l - l/(sjs->shape.i + 2);
-}
-
-static int lc2l(sjs_s const *sjs, int lc) {
-  return lc + lc/(sjs->shape.i + 1);
-}
-
 static void set_nb_dl(sjs_s *sjs) {
   for (int i = 0; i < NUM_NB + 1; ++i) {
-    sjs->nb_dl[i] = ind2l_i(sjs, offsets[i]);
+    sjs->nb_dl[i] = ind2l(sjs->shape, offsets[i]);
   }
 }
 
 static void set_vert_dl(sjs_s *sjs) {
   for (int i = 0; i < NUM_CELL_VERTS; ++i) {
-    sjs->vert_dl[i] = ind2l_i(sjs, cell_vert_offsets[i]);
+    sjs->vert_dl[i] = ind2l(sjs->shape, cell_vert_offsets[i]);
   }
 }
 
 static void set_tri_dlc(sjs_s *sjs) {
   for (int i = 0; i < NUM_NB; ++i) {
-    sjs->tri_dlc[i] = ind2lc_i(sjs, tri_cell_offsets[i]);
+    sjs->tri_dlc[i] = ind2lc(sjs->shape, tri_cell_offsets[i]);
   }
 }
+
 static void set_nb_dlc(sjs_s *sjs) {
   for (int i = 0; i < NUM_CELL_VERTS; ++i) {
-    sjs->nb_dlc[i] = ind2lc_i(sjs, nb_cell_offsets[i]);
+    sjs->nb_dlc[i] = ind2lc(sjs->shape, nb_cell_offsets[i]);
   }
 }
 
 static void set_nearby_dlc(sjs_s *sjs) {
   for (int i = 0; i < NUM_NEARBY_CELLS; ++i) {
-    sjs->nearby_dlc[i] = ind2lc_i(sjs, nearby_cell_offsets[i]);
+    sjs->nearby_dlc[i] = ind2lc(sjs->shape, nearby_cell_offsets[i]);
   }
 }
 
@@ -187,25 +165,6 @@ static dbl value(void *vp, int l) {
 static void setpos(void *vp, int l, int pos) {
   sjs_s *sjs = (sjs_s *)vp;
   sjs->positions[l] = pos;
-}
-
-static int xy_to_lc_and_cc(sjs_s *sjs, dvec2 xy, dvec2 *cc) {
-  assert(cc != NULL);
-  cc->x = (xy.x - sjs->xymin.x)/sjs->h;
-  cc->y = (xy.y - sjs->xymin.y)/sjs->h;
-  ivec2 ind = {(int) floor(cc->x), (int) floor(cc->y)};
-  cc->x = fmod(cc->x, 1.0);
-  cc->y = fmod(cc->y, 1.0);
-  if (ind.i == sjs->shape.i - 1) {
-    --ind.i;
-    cc->x = 1.0;
-  }
-  if (ind.j == sjs->shape.j - 1) {
-    --ind.j;
-    cc->y = 1.0;
-  }
-  int l = ind2l_e(sjs, ind);
-  return l2lc(sjs, l);
 }
 
 static dbl get_s(sjs_s *sjs, int l) {
@@ -255,7 +214,7 @@ static bool tri(sjs_s *sjs, int l, int l0, int l1, int i0) {
   assert(i0 >= 0);
   assert(i0 < NUM_NB);
 
-  int lc = l2lc(sjs, l) + sjs->tri_dlc[i0];
+  int lc = l2lc(sjs->shape, l) + sjs->tri_dlc[i0];
   assert(lc >= 0);
   assert(lc < sjs->ncells);
 
@@ -359,7 +318,7 @@ static void est_Txy_values(sjs_s *sjs, int lc, dbl Txy[4]) {
   dbl fx[NUM_CELL_VERTS], fy[NUM_CELL_VERTS];
 
   for (int i = 0, l; i < NUM_CELL_VERTS; ++i) {
-    l = lc2l(sjs, lc) + sjs->vert_dl[i];
+    l = lc2l(sjs->shape, lc) + sjs->vert_dl[i];
     fx[i] = sjs->jets[l].fx;
     fy[i] = sjs->jets[l].fy;
   }
@@ -395,7 +354,7 @@ static void build_cell(sjs_s *sjs, int lc) {
   /* Get linear indices of cell vertices */
   int l[4];
   for (int i = 0; i < NUM_CELL_VERTS; ++i) {
-    l[i] = lc2l(sjs, lc) + sjs->vert_dl[i];
+    l[i] = lc2l(sjs->shape, lc) + sjs->vert_dl[i];
   }
 
   /* Get jet at each cell vertex */
@@ -489,8 +448,8 @@ void sjs_dealloc(sjs_s **sjs) {
 void sjs_init(sjs_s *sjs, ivec2 shape, dvec2 xymin, dbl h, sfield_f s,
               vfield_f grad_s, void *context) {
   sjs->shape = shape;
-  sjs->ncells = (shape.i + 1)*(shape.j + 1);
-  sjs->nnodes = (shape.i + 2)*(shape.j + 2);
+  sjs->ncells = (shape.i - 1)*(shape.j - 1);
+  sjs->nnodes = shape.i*shape.j;
   sjs->xymin = xymin;
   sjs->h = h;
   sjs->s = s;
@@ -526,21 +485,6 @@ void sjs_init(sjs_s *sjs, ivec2 shape, dvec2 xymin, dbl h, sfield_f s,
   for (int l = 0; l < sjs->nnodes; ++l) {
     sjs->jets[l].f = INFINITY;
     sjs->states[l] = FAR;
-  }
-
-  for (int i = 0, l; i < shape.i + 2; ++i) {
-    l = i;
-    sjs->states[l] = BOUNDARY;
-  }
-  for (int j = 1, l; j < shape.i + 1; ++j) {
-    l = (shape.i + 2)*j;
-    sjs->states[l] = BOUNDARY;
-    l += shape.i + 1;
-    sjs->states[l] = BOUNDARY;
-  }
-  for (int i = 0, l; i < shape.i + 2; ++i) {
-    l = (shape.j + 1)*(shape.i + 2) + i;
-    sjs->states[l] = BOUNDARY;
   }
 }
 
@@ -596,8 +540,8 @@ void sjs_step(sjs_s *sjs) {
   bool dirty[NUM_NEARBY_CELLS];
   memset(dirty, 0x0, NUM_NEARBY_CELLS*sizeof(bool));
   for (int i = 0, lc; i < NUM_NEARBY_CELLS; ++i) {
-    lc = l2lc(sjs, l0) + sjs->nearby_dlc[i];
     if (!cell_is_ready(sjs, lc)) {
+    lc = l2lc(sjs->shape, l0) + sjs->nearby_dlc[i];
       continue;
     }
     for (int j = 0, k; j < NUM_CELL_VERTS; ++j) {
@@ -614,7 +558,7 @@ void sjs_step(sjs_s *sjs) {
   dbl Txy[NUM_NEARBY_CELLS][4];
   for (int i = 0, lc; i < NUM_NEARBY_CELLS; ++i) {
     if (dirty[i]) {
-      lc = l2lc(sjs, l0) + sjs->nearby_dlc[i];
+      lc = l2lc(sjs->shape, l0) + sjs->nearby_dlc[i];
       est_Txy_values(sjs, lc, Txy[i]);
     }
   }
@@ -642,7 +586,7 @@ void sjs_step(sjs_s *sjs) {
   // Rebuild dirty cells.
   for (int i = 0, lc; i < NUM_NEARBY_CELLS; ++i) {
     if (dirty[i]) {
-      lc = l2lc(sjs, l0) + sjs->nearby_dlc[i];
+      lc = l2lc(sjs->shape, l0) + sjs->nearby_dlc[i];
       build_cell(sjs, lc);
     }
   }
@@ -655,14 +599,14 @@ void sjs_solve(sjs_s *sjs) {
 }
 
 void sjs_add_trial(sjs_s *sjs, ivec2 ind, jet_s jet) {
-  int l = ind2l_e(sjs, ind);
+  int l = ind2l(sjs->shape, ind);
   sjs->jets[l] = jet;
   sjs->states[l] = TRIAL;
   heap_insert(sjs->heap, l);
 }
 
 void sjs_make_bd(sjs_s *sjs, ivec2 ind) {
-  int l = ind2l_e(sjs, ind);
+  int l = ind2l(sjs->shape, ind);
   sjs->states[l] = BOUNDARY;
 }
 
@@ -671,17 +615,17 @@ ivec2 sjs_get_shape(sjs_s const *sjs) {
 }
 
 jet_s sjs_get_jet(sjs_s *sjs, ivec2 ind) {
-  int l = ind2l_e(sjs, ind);
+  int l = ind2l(sjs->shape, ind);
   return sjs->jets[l];
 }
 
 void sjs_set_jet(sjs_s *sjs, ivec2 ind, jet_s jet) {
-  int l = ind2l_e(sjs, ind);
+  int l = ind2l(sjs->shape, ind);
   sjs->jets[l] = jet;
 }
 
 state_e sjs_get_state(sjs_s const *sjs, ivec2 ind) {
-  int l = ind2l_e(sjs, ind);
+  int l = ind2l(sjs->shape, ind);
   return sjs->states[l];
 }
 
@@ -691,28 +635,28 @@ state_e *sjs_get_states_ptr(sjs_s const *sjs) {
 
 dbl sjs_T(sjs_s *sjs, dvec2 xy) {
   dvec2 cc;
-  int lc = xy_to_lc_and_cc(sjs, xy, &cc);
+  int lc = xy_to_lc_and_cc(sjs->shape, sjs->xymin, sjs->h, xy, &cc);
   bicubic_s *bicubic = &sjs->bicubics[lc];
   return bicubic_f(bicubic, cc);
 }
 
 dbl sjs_Tx(sjs_s *sjs, dvec2 xy) {
   dvec2 cc;
-  int lc = xy_to_lc_and_cc(sjs, xy, &cc);
+  int lc = xy_to_lc_and_cc(sjs->shape, sjs->xymin, sjs->h, xy, &cc);
   bicubic_s *bicubic = &sjs->bicubics[lc];
   return bicubic_fx(bicubic, cc);
 }
 
 dbl sjs_Ty(sjs_s *sjs, dvec2 xy) {
   dvec2 cc;
-  int lc = xy_to_lc_and_cc(sjs, xy, &cc);
+  int lc = xy_to_lc_and_cc(sjs->shape, sjs->xymin, sjs->h, xy, &cc);
   bicubic_s *bicubic = &sjs->bicubics[lc];
   return bicubic_fy(bicubic, cc);
 }
 
 dbl sjs_Txy(sjs_s *sjs, dvec2 xy) {
   dvec2 cc;
-  int lc = xy_to_lc_and_cc(sjs, xy, &cc);
+  int lc = xy_to_lc_and_cc(sjs->shape, sjs->xymin, sjs->h, xy, &cc);
   bicubic_s *bicubic = &sjs->bicubics[lc];
   return bicubic_fxy(bicubic, cc);
 }
@@ -726,8 +670,8 @@ void sjs_build_cells(sjs_s *sjs) {
 }
 
 bicubic_s *sjs_get_bicubic(sjs_s const *sjs, ivec2 indc) {
-  int lc = indc2lc_e(sjs, indc);
   return &sjs->bicubics[lc];
+  int lc = indc2lc(sjs->shape, indc);
 }
 
 heap_s *sjs_get_heap(sjs_s const *sjs) {
