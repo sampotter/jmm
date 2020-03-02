@@ -635,6 +635,9 @@ state_e *sjs_get_states_ptr(sjs_s const *sjs) {
 dbl sjs_T(sjs_s *sjs, dvec2 xy) {
   dvec2 cc;
   int lc = xy_to_lc_and_cc(sjs->shape, sjs->xymin, sjs->h, xy, &cc);
+  if (!can_build_cell(sjs, lc)) {
+    return NAN;
+  }
   bicubic_s *bicubic = &sjs->bicubics[lc];
   return bicubic_f(bicubic, cc);
 }
@@ -642,6 +645,9 @@ dbl sjs_T(sjs_s *sjs, dvec2 xy) {
 dbl sjs_Tx(sjs_s *sjs, dvec2 xy) {
   dvec2 cc;
   int lc = xy_to_lc_and_cc(sjs->shape, sjs->xymin, sjs->h, xy, &cc);
+  if (!can_build_cell(sjs, lc)) {
+    return NAN;
+  }
   bicubic_s *bicubic = &sjs->bicubics[lc];
   return bicubic_fx(bicubic, cc);
 }
@@ -649,6 +655,9 @@ dbl sjs_Tx(sjs_s *sjs, dvec2 xy) {
 dbl sjs_Ty(sjs_s *sjs, dvec2 xy) {
   dvec2 cc;
   int lc = xy_to_lc_and_cc(sjs->shape, sjs->xymin, sjs->h, xy, &cc);
+  if (!can_build_cell(sjs, lc)) {
+    return NAN;
+  }
   bicubic_s *bicubic = &sjs->bicubics[lc];
   return bicubic_fy(bicubic, cc);
 }
@@ -656,6 +665,9 @@ dbl sjs_Ty(sjs_s *sjs, dvec2 xy) {
 dbl sjs_Txy(sjs_s *sjs, dvec2 xy) {
   dvec2 cc;
   int lc = xy_to_lc_and_cc(sjs->shape, sjs->xymin, sjs->h, xy, &cc);
+  if (!can_build_cell(sjs, lc)) {
+    return NAN;
+  }
   bicubic_s *bicubic = &sjs->bicubics[lc];
   return bicubic_fxy(bicubic, cc);
 }
