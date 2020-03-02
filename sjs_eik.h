@@ -24,6 +24,7 @@ void sjs_deinit(sjs_s *sjs);
 void sjs_step(sjs_s *sjs);
 void sjs_solve(sjs_s *sjs);
 void sjs_add_trial(sjs_s *sjs, ivec2 ind, jet_s jet);
+void sjs_add_valid(sjs_s *sjs, ivec2 ind, jet_s jet);
 void sjs_make_bd(sjs_s *sjs, ivec2 ind);
 ivec2 sjs_get_shape(sjs_s const *sjs);
 jet_s sjs_get_jet(sjs_s *sjs, ivec2 ind);

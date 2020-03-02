@@ -442,6 +442,12 @@ TODO!
       }
     )
     .def(
+      "add_valid",
+      [] (sjs_wrapper const & w, int i, int j, jet_s jet) {
+        sjs_add_valid(w.ptr, ivec2 {i, j}, jet);
+      }
+    )
+    .def(
       "make_bd",
       [] (sjs_wrapper const & w, int i, int j) {
         sjs_make_bd(w.ptr, ivec2 {i, j});

@@ -598,6 +598,12 @@ void sjs_add_trial(sjs_s *sjs, ivec2 ind, jet_s jet) {
   heap_insert(sjs->heap, l);
 }
 
+void sjs_add_valid(sjs_s *sjs, ivec2 ind, jet_s jet) {
+  int l = ind2l(sjs->shape, ind);
+  sjs->jets[l] = jet;
+  sjs->states[l] = VALID;
+}
+
 void sjs_make_bd(sjs_s *sjs, ivec2 ind) {
   int l = ind2l(sjs->shape, ind);
   sjs->states[l] = BOUNDARY;
