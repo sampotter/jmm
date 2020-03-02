@@ -2,7 +2,6 @@
 
 #include <assert.h>
 #include <math.h>
-#include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -540,8 +539,8 @@ void sjs_step(sjs_s *sjs) {
   bool dirty[NUM_NEARBY_CELLS];
   memset(dirty, 0x0, NUM_NEARBY_CELLS*sizeof(bool));
   for (int i = 0, lc; i < NUM_NEARBY_CELLS; ++i) {
-    if (!cell_is_ready(sjs, lc)) {
     lc = l2lc(sjs->shape, l0) + sjs->nearby_dlc[i];
+    if (!can_build_cell(sjs, lc)) {
       continue;
     }
     for (int j = 0, k; j < NUM_CELL_VERTS; ++j) {
@@ -661,9 +660,14 @@ dbl sjs_Txy(sjs_s *sjs, dvec2 xy) {
   return bicubic_fxy(bicubic, cc);
 }
 
+bool sjs_can_build_cell(sjs_s const *sjs, ivec2 indc) {
+  int lc = indc2lc(sjs->shape, indc);
+  return can_build_cell(sjs, lc);
+}
+
 void sjs_build_cells(sjs_s *sjs) {
   for (int lc = 0; lc < sjs->ncells; ++lc) {
-    if (cell_is_ready(sjs, lc)) {
+    if (can_build_cell(sjs, lc)) {
       build_cell(sjs, lc);
     }
   }
