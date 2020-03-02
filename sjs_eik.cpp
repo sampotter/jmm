@@ -515,6 +515,17 @@ TODO!
       }
     )
     .def_property_readonly(
+      "bicubics",
+      [] (sjs_wrapper const & w) {
+        ivec2 shape = sjs_get_shape(w.ptr);
+        return py::array {
+          {shape.i - 1, shape.j - 1},
+          {sizeof(bicubic)*(shape.j - 1), sizeof(bicubic)},
+          sjs_get_bicubics_ptr(w.ptr)
+        };
+      }
+    )
+    .def_property_readonly(
       "heap",
       [] (sjs_wrapper const & w) {
         return heap_wrapper {sjs_get_heap(w.ptr)};

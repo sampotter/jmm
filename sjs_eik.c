@@ -669,9 +669,13 @@ void sjs_build_cells(sjs_s *sjs) {
   }
 }
 
-bicubic_s *sjs_get_bicubic(sjs_s const *sjs, ivec2 indc) {
-  return &sjs->bicubics[lc];
+bicubic_s sjs_get_bicubic(sjs_s const *sjs, ivec2 indc) {
   int lc = indc2lc(sjs->shape, indc);
+  return sjs->bicubics[lc];
+}
+
+bicubic_s *sjs_get_bicubics_ptr(sjs_s const *sjs) {
+  return sjs->bicubics;
 }
 
 heap_s *sjs_get_heap(sjs_s const *sjs) {

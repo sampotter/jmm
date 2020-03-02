@@ -33,7 +33,8 @@ dbl sjs_Tx(sjs_s *sjs, dvec2 xy);
 dbl sjs_Ty(sjs_s *sjs, dvec2 xy);
 dbl sjs_Txy(sjs_s *sjs, dvec2 xy);
 void sjs_build_cells(sjs_s *sjs);
-bicubic_s *sjs_get_bicubic(sjs_s const *sjs, ivec2 cind);
+bicubic_s sjs_get_bicubic(sjs_s const *sjs, ivec2 indc);
+bicubic_s *sjs_get_bicubics_ptr(sjs_s const *sjs);
 heap_s *sjs_get_heap(sjs_s const *sjs);
 
 #ifdef __cplusplus
