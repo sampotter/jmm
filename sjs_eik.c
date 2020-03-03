@@ -169,6 +169,9 @@ static bool tri(sjs_s *sjs, int l, int l0, int l1, int i0) {
   assert(lc < sjs->ncells);
 
   bicubic_s *bicubic = &sjs->bicubics[lc];
+#if SJS_DEBUG
+  assert(bicubic_valid(bicubic));
+#endif
 
   update_data data = {
     .cubic = bicubic_restrict(bicubic, tri_bicubic_vars[i0], tri_edges[i0]),
@@ -388,6 +391,12 @@ void sjs_init(sjs_s *sjs, ivec2 shape, dvec2 xymin, dbl h) {
   set_tri_dlc(sjs);
   set_nb_dlc(sjs);
   set_nearby_dlc(sjs);
+
+#if SJS_DEBUG
+  for (int lc = 0; lc < sjs->ncells; ++lc) {
+    bicubic_invalidate(&sjs->bicubics[lc]);
+  }
+#endif
 
   for (int l = 0; l < sjs->nnodes; ++l) {
     sjs->jets[l].f = INFINITY;

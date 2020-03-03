@@ -65,3 +65,24 @@ dbl bicubic_fxy(bicubic_s const *bicubic, dvec2 cc) {
     dmat44_dvec4_mul(bicubic->A, dvec4_dm(cc.y))
   );
 }
+
+#if SJS_DEBUG
+bool bicubic_valid(bicubic_s const *bicubic) {
+  for (int i = 0; i < 4; ++i) {
+    for (int j = 0; j < 4; ++j) {
+      if (isnan(bicubic->A.data[i][j])) {
+        return true;
+      }
+    }
+  }
+  return true;
+}
+
+void bicubic_invalidate(bicubic_s *bicubic) {
+  for (int i = 0; i < 4; ++i) {
+    for (int j = 0; j < 4; ++j) {
+      bicubic->A.data[i][j] = NAN;
+    }
+  }
+}
+#endif
