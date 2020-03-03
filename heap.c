@@ -46,7 +46,7 @@ void heap_deinit(heap_s *heap) {
 
 void heap_grow(heap_s *heap) {
   heap->capacity *= 2;
-  heap->inds = realloc(heap->inds, heap->capacity);
+  heap->inds = realloc(heap->inds, sizeof(int)*heap->capacity);
   assert(heap->inds != NULL);
 #if SJS_DEBUG
   for (int i = heap->size; i < heap->capacity; ++i) {
