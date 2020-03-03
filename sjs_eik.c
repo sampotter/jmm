@@ -5,9 +5,9 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "hybrid.h"
 #include "index.h"
 #include "jet.h"
-#include "math.h"
 
 #define NUM_CELL_VERTS 4
 #define NUM_NB 8
@@ -153,7 +153,25 @@ static dbl get_s(sjs_s *sjs, int l) {
   return sjs->s(sjs->context, get_xy(sjs, l));
 }
 
-static dbl F(F_data *data, dbl t) {
+static bool line(sjs_s *sjs, int l, int l0, int i0) {
+  dbl s = get_s(sjs, l), s0 = get_s(sjs, l0);
+  dbl T0 = sjs->jets[l0].f;
+  dbl dist = i0 % 2 == 0 ? SQRT2 : 1;
+  dbl T = T0 + sjs->h*dist*(s + s0)/2;
+
+  jet_s *J = &sjs->jets[l];
+  bool updated = false;
+  if (T < J->f) {
+    updated = true;
+    J->f = T;
+    J->fx = -s*offsets[i0].i/dist;
+    J->fy = -s*offsets[i0].j/dist;
+  }
+  return updated;
+}
+
+static dbl F(dbl t, void *context) {
+  F_data *data = (void *)context;
   sjs_s *sjs = data->sjs;
   dvec2 xyt = dvec2_ccomb(data->xy0, data->xy1, t);
   dbl T = cubic_f(&data->cubic, t);
@@ -162,7 +180,8 @@ static dbl F(F_data *data, dbl t) {
   return T + sjs->h*s*L;
 }
 
-static dbl dF_dt(F_data *data, dbl t) {
+static dbl dF_dt(dbl t, void *context) {
+  F_data *data = (F_data *)context;
   sjs_s *sjs = data->sjs;
   dvec2 xyt = dvec2_ccomb(data->xy0, data->xy1, t);
   dbl s = sjs->s(sjs->context, xyt);
@@ -172,24 +191,6 @@ static dbl dF_dt(F_data *data, dbl t) {
   dbl L = sqrt(1 + t*t);
   dbl dL_dt = t/L;
   return dT_dt + sjs->h*(ds_dt*L + s*dL_dt);
-}
-
-static bool line(sjs_s *sjs, int l, int l0, int i0) {
-  dbl s = get_s(sjs, l), s0 = get_s(sjs, l0);
-  dbl T0 = sjs->jets[l0].f;
-  dbl dist = i0 % 2 == 0 ? SQRT2 : 1;
-  dbl T = T0 + sjs->h*dist*(s + s0)/2;
-  jet_s *J = &sjs->jets[l];
-
-  bool updated = false;
-  if (T < J->f) {
-    updated = true;
-
-    J->f = T;
-    J->fx = -s*offsets[i0].i/dist;
-    J->fy = -s*offsets[i0].j/dist;
-  }
-  return updated;
 }
 
 static bool tri(sjs_s *sjs, int l, int l0, int l1, int i0) {
@@ -209,79 +210,21 @@ static bool tri(sjs_s *sjs, int l, int l0, int l1, int i0) {
   data.xy0 = get_xy(sjs, l0);
   data.xy1 = get_xy(sjs, l1);
 
-  dbl lam, a, b, c, d, fa, fb, fc, fd, dm, df, ds, dd, tmp;
+  void *context = (void *)&data;
+  dbl lam = hybrid(dF_dt, 0, 1, context);
+  dbl T = F(lam, context);
 
+
+  jet_s *J = &sjs->jets[l];
   bool updated = false;
-
-  fa = dF_dt(&data, 0);
-  if (fabs(fa) <= EPS) {
-    lam = 0;
-    goto found;
-  }
-
-  fb = dF_dt(&data, 1);
-  if (fabs(fb) <= EPS) {
-    lam = 1;
-    goto found;
-  }
-
-  if (sgn(fa) == sgn(fb)) {
-    lam = sgn(fa) == 1 ? 0 : 1;
-    goto found;
-  }
-
-  c = 0;
-  fc = fa;
-  for (;;) {
-    if (fabs(fc) < fabs(fb)) {
-      tmp = b; b = c; c = tmp;
-      tmp = fb; fb = fc; fc = tmp;
-      a = c;
-      fa = fc;
-    }
-    if (fabs(b - c) <= EPS) {
-      break;
-    }
-    dm = (c - b)/2;
-    df = fa - fb;
-    ds = df == 0 ? dm : -fb*(a - b)/df;
-    dd = sgn(ds) != sgn(dm) || fabs(ds) > fabs(dm) ? dm : ds;
-    if (fabs(dd) < EPS) {
-      dd = EPS*sgn(dm)/2;
-    }
-    d = b + dd;
-    fd = dF_dt(&data, d);
-    if (fd == 0) {
-      c = d;
-      b = c;
-      fc = fd;
-      fb = fc;
-      break;
-    }
-    a = b;
-    b = d;
-    fa = fb;
-    fb = fd;
-    if (sgn(fb) == sgn(fc)) {
-      c = a;
-      fc = fa;
-    }
-  }
-  lam = (b + c)/2;
-
-  found: {
-    dbl T = F(&data, lam);
-    jet_s *J = &sjs->jets[l];
-    if (T < J->f) {
-      updated = true;
-
-      J->f = T;
-      dvec2 xy = get_xy(sjs, l);
-      dvec2 xylam = dvec2_ccomb(data.xy0, data.xy1, lam);
-      dbl L = sqrt(1 + lam*lam);
-      J->fx = get_s(sjs, l)*(xy.x - xylam.x)/L;
-      J->fy = get_s(sjs, l)*(xy.y - xylam.y)/L;
-    }
+  if (T < J->f) {
+    updated = true;
+    J->f = T;
+    dvec2 xy = get_xy(sjs, l);
+    dvec2 xylam = dvec2_ccomb(data.xy0, data.xy1, lam);
+    dbl L = sqrt(1 + lam*lam);
+    J->fx = get_s(sjs, l)*(xy.x - xylam.x)/L;
+    J->fy = get_s(sjs, l)*(xy.y - xylam.y)/L;
   }
   return updated;
 }

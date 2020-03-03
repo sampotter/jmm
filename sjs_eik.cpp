@@ -8,6 +8,7 @@ namespace py = pybind11;
 
 #include "bicubic.h"
 #include "heap.h"
+#include "hybrid.h"
 #include "index.h"
 #include "jet.h"
 #include "sjs_eik.h"
@@ -62,6 +63,10 @@ static void setpos_wrapper(void * vp, int l, int pos) {
     throw std::runtime_error {"ERROR: No setpos function for heap!"};
   }
   (*hwp->setpos)(l, pos);
+}
+
+static dbl f_wrapper(dbl t, void * context) {
+  return (*(std::function<dbl(dbl)> *) context)(t);
 }
 
 static dbl s_wrapper(void *vp, dvec2 xy);
@@ -274,6 +279,16 @@ TODO!
       [] (heap_wrapper const & w) { return heap_size(w.ptr); }
     )
     ;
+
+  // hybrid.h
+
+  m.def(
+    "hybrid",
+    [] (std::function<dbl(dbl)> const & f, dbl a, dbl b) {
+      void * context = (void *) &f;
+      return hybrid(f_wrapper, a, b, context);
+    }
+  );
 
   // index.h
 
