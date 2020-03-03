@@ -11,7 +11,7 @@ typedef struct {
   cubic_s cubic;
   dvec2 xy, xy0, xy1;
   dbl h;
-} F_data;
+} update_data;
 
 dbl F(dbl lam, void *context);
 dbl dF_dt(dbl lam, void *context);

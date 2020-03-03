@@ -171,7 +171,7 @@ static bool tri(sjs_s *sjs, int l, int l0, int l1, int i0) {
 
   bicubic_s *bicubic = &sjs->bicubics[lc];
 
-  F_data data = {
+  update_data data = {
     .cubic = bicubic_restrict(bicubic, tri_bicubic_vars[i0], tri_edges[i0]),
     .xy = get_xy(sjs, l),
     .xy0 = get_xy(sjs, l0),
