@@ -258,11 +258,11 @@ TODO!
     .def_property_readonly(
       "front",
       [] (heap_wrapper const & w) {
-        std::optional<int> size;
+        std::optional<int> l0;
         if (heap_size(w.ptr) > 0) {
-          *size = heap_size(w.ptr);
+          *l0 = heap_front(w.ptr);
         }
-        return size;
+        return l0;
       }
     )
     .def(
