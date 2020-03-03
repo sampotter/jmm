@@ -442,6 +442,8 @@ void sjs_deinit(sjs_s *sjs) {
 
 void sjs_step(sjs_s *sjs) {
   int l0 = heap_front(sjs->heap);
+  assert(sjs->states[l0] == TRIAL);
+
   heap_pop(sjs->heap);
 
   // TODO: this is where we could try rebuilding the adjacent cells,
@@ -449,7 +451,6 @@ void sjs_step(sjs_s *sjs) {
   // things correctly below...
 
   // Set FAR nodes to TRIAL and insert them into the heap.
-  assert(sjs->states[l0] == TRIAL);
   sjs->states[l0] = VALID;
   for (int i = 0, l; i < NUM_NB; ++i) {
     l = l0 + sjs->nb_dl[i];
