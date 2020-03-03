@@ -10,6 +10,14 @@ dbl dvec2_dist(dvec2 v0, dvec2 v1) {
   return sqrt(dx*dx + dy*dy);
 }
 
+dbl dvec2_norm(dvec2 v) {
+  return sqrt(v.x*v.x + v.y*v.y);
+}
+
+dbl dvec2_dot(dvec2 u, dvec2 v) {
+  return u.x*v.x + u.y*v.y;
+}
+
 dvec2 dvec2_sub(dvec2 u, dvec2 v) {
   dvec2 w = {.x = u.x - v.x, .y = u.y - v.y};
   return w;

@@ -561,6 +561,12 @@ TODO!
     .def_readwrite("x", &dvec2::x)
     .def_readwrite("y", &dvec2::y)
     .def(
+      "__mul__",
+      [] (dvec2 const & u, dvec2 const & v) {
+        return dvec2_dot(u, v);
+      }
+    )
+    .def(
       "__sub__",
       [] (dvec2 const & u, dvec2 const & v) {
         return dvec2_sub(u, v);
@@ -576,6 +582,12 @@ TODO!
       "floor",
       [] (dvec2 const & v) {
         return dvec2_floor(v);
+      }
+    )
+    .def(
+      "norm",
+      [] (dvec2 const & v) {
+        return dvec2_norm(v);
       }
     )
     ;
