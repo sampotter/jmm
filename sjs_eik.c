@@ -628,6 +628,15 @@ state_e *sjs_get_states_ptr(sjs_s const *sjs) {
   return sjs->states;
 }
 
+/**
+ * The four functions below (`sjs_T`, `sjs_Tx`, `sjs_Ty`, and
+ * `sjs_Txy`) are only intended to be used by people consuming this
+ * API, not internally.
+ *
+ * TODO: at some point, we're going to want to add batch versions of
+ * these functions to avoid calling `can_build_cell` over and over.
+ */
+
 dbl sjs_T(sjs_s *sjs, dvec2 xy) {
   dvec2 cc;
   int lc = xy_to_lc_and_cc(sjs->shape, sjs->xymin, sjs->h, xy, &cc);
