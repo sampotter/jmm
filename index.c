@@ -45,6 +45,8 @@
 #else
 #define CHECK_LC(lc)
 #endif
+#include <assert.h>
+#include <stddef.h>
 
 int ind2l(ivec2 shape, ivec2 ind) {
   CHECK_IND(ind);
