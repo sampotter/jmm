@@ -460,11 +460,11 @@ void sjs_step(sjs_s *sjs) {
     }
   }
 
+  // Array keeping track of which nodes get updated.
   bool updated[NUM_NB];
   memset(updated, 0x0, NUM_NB*sizeof(bool));
 
-  // Update neighboring nodes and adjust their position in the
-  // heap. Keep track of which nodes were updated.
+  // Update neighboring nodes.
   for (int i = 0, l; i < NUM_NB; ++i) {
     l = l0 + sjs->nb_dl[i];
     if (inbounds(sjs, l) && sjs->states[l] == TRIAL) {
