@@ -192,8 +192,9 @@ static bool tri(sjs_s *sjs, int l, int l0, int l1, int i0) {
   assert(i0 < NUM_NB);
 
   int lc = l2lc(sjs->shape, l) + sjs->tri_dlc[i0];
-  assert(lc >= 0);
-  assert(lc < sjs->ncells);
+  if (lc < 0 || sjs->ncells <= lc) {
+    return false;
+  }
 
   bicubic_s *bicubic = &sjs->bicubics[lc];
 #if SJS_DEBUG
