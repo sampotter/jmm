@@ -28,7 +28,6 @@ void sjs_add_valid(sjs_s *sjs, ivec2 ind, jet_s jet);
 void sjs_make_bd(sjs_s *sjs, ivec2 ind);
 ivec2 sjs_get_shape(sjs_s const *sjs);
 jet_s sjs_get_jet(sjs_s *sjs, ivec2 ind);
-void sjs_set_jet(sjs_s *sjs, ivec2 ind, jet_s jet);
 state_e sjs_get_state(sjs_s const *sjs, ivec2 ind);
 state_e *sjs_get_states_ptr(sjs_s const *sjs);
 dbl sjs_T(sjs_s *sjs, dvec2 xy);

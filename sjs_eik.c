@@ -618,11 +618,6 @@ jet_s sjs_get_jet(sjs_s *sjs, ivec2 ind) {
   return sjs->jets[l];
 }
 
-void sjs_set_jet(sjs_s *sjs, ivec2 ind, jet_s jet) {
-  int l = ind2l(sjs->shape, ind);
-  sjs->jets[l] = jet;
-}
-
 state_e sjs_get_state(sjs_s const *sjs, ivec2 ind) {
   int l = ind2l(sjs->shape, ind);
   return sjs->states[l];

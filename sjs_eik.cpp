@@ -464,12 +464,6 @@ TODO!
       }
     )
     .def(
-      "set_jet",
-      [] (sjs_wrapper const & w, int i, int j, jet_s jet) {
-        sjs_set_jet(w.ptr, {i, j}, jet);
-      }
-    )
-    .def(
       "get_state",
       [] (sjs_wrapper const & w, int i, int j) {
         return sjs_get_state(w.ptr, {i, j});
