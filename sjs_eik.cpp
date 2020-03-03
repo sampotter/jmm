@@ -12,6 +12,8 @@ namespace py = pybind11;
 #include "index.h"
 #include "jet.h"
 #include "sjs_eik.h"
+#include "update.h"
+#include "vec.h"
 
 static dbl value_wrapper(void * vp, int l);
 static void setpos_wrapper(void * vp, int l, int pos);
@@ -554,12 +556,43 @@ TODO!
     )
     ;
 
+  // update.h
+
+  py::class_<update_data>(m, "UpdateData")
+    .def(py::init<cubic, dvec2, dvec2, dvec2, dbl>())
+    .def_readwrite("cubic", &update_data::cubic)
+    .def_readwrite("xy", &update_data::xy)
+    .def_readwrite("xy0", &update_data::xy0)
+    .def_readwrite("xy1", &update_data::xy1)
+    .def_readwrite("h", &update_data::h)
+    .def(
+      "F",
+      [] (update_data const & data, dbl lam) {
+        return F(lam, (void *) &data);
+      }
+    )
+    .def(
+      "dF_dt",
+      [] (update_data const & data, dbl lam) {
+        return dF_dt(lam, (void *) &data);
+      }
+    )
+    ;
+
   // vec.h
 
   py::class_<dvec2>(m, "Dvec2")
     .def(py::init<dbl, dbl>())
     .def_readwrite("x", &dvec2::x)
     .def_readwrite("y", &dvec2::y)
+    .def(
+      "__repr__",
+      [] (dvec2 const & u) {
+        std::stringstream ss;
+        ss << "Dvec2(" << u.x << ", " << u.y << ")";
+        return ss.str();
+      }
+    )
     .def(
       "__mul__",
       [] (dvec2 const & u, dvec2 const & v) {
