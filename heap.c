@@ -29,7 +29,7 @@ void heap_init(heap_s *heap, int capacity, value_f value, setpos_f setpos,
   heap->size = 0;
   heap->inds = malloc(heap->capacity*sizeof(int));
   assert(heap->inds != NULL);
-#ifndef NDEBUG
+#if SJS_DEBUG
   for (int i = 0; i < heap->capacity; ++i) {
     heap->inds[i] = NO_INDEX;
   }
@@ -48,7 +48,7 @@ void heap_grow(heap_s *heap) {
   heap->capacity *= 2;
   heap->inds = realloc(heap->inds, heap->capacity);
   assert(heap->inds != NULL);
-#ifndef NDEBUG
+#if SJS_DEBUG
   for (int i = heap->size; i < heap->capacity; ++i) {
     heap->inds[i] = NO_INDEX;
   }
@@ -71,7 +71,7 @@ dbl value(heap_s *heap, int pos) {
   assert(pos >= 0);
   assert(pos < heap->size);
 
-#ifdef SJS_EIK_DEBUG
+#ifdef SJS_DEBUG
   int ind = heap->inds[pos];
   assert(ind != NO_INDEX);
 #endif
@@ -126,7 +126,7 @@ void heap_insert(heap_s *heap, int ind) {
 }
 
 int heap_front(heap_s *heap) {
-#ifndef NDEBUG
+#if SJS_DEBUG
   int ind = heap->inds[0];
   return ind;
 #else
@@ -159,7 +159,7 @@ void heap_sink(heap_s *heap, int pos) {
 }
 
 void heap_pop(heap_s *heap) {
-#ifndef NDEBUG
+#if SJS_DEBUG
   heap->setpos(heap->context, heap->inds[0], NO_INDEX);
   // heap->sjs->positions[heap->inds[0]] = NO_INDEX;
 #endif

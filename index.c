@@ -90,7 +90,7 @@ int lc2l(ivec2 shape, int lc) {
 }
 
 int xy_to_lc_and_cc(ivec2 shape, dvec2 xymin, dbl h, dvec2 xy, dvec2 *cc) {
-#if SJS_EIK_DEBUG
+#if SJS_DEBUG
   assert(cc != NULL);
 #endif
 

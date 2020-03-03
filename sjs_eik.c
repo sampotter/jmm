@@ -375,7 +375,7 @@ void sjs_init(sjs_s *sjs, ivec2 shape, dvec2 xymin, dbl h) {
   assert(sjs->states != NULL);
   assert(sjs->positions != NULL);
 
-#ifndef NDEBUG
+#if SJS_DEBUG
   for (int l = 0; l < sjs->nnodes; ++l) {
     sjs->positions[l] = NO_INDEX;
   }

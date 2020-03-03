@@ -5,7 +5,7 @@ extern "C" {
 #endif
 
 #ifndef NDEBUG
-#define SJS_EIK_DEBUG 1
+#define SJS_DEBUG 1
 #endif
 
 #define ROW_MAJOR_ORDERING 0
