@@ -50,6 +50,33 @@ static ivec2 cell_vert_offsets[NUM_CELL_VERTS] = {
   {.i = 1, .j = 1}
 };
 
+/**
+ * The array `tri_cell_offsets` contains the `ivec2` offsets that are
+ * used to initialize the `tri_dlc` member `sjs_s`, which is in turn
+ * used to grad cell-based interpolants used when doing triangle
+ * updates. The idea here is that we only want to use cells that
+ * belong to the valid part of the expanding solution. If the node `i`
+ * below is being updated, then we should only look at cells that lie
+ * on the other side of the ring of `i`'s eight nearest neighbors.
+ *
+ * In the diagram below, we label the cells with the offsets and order
+ * them so that they match the ordering used in `tri_cell_offsets`.
+ *
+ * TODO: maybe try to come up with a slightly more compelling
+ * explanation for why we want to do this.
+ *
+ *                0     1
+ *	           +-----+-----+
+ *			   |-2,-1|-2, 0|
+ *	     +-----+-----+-----+-----+
+ *	   7 |-1,-2|  X	 |	X  |-1, 1| 2
+ *	     +-----+-----i-----+-----+
+ *     6 | 0,-2|  X  |	X  | 0, 1| 3
+ *	     +-----+-----+-----+-----+
+ *			   | 1,-1| 1, 0|
+ *	           +-----+-----+
+ *                5     4
+ */
 static ivec2 tri_cell_offsets[NUM_NB] = {
   {.i = -2, .j = -1},
   {.i = -2, .j =  0},
