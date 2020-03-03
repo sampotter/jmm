@@ -93,10 +93,10 @@ struct sjs_wrapper {
       ptr,
       ivec2 {shape[0], shape[1]},
       dvec2 {xymin[0], xymin[1]},
-      h,
+      h
       // s_wrapper,
       // grad_s_wrapper,
-      (void *) this
+      // (void *) this
     );
   }
 

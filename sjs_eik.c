@@ -29,7 +29,6 @@ struct sjs {
   state_e *states;
   int *positions;
   heap_s *heap;
-  void *context;
 };
 
 static ivec2 offsets[NUM_NB + 1] = {
@@ -357,7 +356,7 @@ void sjs_dealloc(sjs_s **sjs) {
 // to allocate an extra margin of cells, since they will never be
 // initialized (i.e., they will never have all of their vertex nodes
 // become VALID because of the margin...)
-void sjs_init(sjs_s *sjs, ivec2 shape, dvec2 xymin, dbl h, void *context) {
+void sjs_init(sjs_s *sjs, ivec2 shape, dvec2 xymin, dbl h) {
   sjs->shape = shape;
   sjs->ncells = (shape.i - 1)*(shape.j - 1);
   sjs->nnodes = shape.i*shape.j;
@@ -367,7 +366,6 @@ void sjs_init(sjs_s *sjs, ivec2 shape, dvec2 xymin, dbl h, void *context) {
   sjs->jets = malloc(sjs->nnodes*sizeof(jet_s));
   sjs->states = malloc(sjs->nnodes*sizeof(state_e));
   sjs->positions = malloc(sjs->nnodes*sizeof(int));
-  sjs->context = context;
 
   assert(sjs->bicubics != NULL);
   assert(sjs->jets != NULL);

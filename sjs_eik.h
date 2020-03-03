@@ -11,14 +11,11 @@ extern "C" {
 #include "jet.h"
 #include "vec.h"
 
-typedef dbl (*sfield_f)(void *, dvec2);
-typedef dvec2 (*vfield_f)(void *, dvec2);
-
 typedef struct sjs sjs_s;
 
 void sjs_alloc(sjs_s **sjs);
 void sjs_dealloc(sjs_s **sjs);
-void sjs_init(sjs_s *sjs, ivec2 shape, dvec2 xymin, dbl h, void *context);
+void sjs_init(sjs_s *sjs, ivec2 shape, dvec2 xymin, dbl h);
 void sjs_deinit(sjs_s *sjs);
 void sjs_step(sjs_s *sjs);
 void sjs_solve(sjs_s *sjs);
