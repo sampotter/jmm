@@ -211,6 +211,8 @@ static bool tri(sjs_s *sjs, int l, int l0, int l1, int i0) {
 
   dbl lam, a, b, c, d, fa, fb, fc, fd, dm, df, ds, dd, tmp;
 
+  bool updated = false;
+
   fa = dF_dt(&data, 0);
   if (fabs(fa) <= EPS) {
     lam = 0;
@@ -267,7 +269,6 @@ static bool tri(sjs_s *sjs, int l, int l0, int l1, int i0) {
   }
   lam = (b + c)/2;
 
-  bool updated = false;
   found: {
     dbl T = F(&data, lam);
     jet_s *J = &sjs->jets[l];
