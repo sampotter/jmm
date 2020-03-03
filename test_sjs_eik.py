@@ -8,9 +8,7 @@ class TestStaticJetScheme(unittest.TestCase):
         shape = (2, 2)
         xymin = (0, 0)
         h = 1
-        s = lambda x, y: 1.0 + 0.0*x + 0.0*y
-        grad_s = lambda x, y: 0.0 + 0.0*x + 0.0*y
-        scheme = sjs.StaticJetScheme(shape, xymin, h, s, grad_s)
+        scheme = sjs.StaticJetScheme(shape, xymin, h)
         scheme.add_trial(0, 0, sjs.Jet(1, 0, 0, 0))
         scheme.add_trial(1, 0, sjs.Jet(1, 0, 0, 0))
         scheme.add_trial(0, 1, sjs.Jet(1, 0, 0, 0))

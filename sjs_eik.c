@@ -8,6 +8,7 @@
 #include "hybrid.h"
 #include "index.h"
 #include "jet.h"
+#include "update.h"
 
 #define NUM_CELL_VERTS 4
 #define NUM_NB 8
@@ -23,8 +24,6 @@ struct sjs {
   int tri_dlc[NUM_NB];
   int nb_dlc[NUM_CELL_VERTS];
   int nearby_dlc[NUM_NEARBY_CELLS];
-  sfield_f s;
-  vfield_f grad_s;
   bicubic_s *bicubics;
   jet_s *jets;
   state_e *states;
@@ -32,13 +31,6 @@ struct sjs {
   heap_s *heap;
   void *context;
 };
-
-typedef struct {
-  sjs_s *sjs;
-  bicubic_variable var;
-  cubic_s cubic;
-  dvec2 xy0, xy1;
-} F_data;
 
 static ivec2 offsets[NUM_NB + 1] = {
   {.i = -1, .j = -1},
@@ -149,48 +141,24 @@ static dvec2 get_xy(sjs_s *sjs, int l) {
   return xy;
 }
 
-static dbl get_s(sjs_s *sjs, int l) {
-  return sjs->s(sjs->context, get_xy(sjs, l));
-}
+static bool line(sjs_s *sjs, int l, int l0) {
+  dvec2 xy = get_xy(sjs, l);
+  dvec2 xy0 = get_xy(sjs, l0);
+  dvec2 dxy = dvec2_sub(xy, xy0);
+  dbl L = dvec2_norm(dxy);
 
-static bool line(sjs_s *sjs, int l, int l0, int i0) {
-  dbl s = get_s(sjs, l), s0 = get_s(sjs, l0);
   dbl T0 = sjs->jets[l0].f;
-  dbl dist = i0 % 2 == 0 ? SQRT2 : 1;
-  dbl T = T0 + sjs->h*dist*(s + s0)/2;
+  dbl T = T0 + sjs->h*L;
 
   jet_s *J = &sjs->jets[l];
   bool updated = false;
   if (T < J->f) {
     updated = true;
     J->f = T;
-    J->fx = -s*offsets[i0].i/dist;
-    J->fy = -s*offsets[i0].j/dist;
+    J->fx = -dxy.x/L;
+    J->fy = -dxy.y/L;
   }
   return updated;
-}
-
-static dbl F(dbl t, void *context) {
-  F_data *data = (void *)context;
-  sjs_s *sjs = data->sjs;
-  dvec2 xyt = dvec2_ccomb(data->xy0, data->xy1, t);
-  dbl T = cubic_f(&data->cubic, t);
-  dbl s = sjs->s(sjs->context, xyt);
-  dbl L = sqrt(1 + t*t);
-  return T + sjs->h*s*L;
-}
-
-static dbl dF_dt(dbl t, void *context) {
-  F_data *data = (F_data *)context;
-  sjs_s *sjs = data->sjs;
-  dvec2 xyt = dvec2_ccomb(data->xy0, data->xy1, t);
-  dbl s = sjs->s(sjs->context, xyt);
-  dvec2 ds = sjs->grad_s(sjs->context, xyt);
-  dbl ds_dt = data->var == LAMBDA ? ds.x : ds.y;
-  dbl dT_dt = cubic_df(&data->cubic, t);
-  dbl L = sqrt(1 + t*t);
-  dbl dL_dt = t/L;
-  return dT_dt + sjs->h*(ds_dt*L + s*dL_dt);
 }
 
 static bool tri(sjs_s *sjs, int l, int l0, int l1, int i0) {
@@ -203,28 +171,32 @@ static bool tri(sjs_s *sjs, int l, int l0, int l1, int i0) {
 
   bicubic_s *bicubic = &sjs->bicubics[lc];
 
-  F_data data;
-  data.sjs = sjs;
-  data.var = tri_bicubic_vars[i0];
-  data.cubic = bicubic_restrict(bicubic, data.var, tri_edges[i0]);
-  data.xy0 = get_xy(sjs, l0);
-  data.xy1 = get_xy(sjs, l1);
+  F_data data = {
+    .cubic = bicubic_restrict(bicubic, tri_bicubic_vars[i0], tri_edges[i0]),
+    .xy = get_xy(sjs, l),
+    .xy0 = get_xy(sjs, l0),
+    .xy1 = get_xy(sjs, l1),
+    .h = sjs->h
+  };
 
   void *context = (void *)&data;
   dbl lam = hybrid(dF_dt, 0, 1, context);
   dbl T = F(lam, context);
 
-
   jet_s *J = &sjs->jets[l];
+
   bool updated = false;
   if (T < J->f) {
     updated = true;
-    J->f = T;
+
     dvec2 xy = get_xy(sjs, l);
     dvec2 xylam = dvec2_ccomb(data.xy0, data.xy1, lam);
-    dbl L = sqrt(1 + lam*lam);
-    J->fx = get_s(sjs, l)*(xy.x - xylam.x)/L;
-    J->fy = get_s(sjs, l)*(xy.y - xylam.y)/L;
+    dvec2 dxy = dvec2_sub(xy, xylam);
+    dbl L = dvec2_norm(dxy);
+
+    J->f = T;
+    J->fx = -dxy.x/L;
+    J->fy = -dxy.y/L;
   }
   return updated;
 }
@@ -318,27 +290,27 @@ static void build_cell(sjs_s *sjs, int lc) {
 static bool update(sjs_s *sjs, int l) {
   bool updated = false;
 
-  for (int i = 1, l0, l1; i < 8; i += 2) {
-    l0 = l + sjs->nb_dl[i];
+  for (int i0 = 1, l0, l1; i0 < 8; i0 += 2) {
+    l0 = l + sjs->nb_dl[i0];
     if (sjs->states[l0] != VALID) {
       continue;
     }
 
-    l1 = l + sjs->nb_dl[i - 1];
+    l1 = l + sjs->nb_dl[i0 - 1];
     if (sjs->states[l1] == VALID) {
-      updated |= tri(sjs, l, l0, l1, i);
+      updated |= tri(sjs, l, l0, l1, i0);
     }
 
-    l1 = l + sjs->nb_dl[i + 1];
+    l1 = l + sjs->nb_dl[i0 + 1];
     if (sjs->states[l1] == VALID) {
-      updated |= tri(sjs, l, l0, l1, i);
+      updated |= tri(sjs, l, l0, l1, i0);
     }
   }
 
-  for (int i = 0, l0; i < 8; ++i) {
-    l0 = l + sjs->nb_dl[i];
+  for (int i0 = 0, l0; i0 < 8; ++i0) {
+    l0 = l + sjs->nb_dl[i0];
     if (sjs->states[l0] == VALID) {
-      updated |= line(sjs, l, l0, i);
+      updated |= line(sjs, l, l0);
     }
   }
 
@@ -385,15 +357,12 @@ void sjs_dealloc(sjs_s **sjs) {
 // to allocate an extra margin of cells, since they will never be
 // initialized (i.e., they will never have all of their vertex nodes
 // become VALID because of the margin...)
-void sjs_init(sjs_s *sjs, ivec2 shape, dvec2 xymin, dbl h, sfield_f s,
-              vfield_f grad_s, void *context) {
+void sjs_init(sjs_s *sjs, ivec2 shape, dvec2 xymin, dbl h, void *context) {
   sjs->shape = shape;
   sjs->ncells = (shape.i - 1)*(shape.j - 1);
   sjs->nnodes = shape.i*shape.j;
   sjs->xymin = xymin;
   sjs->h = h;
-  sjs->s = s;
-  sjs->grad_s = grad_s;
   sjs->bicubics = malloc(sjs->ncells*sizeof(bicubic_s));
   sjs->jets = malloc(sjs->nnodes*sizeof(jet_s));
   sjs->states = malloc(sjs->nnodes*sizeof(state_e));

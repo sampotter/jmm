@@ -18,8 +18,7 @@ typedef struct sjs sjs_s;
 
 void sjs_alloc(sjs_s **sjs);
 void sjs_dealloc(sjs_s **sjs);
-void sjs_init(sjs_s *sjs, ivec2 shape, dvec2 xymin, dbl h, sfield_f s,
-              vfield_f grad_s, void *context);
+void sjs_init(sjs_s *sjs, ivec2 shape, dvec2 xymin, dbl h, void *context);
 void sjs_deinit(sjs_s *sjs);
 void sjs_step(sjs_s *sjs);
 void sjs_solve(sjs_s *sjs);

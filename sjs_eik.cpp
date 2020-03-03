@@ -69,22 +69,22 @@ static dbl f_wrapper(dbl t, void * context) {
   return (*(std::function<dbl(dbl)> *) context)(t);
 }
 
-static dbl s_wrapper(void *vp, dvec2 xy);
-static dvec2 grad_s_wrapper(void *vp, dvec2 xy);
+// static dbl s_wrapper(void *vp, dvec2 xy);
+// static dvec2 grad_s_wrapper(void *vp, dvec2 xy);
 
 struct sjs_wrapper {
   sjs * ptr {nullptr};
 
-  std::optional<std::function<dbl(dbl, dbl)>> s;
-  std::optional<std::function<std::tuple<dbl, dbl>(dbl, dbl)>> grad_s;
+  // std::optional<std::function<dbl(dbl, dbl)>> s;
+  // std::optional<std::function<std::tuple<dbl, dbl>(dbl, dbl)>> grad_s;
 
   sjs_wrapper(std::array<int, 2> const & shape,
               std::array<dbl, 2> const & xymin,
-              dbl h,
-              std::function<dbl(dbl, dbl)> s,
-              std::function<std::tuple<dbl, dbl>(dbl, dbl)> grad_s):
-    s {s},
-    grad_s {grad_s}
+              dbl h)
+              // std::function<dbl(dbl, dbl)> s,
+              // std::function<std::tuple<dbl, dbl>(dbl, dbl)> grad_s):
+    // s {s},
+    // grad_s {grad_s}
   {
     sjs_alloc(&ptr);
     sjs_init(
@@ -92,8 +92,8 @@ struct sjs_wrapper {
       ivec2 {shape[0], shape[1]},
       dvec2 {xymin[0], xymin[1]},
       h,
-      s_wrapper,
-      grad_s_wrapper,
+      // s_wrapper,
+      // grad_s_wrapper,
       (void *) this
     );
   }
@@ -104,23 +104,23 @@ struct sjs_wrapper {
   }
 };
 
-static dbl s_wrapper(void *vp, dvec2 xy) {
-  sjs_wrapper * swp = (sjs_wrapper *) vp;
-  if (!swp->s) {
-    throw std::runtime_error {"ERROR: No s function for sjs!"};
-  }
-  return (*swp->s)(xy.x, xy.y);
-}
+// static dbl s_wrapper(void *vp, dvec2 xy) {
+//   sjs_wrapper * swp = (sjs_wrapper *) vp;
+//   if (!swp->s) {
+//     throw std::runtime_error {"ERROR: No s function for sjs!"};
+//   }
+//   return (*swp->s)(xy.x, xy.y);
+// }
 
-static dvec2 grad_s_wrapper(void *vp, dvec2 xy) {
-  sjs_wrapper * swp = (sjs_wrapper *) vp;
-  if (!swp->grad_s) {
-    throw std::runtime_error {"ERROR: No grad_s function for sjs!"};
-  }
-  dvec2 tmp;
-  std::tie(tmp.x, tmp.y) = (*swp->grad_s)(xy.x, xy.y);
-  return tmp;
-}
+// static dvec2 grad_s_wrapper(void *vp, dvec2 xy) {
+//   sjs_wrapper * swp = (sjs_wrapper *) vp;
+//   if (!swp->grad_s) {
+//     throw std::runtime_error {"ERROR: No grad_s function for sjs!"};
+//   }
+//   dvec2 tmp;
+//   std::tie(tmp.x, tmp.y) = (*swp->grad_s)(xy.x, xy.y);
+//   return tmp;
+// }
 
 PYBIND11_MODULE (_sjs_eik, m) {
   m.doc() = R"pbdoc(
@@ -438,9 +438,9 @@ TODO!
     .def(py::init<
            std::array<int, 2> const &,
            std::array<dbl, 2> const &,
-           dbl,
-           std::function<dbl(dbl, dbl)> const &,
-           std::function<std::tuple<dbl, dbl>(dbl, dbl)> const &
+           dbl
+           // std::function<dbl(dbl, dbl)> const &,
+           // std::function<std::tuple<dbl, dbl>(dbl, dbl)> const &
          >())
     .def(
       "step",
