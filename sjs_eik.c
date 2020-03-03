@@ -363,6 +363,8 @@ static bool inbounds(sjs_s *sjs, int l) {
 
 static dbl value(void *vp, int l) {
   sjs_s *sjs = (sjs_s *)vp;
+  assert(l >= 0);
+  assert(l < sjs->nnodes);
   dbl T = sjs->jets[l].f;
   return T;
 }
