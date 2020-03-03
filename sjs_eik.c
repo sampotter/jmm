@@ -132,10 +132,10 @@ static void set_nearby_dlc(sjs_s *sjs) {
 }
 
 static dvec2 get_xy(sjs_s *sjs, int l) {
-  int mpad = sjs->shape.i + 2;
+  ivec2 ind = l2ind(sjs->shape, l);
   dvec2 xy = {
-    .x = sjs->xymin.x + sjs->h*(l%mpad - 1),
-    .y = sjs->xymin.y + sjs->h*(l/mpad - 1)
+    .x = sjs->h*ind.i + sjs->xymin.x,
+    .y = sjs->h*ind.j + sjs->xymin.y
   };
   return xy;
 }
