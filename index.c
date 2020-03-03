@@ -2,54 +2,10 @@
 
 #include "def.h"
 
-#if SJS_EIK_DEBUG
-#define CHECK_IND(ind)                          \
-  do {                                          \
-    assert(ind.i >= 0);                         \
-    assert(ind.i < shape.i);                    \
-    assert(ind.j >= 0);                         \
-    assert(ind.j < shape.j);                    \
-  } while (0)
-#else
-#define CHECK_IND(ind)
-#endif
-
-#if SJS_EIK_DEBUG
-#define CHECK_INDC(indc)                        \
-  do {                                          \
-    assert(ind.i >= 0);                         \
-    assert(ind.i < shape.i - 1);                \
-    assert(ind.j >= 0);                         \
-    assert(ind.j < shape.j - 1);                \
-  } while (0)
-#else
-#define CHECK_INDC(indc)
-#endif
-
-#if SJS_EIK_DEBUG
-#define CHECK_L(l)                              \
-  do {                                          \
-    assert(l >= 0);                             \
-    assert(l < shape.i*shape.j);                \
-  } while (0)
-#else
-#define CHECK_L(l)
-#endif
-
-#if SJS_EIK_DEBUG
-#define CHECK_LC(lc)                            \
-  do {                                          \
-    assert(lc >= 0);                            \
-    assert(lc < (shape.i - 1)*(shape.j - 1));   \
-  } while (0)
-#else
-#define CHECK_LC(lc)
-#endif
 #include <assert.h>
 #include <stddef.h>
 
 int ind2l(ivec2 shape, ivec2 ind) {
-  CHECK_IND(ind);
 #if ORDERING == ROW_MAJOR_ORDERING
   return ind.j + shape.j*ind.i;
 #else
@@ -58,7 +14,6 @@ int ind2l(ivec2 shape, ivec2 ind) {
 }
 
 int ind2lc(ivec2 shape, ivec2 ind) {
-  CHECK_IND(ind);
 #if ORDERING == ROW_MAJOR_ORDERING
   return ind.j + (shape.j - 1)*ind.i;
 #else
@@ -67,7 +22,6 @@ int ind2lc(ivec2 shape, ivec2 ind) {
 }
 
 int indc2l(ivec2 shape, ivec2 indc) {
-  CHECK_INDC(indc);
 #if ORDERING == ROW_MAJOR_ORDERING
   return indc.j + shape.j*indc.i;
 #else
@@ -76,7 +30,6 @@ int indc2l(ivec2 shape, ivec2 indc) {
 }
 
 int indc2lc(ivec2 shape, ivec2 indc) {
-  CHECK_INDC(indc);
 #if ORDERING == ROW_MAJOR_ORDERING
   return indc.j + (shape.j - 1)*indc.i;
 #else
@@ -85,7 +38,6 @@ int indc2lc(ivec2 shape, ivec2 indc) {
 }
 
 ivec2 l2ind(ivec2 shape, int l) {
-  CHECK_L(l);
 #if ORDERING == ROW_MAJOR_ORDERING
   ivec2 ind = {.i = l/shape.j, .j = l % shape.j};
 #else
@@ -95,7 +47,6 @@ ivec2 l2ind(ivec2 shape, int l) {
 }
 
 ivec2 l2indc(ivec2 shape, int l) {
-  CHECK_L(l);
 #if ORDERING == ROW_MAJOR_ORDERING
   ivec2 indc = {.i = l/shape.j, .j = l % shape.j};
 #else
@@ -105,7 +56,6 @@ ivec2 l2indc(ivec2 shape, int l) {
 }
 
 ivec2 lc2ind(ivec2 shape, int lc) {
-  CHECK_LC(lc);
 #if ORDERING == ROW_MAJOR_ORDERING
   ivec2 ind = {.i = lc/(shape.j - 1), .j = lc % (shape.j - 1)};
 #else
@@ -115,7 +65,6 @@ ivec2 lc2ind(ivec2 shape, int lc) {
 }
 
 ivec2 lc2indc(ivec2 shape, int lc) {
-  CHECK_LC(lc);
 #if ORDERING == ROW_MAJOR_ORDERING
   ivec2 indc = {.i = lc/(shape.j - 1), .j = lc % (shape.j - 1)};
 #else
@@ -125,7 +74,6 @@ ivec2 lc2indc(ivec2 shape, int lc) {
 }
 
 int l2lc(ivec2 shape, int l) {
-  CHECK_L(l);
 #if ORDERING == ROW_MAJOR_ORDERING
   return l - l/shape.j;
 #else
@@ -134,7 +82,6 @@ int l2lc(ivec2 shape, int l) {
 }
 
 int lc2l(ivec2 shape, int lc) {
-  CHECK_LC(lc);
 #if ORDERING == ROW_MAJOR_ORDERING
   return lc + lc/(shape.j - 1);
 #else
