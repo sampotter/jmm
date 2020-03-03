@@ -316,29 +316,32 @@ static void build_cell(sjs_s *sjs, int lc) {
 }
 
 static bool update(sjs_s *sjs, int l) {
-  bool done[NUM_NB], updated = false;
-  memset(done, 0x0, NUM_NB*sizeof(bool));
+  bool updated = false;
+
   for (int i = 1, l0, l1; i < 8; i += 2) {
     l0 = l + sjs->nb_dl[i];
-    if (sjs->states[l0] == VALID) {
-      l1 = l + sjs->nb_dl[i - 1];
-      if (sjs->states[l1] == VALID) {
-        updated |= tri(sjs, l, l0, l1, i);
-        done[i] = done[i - 1] = true;
-      }
-      l1 = l + sjs->nb_dl[i + 1];
-      if (sjs->states[l1] == VALID) {
-        updated |= tri(sjs, l, l0, l1, i);
-        done[i] = done[(i + 1) % NUM_NB] = true;
-      }
+    if (sjs->states[l0] != VALID) {
+      continue;
+    }
+
+    l1 = l + sjs->nb_dl[i - 1];
+    if (sjs->states[l1] == VALID) {
+      updated |= tri(sjs, l, l0, l1, i);
+    }
+
+    l1 = l + sjs->nb_dl[i + 1];
+    if (sjs->states[l1] == VALID) {
+      updated |= tri(sjs, l, l0, l1, i);
     }
   }
+
   for (int i = 0, l0; i < 8; ++i) {
     l0 = l + sjs->nb_dl[i];
-    if (!done[i] && sjs->states[l0] == VALID) {
+    if (sjs->states[l0] == VALID) {
       updated |= line(sjs, l, l0, i);
     }
   }
+
   return updated;
 }
 
