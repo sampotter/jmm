@@ -645,7 +645,7 @@ dbl sjs_Tx(sjs_s *sjs, dvec2 xy) {
     return NAN;
   }
   bicubic_s *bicubic = &sjs->bicubics[lc];
-  return bicubic_fx(bicubic, cc);
+  return bicubic_fx(bicubic, cc)/sjs->h;
 }
 
 dbl sjs_Ty(sjs_s *sjs, dvec2 xy) {
@@ -655,7 +655,7 @@ dbl sjs_Ty(sjs_s *sjs, dvec2 xy) {
     return NAN;
   }
   bicubic_s *bicubic = &sjs->bicubics[lc];
-  return bicubic_fy(bicubic, cc);
+  return bicubic_fy(bicubic, cc)/sjs->h;
 }
 
 dbl sjs_Txy(sjs_s *sjs, dvec2 xy) {
@@ -665,7 +665,7 @@ dbl sjs_Txy(sjs_s *sjs, dvec2 xy) {
     return NAN;
   }
   bicubic_s *bicubic = &sjs->bicubics[lc];
-  return bicubic_fxy(bicubic, cc);
+  return bicubic_fxy(bicubic, cc)/(sjs->h*sjs->h);
 }
 
 bool sjs_can_build_cell(sjs_s const *sjs, ivec2 indc) {
