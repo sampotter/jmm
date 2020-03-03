@@ -4,6 +4,8 @@
 extern "C" {
 #endif
 
+#include "def.h"
+
 typedef struct jet {
   dbl f, fx, fy, fxy;
 } jet_s;
