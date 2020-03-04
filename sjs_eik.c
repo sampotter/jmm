@@ -170,8 +170,8 @@ static dvec2 get_xy(sjs_s *sjs, int l) {
 static bool line(sjs_s *sjs, int l, int l0) {
   dvec2 xy = get_xy(sjs, l);
   dvec2 xy0 = get_xy(sjs, l0);
-  dvec2 dxy = dvec2_sub(xy, xy0);
-  dbl L = dvec2_norm(dxy);
+  dvec2 xy0_minus_xy = dvec2_sub(xy0, xy);
+  dbl L = dvec2_norm(xy0_minus_xy);
 
   dbl T0 = sjs->jets[l0].f;
   dbl T = T0 + L;
@@ -181,8 +181,8 @@ static bool line(sjs_s *sjs, int l, int l0) {
   if (T < J->f) {
     updated = true;
     J->f = T;
-    J->fx = -dxy.x/L;
-    J->fy = -dxy.y/L;
+    J->fx = -xy0_minus_xy.x/L;
+    J->fy = -xy0_minus_xy.y/L;
   }
   return updated;
 }
@@ -220,12 +220,12 @@ static bool tri(sjs_s *sjs, int l, int l0, int l1, int i0) {
 
     dvec2 xy = get_xy(sjs, l);
     dvec2 xylam = dvec2_ccomb(data.xy0, data.xy1, lam);
-    dvec2 dxy = dvec2_sub(xy, xylam);
-    dbl L = dvec2_norm(dxy);
+    dvec2 xylam_minus_xy = dvec2_sub(xylam, xy);
+    dbl L = dvec2_norm(xylam_minus_xy);
 
     J->f = T;
-    J->fx = -dxy.x/L;
-    J->fy = -dxy.y/L;
+    J->fx = -xylam_minus_xy.x/L;
+    J->fy = -xylam_minus_xy.y/L;
   }
   return updated;
 }
