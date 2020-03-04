@@ -23,6 +23,18 @@ void cubic_set_data_from_ptr(cubic_s *cubic, dbl const *data_ptr) {
   cubic_set_data(cubic, data);
 }
 
+void cubic_reverse_on_unit_interval(cubic_s *cubic) {
+  static dmat44 M = {
+    .data = {
+      {1,  1,  1,  1},
+      {0, -1, -2, -3},
+      {0,  0,  1,  3},
+      {0,  0,  0, -1}
+    }
+  };
+  cubic->a = dmat44_dvec4_mul(M, cubic->a);
+}
+
 dbl cubic_f(cubic_s const *cubic, dbl lam) {
   return dvec4_dot(cubic->a, dvec4_m(lam));
 }

@@ -12,6 +12,7 @@ typedef struct cubic {
 
 void cubic_set_data(cubic_s *cubic, dvec4 data);
 void cubic_set_data_from_ptr(cubic_s *cubic, dbl const *data_ptr);
+void cubic_reverse_on_unit_interval(cubic_s *cubic);
 dbl cubic_f(cubic_s const *cubic, dbl lam);
 dbl cubic_df(cubic_s const *cubic, dbl lam);
 

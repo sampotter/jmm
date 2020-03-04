@@ -225,6 +225,12 @@ TODO!
         cubic_set_data_from_ptr(&C, &data[0]);
       }
     )
+    .def(
+      "reverse_on_unit_interval",
+      [] (cubic & C) {
+        cubic_reverse_on_unit_interval(&C);
+      }
+    )
     .def_property_readonly(
       "a",
       [] (cubic const & C) {
