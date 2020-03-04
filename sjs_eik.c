@@ -260,8 +260,11 @@ static bool inbounds(sjs_s const *sjs, int l) {
 
 static bool can_build_cell(sjs_s const *sjs, int lc) {
   for (int i = 0, l; i < NUM_CELL_VERTS; ++i) {
-    l = lc2l(sjs->shape, lc);
-    state_e state = sjs->states[l + sjs->vert_dl[i]];
+    l = lc2l(sjs->shape, lc) + sjs->vert_dl[i];
+	if (!inbounds(sjs, l)) {
+      return false;
+	}
+    state_e state = sjs->states[l];
     if (state != TRIAL && state != VALID) {
       return false;
     }
@@ -349,18 +352,18 @@ static bool update(sjs_s *sjs, int l) {
 
   for (int i0 = 1, l0, l1, ic0; i0 < 8; i0 += 2) {
     l0 = l + sjs->nb_dl[i0];
-    if (sjs->states[l0] != VALID) {
+    if (inbounds(sjs, l0) && sjs->states[l0] != VALID) {
       continue;
     }
 
     l1 = l + sjs->nb_dl[i0 - 1];
-    if (sjs->states[l1] == VALID) {
+    if (inbounds(sjs, l1) && sjs->states[l1] == VALID) {
       ic0 = i0 - 1;
       updated |= tri(sjs, l, l0, l1, ic0);
     }
 
     l1 = l + sjs->nb_dl[i0 + 1];
-    if (sjs->states[l1] == VALID) {
+    if (inbounds(sjs, l1) && sjs->states[l1] == VALID) {
       ic0 = i0;
       updated |= tri(sjs, l, l0, l1, ic0);
     }
@@ -368,7 +371,7 @@ static bool update(sjs_s *sjs, int l) {
 
   for (int i0 = 0, l0; i0 < 8; ++i0) {
     l0 = l + sjs->nb_dl[i0];
-    if (sjs->states[l0] == VALID) {
+    if (inbounds(sjs, l0) && sjs->states[l0] == VALID) {
       updated |= line(sjs, l, l0);
     }
   }
