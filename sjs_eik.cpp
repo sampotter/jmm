@@ -711,6 +711,14 @@ TODO!
              return std::make_unique<ivec2>(dvec2_to_ivec2(u));
            }
          ))
+    .def(
+      "__repr__",
+      [] (ivec2 const & u) {
+        std::stringstream ss;
+        ss << "Ivec2(" << u.i << ", " << u.j << ")";
+        return ss.str();
+      }
+    )
     .def_readwrite("i", &ivec2::i)
     .def_readwrite("j", &ivec2::j)
     ;
