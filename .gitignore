@@ -2,6 +2,7 @@
 *.egg-info
 *.eggs
 *.idea
+*.ipynb_checkpoints
 *~
 GPATH
 GRTAGS
@@ -9,5 +10,6 @@ GTAGS
 __pycache__
 build
 cmake-build-debug
+dist
 dists
 scratch
