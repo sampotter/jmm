@@ -331,11 +331,13 @@ static bool update(sjs_s *sjs, int l) {
 
     l1 = l + sjs->nb_dl[i0 - 1];
     if (sjs->states[l1] == VALID) {
+      ic0 = i0 - 1;
       updated |= tri(sjs, l, l0, l1, ic0);
     }
 
     l1 = l + sjs->nb_dl[i0 + 1];
     if (sjs->states[l1] == VALID) {
+      ic0 = i0;
       updated |= tri(sjs, l, l0, l1, ic0);
     }
   }
