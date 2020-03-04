@@ -103,10 +103,16 @@ static ivec2 nearby_cell_offsets[NUM_NEARBY_CELLS] = {
 };
 
 static bicubic_variable tri_bicubic_vars[NUM_NB] = {
-  MU, MU, LAMBDA, LAMBDA, MU, MU, LAMBDA, LAMBDA
+  /* ic0 -> */ MU, MU, LAMBDA, LAMBDA, MU, MU, LAMBDA, LAMBDA
 };
 
-static int tri_edges[NUM_NB] = {1, 1, 0, 0, 0, 0, 1, 1};
+static int tri_edges[NUM_NB] = {
+  /* ic0 -> */ 1, 1, 0, 0, 0, 0, 1, 1
+};
+
+static bool should_reverse_cubic[NUM_NB] = {
+  /* ic0 -> */ true, false, true, false, false, true, false, true
+};
 
 #define _ NO_INDEX
 static int dirty2updated[NUM_NEARBY_CELLS][NUM_CELL_VERTS - 1] = {
@@ -205,8 +211,18 @@ static bool tri(sjs_s *sjs, int l, int l0, int l1, int ic0) {
   assert(bicubic_valid(bicubic));
 #endif
 
+  /**
+   * Get cubic along edge of interest.
+   */
+  bicubic_variable var = tri_bicubic_vars[ic0];
+  int edge = tri_edges[ic0];
+  cubic_s cubic = bicubic_restrict(bicubic, var, edge);
+  if (should_reverse_cubic[ic0]) {
+    cubic_reverse_on_unit_interval(&cubic);
+  }
+
   update_data data = {
-    .cubic = bicubic_restrict(bicubic, tri_bicubic_vars[ic0], tri_edges[ic0]),
+    .cubic = cubic,
     .xy = get_xy(sjs, l),
     .xy0 = get_xy(sjs, l0),
     .xy1 = get_xy(sjs, l1)
