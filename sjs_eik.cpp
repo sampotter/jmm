@@ -565,12 +565,11 @@ TODO!
   // update.h
 
   py::class_<update_data>(m, "UpdateData")
-    .def(py::init<cubic, dvec2, dvec2, dvec2, dbl>())
+    .def(py::init<cubic, dvec2, dvec2, dvec2>())
     .def_readwrite("cubic", &update_data::cubic)
     .def_readwrite("xy", &update_data::xy)
     .def_readwrite("xy0", &update_data::xy0)
     .def_readwrite("xy1", &update_data::xy1)
-    .def_readwrite("h", &update_data::h)
     .def(
       "F",
       [] (update_data const & data, dbl lam) {

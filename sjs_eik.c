@@ -174,7 +174,7 @@ static bool line(sjs_s *sjs, int l, int l0) {
   dbl L = dvec2_norm(dxy);
 
   dbl T0 = sjs->jets[l0].f;
-  dbl T = T0 + sjs->h*L;
+  dbl T = T0 + L;
 
   jet_s *J = &sjs->jets[l];
   bool updated = false;
@@ -205,8 +205,7 @@ static bool tri(sjs_s *sjs, int l, int l0, int l1, int i0) {
     .cubic = bicubic_restrict(bicubic, tri_bicubic_vars[i0], tri_edges[i0]),
     .xy = get_xy(sjs, l),
     .xy0 = get_xy(sjs, l0),
-    .xy1 = get_xy(sjs, l1),
-    .h = sjs->h
+    .xy1 = get_xy(sjs, l1)
   };
 
   void *context = (void *)&data;

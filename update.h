@@ -10,7 +10,6 @@ extern "C" {
 typedef struct {
   cubic_s cubic;
   dvec2 xy, xy0, xy1;
-  dbl h;
 } update_data;
 
 dbl F(dbl lam, void *context);

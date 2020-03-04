@@ -10,7 +10,7 @@ class TestUpdate(unittest.TestCase):
         xy1 = sjs.Dvec2(0, 1)
         xy = sjs.Dvec2(0, 0)
         h = 1
-        data = sjs.UpdateData(cubic, xy, xy0, xy1, h)
+        data = sjs.UpdateData(cubic, xy, xy0, xy1)
         self.assertAlmostEqual(data.F(0), 1.0)
         self.assertAlmostEqual(data.F(1), 1.0)
         self.assertAlmostEqual(data.F(1/2), 1.0/np.sqrt(2))
@@ -24,7 +24,7 @@ class TestUpdate(unittest.TestCase):
         xy1 = sjs.Dvec2(0, 1)
         xy = sjs.Dvec2(0, 0)
         h = 1
-        data = sjs.UpdateData(cubic, xy, xy0, xy1, h)
+        data = sjs.UpdateData(cubic, xy, xy0, xy1)
 
         lam = sjs.hybrid(lambda lam: data.dF_dt(lam), 0, 1)
         self.assertAlmostEqual(lam, 0.5)
