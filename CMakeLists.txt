@@ -9,7 +9,6 @@ find_package (pybind11 REQUIRED)
 
 file (GLOB SJS_EIK_SRCS *.c *.h)
 
-
 pybind11_add_module (_sjs_eik MODULE sjs_eik.cpp ${SJS_EIK_SRCS})
 target_compile_definitions (_sjs_eik PRIVATE USING_PYBIND11=1)
 set_property (TARGET _sjs_eik PROPERTY CXX_STANDARD 17)
