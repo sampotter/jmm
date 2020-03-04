@@ -444,6 +444,10 @@ void sjs_init(sjs_s *sjs, ivec2 shape, dvec2 xymin, dbl h) {
   set_nb_dlc(sjs);
   set_nearby_dlc(sjs);
 
+  // When we build in debug mode, we want to make sure everything
+  // that's allocated on the heap in this function is
+  // initialized. This removes a lot of line noise from Valgrind's
+  // output.
 #if SJS_DEBUG
   for (int lc = 0; lc < sjs->ncells; ++lc) {
     bicubic_invalidate(&sjs->bicubics[lc]);
@@ -452,6 +456,12 @@ void sjs_init(sjs_s *sjs, ivec2 shape, dvec2 xymin, dbl h) {
 
   for (int l = 0; l < sjs->nnodes; ++l) {
     sjs->jets[l].f = INFINITY;
+	// Set comment above about initialization in debug mode.
+#if SJS_DEBUG
+	sjs->jets[l].fx = NAN;
+	sjs->jets[l].fy = NAN;
+	sjs->jets[l].fxy = NAN;
+#endif
     sjs->states[l] = FAR;
   }
 }
