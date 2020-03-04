@@ -187,11 +187,15 @@ static bool line(sjs_s *sjs, int l, int l0) {
   return updated;
 }
 
-static bool tri(sjs_s *sjs, int l, int l0, int l1, int i0) {
-  assert(i0 >= 0);
-  assert(i0 < NUM_NB);
+/**
+ * In this function, `ic0` is used as an index to select a nearby
+ * bicubic interpolant which will be used to approximate `T` locally.
+ */
+static bool tri(sjs_s *sjs, int l, int l0, int l1, int ic0) {
+  assert(ic0 >= 0);
+  assert(ic0 < NUM_NB);
 
-  int lc = l2lc(sjs->shape, l) + sjs->tri_dlc[i0];
+  int lc = l2lc(sjs->shape, l) + sjs->tri_dlc[ic0];
   if (lc < 0 || sjs->ncells <= lc) {
     return false;
   }
@@ -202,7 +206,7 @@ static bool tri(sjs_s *sjs, int l, int l0, int l1, int i0) {
 #endif
 
   update_data data = {
-    .cubic = bicubic_restrict(bicubic, tri_bicubic_vars[i0], tri_edges[i0]),
+    .cubic = bicubic_restrict(bicubic, tri_bicubic_vars[ic0], tri_edges[ic0]),
     .xy = get_xy(sjs, l),
     .xy0 = get_xy(sjs, l0),
     .xy1 = get_xy(sjs, l1)
@@ -319,7 +323,7 @@ static void build_cell(sjs_s *sjs, int lc) {
 static bool update(sjs_s *sjs, int l) {
   bool updated = false;
 
-  for (int i0 = 1, l0, l1; i0 < 8; i0 += 2) {
+  for (int i0 = 1, l0, l1, ic0; i0 < 8; i0 += 2) {
     l0 = l + sjs->nb_dl[i0];
     if (sjs->states[l0] != VALID) {
       continue;
@@ -327,12 +331,12 @@ static bool update(sjs_s *sjs, int l) {
 
     l1 = l + sjs->nb_dl[i0 - 1];
     if (sjs->states[l1] == VALID) {
-      updated |= tri(sjs, l, l0, l1, i0);
+      updated |= tri(sjs, l, l0, l1, ic0);
     }
 
     l1 = l + sjs->nb_dl[i0 + 1];
     if (sjs->states[l1] == VALID) {
-      updated |= tri(sjs, l, l0, l1, i0);
+      updated |= tri(sjs, l, l0, l1, ic0);
     }
   }
 
