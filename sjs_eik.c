@@ -250,6 +250,14 @@ static bool tri(sjs_s *sjs, int l, int l0, int l1, int ic0) {
   return updated;
 }
 
+/**
+ * Returns whether the linear index `l` corresponds to a valid index
+ * into `sjs`'s domain.
+ */
+static bool inbounds(sjs_s const *sjs, int l) {
+  return 0 <= l && l < sjs->nnodes;
+}
+
 static bool can_build_cell(sjs_s const *sjs, int lc) {
   for (int i = 0, l; i < NUM_CELL_VERTS; ++i) {
     l = lc2l(sjs->shape, lc);
@@ -374,13 +382,6 @@ static void adjust(sjs_s *sjs, int l0) {
   assert(l0 < sjs->nnodes);
 
   heap_swim(sjs->heap, sjs->positions[l0]);
-}
-
-/**
- * Checks if the linear index `l` is valid for `sjs`.
- */
-static bool inbounds(sjs_s *sjs, int l) {
-  return 0 <= l && l < sjs->nnodes;
 }
 
 static dbl value(void *vp, int l) {
