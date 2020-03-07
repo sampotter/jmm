@@ -491,9 +491,9 @@ void sjs_init(sjs_s *sjs, ivec2 shape, dvec2 xymin, dbl h) {
     sjs->jets[l].f = INFINITY;
     // Set comment above about initialization in debug mode.
 #if SJS_DEBUG
-	sjs->jets[l].fx = NAN;
-	sjs->jets[l].fy = NAN;
-	sjs->jets[l].fxy = NAN;
+    sjs->jets[l].fx = NAN;
+    sjs->jets[l].fy = NAN;
+    sjs->jets[l].fxy = NAN;
 #endif
     sjs->states[l] = FAR;
   }
