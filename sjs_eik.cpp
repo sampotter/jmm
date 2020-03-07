@@ -209,6 +209,15 @@ TODO!
     )
     ;
 
+  m.def(
+    "interpolate_fxy_at_verts",
+    [] (std::array<dbl, 4> const & fx, std::array<dbl, 4> const & fy, dbl h) {
+      dvec4 fx_ = {.data = {fx[0], fx[1], fx[2], fx[3]}};
+      dvec4 fy_ = {.data = {fy[0], fy[1], fy[2], fy[3]}};
+      return interpolate_fxy_at_verts(fx_, fy_, h);
+    }
+  );
+
   // cubic.h
 
   py::class_<cubic>(m, "Cubic")

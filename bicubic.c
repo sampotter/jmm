@@ -66,6 +66,36 @@ dbl bicubic_fxy(bicubic_s const *bicubic, dvec2 cc) {
   );
 }
 
+/**
+ * TODO: move this into the `bicubic` module, add some unit tests,
+ * etc.
+ */
+dvec4 interpolate_fxy_at_verts(dvec4 fx, dvec4 fy, dbl h) {
+  static dmat44 Ax = {
+    .data = {
+      {-3.0/4.0,  3.0/4.0,  1.0/4.0, -1.0/4.0},
+      { 1.0/4.0, -1.0/4.0, -3.0/4.0,  3.0/4.0},
+      {-3.0/4.0,  3.0/4.0,  1.0/4.0, -1.0/4.0},
+      { 1.0/4.0, -1.0/4.0, -3.0/4.0,  3.0/4.0}
+    }
+  };
+  static dmat44 Ay = {
+    .data = {
+      {-3.0/4.0,  3.0/4.0,  1.0/4.0, -1.0/4.0},
+      {-3.0/4.0,  3.0/4.0,  1.0/4.0, -1.0/4.0},
+      { 1.0/4.0, -1.0/4.0, -3.0/4.0,  3.0/4.0},
+      { 1.0/4.0, -1.0/4.0, -3.0/4.0,  3.0/4.0}
+    }
+  };
+  return dvec4_dbl_div(
+    dvec4_add(
+      dmat44_dvec4_mul(Ax, fx),
+      dmat44_dvec4_mul(Ay, fy)
+    ),
+    h
+  );
+}
+
 #if SJS_DEBUG
 bool bicubic_valid(bicubic_s const *bicubic) {
   for (int i = 0; i < 4; ++i) {
