@@ -641,6 +641,18 @@ TODO!
            }
          ))
     .def(
+      "__repr__",
+      [] (dvec4 const & u) {
+        std::stringstream ss;
+        ss << "Dvec4("
+           << u.data[0] << ", "
+           << u.data[1] << ", "
+           << u.data[2] << ", "
+           << u.data[3] << ")";
+        return ss.str();
+      }
+    )
+    .def(
       "__getitem__",
       [] (dvec4 const & v, int i) {
         if (i < 0 || 4 <= i) {
