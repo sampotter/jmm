@@ -36,6 +36,8 @@ typedef struct {
 
 dbl dvec4_dot(dvec4 v0, dvec4 v1);
 dbl dvec4_sum(dvec4 v);
+dvec4 dvec4_add(dvec4 u, dvec4 v);
+dvec4 dvec4_dbl_div(dvec4 u, dbl a);
 dvec4 dvec4_m(dbl x);
 dvec4 dvec4_dm(dbl x);
 dvec4 dvec4_e1();

@@ -663,6 +663,14 @@ TODO!
       "sum",
       [] (dvec4 const & u) { return dvec4_sum(u); }
     )
+    .def(
+      "__add__",
+      [] (dvec4 const & u, dvec4 const & v) { return dvec4_add(u, v); }
+    )
+    .def(
+      "__truediv__",
+      [] (dvec4 const & u, dbl a) { return dvec4_dbl_div(u, a); }
+    )
     .def_static(
       "m",
       [] (dbl x) { return dvec4_m(x); }

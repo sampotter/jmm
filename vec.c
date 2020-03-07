@@ -49,6 +49,24 @@ dbl dvec4_sum(dvec4 v) {
   return tmp;
 }
 
+dvec4 dvec4_add(dvec4 u, dvec4 v) {
+  dvec4 w;
+  w.data[0] = u.data[0] + v.data[0];
+  w.data[1] = u.data[1] + v.data[1];
+  w.data[2] = u.data[2] + v.data[2];
+  w.data[3] = u.data[3] + v.data[3];
+  return w;
+}
+
+dvec4 dvec4_dbl_div(dvec4 u, dbl a) {
+  dvec4 v;
+  v.data[0] = u.data[0]/a;
+  v.data[1] = u.data[1]/a;
+  v.data[2] = u.data[2]/a;
+  v.data[3] = u.data[3]/a;
+  return v;
+}
+
 dvec4 dvec4_m(dbl x) {
   dvec4 m;
   m.data[0] = 1.0;

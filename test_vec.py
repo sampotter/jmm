@@ -80,6 +80,29 @@ class TestDvec4(unittest.TestCase):
             self.assertAlmostEqual(u.sum(), u_data.sum())
             self.assertAlmostEqual(sjs.sum(u), u_data.sum())
 
+    def test_add(self):
+        for _ in range(10):
+            u_data, v_data = np.random.randn(2, 4)
+            u, v = sjs.Dvec4(u_data), sjs.Dvec4(v_data)
+            w = u + v
+            w_gt = u_data + v_data
+            self.assertAlmostEqual(w[0], w_gt[0])
+            self.assertAlmostEqual(w[1], w_gt[1])
+            self.assertAlmostEqual(w[2], w_gt[2])
+            self.assertAlmostEqual(w[3], w_gt[3])
+
+    def test_div(self):
+        for _ in range(10):
+            u_data = np.random.randn(4)
+            u = sjs.Dvec4(u_data)
+            a = np.random.randn()
+            v = u/a
+            v_gt = u_data/a
+            self.assertAlmostEqual(v[0], v_gt[0])
+            self.assertAlmostEqual(v[1], v_gt[1])
+            self.assertAlmostEqual(v[2], v_gt[2])
+            self.assertAlmostEqual(v[3], v_gt[3])
+
     def test_m(self):
         for _ in range(10):
             x = np.random.randn()
