@@ -514,6 +514,31 @@ void sjs_deinit(sjs_s *sjs) {
   heap_dealloc(&sjs->heap);
 }
 
+#if SJS_DEBUG
+static void check_cell_consistency(sjs_s const *sjs, int l0) {
+  dbl tol = 1e-10, h = sjs->h, h_sq = h*h, f, fx, fy, fxy;
+  dvec2 cc[4] = {{0, 0}, {1, 0}, {0, 1}, {1, 1}};
+  bicubic_s *bicubic;
+  for (int ic = 0, lc; ic < NUM_NEARBY_CELLS; ++ic) {
+    lc = l2lc(sjs->shape, l0) + sjs->nearby_dlc[ic];
+    if (can_build_cell(sjs, lc)) {
+      bicubic = &sjs->bicubics[lc];
+      for (int jv = 0, l; jv < NUM_CELL_VERTS; ++jv) {
+        l = lc2l(sjs->shape, lc) + sjs->vert_dl[jv];
+        f = bicubic_f(bicubic, cc[jv]);
+        fx = bicubic_fx(bicubic, cc[jv]);
+        fy = bicubic_fy(bicubic, cc[jv]);
+        fxy = bicubic_fxy(bicubic, cc[jv]);
+        assert(fabs(f - sjs->jets[l].f) < tol);
+        assert(fabs(fx - h*sjs->jets[l].fx) < tol);
+        assert(fabs(fy - h*sjs->jets[l].fy) < tol);
+        assert(fabs(fxy - h_sq*sjs->jets[l].fxy) < tol);
+      }
+    }
+  }
+}
+#endif
+
 void sjs_step(sjs_s *sjs) {
   int l0 = heap_front(sjs->heap);
   assert(sjs->states[l0] == TRIAL);
@@ -610,6 +635,10 @@ void sjs_step(sjs_s *sjs) {
    */
     }
   }
+
+#if SJS_DEBUG
+  check_cell_consistency(sjs, l0);
+#endif
 }
 
 void sjs_solve(sjs_s *sjs) {
