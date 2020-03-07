@@ -10,6 +10,13 @@
 #include "jet.h"
 #include "update.h"
 
+/**
+ * TODO: add a few comments about how indexing works
+ *
+ * - row-major ordering is used
+ * - l vs lc index spaces
+ */
+
 #define NUM_CELL_VERTS 4
 #define NUM_NB 8
 #define NUM_NEARBY_CELLS 16
@@ -43,6 +50,18 @@ static ivec2 offsets[NUM_NB + 1] = {
   {.i = -1, .j = -1}
 };
 
+/**
+ * This array provides offsets that can be used to map an `lc`-index
+ * to the `l`-indices of the four vertices of the corresponding
+ * cell. In our indexing scheme, if we treat an `lc`-index as an `l`
+ * index, we recover the upper-left corner of a cell. These offsets
+ * can be used to map to any of the cell's vertices.
+ *
+ * TODO: this should be stored in row-major order instead of column
+ * major order!
+ *
+ * TODO: add a picture
+ */
 static ivec2 cell_vert_offsets[NUM_CELL_VERTS] = {
   {.i = 0, .j = 0},
   {.i = 1, .j = 0},
@@ -66,15 +85,15 @@ static ivec2 cell_vert_offsets[NUM_CELL_VERTS] = {
  * explanation for why we want to do this.
  *
  *                0     1
- *	           +-----+-----+
- *			   |-2,-1|-2, 0|
- *	     +-----+-----+-----+-----+
- *	   7 |-1,-2|  X	 |	X  |-1, 1| 2
- *	     +-----+-----i-----+-----+
- *     6 | 0,-2|  X  |	X  | 0, 1| 3
- *	     +-----+-----+-----+-----+
- *			   | 1,-1| 1, 0|
- *	           +-----+-----+
+ *             +-----+-----+
+ *             |-2,-1|-2, 0|
+ *       +-----+-----+-----+-----+
+ *     7 |-1,-2|  X  |  X  |-1, 1| 2
+ *       +-----+-----i-----+-----+
+ *     6 | 0,-2|  X  |  X  | 0, 1| 3
+ *       +-----+-----+-----+-----+
+ *             | 1,-1| 1, 0|
+ *             +-----+-----+
  *                5     4
  */
 static ivec2 tri_cell_offsets[NUM_NB] = {
@@ -114,6 +133,11 @@ static bool should_reverse_cubic[NUM_NB] = {
   /* ic0 -> */ true, false, true, false, false, true, false, true
 };
 
+/**
+ * TODO: to switch this from the column major ordering using by
+ * `cell_vert_offsets` (how it is now), just swap the middle two
+ * columns below
+ */
 #define _ NO_INDEX
 static int dirty2updated[NUM_NEARBY_CELLS][NUM_CELL_VERTS - 1] = {
   {0, _, _}, {0, 1, _}, {1, 2, _}, {2, _, _},
@@ -210,6 +234,7 @@ static bool tri(sjs_s *sjs, int l, int l0, int l1, int ic0) {
 #if SJS_DEBUG
   assert(bicubic_valid(bicubic));
 #endif
+  // TODO: assert valid state
 
   /**
    * Get cubic along edge of interest.
@@ -259,12 +284,17 @@ static bool inbounds(sjs_s const *sjs, int l) {
 }
 
 static bool can_build_cell(sjs_s const *sjs, int lc) {
+  // TODO: do this using SIMD gathers
   for (int i = 0, l; i < NUM_CELL_VERTS; ++i) {
     l = lc2l(sjs->shape, lc) + sjs->vert_dl[i];
-	if (!inbounds(sjs, l)) {
+    if (!inbounds(sjs, l)) {
       return false;
-	}
+    }
     state_e state = sjs->states[l];
+    /**
+     * TODO: we don't want to build cells that only have trial values,
+     * I don't think...
+     */
     if (state != TRIAL && state != VALID) {
       return false;
     }
@@ -459,7 +489,7 @@ void sjs_init(sjs_s *sjs, ivec2 shape, dvec2 xymin, dbl h) {
 
   for (int l = 0; l < sjs->nnodes; ++l) {
     sjs->jets[l].f = INFINITY;
-	// Set comment above about initialization in debug mode.
+    // Set comment above about initialization in debug mode.
 #if SJS_DEBUG
 	sjs->jets[l].fx = NAN;
 	sjs->jets[l].fy = NAN;
@@ -517,8 +547,12 @@ void sjs_step(sjs_s *sjs) {
     }
   }
 
-  // Find adjacent "dirty" cells ("ready" cells which have at least
-  // one updated vertex).
+  /**
+   * Find adjacent "dirty" cells ("ready" cells which have at least
+   * one updated vertex).
+   *
+   * NOTE: dirty => can_build_cell
+   */
   bool dirty[NUM_NEARBY_CELLS];
   memset(dirty, 0x0, NUM_NEARBY_CELLS*sizeof(bool));
   for (int i = 0, lc; i < NUM_NEARBY_CELLS; ++i) {
@@ -545,8 +579,10 @@ void sjs_step(sjs_s *sjs) {
     }
   }
 
-  // Set new Txy values at updated nodes to be the average of the Txy
-  // values estimated at each dirty cell.
+  /**
+   * Set new Txy values at updated nodes to be the average of the Txy
+   * values estimated at each dirty cell.
+   */
   dbl Txy_sum;
   int ndirty;
   for (int i = 0, l; i < NUM_NB; ++i) {
@@ -565,11 +601,13 @@ void sjs_step(sjs_s *sjs) {
     }
   }
 
-  // Rebuild dirty cells.
   for (int i = 0, lc; i < NUM_NEARBY_CELLS; ++i) {
     if (dirty[i]) {
       lc = l2lc(sjs->shape, l0) + sjs->nearby_dlc[i];
       build_cell(sjs, lc);
+  /**
+   * Rebuild dirty cells
+   */
     }
   }
 }
