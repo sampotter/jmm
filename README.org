@@ -35,3 +35,13 @@ $ python -m unittest
    do double duty and make sure that the Python bindings are
    implemented correctly, and also that the library's implementation
    itself is correct.
+
+** Tagged versions
+
+   Some important versions are tagged (you can find these under the
+   "branches" menu if you're browsing this repository using
+   GitHub). Currently, there are the following branches:
+
+   | Tag    | Description                                        |
+   |--------+----------------------------------------------------|
+   | v0.1.0 | First version with `eik` working for $s \equiv 1$. |
