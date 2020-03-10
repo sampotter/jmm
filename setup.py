@@ -59,18 +59,18 @@ class CMakeBuild(build_ext):
         subprocess.check_call(['cmake', '--build', '.'] + build_args, cwd=self.build_temp)
 
 ext_modules=[
-    CMakeExtension('_sjs_eik')
+    CMakeExtension('_sjs')
 ]
 
 setup(
-    name='sjs_eik',
+    name='sjs',
     version=__version__,
     author='Samuel F. Potter',
     author_email='sfp@umiacs.umd.edu',
     description='TODO',
     long_description='',
     ext_modules=ext_modules,
-    py_modules=['sjs_eik'],
+    py_modules=['sjs'],
     install_requires=['pybind11>=2.4'],
     setup_requires=['pybind11>=2.4'],
     cmdclass={'build_ext': CMakeBuild},
