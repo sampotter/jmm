@@ -161,7 +161,6 @@ void heap_sink(heap_s *heap, int pos) {
 void heap_pop(heap_s *heap) {
 #if SJS_DEBUG
   heap->setpos(heap->context, heap->inds[0], NO_INDEX);
-  // heap->sjs->positions[heap->inds[0]] = NO_INDEX;
 #endif
   heap_swap(heap, 0, heap->size - 1);
   if (--heap->size > 0) {
