@@ -96,12 +96,11 @@ dvec4 interpolate_fxy_at_verts(dvec4 fx, dvec4 fy, dbl h) {
   );
 }
 
-#if SJS_DEBUG
 bool bicubic_valid(bicubic_s const *bicubic) {
   for (int i = 0; i < 4; ++i) {
     for (int j = 0; j < 4; ++j) {
-      if (isnan(bicubic->A.data[i][j])) {
-        return true;
+      if (!isfinite(bicubic->A.data[i][j])) {
+        return false;
       }
     }
   }
@@ -115,4 +114,3 @@ void bicubic_invalidate(bicubic_s *bicubic) {
     }
   }
 }
-#endif
