@@ -9,7 +9,7 @@ find_package (pybind11 REQUIRED)
 
 file (GLOB SJS_SRCS *.c *.h)
 
-pybind11_add_module (_sjs MODULE sjs.cpp ${SJS_EIK_SRCS})
+pybind11_add_module (_sjs MODULE sjs.cpp ${SJS_SRCS})
 target_compile_definitions (_sjs PRIVATE USING_PYBIND11=1)
 set_property (TARGET _sjs PROPERTY CXX_STANDARD 17)
 

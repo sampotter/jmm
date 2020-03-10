@@ -8,7 +8,7 @@ from setuptools import setup, Extension
 from setuptools.command.build_ext import build_ext
 from distutils.version import LooseVersion
 
-__version__ = '0.0.1'
+__version__ = '0.1.0'
 
 
 class CMakeExtension(Extension):
@@ -67,7 +67,7 @@ setup(
     version=__version__,
     author='Samuel F. Potter',
     author_email='sfp@umiacs.umd.edu',
-    description='TODO',
+    description='Prototypes of different static jet schemes',
     long_description='',
     ext_modules=ext_modules,
     py_modules=['sjs'],
