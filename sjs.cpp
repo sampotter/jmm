@@ -7,11 +7,11 @@
 namespace py = pybind11;
 
 #include "bicubic.h"
+#include "eik.h"
 #include "heap.h"
 #include "hybrid.h"
 #include "index.h"
 #include "jet.h"
-#include "sjs_eik.h"
 #include "update.h"
 #include "vec.h"
 
@@ -74,13 +74,13 @@ static dbl f_wrapper(dbl t, void * context) {
 // static dbl s_wrapper(void *vp, dvec2 xy);
 // static dvec2 grad_s_wrapper(void *vp, dvec2 xy);
 
-struct sjs_wrapper {
-  sjs * ptr {nullptr};
+struct eik_wrapper {
+  eik * ptr {nullptr};
 
   // std::optional<std::function<dbl(dbl, dbl)>> s;
   // std::optional<std::function<std::tuple<dbl, dbl>(dbl, dbl)>> grad_s;
 
-  sjs_wrapper(std::array<int, 2> const & shape,
+  eik_wrapper(std::array<int, 2> const & shape,
               std::array<dbl, 2> const & xymin,
               dbl h)
               // std::function<dbl(dbl, dbl)> s,
@@ -88,8 +88,8 @@ struct sjs_wrapper {
     // s {s},
     // grad_s {grad_s}
   {
-    sjs_alloc(&ptr);
-    sjs_init(
+    eik_alloc(&ptr);
+    eik_init(
       ptr,
       ivec2 {shape[0], shape[1]},
       dvec2 {xymin[0], xymin[1]},
@@ -100,34 +100,34 @@ struct sjs_wrapper {
     );
   }
 
-  ~sjs_wrapper() {
-    sjs_deinit(ptr);
-    sjs_dealloc(&ptr);
+  ~eik_wrapper() {
+    eik_deinit(ptr);
+    eik_dealloc(&ptr);
   }
 };
 
 // static dbl s_wrapper(void *vp, dvec2 xy) {
-//   sjs_wrapper * swp = (sjs_wrapper *) vp;
+//   eik_wrapper * swp = (eik_wrapper *) vp;
 //   if (!swp->s) {
-//     throw std::runtime_error {"ERROR: No s function for sjs!"};
+//     throw std::runtime_error {"ERROR: No s function for eik!"};
 //   }
 //   return (*swp->s)(xy.x, xy.y);
 // }
 
 // static dvec2 grad_s_wrapper(void *vp, dvec2 xy) {
-//   sjs_wrapper * swp = (sjs_wrapper *) vp;
+//   eik_wrapper * swp = (eik_wrapper *) vp;
 //   if (!swp->grad_s) {
-//     throw std::runtime_error {"ERROR: No grad_s function for sjs!"};
+//     throw std::runtime_error {"ERROR: No grad_s function for eik!"};
 //   }
 //   dvec2 tmp;
 //   std::tie(tmp.x, tmp.y) = (*swp->grad_s)(xy.x, xy.y);
 //   return tmp;
 // }
 
-PYBIND11_MODULE (_sjs_eik, m) {
+PYBIND11_MODULE (_sjs, m) {
   m.doc() = R"pbdoc(
-_sjs_eik
---------
+_sjs
+----
 
 TODO!
 )pbdoc";
@@ -263,6 +263,128 @@ TODO!
     .value("Trial", state::TRIAL)
     .value("Valid", state::VALID)
     .value("Boundary", state::BOUNDARY)
+    ;
+
+  // eik.h
+
+  py::class_<eik_wrapper>(m, "Eik")
+    .def(py::init<
+           std::array<int, 2> const &,
+           std::array<dbl, 2> const &,
+           dbl
+           // std::function<dbl(dbl, dbl)> const &,
+           // std::function<std::tuple<dbl, dbl>(dbl, dbl)> const &
+         >())
+    .def(
+      "step",
+      [] (eik_wrapper const & w) { eik_step(w.ptr); }
+    )
+    .def(
+      "solve",
+      [] (eik_wrapper const & w) { eik_solve(w.ptr); }
+    )
+    .def(
+      "add_trial",
+      [] (eik_wrapper const & w, int i, int j, jet_s jet) {
+        eik_add_trial(w.ptr, ivec2 {i, j}, jet);
+      }
+    )
+    .def(
+      "add_valid",
+      [] (eik_wrapper const & w, int i, int j, jet_s jet) {
+        eik_add_valid(w.ptr, ivec2 {i, j}, jet);
+      }
+    )
+    .def(
+      "make_bd",
+      [] (eik_wrapper const & w, int i, int j) {
+        eik_make_bd(w.ptr, ivec2 {i, j});
+      }
+    )
+    .def_property_readonly(
+      "shape",
+      [] (eik_wrapper const &w) { return eik_get_shape(w.ptr); }
+    )
+    .def(
+      "get_jet",
+      [] (eik_wrapper const & w, int i, int j) {
+        return eik_get_jet(w.ptr, {i, j});
+      }
+    )
+    .def(
+      "get_state",
+      [] (eik_wrapper const & w, int i, int j) {
+        return eik_get_state(w.ptr, {i, j});
+      }
+    )
+    .def_property_readonly(
+      "states",
+      [] (eik_wrapper const & w) {
+        ivec2 shape = eik_get_shape(w.ptr);
+        return py::array {
+          {shape.i, shape.j},
+          {sizeof(state)*shape.j, sizeof(state)},
+          eik_get_states_ptr(w.ptr)
+        };
+      }
+    )
+    .def(
+      "T",
+      [] (eik_wrapper const & w, dbl x, dbl y) {
+        return eik_T(w.ptr, dvec2 {x, y});
+      }
+    )
+    .def(
+      "Tx",
+      [] (eik_wrapper const & w, dbl x, dbl y) {
+        return eik_Tx(w.ptr, dvec2 {x, y});
+      }
+    )
+    .def(
+      "Ty",
+      [] (eik_wrapper const & w, dbl x, dbl y) {
+        return eik_Ty(w.ptr, dvec2 {x, y});
+      }
+    )
+    .def(
+      "Txy",
+      [] (eik_wrapper const & w, dbl x, dbl y) {
+        return eik_Txy(w.ptr, dvec2 {x, y});
+      }
+    )
+    .def(
+      "can_build_cell",
+      [] (eik_wrapper const & w, int i, int j) {
+        return eik_can_build_cell(w.ptr, ivec2 {i, j});
+      }
+    )
+    .def(
+      "build_cells",
+      [] (eik_wrapper const & w) { eik_build_cells(w.ptr); }
+    )
+    .def(
+      "get_bicubic",
+      [] (eik_wrapper const & w, int i, int j) {
+        return eik_get_bicubic(w.ptr, ivec2 {i, j});
+      }
+    )
+    .def_property_readonly(
+      "bicubics",
+      [] (eik_wrapper const & w) {
+        ivec2 shape = eik_get_shape(w.ptr);
+        return py::array {
+          {shape.i - 1, shape.j - 1},
+          {sizeof(bicubic)*(shape.j - 1), sizeof(bicubic)},
+          eik_get_bicubics_ptr(w.ptr)
+        };
+      }
+    )
+    .def_property_readonly(
+      "heap",
+      [] (eik_wrapper const & w) {
+        return heap_wrapper {eik_get_heap(w.ptr)};
+      }
+    )
     ;
 
   // heap.h
@@ -448,128 +570,6 @@ TODO!
     "col",
     [] (dmat44 const & A, int j) { return dmat44_col(A, j); }
   );
-
-  // sjs_eik.h
-
-  py::class_<sjs_wrapper>(m, "StaticJetScheme")
-    .def(py::init<
-           std::array<int, 2> const &,
-           std::array<dbl, 2> const &,
-           dbl
-           // std::function<dbl(dbl, dbl)> const &,
-           // std::function<std::tuple<dbl, dbl>(dbl, dbl)> const &
-         >())
-    .def(
-      "step",
-      [] (sjs_wrapper const & w) { sjs_step(w.ptr); }
-    )
-    .def(
-      "solve",
-      [] (sjs_wrapper const & w) { sjs_solve(w.ptr); }
-    )
-    .def(
-      "add_trial",
-      [] (sjs_wrapper const & w, int i, int j, jet_s jet) {
-        sjs_add_trial(w.ptr, ivec2 {i, j}, jet);
-      }
-    )
-    .def(
-      "add_valid",
-      [] (sjs_wrapper const & w, int i, int j, jet_s jet) {
-        sjs_add_valid(w.ptr, ivec2 {i, j}, jet);
-      }
-    )
-    .def(
-      "make_bd",
-      [] (sjs_wrapper const & w, int i, int j) {
-        sjs_make_bd(w.ptr, ivec2 {i, j});
-      }
-    )
-    .def_property_readonly(
-      "shape",
-      [] (sjs_wrapper const &w) { return sjs_get_shape(w.ptr); }
-    )
-    .def(
-      "get_jet",
-      [] (sjs_wrapper const & w, int i, int j) {
-        return sjs_get_jet(w.ptr, {i, j});
-      }
-    )
-    .def(
-      "get_state",
-      [] (sjs_wrapper const & w, int i, int j) {
-        return sjs_get_state(w.ptr, {i, j});
-      }
-    )
-    .def_property_readonly(
-      "states",
-      [] (sjs_wrapper const & w) {
-        ivec2 shape = sjs_get_shape(w.ptr);
-        return py::array {
-          {shape.i, shape.j},
-          {sizeof(state)*shape.j, sizeof(state)},
-          sjs_get_states_ptr(w.ptr)
-        };
-      }
-    )
-    .def(
-      "T",
-      [] (sjs_wrapper const & w, dbl x, dbl y) {
-        return sjs_T(w.ptr, dvec2 {x, y});
-      }
-    )
-    .def(
-      "Tx",
-      [] (sjs_wrapper const & w, dbl x, dbl y) {
-        return sjs_Tx(w.ptr, dvec2 {x, y});
-      }
-    )
-    .def(
-      "Ty",
-      [] (sjs_wrapper const & w, dbl x, dbl y) {
-        return sjs_Ty(w.ptr, dvec2 {x, y});
-      }
-    )
-    .def(
-      "Txy",
-      [] (sjs_wrapper const & w, dbl x, dbl y) {
-        return sjs_Txy(w.ptr, dvec2 {x, y});
-      }
-    )
-    .def(
-      "can_build_cell",
-      [] (sjs_wrapper const & w, int i, int j) {
-        return sjs_can_build_cell(w.ptr, ivec2 {i, j});
-      }
-    )
-    .def(
-      "build_cells",
-      [] (sjs_wrapper const & w) { sjs_build_cells(w.ptr); }
-    )
-    .def(
-      "get_bicubic",
-      [] (sjs_wrapper const & w, int i, int j) {
-        return sjs_get_bicubic(w.ptr, ivec2 {i, j});
-      }
-    )
-    .def_property_readonly(
-      "bicubics",
-      [] (sjs_wrapper const & w) {
-        ivec2 shape = sjs_get_shape(w.ptr);
-        return py::array {
-          {shape.i - 1, shape.j - 1},
-          {sizeof(bicubic)*(shape.j - 1), sizeof(bicubic)},
-          sjs_get_bicubics_ptr(w.ptr)
-        };
-      }
-    )
-    .def_property_readonly(
-      "heap",
-      [] (sjs_wrapper const & w) {
-        return heap_wrapper {sjs_get_heap(w.ptr)};
-      }
-    )
-    ;
 
   // update.h
 

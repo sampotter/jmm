@@ -1,4 +1,4 @@
-#include "sjs_eik.h"
+#include "eik.h"
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -22,15 +22,15 @@ dbl Txy(dbl x, dbl y) {
 }
 
 int main() {
-  sjs * scheme;
-  sjs_alloc(&scheme);
+  eik * scheme;
+  eik_alloc(&scheme);
 
   int N = 101;
   int i0 = N/2;
   ivec2 shape = {N, N};
   dvec2 xymin = {-1, -1};
   dbl h = 2.0/(N-1);
-  sjs_init(scheme, shape, xymin, h);
+  eik_init(scheme, shape, xymin, h);
 
   int R = 5;
   for (int i = 0; i < N; ++i) {
@@ -44,17 +44,17 @@ int main() {
         ivec2 ind = {i, j};
         jet J = {T(x, y), Tx(x, y), Ty(x, y), Txy(x, y)};
         if (r < R) {
-          sjs_add_valid(scheme, ind, J);
+          eik_add_valid(scheme, ind, J);
         } else {
-          sjs_add_trial(scheme, ind, J);
+          eik_add_trial(scheme, ind, J);
         }
       }
     }
   }
-  sjs_build_cells(scheme);
+  eik_build_cells(scheme);
 
-  sjs_solve(scheme);
+  eik_solve(scheme);
 
-  sjs_deinit(scheme);
-  sjs_dealloc(&scheme);
+  eik_deinit(scheme);
+  eik_dealloc(&scheme);
 }

@@ -1,8 +1,9 @@
-* sjs-eik
+* sjs
 
-  This is a C library implementing a static jet scheme for solving the
-  eikonal equation in 2D on a regular grid. This is mostly a proof of
-  concept library but could potentially be useful to someone.
+  This is a C library implementing a static jet scheme (SJS) for
+  solving the eikonal equation in 2D on a regular grid. Ideally, other
+  SJSs will be added as they're developed to reuse some of the
+  functionality common to them.
 
   The library comes with a Python interface written using pybind11 and
   which is a straightforward mapping of the "object-oriented" C
