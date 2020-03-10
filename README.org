@@ -16,7 +16,7 @@
 #+BEGIN_SRC sh
 $ python setup.py install
 #+END_SRC
-   This will install a Python module named ~sjs_eik~ which contains
+   This will install a Python module named ~sjs~ which contains
    everything in a flat namespace.
 
 ** Tests
