@@ -17,7 +17,9 @@ typedef struct bicubic {
 
 void bicubic_set_data(bicubic_s *bicubic, dmat44 data);
 void bicubic_set_data_from_ptr(bicubic_s *bicubic, dbl const *data_ptr);
-cubic_s bicubic_restrict(bicubic_s const *bicubic, bicubic_variable var, int edge);
+cubic_s bicubic_get_f_on_edge(bicubic_s const *bicubic, bicubic_variable var, int edge);
+cubic_s bicubic_get_fx_on_edge(bicubic_s const *bicubic, bicubic_variable var, int edge);
+cubic_s bicubic_get_fy_on_edge(bicubic_s const *bicubic, bicubic_variable var, int edge);
 dbl bicubic_f(bicubic_s const *bicubic, dvec2 cc);
 dbl bicubic_fx(bicubic_s const *bicubic, dvec2 cc);
 dbl bicubic_fy(bicubic_s const *bicubic, dvec2 cc);

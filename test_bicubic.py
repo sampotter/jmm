@@ -15,34 +15,112 @@ class TestBicubic(unittest.TestCase):
                 self.assertAlmostEqual(bicubic.fy(lam, mu), data[i, 2 + j])
                 self.assertAlmostEqual(bicubic.fxy(lam, mu), data[2 + i, 2 + j])
 
-    def test_restrict(self):
+    def test_get_f_on_edge(self):
         for _ in range(10):
             data = np.random.randn(4, 4)
             bicubic = sjs.Bicubic(data)
 
-            cubic = bicubic.restrict(sjs.BicubicVariable.Lambda, 0)
+            cubic = bicubic.get_f_on_edge(sjs.BicubicVariable.Lambda, 0)
             self.assertAlmostEqual(cubic.f(0), data[0, 0])
             self.assertAlmostEqual(cubic.f(1), data[1, 0])
             self.assertAlmostEqual(cubic.df(0), data[2, 0])
             self.assertAlmostEqual(cubic.df(1), data[3, 0])
+            for _ in range(10):
+                lam = np.random.rand()
+                self.assertAlmostEqual(cubic.f(lam), bicubic.f(lam, 0))
 
-            cubic = bicubic.restrict(sjs.BicubicVariable.Lambda, 1)
+            cubic = bicubic.get_f_on_edge(sjs.BicubicVariable.Lambda, 1)
             self.assertAlmostEqual(cubic.f(0), data[0, 1])
             self.assertAlmostEqual(cubic.f(1), data[1, 1])
             self.assertAlmostEqual(cubic.df(0), data[2, 1])
             self.assertAlmostEqual(cubic.df(1), data[3, 1])
+            for _ in range(10):
+                lam = np.random.rand()
+                self.assertAlmostEqual(cubic.f(lam), bicubic.f(lam, 1))
 
-            cubic = bicubic.restrict(sjs.BicubicVariable.Mu, 0)
+            cubic = bicubic.get_f_on_edge(sjs.BicubicVariable.Mu, 0)
             self.assertAlmostEqual(cubic.f(0), data[0, 0])
             self.assertAlmostEqual(cubic.f(1), data[0, 1])
             self.assertAlmostEqual(cubic.df(0), data[0, 2])
             self.assertAlmostEqual(cubic.df(1), data[0, 3])
+            for _ in range(10):
+                mu = np.random.rand()
+                self.assertAlmostEqual(cubic.f(mu), bicubic.f(0, mu))
 
-            cubic = bicubic.restrict(sjs.BicubicVariable.Mu, 1)
+            cubic = bicubic.get_f_on_edge(sjs.BicubicVariable.Mu, 1)
             self.assertAlmostEqual(cubic.f(0), data[1, 0])
             self.assertAlmostEqual(cubic.f(1), data[1, 1])
             self.assertAlmostEqual(cubic.df(0), data[1, 2])
             self.assertAlmostEqual(cubic.df(1), data[1, 3])
+            for _ in range(10):
+                mu = np.random.rand()
+                self.assertAlmostEqual(cubic.f(mu), bicubic.f(1, mu))
+
+    def test_get_fx_on_edge(self):
+        for _ in range(10):
+            data = np.random.randn(4, 4)
+            bicubic = sjs.Bicubic(data)
+
+            cubic = bicubic.get_fx_on_edge(sjs.BicubicVariable.Lambda, 0)
+            self.assertAlmostEqual(cubic.f(0), data[2, 0])
+            self.assertAlmostEqual(cubic.f(1), data[3, 0])
+            for _ in range(10):
+                lam = np.random.rand()
+                self.assertAlmostEqual(cubic.f(lam), bicubic.fx(lam, 0))
+
+            cubic = bicubic.get_fx_on_edge(sjs.BicubicVariable.Lambda, 1)
+            self.assertAlmostEqual(cubic.f(0), data[2, 1])
+            self.assertAlmostEqual(cubic.f(1), data[3, 1])
+            for _ in range(10):
+                lam = np.random.rand()
+                self.assertAlmostEqual(cubic.f(lam), bicubic.fx(lam, 1))
+
+            cubic = bicubic.get_fx_on_edge(sjs.BicubicVariable.Mu, 0)
+            self.assertAlmostEqual(cubic.f(0), data[2, 0])
+            self.assertAlmostEqual(cubic.f(1), data[2, 1])
+            for _ in range(10):
+                mu = np.random.rand()
+                self.assertAlmostEqual(cubic.f(mu), bicubic.fx(0, mu))
+
+            cubic = bicubic.get_fx_on_edge(sjs.BicubicVariable.Mu, 1)
+            self.assertAlmostEqual(cubic.f(0), data[3, 0])
+            self.assertAlmostEqual(cubic.f(1), data[3, 1])
+            for _ in range(10):
+                mu = np.random.rand()
+                self.assertAlmostEqual(cubic.f(mu), bicubic.fx(1, mu))
+
+    def test_get_fy_on_edge(self):
+        for _ in range(10):
+            data = np.random.randn(4, 4)
+            bicubic = sjs.Bicubic(data)
+
+            cubic = bicubic.get_fy_on_edge(sjs.BicubicVariable.Lambda, 0)
+            self.assertAlmostEqual(cubic.f(0), data[0, 2])
+            self.assertAlmostEqual(cubic.f(1), data[1, 2])
+            for _ in range(10):
+                lam = np.random.rand()
+                self.assertAlmostEqual(cubic.f(lam), bicubic.fy(lam, 0))
+
+            cubic = bicubic.get_fy_on_edge(sjs.BicubicVariable.Lambda, 1)
+            self.assertAlmostEqual(cubic.f(0), data[0, 3])
+            self.assertAlmostEqual(cubic.f(1), data[1, 3])
+            for _ in range(10):
+                lam = np.random.rand()
+                self.assertAlmostEqual(cubic.f(lam), bicubic.fy(lam, 1))
+
+            cubic = bicubic.get_fy_on_edge(sjs.BicubicVariable.Mu, 0)
+            self.assertAlmostEqual(cubic.f(0), data[0, 2])
+            self.assertAlmostEqual(cubic.f(1), data[0, 3])
+            for _ in range(10):
+                mu = np.random.rand()
+                self.assertAlmostEqual(cubic.f(mu), bicubic.fy(0, mu))
+
+            cubic = bicubic.get_fy_on_edge(sjs.BicubicVariable.Mu, 1)
+            self.assertAlmostEqual(cubic.f(0), data[1, 2])
+            self.assertAlmostEqual(cubic.f(1), data[1, 3])
+            for _ in range(10):
+                mu = np.random.rand()
+                self.assertAlmostEqual(cubic.f(mu), bicubic.fy(1, mu))
 
     def test_interpolate_fxy_at_verts(self):
         fx = np.zeros(4)

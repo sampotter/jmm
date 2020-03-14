@@ -286,7 +286,7 @@ static void tri(eik_s *eik, int l, int l0, int l1, int ic0) {
    */
   bicubic_variable var = tri_bicubic_vars[ic0];
   int edge = tri_edges[ic0];
-  cubic_s cubic = bicubic_restrict(bicubic, var, edge);
+  cubic_s cubic = bicubic_get_f_on_edge(bicubic, var, edge);
   if (should_reverse_cubic[ic0]) {
     cubic_reverse_on_unit_interval(&cubic);
   }

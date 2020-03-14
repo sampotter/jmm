@@ -4,10 +4,10 @@
 
 static dmat44 V_inv = {
   .data = {
-   { 1,  0,  0,  0},
-   { 0,  0,  1,  0},
-   {-3,  3, -2, -1},
-   { 2, -2,  1,  1}
+    { 1,  0,  0,  0},
+    { 0,  0,  1,  0},
+    {-3,  3, -2, -1},
+    { 2, -2,  1,  1}
   }
 };
 
@@ -20,6 +20,24 @@ static dmat44 V_inv_tr = {
   }
 };
 
+static dmat44 D = {
+  .data = {
+    {0, 0, 0, 0},
+    {1, 0, 0, 0},
+    {0, 2, 0, 0},
+    {0, 0, 3, 0}
+  }
+};
+
+static dmat44 D_tr = {
+  .data = {
+    {0, 1, 0, 0},
+    {0, 0, 2, 0},
+    {0, 0, 0, 3},
+    {0, 0, 0, 0}
+  }
+};
+
 void bicubic_set_data(bicubic_s *bicubic, dmat44 data) {
   bicubic->A = dmat44_dmat44_mul(V_inv, data);
   bicubic->A = dmat44_dmat44_mul(bicubic->A, V_inv_tr);
@@ -29,12 +47,35 @@ void bicubic_set_data_from_ptr(bicubic_s *bicubic, dbl const *data_ptr) {
   memcpy((void *)bicubic->A.data, (void *)data_ptr, 16*sizeof(dbl));
 }
 
+static dvec4 restrict_A(dmat44 A, bicubic_variable var, int edge) {
+  return var == LAMBDA ?
+    dmat44_dvec4_mul(A, edge == 0 ? dvec4_e1() : dvec4_one()) :
+    dvec4_dmat44_mul(edge == 0 ? dvec4_e1() : dvec4_one(), A);
+}
+
 cubic_s
-bicubic_restrict(bicubic_s const *bicubic, bicubic_variable var, int edge) {
-  cubic_s cubic;
-  cubic.a = var == LAMBDA ?
-      dmat44_dvec4_mul(bicubic->A, edge == 0 ? dvec4_e1() : dvec4_one()) :
-      dvec4_dmat44_mul(edge == 0 ? dvec4_e1() : dvec4_one(), bicubic->A);
+bicubic_get_f_on_edge(bicubic_s const *bicubic, bicubic_variable var, int edge) {
+  cubic_s cubic = {
+    .a = restrict_A(bicubic->A, var, edge)
+  };
+  return cubic;
+}
+
+cubic_s
+bicubic_get_fx_on_edge(bicubic_s const *bicubic, bicubic_variable var, int edge) {
+  dmat44 Ax = dmat44_dmat44_mul(D_tr, bicubic->A);
+  cubic_s cubic = {
+    .a = restrict_A(Ax, var, edge)
+  };
+  return cubic;
+}
+
+cubic_s
+bicubic_get_fy_on_edge(bicubic_s const *bicubic, bicubic_variable var, int edge) {
+  dmat44 Ay = dmat44_dmat44_mul(bicubic->A, D);
+  cubic_s cubic = {
+    .a = restrict_A(Ay, var, edge)
+  };
   return cubic;
 }
 

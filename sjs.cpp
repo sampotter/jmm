@@ -178,9 +178,21 @@ TODO!
       }
     )
     .def(
-      "restrict",
+      "get_f_on_edge",
       [] (bicubic const & B, bicubic_variable var, int edge) {
-        return bicubic_restrict(&B, var, edge);
+        return bicubic_get_f_on_edge(&B, var, edge);
+      }
+    )
+    .def(
+      "get_fx_on_edge",
+      [] (bicubic const & B, bicubic_variable var, int edge) {
+        return bicubic_get_fx_on_edge(&B, var, edge);
+      }
+    )
+    .def(
+      "get_fy_on_edge",
+      [] (bicubic const & B, bicubic_variable var, int edge) {
+        return bicubic_get_fy_on_edge(&B, var, edge);
       }
     )
     .def(
