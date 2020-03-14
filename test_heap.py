@@ -1,4 +1,4 @@
-import sjs_eik
+import sjs
 import unittest
 
 class TestCubic(unittest.TestCase):
@@ -12,7 +12,7 @@ class TestCubic(unittest.TestCase):
         def setpos(i, pos):
             heap_pos[i] = pos
 
-        heap = sjs_eik.Heap(4, value, setpos)
+        heap = sjs.Heap(4, value, setpos)
 
         self.assertTrue(heap.size == 0)
         self.assertIsNone(heap.front)

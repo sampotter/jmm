@@ -1,5 +1,5 @@
 import numpy as np
-import sjs_eik as sjs
+import sjs
 import unittest
 
 class TestHybrid(unittest.TestCase):

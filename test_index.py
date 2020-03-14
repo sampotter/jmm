@@ -1,6 +1,6 @@
 import itertools as it
 import numpy as np
-import sjs_eik as sjs
+import sjs
 import unittest
 
 class TestIndex(unittest.TestCase):
