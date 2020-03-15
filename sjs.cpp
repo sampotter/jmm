@@ -585,22 +585,22 @@ TODO!
 
   // update.h
 
-  py::class_<update_data>(m, "UpdateData")
+  py::class_<F3_context>(m, "F3Context")
     .def(py::init<cubic, dvec2, dvec2, dvec2>())
-    .def_readwrite("cubic", &update_data::cubic)
-    .def_readwrite("xy", &update_data::xy)
-    .def_readwrite("xy0", &update_data::xy0)
-    .def_readwrite("xy1", &update_data::xy1)
+    .def_readwrite("cubic", &F3_context::cubic)
+    .def_readwrite("xy", &F3_context::xy)
+    .def_readwrite("xy0", &F3_context::xy0)
+    .def_readwrite("xy1", &F3_context::xy1)
     .def(
       "F",
-      [] (update_data const & data, dbl lam) {
-        return F(lam, (void *) &data);
+      [] (F3_context const & context, dbl eta) {
+        return F3(eta, (void *) &context);
       }
     )
     .def(
       "dF_dt",
-      [] (update_data const & data, dbl lam) {
-        return dF_dt(lam, (void *) &data);
+      [] (F3_context const & context, dbl eta) {
+        return dF3_deta(eta, (void *) &context);
       }
     )
     ;

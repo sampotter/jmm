@@ -291,7 +291,7 @@ static void tri(eik_s *eik, int l, int l0, int l1, int ic0) {
     cubic_reverse_on_unit_interval(&cubic);
   }
 
-  update_data data = {
+  F3_context data = {
     .cubic = cubic,
     .xy = get_xy(eik, l),
     .xy0 = get_xy(eik, l0),
@@ -299,8 +299,8 @@ static void tri(eik_s *eik, int l, int l0, int l1, int ic0) {
   };
 
   void *context = (void *)&data;
-  dbl lam = hybrid(dF_dt, 0, 1, context);
-  dbl T = F(lam, context);
+  dbl eta = hybrid(dF3_deta, 0, 1, context);
+  dbl T = F3(eta, context);
 
   // Check causality
   assert(T > eik->jets[l0].f);
@@ -309,12 +309,12 @@ static void tri(eik_s *eik, int l, int l0, int l1, int ic0) {
   jet_s *jet = &eik->jets[l];
   if (T < jet->f) {
     dvec2 xy = get_xy(eik, l);
-    dvec2 xylam = dvec2_ccomb(data.xy0, data.xy1, lam);
-    dvec2 xylam_minus_xy = dvec2_sub(xylam, xy);
-    dbl L = dvec2_norm(xylam_minus_xy);
+    dvec2 xyeta = dvec2_ccomb(data.xy0, data.xy1, eta);
+    dvec2 xyeta_minus_xy = dvec2_sub(xyeta, xy);
+    dbl L = dvec2_norm(xyeta_minus_xy);
     jet->f = T;
-    jet->fx = -xylam_minus_xy.x/L;
-    jet->fy = -xylam_minus_xy.y/L;
+    jet->fx = -xyeta_minus_xy.x/L;
+    jet->fy = -xyeta_minus_xy.y/L;
   }
 }
 

@@ -10,10 +10,10 @@ extern "C" {
 typedef struct {
   cubic_s cubic;
   dvec2 xy, xy0, xy1;
-} update_data;
+} F3_context;
 
-dbl F(dbl lam, void *context);
-dbl dF_dt(dbl lam, void *context);
+dbl F3(dbl eta, void *context);
+dbl dF3_deta(dbl eta, void *context);
 
 #ifdef __cplusplus
 }
