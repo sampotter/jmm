@@ -592,13 +592,13 @@ TODO!
     .def_readwrite("xy0", &F3_context::xy0)
     .def_readwrite("xy1", &F3_context::xy1)
     .def(
-      "F",
+      "F3",
       [] (F3_context const & context, dbl eta) {
         return F3(eta, (void *) &context);
       }
     )
     .def(
-      "dF_dt",
+      "dF3_deta",
       [] (F3_context const & context, dbl eta) {
         return dF3_deta(eta, (void *) &context);
       }
