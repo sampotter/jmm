@@ -620,9 +620,33 @@ TODO!
       }
     )
     .def(
+      "__getitem__",
+      [] (dvec2 const & v, int i) {
+        if (i < 0 || 2 <= i) {
+          throw std::runtime_error {
+            "index for Dvec2 must be in the interval [0, 2)"
+          };
+        }
+        return i == 0 ? v.x : v.y;
+      }
+    )
+    .def(
+      "__len__",
+      [] (dvec2 const & v) {
+        (void) v;
+        return 2;
+      }
+    )
+    .def(
       "__mul__",
       [] (dvec2 const & u, dvec2 const & v) {
         return dvec2_dot(u, v);
+      }
+    )
+    .def(
+      "__add__",
+      [] (dvec2 const & u, dvec2 const & v) {
+        return dvec2_add(u, v);
       }
     )
     .def(
@@ -638,6 +662,12 @@ TODO!
       }
     )
     .def(
+      "__mul__",
+      [] (dvec2 const & v, dbl a) {
+        return dvec2_dbl_mul(v, a);
+      }
+    )
+    .def(
       "floor",
       [] (dvec2 const & v) {
         return dvec2_floor(v);
@@ -647,6 +677,12 @@ TODO!
       "norm",
       [] (dvec2 const & v) {
         return dvec2_norm(v);
+      }
+    )
+    .def(
+      "normalize",
+      [] (dvec2 & v) {
+        dvec2_normalize(&v);
       }
     )
     ;
@@ -767,6 +803,13 @@ TODO!
     "ccomb",
     [] (dvec2 const & v0, dvec2 const & v1, dbl t) {
       return dvec2_ccomb(v0, v1, t);
+    }
+  );
+
+  m.def(
+    "cproj",
+    [] (dvec2 const & u, dvec2 const & v) {
+      return dvec2_cproj(u, v);
     }
   );
 

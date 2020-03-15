@@ -18,9 +18,13 @@ dvec2 dvec2_ccomb(dvec2 v0, dvec2 v1, dbl t);
 dbl dvec2_dist(dvec2 v0, dvec2 v1);
 dbl dvec2_norm(dvec2 v);
 dbl dvec2_dot(dvec2 u, dvec2 v);
+dvec2 dvec2_add(dvec2 u, dvec2 v);
 dvec2 dvec2_sub(dvec2 u, dvec2 v);
 dvec2 dvec2_dbl_div(dvec2 v, dbl a);
+dvec2 dvec2_dbl_mul(dvec2 v, dbl a);
 dvec2 dvec2_floor(dvec2 v);
+void dvec2_normalize(dvec2 *v);
+dvec2 dvec2_cproj(dvec2 u, dvec2 v);
 
 typedef struct {
   union {

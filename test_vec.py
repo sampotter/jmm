@@ -39,6 +39,20 @@ class TestDvec2(unittest.TestCase):
         for _ in range(10):
             u1, u2, v1, v2 = np.random.randn(4)
             u, v = sjs.Dvec2(u1, u2), sjs.Dvec2(v1, v2)
+            self.assertAlmostEqual(u*v, u1*v1 + u2*v2)
+
+    def test_add(self):
+        for _ in range(10):
+            u1, u2, v1, v2 = np.random.randn(4)
+            u, v = sjs.Dvec2(u1, u2), sjs.Dvec2(v1, v2)
+            w = u + v
+            self.assertAlmostEqual(w.x, u1 + v1)
+            self.assertAlmostEqual(w.y, u2 + v2)
+
+    def test_sub(self):
+        for _ in range(10):
+            u1, u2, v1, v2 = np.random.randn(4)
+            u, v = sjs.Dvec2(u1, u2), sjs.Dvec2(v1, v2)
             w = u - v
             self.assertAlmostEqual(w.x, u1 - v1)
             self.assertAlmostEqual(w.y, u2 - v2)
@@ -51,6 +65,17 @@ class TestDvec2(unittest.TestCase):
             self.assertAlmostEqual(v.x, u1/a)
             self.assertAlmostEqual(v.y, u2/a)
 
+    def test_dbl_mul(self):
+        for _ in range(10):
+            u1, u2, a = np.random.randn(3)
+            u = sjs.Dvec2(u1, u2)
+            v = u*a
+            self.assertAlmostEqual(v.x, a*u1)
+            self.assertAlmostEqual(v.y, a*u2)
+            u *= a
+            self.assertAlmostEqual(v.x, u.x)
+            self.assertAlmostEqual(v.y, u.y)
+
     def test_floor(self):
         for _ in range(10):
             u1, u2 = np.random.randn(2)
@@ -58,6 +83,20 @@ class TestDvec2(unittest.TestCase):
             v = u.floor()
             self.assertAlmostEqual(v.x, np.floor(u1))
             self.assertAlmostEqual(v.y, np.floor(u2))
+
+    def test_normalize(self):
+        for _ in range(10):
+            u = sjs.Dvec2(*np.random.randn(2))
+            u.normalize()
+            self.assertAlmostEqual(u.norm(), 1.0)
+
+    def test_cproj(self):
+        for _ in range(10):
+            u, v = np.random.randn(2, 2)
+            w = sjs.cproj(sjs.Dvec2(*u), sjs.Dvec2(*v))
+            w_gt = (np.eye(2) - np.outer(u, u))@v
+            self.assertAlmostEqual(w[0], w_gt[0])
+            self.assertAlmostEqual(w[1], w_gt[1])
 
 class TestDvec4(unittest.TestCase):
 

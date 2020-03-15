@@ -18,6 +18,11 @@ dbl dvec2_dot(dvec2 u, dvec2 v) {
   return u.x*v.x + u.y*v.y;
 }
 
+dvec2 dvec2_add(dvec2 u, dvec2 v) {
+  dvec2 w = {.x = u.x + v.x, .y = u.y + v.y};
+  return w;
+}
+
 dvec2 dvec2_sub(dvec2 u, dvec2 v) {
   dvec2 w = {.x = u.x - v.x, .y = u.y - v.y};
   return w;
@@ -28,8 +33,27 @@ dvec2 dvec2_dbl_div(dvec2 v, dbl a) {
   return w;
 }
 
+dvec2 dvec2_dbl_mul(dvec2 v, dbl a) {
+  dvec2 w = {.x = a*v.x, .y = a*v.y};
+  return w;
+}
+
 dvec2 dvec2_floor(dvec2 v) {
   dvec2 w = {.x = floor(v.x), .y = floor(v.y)};
+  return w;
+}
+
+void dvec2_normalize(dvec2 *v) {
+  dbl vnorm = sqrt(v->x*v->x + v->y*v->y);
+  v->x /= vnorm;
+  v->y /= vnorm;
+}
+
+dvec2 dvec2_cproj(dvec2 u, dvec2 v) {
+  dvec2 w = {
+    .x = (1 - u.x*u.x)*v.x - u.x*u.y*v.y,
+    .y = -u.x*u.y*v.x + (1 - u.y*u.y)*v.y
+  };
   return w;
 }
 
