@@ -605,6 +605,34 @@ TODO!
     )
     ;
 
+  py::class_<F4_context>(m, "F4Context")
+    .def(py::init<cubic, cubic, cubic, dvec2, dvec2, dvec2>())
+    .def_readwrite("T", &F4_context::T)
+    .def_readwrite("Tx", &F4_context::Tx)
+    .def_readwrite("Ty", &F4_context::Ty)
+    .def_readwrite("xy", &F4_context::xy)
+    .def_readwrite("xy0", &F4_context::xy0)
+    .def_readwrite("xy1", &F4_context::xy1)
+    .def(
+      "F4",
+      [] (F4_context const & context, dbl eta, dbl th) {
+        return F4(eta, th, (void *) &context);
+      }
+    )
+    .def(
+      "dF4_deta",
+      [] (F4_context const & context, dbl eta, dbl th) {
+        return dF4_deta(eta, th, (void *) &context);
+      }
+    )
+    .def(
+      "dF4_dth",
+      [] (F4_context const & context, dbl eta, dbl th) {
+        return dF4_dth(eta, th, (void *) &context);
+      }
+    )
+    ;
+
   // vec.h
 
   py::class_<dvec2>(m, "Dvec2")
