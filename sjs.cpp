@@ -8,6 +8,7 @@ namespace py = pybind11;
 
 #include "bicubic.h"
 #include "eik.h"
+#include "field.h"
 #include "heap.h"
 #include "hybrid.h"
 #include "index.h"
@@ -71,22 +72,12 @@ static dbl f_wrapper(dbl t, void * context) {
   return (*(std::function<dbl(dbl)> *) context)(t);
 }
 
-// static dbl s_wrapper(void *vp, dvec2 xy);
-// static dvec2 grad_s_wrapper(void *vp, dvec2 xy);
-
 struct eik_wrapper {
   eik * ptr {nullptr};
-
-  // std::optional<std::function<dbl(dbl, dbl)>> s;
-  // std::optional<std::function<std::tuple<dbl, dbl>(dbl, dbl)>> grad_s;
 
   eik_wrapper(std::array<int, 2> const & shape,
               std::array<dbl, 2> const & xymin,
               dbl h)
-              // std::function<dbl(dbl, dbl)> s,
-              // std::function<std::tuple<dbl, dbl>(dbl, dbl)> grad_s):
-    // s {s},
-    // grad_s {grad_s}
   {
     eik_alloc(&ptr);
     eik_init(
@@ -94,9 +85,6 @@ struct eik_wrapper {
       ivec2 {shape[0], shape[1]},
       dvec2 {xymin[0], xymin[1]},
       h
-      // s_wrapper,
-      // grad_s_wrapper,
-      // (void *) this
     );
   }
 
@@ -106,23 +94,33 @@ struct eik_wrapper {
   }
 };
 
-// static dbl s_wrapper(void *vp, dvec2 xy) {
-//   eik_wrapper * swp = (eik_wrapper *) vp;
-//   if (!swp->s) {
-//     throw std::runtime_error {"ERROR: No s function for eik!"};
-//   }
-//   return (*swp->s)(xy.x, xy.y);
-// }
+dbl field_f_wrapper(dbl x, dbl y, void *context);
+dvec2 field_grad_f_wrapper(dbl x, dbl y, void *context);
 
-// static dvec2 grad_s_wrapper(void *vp, dvec2 xy) {
-//   eik_wrapper * swp = (eik_wrapper *) vp;
-//   if (!swp->grad_s) {
-//     throw std::runtime_error {"ERROR: No grad_s function for eik!"};
-//   }
-//   dvec2 tmp;
-//   std::tie(tmp.x, tmp.y) = (*swp->grad_s)(xy.x, xy.y);
-//   return tmp;
-// }
+struct field2_wrapper {
+  field2 field;
+
+  std::function<dbl(dbl, dbl)> f;
+  std::function<std::array<dbl, 2>(dbl, dbl)> grad_f;
+
+  field2_wrapper(decltype(f) const & f, decltype(grad_f) const & grad_f):
+    field {field_f_wrapper, field_grad_f_wrapper, (void *)this},
+    f {f},
+    grad_f {grad_f}
+  {}
+};
+
+dbl field_f_wrapper(dbl x, dbl y, void *context) {
+  field2_wrapper * wrap = (field2_wrapper *) context;
+  return wrap->f(x, y);
+}
+
+dvec2 field_grad_f_wrapper(dbl x, dbl y, void *context) {
+  field2_wrapper * wrap = (field2_wrapper *) context;
+  dvec2 tmp;
+  std::tie(tmp.x, tmp.y) = wrap->grad_f(x, y);
+  return tmp;
+}
 
 PYBIND11_MODULE (_sjs, m) {
   m.doc() = R"pbdoc(
@@ -395,6 +393,27 @@ TODO!
       "heap",
       [] (eik_wrapper const & w) {
         return heap_wrapper {eik_get_heap(w.ptr)};
+      }
+    )
+    ;
+
+  // field.h
+
+  py::class_<field2_wrapper>(m, "Field2")
+    .def(py::init<
+           std::function<dbl(dbl, dbl)> const &,
+           std::function<std::array<dbl, 2>(dbl, dbl)> const &
+         >())
+    .def(
+      "s",
+      [] (field2_wrapper const & wrap, dbl x, dbl y) {
+        return field2_f(&wrap.field, {x, y});
+      }
+    )
+    .def(
+      "grad_s",
+      [] (field2_wrapper const & wrap, dbl x, dbl y) {
+        return field2_grad_f(&wrap.field, {x, y});
       }
     )
     ;
