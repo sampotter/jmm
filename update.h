@@ -7,6 +7,8 @@ extern "C" {
 #include "cubic.h"
 #include "vec.h"
 
+dvec2 get_lp(dvec2 xy, dvec2 xy0, dvec2 xy1, dbl eta);
+
 typedef struct {
   cubic_s cubic;
   dvec2 xy, xy0, xy1;

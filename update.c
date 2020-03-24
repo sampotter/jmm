@@ -1,5 +1,9 @@
 #include "update.h"
 
+dvec2 get_lp(dvec2 xy, dvec2 xy0, dvec2 xy1, dbl eta) {
+  return dvec2_sub(xy, dvec2_ccomb(xy0, xy1, eta));
+}
+
 dbl F3(dbl eta, void *context) {
   F3_context *ctx = (F3_context *)context;
 
@@ -31,8 +35,7 @@ dbl F4(dbl eta, dbl th, void *context) {
 
   dbl T = cubic_f(&ctx->T, eta);
 
-  dvec2 xyeta = dvec2_ccomb(ctx->xy0, ctx->xy1, eta);
-  dvec2 lp = dvec2_sub(ctx->xy, xyeta);
+  dvec2 lp = get_lp(ctx->xy, ctx->xy0, ctx->xy1, eta);
   dbl L = dvec2_norm(lp);
   lp = dvec2_dbl_div(lp, L);
 
@@ -59,8 +62,7 @@ dbl dF4_deta(dbl eta, dbl th, void *context) {
 
   dbl dT_deta = cubic_df(&ctx->T, eta);
 
-  dvec2 xyeta = dvec2_ccomb(ctx->xy0, ctx->xy1, eta);
-  dvec2 lp = dvec2_sub(ctx->xy, xyeta);
+  dvec2 lp = get_lp(ctx->xy, ctx->xy0, ctx->xy1, eta);
   dbl L = dvec2_norm(lp);
   lp = dvec2_dbl_div(lp, L);
 
@@ -109,8 +111,7 @@ dbl dF4_dth(dbl eta, dbl th, void *context) {
 
   dvec2 dt1_dth = {.x = -sin(th), .y = cos(th)};
 
-  dvec2 xyeta = dvec2_ccomb(ctx->xy0, ctx->xy1, eta);
-  dvec2 lp = dvec2_sub(ctx->xy, xyeta);
+  dvec2 lp = get_lp(ctx->xy, ctx->xy0, ctx->xy1, eta);
   dbl L = dvec2_norm(lp);
   lp = dvec2_dbl_div(lp, L);
 
