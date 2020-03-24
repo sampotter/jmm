@@ -32,7 +32,7 @@ dbl F4(dbl eta, dbl th, void *context) {
   dbl T = cubic_f(&ctx->T, eta);
 
   dvec2 xyeta = dvec2_ccomb(ctx->xy0, ctx->xy1, eta);
-  dvec2 lp = dvec2_sub(xyeta, ctx->xy);
+  dvec2 lp = dvec2_sub(ctx->xy, xyeta);
   dbl L = dvec2_norm(lp);
   lp = dvec2_dbl_div(lp, L);
 
@@ -60,12 +60,14 @@ dbl dF4_deta(dbl eta, dbl th, void *context) {
   dbl dT_deta = cubic_df(&ctx->T, eta);
 
   dvec2 xyeta = dvec2_ccomb(ctx->xy0, ctx->xy1, eta);
-  dvec2 lp = dvec2_sub(xyeta, ctx->xy);
+  dvec2 lp = dvec2_sub(ctx->xy, xyeta);
   dbl L = dvec2_norm(lp);
   lp = dvec2_dbl_div(lp, L);
 
   dvec2 dxy = dvec2_sub(ctx->xy1, ctx->xy0);
-  dbl dL_deta = dvec2_dot(dxy, lp);
+  dvec2 dlp_deta = dvec2_cproj(lp, dvec2_dbl_div(dxy, -L));
+
+  dbl dL_deta = -dvec2_dot(dxy, lp);
 
   dvec2 t0 = {
     .x = cubic_f(&ctx->Tx, eta),
@@ -78,13 +80,12 @@ dbl dF4_deta(dbl eta, dbl th, void *context) {
 
   dvec2 t = dvec2_sub(
     dvec2_dbl_mul(lp, 1.5),
-    dvec2_dbl_mul(dvec2_add(t0, t1), 0.25));
+    dvec2_dbl_mul(dvec2_add(t0, t1), 0.25)
+  );
   dbl tnorm = dvec2_norm(t);
   t = dvec2_dbl_div(t, tnorm);
 
   dbl S = (1.0 + 2.0*tnorm)/3.0;
-
-  dvec2 dlp_deta = dvec2_cproj(lp, dvec2_dbl_div(dxy, L));
 
   dvec2 dt0_deta = {
     .x = cubic_df(&ctx->Tx, eta),
@@ -92,11 +93,12 @@ dbl dF4_deta(dbl eta, dbl th, void *context) {
   };
   dt0_deta = dvec2_cproj(t0, dvec2_dbl_div(dt0_deta, t0_norm));
 
-  dbl dS_deta = (2.0/3.0)*dvec2_dot(
+  dbl dS_deta = dvec2_dot(
+    t,
     dvec2_sub(
-      dvec2_dbl_mul(dlp_deta, 1.5),
-      dvec2_dbl_mul(dt0_deta, 0.25)),
-    t
+      dlp_deta,
+      dvec2_dbl_div(dt0_deta, 6.0)
+    )
   );
 
   return dT_deta + dL_deta*S + L*dS_deta;
@@ -108,7 +110,7 @@ dbl dF4_dth(dbl eta, dbl th, void *context) {
   dvec2 dt1_dth = {.x = -sin(th), .y = cos(th)};
 
   dvec2 xyeta = dvec2_ccomb(ctx->xy0, ctx->xy1, eta);
-  dvec2 lp = dvec2_sub(xyeta, ctx->xy);
+  dvec2 lp = dvec2_sub(ctx->xy, xyeta);
   dbl L = dvec2_norm(lp);
   lp = dvec2_dbl_div(lp, L);
 

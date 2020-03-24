@@ -1,4 +1,5 @@
-import numpy as np
+import autograd
+import autograd.numpy as np
 import sjs
 import unittest
 
@@ -48,38 +49,103 @@ class TestF3(unittest.TestCase):
         self.assertAlmostEqual(lam, 0.5)
         self.assertAlmostEqual(context.dF3_deta(lam), 0.0)
 
+class F4:
+
+    def __init__(self, a_T, a_Tx, a_Ty, p, p0, p1):
+        self.a_T = a_T
+        self.a_Tx = a_Tx
+        self.a_Ty = a_Ty
+        self.p = p
+        self.p0 = p0
+        self.p1 = p1
+        self._grad_F4 = autograd.grad(lambda args: self.F4(args))
+        self._hess_F4 = autograd.hessian(lambda args: self.F4(args))
+
+    def T(self, lam):
+        return self.a_T@[lam**p for p in range(4)]
+
+    def Tx(self, lam):
+        return self.a_Tx@[lam**p for p in range(4)]
+
+    def Ty(self, lam):
+        return self.a_Ty@[lam**p for p in range(4)]
+
+    def plam(self, lam):
+        return (1 - lam)*self.p0 + lam*self.p1
+
+    def L(self, lam):
+        return np.linalg.norm(self.plam(lam) - self.p)
+
+    def lprime(self, lam):
+        return (self.p - self.plam(lam))/self.L(lam)
+
+    def gradTlam(self, lam):
+        return np.array([self.Tx(lam), self.Ty(lam)])
+
+    def t0(self, lam):
+        return self.gradTlam(lam)/np.linalg.norm(self.gradTlam(lam))
+
+    def t1(self, th):
+        return np.array([np.cos(th), np.sin(th)])
+
+    def S4(self, args):
+        lp = self.lprime(args[0])
+        t0 = self.t0(args[0])
+        t1 = self.t1(args[1])
+        t = 3*lp/2 - (t0 + t1)/4
+        return (1 + 2*np.linalg.norm(t))/3
+
+    def F4(self, args):
+        T = self.T(args[0])
+        L = self.L(args[0])
+        S = self.S4(args)
+        return T + L*S
+
+    def grad_F4(self, args):
+        return self._grad_F4(args)
+
 class TestF4(unittest.TestCase):
 
-    def test_hybrid(self):
-        T = sjs.Cubic([
-            0.31622776601683794,
-            -0.031622776601683805,
-            0.014562255152853733,
-            0.0008327554319921132
-        ])
-        Tx = sjs.Cubic([
-            0.031622776601683805,
-            -0.029124510305707466,
-            -0.0024982662959763396,
-            0.0
-        ])
-        Ty = sjs.Cubic([
-            0.09486832980505126,
-            0.009486832980505164,
-            -0.003578655376164433,
-            -0.0007765074093920993
-        ])
-        xy0 = sjs.Dvec2(0.1, 0.3)
-        xy1 = sjs.Dvec2(0.0, 0.3)
-        xy = sjs.Dvec2(0.1, 0.4)
-        context = sjs.F4Context(T, Tx, Ty, xy, xy0, xy1)
+    def test_evaluate(self):
+        for _ in range(10):
+            data = np.random.randn(4, 4)
+            h = np.random.random()
+            H = np.diag([1, 1, h, h])
+            data = H@data@H
 
-        argeta3 = 0.24944078587475857
-        argth3 = 1.3263440520581946
+            p = np.random.randn(2)
+            p0 = p + h*np.random.randn(2)
+            p1 = p + h*np.random.randn(2)
 
-        self.assertAlmostEqual(context.F4(argeta3, argth3), 0.4123228462738079)
-        self.assertAlmostEqual(context.dF4_deta(argeta3, argth3), 1.145686251245516e-06)
-        self.assertAlmostEqual(context.dF4_dth(argeta3, argth3), -2.8057630904607244e-07)
+            bicubic = sjs.Bicubic(data)
+            T = bicubic.get_f_on_edge(sjs.BicubicVariable.Lambda, 0)
+            Tx = bicubic.get_fx_on_edge(sjs.BicubicVariable.Lambda, 0)
+            Ty = bicubic.get_fy_on_edge(sjs.BicubicVariable.Lambda, 0)
+
+            a_T = np.array([T.a[i] for i in range(4)])
+            a_Tx = np.array([Tx.a[i] for i in range(4)])
+            a_Ty = np.array([Ty.a[i] for i in range(4)])
+
+            context_gt = F4(a_T, a_Tx, a_Ty, p, p0, p1)
+
+            xy = sjs.Dvec2(*p)
+            xy0 = sjs.Dvec2(*p0)
+            xy1 = sjs.Dvec2(*p1)
+
+            context = sjs.F4Context(T, Tx, Ty, xy, xy0, xy1)
+
+            for _ in range(10):
+                args = np.random.random(2)
+                args[1] *= 2*np.pi
+
+                f4_gt = context_gt.F4(args)
+                f4 = context.F4(*args)
+                self.assertAlmostEqual(f4_gt, f4)
+
+                grad_gt = context_gt.grad_F4(args)
+                grad = np.array([context.dF4_deta(*args), context.dF4_dth(*args)])
+                self.assertAlmostEqual(grad_gt[0], grad[0])
+                self.assertAlmostEqual(grad_gt[1], grad[1])
 
 if __name__ == '__main__':
     unittest.main()
