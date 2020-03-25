@@ -14,6 +14,10 @@ dbl dvec2_norm(dvec2 v) {
   return sqrt(v.x*v.x + v.y*v.y);
 }
 
+dbl dvec2_norm_sq(dvec2 v) {
+  return v.x*v.x + v.y*v.y;
+}
+
 dbl dvec2_dot(dvec2 u, dvec2 v) {
   return u.x*v.x + u.y*v.y;
 }
@@ -107,6 +111,17 @@ dvec4 dvec4_dm(dbl x) {
   dm.data[2] = 2.0*x;
   dm.data[3] = 3.0*x*x;
   return dm;
+}
+
+dvec4 dvec4_d2m(dbl x) {
+  return (dvec4) {
+    .data = {
+      0.0,
+      0.0,
+      2.0,
+      6.0*x
+    }
+  };
 }
 
 dvec4 dvec4_e1() {

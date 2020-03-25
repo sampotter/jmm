@@ -17,6 +17,7 @@ typedef struct {
 dvec2 dvec2_ccomb(dvec2 v0, dvec2 v1, dbl t);
 dbl dvec2_dist(dvec2 v0, dvec2 v1);
 dbl dvec2_norm(dvec2 v);
+dbl dvec2_norm_sq(dvec2 v);
 dbl dvec2_dot(dvec2 u, dvec2 v);
 dvec2 dvec2_add(dvec2 u, dvec2 v);
 dvec2 dvec2_sub(dvec2 u, dvec2 v);
@@ -44,6 +45,7 @@ dvec4 dvec4_add(dvec4 u, dvec4 v);
 dvec4 dvec4_dbl_div(dvec4 u, dbl a);
 dvec4 dvec4_m(dbl x);
 dvec4 dvec4_dm(dbl x);
+dvec4 dvec4_d2m(dbl x);
 dvec4 dvec4_e1();
 dvec4 dvec4_one();
 dvec4 dvec4_iota();
