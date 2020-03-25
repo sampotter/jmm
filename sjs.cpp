@@ -650,6 +650,18 @@ TODO!
         return dF4_dth(eta, th, (void *) &context);
       }
     )
+    .def(
+      "grad_F4",
+      [] (F4_context const & context, dbl eta, dbl th) {
+        return grad_F4(eta, th, (void *) &context);
+      }
+    )
+    .def(
+      "hess_F4",
+      [] (F4_context const & context, dbl eta, dbl th) {
+        return hess_F4(eta, th, (void *) &context);
+      }
+    )
     ;
 
   // vec.h
