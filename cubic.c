@@ -42,3 +42,7 @@ dbl cubic_f(cubic_s const *cubic, dbl lam) {
 dbl cubic_df(cubic_s const *cubic, dbl lam) {
   return dvec4_dot(cubic->a, dvec4_dm(lam));
 }
+
+dbl cubic_d2f(cubic_s const *cubic, dbl lam) {
+  return dvec4_dot(cubic->a, dvec4_d2m(lam));
+}
