@@ -8,6 +8,15 @@ extern "C" {
 
 typedef struct {
   union {
+    dbl data[2][2];
+    dvec2 rows[2];
+  };
+} dmat22;
+
+dvec2 dmat22_dvec2_solve(dmat22 A, dvec2 b);
+
+typedef struct {
+  union {
     dbl data[4][4];
     dvec4 rows[4];
   };

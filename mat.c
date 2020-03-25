@@ -1,5 +1,13 @@
 #include "mat.h"
 
+dvec2 dmat22_dvec2_solve(dmat22 A, dvec2 b) {
+  dbl det = A.data[0][0]*A.data[1][1] - A.data[0][1]*A.data[1][0];
+  return (dvec2) {
+    .x = (A.data[1][1]*b.x - A.data[0][1]*b.y)/det,
+    .y = (A.data[0][0]*b.y - A.data[1][0]*b.x)/det
+  };
+}
+
 dvec4 dmat44_dvec4_mul(dmat44 const A, dvec4 const x) {
   dvec4 y;
   for (int i = 0; i < 4; ++i) {
