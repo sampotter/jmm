@@ -1,5 +1,23 @@
 #include "update.h"
 
+// TODO: change naming conventions to make this take up less space:
+//
+// eta -> x
+// th -> y
+// d2S_deta_dth -> Sxy
+//
+// should make reading and debugging this much simplerj
+//
+// TODO: also make the change:
+//
+// xy -> p or r or z or something
+//
+// TODO: accumulate temporary variables in the context so that we
+// don't recompute tons and tons of things
+//
+// TODO: make sure we're doing things as simply as possibly in terms
+// of evaluating derivatives recursively and with minimal work
+
 dvec2 get_lp(dvec2 xy, dvec2 xy0, dvec2 xy1, dbl eta) {
   return dvec2_sub(xy, dvec2_ccomb(xy0, xy1, eta));
 }
