@@ -21,16 +21,36 @@ dbl Txy(dbl x, dbl y) {
   return -Tx(x, y)*Ty(x, y)/T(x, y);
 }
 
+dbl s(dbl x, dbl y, void *context) {
+  (void) x;
+  (void) y;
+  (void) context;
+  return 1.0;
+}
+
+dvec2 grad_s(dbl x, dbl y, void *context) {
+  (void) x;
+  (void) y;
+  (void) context;
+  return dvec2_zero();
+}
+
 int main() {
   eik * scheme;
   eik_alloc(&scheme);
+
+  field2_s slow = {
+    .f = s,
+    .grad_f = grad_s,
+    .context = NULL
+  };
 
   int N = 101;
   int i0 = N/2;
   ivec2 shape = {N, N};
   dvec2 xymin = {-1, -1};
   dbl h = 2.0/(N-1);
-  eik_init(scheme, shape, xymin, h);
+  eik_init(scheme, &slow, shape, xymin, h);
 
   int R = 5;
   for (int i = 0; i < N; ++i) {

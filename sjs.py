@@ -17,3 +17,5 @@ from _sjs import _lc2l
 from _sjs import _xy_to_lc_and_cc
 
 # TODO: add useful Python functions here
+
+slow1 = Field2(lambda x, y: 1.0, lambda x, y: (0.0, 0.0))

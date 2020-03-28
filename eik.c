@@ -5,10 +5,11 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "eik_F3.h"
+#include "eik_F4.h"
 #include "hybrid.h"
 #include "index.h"
 #include "jet.h"
-#include "update.h"
 
 #define NUM_CELL_VERTS 4
 #define NUM_CELL_NB_VERTS 9
@@ -26,6 +27,7 @@
  * - cell verts are in column major order
  */
 struct eik {
+  field2_s const *slow;
   ivec2 shape;
   dvec2 xymin;
   dbl h;
@@ -245,6 +247,8 @@ static void line(eik_s *eik, int l, int l0) {
   dvec2 xy0_minus_xy = dvec2_sub(xy0, xy);
   dbl L = dvec2_norm(xy0_minus_xy);
 
+  // TODO: replace this update with the F4 version
+
   dbl T0 = eik->jets[l0].f;
   dbl T = T0 + L;
 
@@ -257,6 +261,12 @@ static void line(eik_s *eik, int l, int l0) {
     jet->fx = -xy0_minus_xy.x/L;
     jet->fy = -xy0_minus_xy.y/L;
   }
+}
+
+dbl F3_eta(dbl eta, void *data) {
+  F3_context *context = (F3_context *)data;
+  F3_compute(eta, context);
+  return context->F3_eta;
 }
 
 /**
@@ -286,30 +296,34 @@ static void tri(eik_s *eik, int l, int l0, int l1, int ic0) {
    */
   bicubic_variable var = tri_bicubic_vars[ic0];
   int edge = tri_edges[ic0];
-  cubic_s cubic = bicubic_get_f_on_edge(bicubic, var, edge);
+  cubic_s T_cubic = bicubic_get_f_on_edge(bicubic, var, edge);
   if (should_reverse_cubic[ic0]) {
-    cubic_reverse_on_unit_interval(&cubic);
+    cubic_reverse_on_unit_interval(&T_cubic);
   }
 
-  F3_context data = {
-    .cubic = cubic,
+  /**
+   * Compute initial guess for eta and theta by minimizing F3.
+   */
+  F3_context context = {
+    .T_cubic = T_cubic,
     .xy = get_xy(eik, l),
     .xy0 = get_xy(eik, l0),
     .xy1 = get_xy(eik, l1)
   };
-
-  void *context = (void *)&data;
-  dbl eta = hybrid(dF3_deta, 0, 1, context);
-  dbl T = F3(eta, context);
+  dbl eta = hybrid(F3_eta, 0, 1, (void *)&context);
+  dbl T = context.F3;
 
   // Check causality
   assert(T > eik->jets[l0].f);
   assert(T > eik->jets[l1].f);
 
+  /**
+   * Commit new value if it's an improvement.
+   */
   jet_s *jet = &eik->jets[l];
   if (T < jet->f) {
     dvec2 xy = get_xy(eik, l);
-    dvec2 xyeta = dvec2_ccomb(data.xy0, data.xy1, eta);
+    dvec2 xyeta = dvec2_ccomb(context.xy0, context.xy1, eta);
     dvec2 xyeta_minus_xy = dvec2_sub(xyeta, xy);
     dbl L = dvec2_norm(xyeta_minus_xy);
     jet->f = T;
@@ -538,7 +552,8 @@ void eik_dealloc(eik_s **eik) {
 // to allocate an extra margin of cells, since they will never be
 // initialized (i.e., they will never have all of their vertex nodes
 // become VALID because of the margin...)
-void eik_init(eik_s *eik, ivec2 shape, dvec2 xymin, dbl h) {
+void eik_init(eik_s *eik, field2_s const *slow, ivec2 shape, dvec2 xymin, dbl h) {
+  eik->slow = slow;
   eik->shape = shape;
   eik->ncells = (shape.i - 1)*(shape.j - 1);
   eik->nnodes = shape.i*shape.j;
@@ -589,6 +604,8 @@ void eik_init(eik_s *eik, ivec2 shape, dvec2 xymin, dbl h) {
 }
 
 void eik_deinit(eik_s *eik) {
+  eik->slow = NULL;
+
   free(eik->bicubics);
   free(eik->jets);
   free(eik->states);

@@ -5,12 +5,11 @@ import unittest
 # TODO: definitely need to add some more tests here!
 
 class TestEik(unittest.TestCase):
-
     def test_set_jet(self):
         shape = (2, 2)
         xymin = (0, 0)
         h = 1
-        eik = sjs.Eik(shape, xymin, h)
+        eik = sjs.Eik(sjs.slow1, shape, xymin, h)
         eik.add_trial(0, 0, sjs.Jet(1, 0, 0, 0))
         eik.add_trial(1, 0, sjs.Jet(1, 0, 0, 0))
         eik.add_trial(0, 1, sjs.Jet(1, 0, 0, 0))

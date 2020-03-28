@@ -15,6 +15,7 @@ extern "C" {
 #define EPS 1e-13
 #define NO_INDEX -1
 #define NO_PARENT -1
+#define PI_OVER_FOUR 0.7853981633974483
 #define SQRT2 1.414213562373095
 #define UNFACTORED -1
 

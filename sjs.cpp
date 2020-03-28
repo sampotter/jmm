@@ -8,12 +8,13 @@ namespace py = pybind11;
 
 #include "bicubic.h"
 #include "eik.h"
+#include "eik_F3.h"
+#include "eik_F4.h"
 #include "field.h"
 #include "heap.h"
 #include "hybrid.h"
 #include "index.h"
 #include "jet.h"
-#include "update.h"
 #include "vec.h"
 
 static dbl value_wrapper(void * vp, int l);
@@ -72,28 +73,6 @@ static dbl f_wrapper(dbl t, void * context) {
   return (*(std::function<dbl(dbl)> *) context)(t);
 }
 
-struct eik_wrapper {
-  eik * ptr {nullptr};
-
-  eik_wrapper(std::array<int, 2> const & shape,
-              std::array<dbl, 2> const & xymin,
-              dbl h)
-  {
-    eik_alloc(&ptr);
-    eik_init(
-      ptr,
-      ivec2 {shape[0], shape[1]},
-      dvec2 {xymin[0], xymin[1]},
-      h
-    );
-  }
-
-  ~eik_wrapper() {
-    eik_deinit(ptr);
-    eik_dealloc(&ptr);
-  }
-};
-
 dbl field_f_wrapper(dbl x, dbl y, void *context);
 dvec2 field_grad_f_wrapper(dbl x, dbl y, void *context);
 
@@ -121,6 +100,32 @@ dvec2 field_grad_f_wrapper(dbl x, dbl y, void *context) {
   std::tie(tmp.x, tmp.y) = wrap->grad_f(x, y);
   return tmp;
 }
+
+struct eik_wrapper {
+  field2_wrapper slow;
+  eik * ptr {nullptr};
+
+  eik_wrapper(field2_wrapper const & slow,
+              std::array<int, 2> const & shape,
+              std::array<dbl, 2> const & xymin,
+              dbl h):
+    slow {slow}
+  {
+    eik_alloc(&ptr);
+    eik_init(
+      ptr,
+      &slow.field,
+      ivec2 {shape[0], shape[1]},
+      dvec2 {xymin[0], xymin[1]},
+      h
+    );
+  }
+
+  ~eik_wrapper() {
+    eik_deinit(ptr);
+    eik_dealloc(&ptr);
+  }
+};
 
 PYBIND11_MODULE (_sjs, m) {
   m.doc() = R"pbdoc(
@@ -279,11 +284,10 @@ TODO!
 
   py::class_<eik_wrapper>(m, "Eik")
     .def(py::init<
+           field2_wrapper const &,
            std::array<int, 2> const &,
            std::array<dbl, 2> const &,
            dbl
-           // std::function<dbl(dbl, dbl)> const &,
-           // std::function<std::tuple<dbl, dbl>(dbl, dbl)> const &
          >())
     .def(
       "step",
@@ -311,6 +315,7 @@ TODO!
         eik_make_bd(w.ptr, ivec2 {i, j});
       }
     )
+    .def_readonly("slow", &eik_wrapper::slow)
     .def_property_readonly(
       "shape",
       [] (eik_wrapper const &w) { return eik_get_shape(w.ptr); }
@@ -605,63 +610,66 @@ TODO!
   // update.h
 
   py::class_<F3_context>(m, "F3Context")
-    .def(py::init<cubic, dvec2, dvec2, dvec2>())
-    .def_readwrite("cubic", &F3_context::cubic)
+    .def(py::init(
+           [] (cubic const & T_cubic, dvec2 const & xy, dvec2 const & xy0,
+               dvec2 const & xy1, field2_wrapper const & slow) {
+             auto ptr = std::make_unique<F3_context>();
+             ptr->T_cubic = T_cubic;
+             ptr->xy = xy;
+             ptr->xy0 = xy0;
+             ptr->xy1 = xy1;
+             ptr->slow = &slow.field;
+             ptr->F3 = NAN;
+             ptr->F3_eta = NAN;
+             return ptr;
+           }
+         ))
+    .def_readwrite("T_cubic", &F3_context::T_cubic)
     .def_readwrite("xy", &F3_context::xy)
     .def_readwrite("xy0", &F3_context::xy0)
     .def_readwrite("xy1", &F3_context::xy1)
     .def(
-      "F3",
-      [] (F3_context const & context, dbl eta) {
-        return F3(eta, (void *) &context);
-      }
+      "compute",
+      [] (F3_context & context, dbl eta) { F3_compute(eta, &context); }
     )
-    .def(
-      "dF3_deta",
-      [] (F3_context const & context, dbl eta) {
-        return dF3_deta(eta, (void *) &context);
-      }
-    )
+    .def_readonly("F3", &F3_context::F3)
+    .def_readonly("F3_eta", &F3_context::F3_eta)
     ;
 
   py::class_<F4_context>(m, "F4Context")
-    .def(py::init<cubic, cubic, cubic, dvec2, dvec2, dvec2>())
-    .def_readwrite("T", &F4_context::T)
-    .def_readwrite("Tx", &F4_context::Tx)
-    .def_readwrite("Ty", &F4_context::Ty)
+    .def(py::init(
+           [] (cubic const & T_cubic, cubic const & Tx_cubic,
+               cubic const & Ty_cubic, dvec2 const & xy, dvec2 const & xy0,
+               dvec2 const & xy1, field2_wrapper const & slow) {
+             auto ptr = std::make_unique<F4_context>();
+             ptr->T_cubic = T_cubic;
+             ptr->Tx_cubic = Tx_cubic;
+             ptr->Ty_cubic = Ty_cubic;
+             ptr->xy = xy;
+             ptr->xy0 = xy0;
+             ptr->xy1 = xy1;
+             ptr->slow = &slow.field;
+             ptr->F4 = NAN;
+             ptr->F4_eta = NAN;
+             ptr->F4_th = NAN;
+             return ptr;
+           }
+         ))
+    .def_readwrite("T_cubic", &F4_context::T_cubic)
+    .def_readwrite("Tx_cubic", &F4_context::Tx_cubic)
+    .def_readwrite("Ty_cubic", &F4_context::Ty_cubic)
     .def_readwrite("xy", &F4_context::xy)
     .def_readwrite("xy0", &F4_context::xy0)
     .def_readwrite("xy1", &F4_context::xy1)
     .def(
-      "F4",
-      [] (F4_context const & context, dbl eta, dbl th) {
-        return F4(eta, th, (void *) &context);
+      "compute",
+      [] (F4_context & context, dbl eta, dbl th) {
+        F4_compute(eta, th, &context);
       }
     )
-    .def(
-      "dF4_deta",
-      [] (F4_context const & context, dbl eta, dbl th) {
-        return dF4_deta(eta, th, (void *) &context);
-      }
-    )
-    .def(
-      "dF4_dth",
-      [] (F4_context const & context, dbl eta, dbl th) {
-        return dF4_dth(eta, th, (void *) &context);
-      }
-    )
-    .def(
-      "grad_F4",
-      [] (F4_context const & context, dbl eta, dbl th) {
-        return grad_F4(eta, th, (void *) &context);
-      }
-    )
-    .def(
-      "hess_F4",
-      [] (F4_context const & context, dbl eta, dbl th) {
-        return hess_F4(eta, th, (void *) &context);
-      }
-    )
+    .def_readonly("F4", &F4_context::F4)
+    .def_readonly("F4_eta", &F4_context::F4_eta)
+    .def_readonly("F4_th", &F4_context::F4_th)
     ;
 
   // vec.h

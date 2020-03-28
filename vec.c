@@ -1,5 +1,9 @@
 #include "vec.h"
 
+dvec2 dvec2_zero() {
+  return (dvec2) {0.0, 0.0};
+}
+
 dvec2 dvec2_ccomb(dvec2 v0, dvec2 v1, dbl t) {
   dvec2 vt = {(1 - t)*v0.x + t*v1.x, (1 - t)*v0.y + t*v1.y};
   return vt;
@@ -30,6 +34,10 @@ dvec2 dvec2_add(dvec2 u, dvec2 v) {
 dvec2 dvec2_sub(dvec2 u, dvec2 v) {
   dvec2 w = {.x = u.x - v.x, .y = u.y - v.y};
   return w;
+}
+
+dvec2 dvec2_saxpy(dbl a, dvec2 x, dvec2 y) {
+  return (dvec2) {.x = a*x.x + y.x, .y = a*x.y + y.y};
 }
 
 dvec2 dvec2_dbl_div(dvec2 v, dbl a) {

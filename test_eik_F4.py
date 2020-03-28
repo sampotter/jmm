@@ -3,55 +3,10 @@ import autograd.numpy as np
 import sjs
 import unittest
 
-class TestF3(unittest.TestCase):
-
-    def test_evaluate(self):
-        cubic = sjs.Cubic([0, 0, 0, 0])
-        xy0 = sjs.Dvec2(1, 0)
-        xy1 = sjs.Dvec2(0, 1)
-        xy = sjs.Dvec2(0, 0)
-        h = 1
-        context = sjs.F3Context(cubic, xy, xy0, xy1)
-        self.assertAlmostEqual(context.F3(0), 1.0)
-        self.assertAlmostEqual(context.F3(1), 1.0)
-        self.assertAlmostEqual(context.F3(1/2), 1.0/np.sqrt(2))
-        self.assertAlmostEqual(context.dF3_deta(0), -1.0)
-        self.assertAlmostEqual(context.dF3_deta(1), 1.0)
-
-    def test_hybrid(self):
-        cubic = sjs.Cubic([0, 0, 0, 0])
-
-        xy0 = sjs.Dvec2(1, 0)
-        xy1 = sjs.Dvec2(0, 1)
-        xy = sjs.Dvec2(0, 0)
-        h = 1
-        context = sjs.F3Context(cubic, xy, xy0, xy1)
-
-        lam = sjs.hybrid(lambda lam: context.dF3_deta(lam), 0, 1)
-        self.assertAlmostEqual(lam, 0.5)
-        self.assertAlmostEqual(context.F3(lam), 1.0/np.sqrt(2))
-        self.assertAlmostEqual(context.dF3_deta(lam), 0.0)
-
-        context.cubic = sjs.Cubic([0, 1, 1, 1])
-        lam = sjs.hybrid(lambda lam: context.dF3_deta(lam), 0, 1)
-        self.assertAlmostEqual(lam, 0.0)
-        self.assertAlmostEqual(context.F3(lam), 1.0)
-        self.assertAlmostEqual(context.dF3_deta(lam), 0.0)
-
-        context.cubic = sjs.Cubic([1, 0, -1, -1])
-        lam = sjs.hybrid(lambda lam: context.dF3_deta(lam), 0, 1)
-        self.assertAlmostEqual(lam, 1.0)
-        self.assertAlmostEqual(context.F3(lam), 1.0)
-        self.assertAlmostEqual(context.dF3_deta(lam), 0.0)
-
-        context.cubic = sjs.Cubic([1, 1, -1, 1])
-        lam = sjs.hybrid(lambda lam: context.dF3_deta(lam), 0, 1)
-        self.assertAlmostEqual(lam, 0.5)
-        self.assertAlmostEqual(context.dF3_deta(lam), 0.0)
-
 class F4:
-
-    def __init__(self, a_T, a_Tx, a_Ty, p, p0, p1):
+    def __init__(self, s, a_T, a_Tx, a_Ty, p, p0, p1):
+        self._s = s
+        self._grad_s = autograd.grad(lambda args: self._s(args))
         self.a_T = a_T
         self.a_Tx = a_Tx
         self.a_Ty = a_Ty
@@ -60,6 +15,12 @@ class F4:
         self.p1 = p1
         self._grad_F4 = autograd.grad(lambda args: self.F4(args))
         self._hess_F4 = autograd.hessian(lambda args: self.F4(args))
+
+    def s(self, x):
+        return self._s(x)
+
+    def grad_s(self, x):
+        return self._grad_s(x)
 
     def T(self, lam):
         return self.a_T@[lam**p for p in range(4)]
@@ -88,12 +49,31 @@ class F4:
     def t1(self, th):
         return np.array([np.cos(th), np.sin(th)])
 
-    def S4(self, args):
+    def s0(self, lam):
+        return self.s(self.plam(lam))
+
+    def pm(self, args):
+        lam, th = args
+        return \
+            (self.p + self.plam(lam))/2 \
+            - self.L(lam)*(self.t1(th) - self.t0(lam))/8
+
+    def tm(self, args):
         lp = self.lprime(args[0])
         t0 = self.t0(args[0])
         t1 = self.t1(args[1])
-        t = 3*lp/2 - (t0 + t1)/4
-        return (1 + 2*np.linalg.norm(t))/3
+        return 3*lp/2 - (t0 + t1)/4
+
+    def sm(self, args):
+        return self.s(self.pm(args))
+
+    def S4(self, args):
+        tm = self.tm(args)
+        tmnorm = np.linalg.norm(tm)
+        s0 = self.s0(args[0])
+        s1 = self.s(self.p)
+        sm = self.sm(args)
+        return (s0 + s1 + 4*sm*tmnorm)/6
 
     def F4(self, args):
         T = self.T(args[0])
@@ -108,6 +88,13 @@ class TestF4(unittest.TestCase):
 
     def test_evaluate(self):
         for _ in range(10):
+            v0 = (1 + np.random.random())/2
+            vx, vy = np.random.randn(2)/4
+            while max(abs(vx), abs(vy)) > 1/3:
+                vx, vy = np.random.randn(2)/4
+            s = lambda x, y: 0.399 + vx*x + vy*y
+            slow = sjs.Field2(s, lambda x, y: (vx, vy))
+
             data = np.random.randn(4, 4)
             h = np.random.random()
             H = np.diag([1, 1, h, h])
@@ -126,26 +113,26 @@ class TestF4(unittest.TestCase):
             a_Tx = np.array([Tx.a[i] for i in range(4)])
             a_Ty = np.array([Ty.a[i] for i in range(4)])
 
-            context_gt = F4(a_T, a_Tx, a_Ty, p, p0, p1)
+            context_gt = F4(lambda args: s(*args), a_T, a_Tx, a_Ty, p, p0, p1)
 
             xy = sjs.Dvec2(*p)
             xy0 = sjs.Dvec2(*p0)
             xy1 = sjs.Dvec2(*p1)
 
-            context = sjs.F4Context(T, Tx, Ty, xy, xy0, xy1)
+            context = sjs.F4Context(T, Tx, Ty, xy, xy0, xy1, slow)
 
             for _ in range(10):
                 args = np.random.random(2)
                 args[1] *= 2*np.pi
 
-                f4_gt = context_gt.F4(args)
-                f4 = context.F4(*args)
-                self.assertAlmostEqual(f4_gt, f4)
+                context.compute(*args)
 
-                grad_gt = context_gt.grad_F4(args)
-                grad = np.array([context.dF4_deta(*args), context.dF4_dth(*args)])
-                self.assertAlmostEqual(grad_gt[0], grad[0])
-                self.assertAlmostEqual(grad_gt[1], grad[1])
+                f4_gt = context_gt.F4(args)
+                f4_eta_gt, f4_th_gt = context_gt.grad_F4(args)
+
+                self.assertAlmostEqual(f4_gt, context.F4)
+                self.assertAlmostEqual(f4_eta_gt, context.F4_eta)
+                self.assertAlmostEqual(f4_th_gt, context.F4_th)
 
 if __name__ == '__main__':
     unittest.main()
