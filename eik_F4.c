@@ -126,3 +126,63 @@ void F4_compute(dbl eta, dbl th, F4_context *context) {
   // context->F4_eta_th = L_eta*S_th + L*S_eta_th;
   // context->F4_th_th = L*S_th_th;
 }
+
+dvec2 F4_get_grad(F4_context const *context) {
+  return (dvec2) {context->F4_eta, context->F4_th};
+}
+
+dmat22 F4_hess_fd(dbl eta, dbl th, dbl eps, F4_context *context) {
+  dmat22 hess;
+
+  F4_compute(eta + eps, th, context);
+  hess.rows[0] = F4_get_grad(context);
+  F4_compute(eta - eps, th, context);
+  hess.rows[0] = dvec2_sub(hess.rows[0], F4_get_grad(context));
+  hess.rows[0] = dvec2_dbl_div(hess.rows[0], 2*eps);
+
+  F4_compute(eta, th + eps, context);
+  hess.rows[1] = F4_get_grad(context);
+  F4_compute(eta, th - eps, context);
+  hess.rows[1] = dvec2_sub(hess.rows[1], F4_get_grad(context));
+  hess.rows[1] = dvec2_dbl_div(hess.rows[1], 2*eps);
+
+  return hess;
+}
+
+void F4_bfgs_init(dbl eta, dbl th, dvec2 *x0, dvec2 *g0, dmat22 *H0,
+                  F4_context *context) {
+  *x0 = (dvec2) {.x = eta, .y = th};
+  F4_compute(x0->x, x0->y, context);
+  *g0 = F4_get_grad(context);
+  *H0 = F4_hess_fd(eta, th, 1e-7, context);
+  dmat22_invert(H0);
+}
+
+bool F4_bfgs_step(dvec2 xk, dvec2 gk, dmat22 Hk,
+               dvec2 *xk1, dvec2 *gk1, dmat22 *Hk1,
+               F4_context *context) {
+  dvec2 pk = dmat22_dvec2_mul(Hk, gk);
+  dvec2_negate(&pk);
+
+  *xk1 = dvec2_add(xk, pk);
+
+  F4_compute(xk1->x, xk1->y, context);
+
+  if (dvec2_maxnorm(pk) < 1e-15) {
+    return false;
+  }
+
+  dvec2 sk = dvec2_sub(*xk1, xk);
+  *gk1 = F4_get_grad(context);
+  dvec2 yk = dvec2_sub(*gk1, gk);
+
+  dvec2 tmp1 = dmat22_dvec2_mul(Hk, yk);
+  dbl tmp2 = dvec2_dot(yk, tmp1);
+  dmat22 tmp3 = dvec2_outer(tmp1, tmp1);
+  *Hk1 = dmat22_sub(Hk, dmat22_dbl_div(tmp3, tmp2));
+  tmp3 = dvec2_outer(sk, sk);
+  tmp2 = dvec2_dot(yk, sk);
+  *Hk1 = dmat22_add(*Hk1, dmat22_dbl_div(tmp3, tmp2));
+
+  return true;
+}

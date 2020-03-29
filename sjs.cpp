@@ -695,6 +695,31 @@ TODO!
         F4_compute(eta, th, &context);
       }
     )
+    .def(
+      "hess_fd",
+      [] (F4_context & context, dbl eta, dbl th, dbl eps = 1e-7) {
+        return F4_hess_fd(eta, th, eps, &context);
+      }
+    )
+    .def(
+      "bfgs_init",
+      [] (F4_context & context, dbl eta, dbl th) {
+        dvec2 x0, g0;
+        dmat22 H0;
+        F4_bfgs_init(eta, th, &x0, &g0, &H0, &context);
+        return std::make_tuple(x0, g0, H0);
+      }
+    )
+    .def(
+      "bfgs_step",
+      [] (F4_context & context, dvec2 xk, dvec2 gk, dmat22 Hk) {
+        dvec2 xk1, gk1;
+        dmat22 Hk1;
+        return std::make_tuple(
+          F4_bfgs_step(xk, gk, Hk, &xk1, &gk1, &Hk1, &context),
+          xk1, gk1, Hk1);
+      }
+    )
     .def_readonly("F4", &F4_context::F4)
     .def_readonly("F4_eta", &F4_context::F4_eta)
     .def_readonly("F4_th", &F4_context::F4_th)
