@@ -13,4 +13,4 @@ pybind11_add_module (_sjs MODULE sjs.cpp ${SJS_SRCS})
 target_compile_definitions (_sjs PRIVATE USING_PYBIND11=1)
 set_property (TARGET _sjs PROPERTY CXX_STANDARD 17)
 
-add_executable (scratch main.cpp ${SJS_SRCS})
+add_executable (scratch scratch.cpp ${SJS_SRCS})
