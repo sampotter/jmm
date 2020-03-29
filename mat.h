@@ -18,6 +18,7 @@ dmat22 dmat22_sub(dmat22 A, dmat22 B);
 dmat22 dmat22_dbl_div(dmat22 A, dbl a);
 dvec2 dmat22_dvec2_mul(dmat22 A, dvec2 x);
 dvec2 dmat22_dvec2_solve(dmat22 A, dvec2 b);
+dmat22 dvec2_outer(dvec2 u, dvec2 v);
 
 typedef struct {
   union {

@@ -42,6 +42,15 @@ dvec2 dmat22_dvec2_solve(dmat22 A, dvec2 b) {
   };
 }
 
+dmat22 dvec2_outer(dvec2 u, dvec2 v) {
+  return (dmat22) {
+    .rows = {
+      {u.x*v.x, u.x*v.y},
+      {u.y*v.x, u.y*v.y}
+    }
+  };
+}
+
 dvec4 dmat44_dvec4_mul(dmat44 const A, dvec4 const x) {
   dvec4 y;
   for (int i = 0; i < 4; ++i) {
