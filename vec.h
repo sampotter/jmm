@@ -26,6 +26,7 @@ dvec2 dvec2_saxpy(dbl a, dvec2 x, dvec2 y);
 dvec2 dvec2_dbl_div(dvec2 v, dbl a);
 dvec2 dvec2_dbl_mul(dvec2 v, dbl a);
 dvec2 dvec2_floor(dvec2 v);
+void dvec2_negate(dvec2 *v);
 void dvec2_normalize(dvec2 *v);
 dvec2 dvec2_cproj(dvec2 u, dvec2 v);
 

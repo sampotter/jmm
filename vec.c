@@ -55,6 +55,11 @@ dvec2 dvec2_floor(dvec2 v) {
   return w;
 }
 
+void dvec2_negate(dvec2 *v) {
+  v->x = -v->x;
+  v->y = -v->y;
+}
+
 void dvec2_normalize(dvec2 *v) {
   dbl vnorm = sqrt(v->x*v->x + v->y*v->y);
   v->x /= vnorm;
