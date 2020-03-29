@@ -51,6 +51,16 @@ dmat22 dvec2_outer(dvec2 u, dvec2 v) {
   };
 }
 
+void dmat22_invert(dmat22 *A) {
+  dbl det = A->data[0][0]*A->data[1][1] - A->data[1][0]*A->data[0][1];
+  *A = (dmat22) {
+    .rows = {
+      { A->rows[1].y/det, -A->rows[0].y/det},
+      {-A->rows[1].x/det,  A->rows[0].x/det}
+    }
+  };
+}
+
 dvec4 dmat44_dvec4_mul(dmat44 const A, dvec4 const x) {
   dvec4 y;
   for (int i = 0; i < 4; ++i) {
