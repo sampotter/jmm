@@ -9,6 +9,15 @@ dmat22 dmat22_add(dmat22 A, dmat22 B) {
   };
 }
 
+dmat22 dmat22_sub(dmat22 A, dmat22 B) {
+  return (dmat22) {
+    .rows = {
+      {A.rows[0].x - B.rows[0].x, A.rows[0].y - B.rows[0].y},
+      {A.rows[1].x - B.rows[1].x, A.rows[1].y - B.rows[1].y},
+    }
+  };
+}
+
 dvec2 dmat22_dvec2_solve(dmat22 A, dvec2 b) {
   dbl det = A.data[0][0]*A.data[1][1] - A.data[0][1]*A.data[1][0];
   return (dvec2) {
