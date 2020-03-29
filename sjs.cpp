@@ -607,7 +607,7 @@ TODO!
     [] (dmat44 const & A, int j) { return dmat44_col(A, j); }
   );
 
-  // update.h
+  // eik_F3.h
 
   py::class_<F3_context>(m, "F3Context")
     .def(py::init(
@@ -635,6 +635,8 @@ TODO!
     .def_readonly("F3", &F3_context::F3)
     .def_readonly("F3_eta", &F3_context::F3_eta)
     ;
+
+  // eik_F4.h
 
   py::class_<F4_context>(m, "F4Context")
     .def(py::init(
