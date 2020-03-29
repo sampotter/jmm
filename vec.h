@@ -17,6 +17,7 @@ typedef struct {
 dvec2 dvec2_zero();
 dvec2 dvec2_ccomb(dvec2 v0, dvec2 v1, dbl t);
 dbl dvec2_dist(dvec2 v0, dvec2 v1);
+dbl dvec2_maxnorm(dvec2 v);
 dbl dvec2_norm(dvec2 v);
 dbl dvec2_norm_sq(dvec2 v);
 dbl dvec2_dot(dvec2 u, dvec2 v);

@@ -14,6 +14,10 @@ dbl dvec2_dist(dvec2 v0, dvec2 v1) {
   return sqrt(dx*dx + dy*dy);
 }
 
+dbl dvec2_maxnorm(dvec2 v) {
+  return fmax(fabs(v.x), fabs(v.y));
+}
+
 dbl dvec2_norm(dvec2 v) {
   return sqrt(v.x*v.x + v.y*v.y);
 }
