@@ -565,6 +565,32 @@ TODO!
 
   // mat.h
 
+  py::class_<dmat22>(m, "Dmat22")
+    .def(py::init(
+           [] (std::array<std::array<dbl, 2>, 2> const & data) {
+             auto ptr = std::make_unique<dmat22>();
+             for (int i = 0; i < 2; ++i) {
+               for (int j = 0; j < 2; ++j) {
+                 ptr->data[i][j] = data[i][j];
+               }
+             }
+             return ptr;
+           }
+         ))
+    .def(
+      "__getitem__",
+      [] (dmat22 const & A, std::pair<int, int> ij) {
+        return A.data[ij.first][ij.second];
+      }
+    )
+    .def(
+      "__matmul__",
+      [] (dmat22 const & A, dvec2 const & x) {
+        return dmat22_dvec2_mul(A, x);
+      }
+    )
+    ;
+
   py::class_<dmat44>(m, "Dmat44")
     .def(py::init(
            [] (std::array<std::array<dbl, 4>, 4> const & data) {
