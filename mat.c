@@ -27,6 +27,13 @@ dmat22 dmat22_dbl_div(dmat22 A, dbl a) {
   };
 }
 
+dvec2 dmat22_dvec2_mul(dmat22 A, dvec2 x) {
+  return (dvec2) {
+    A.rows[0].x*x.x + A.rows[0].y*x.y,
+    A.rows[1].x*x.x + A.rows[1].y*x.y
+  };
+}
+
 dvec2 dmat22_dvec2_solve(dmat22 A, dvec2 b) {
   dbl det = A.data[0][0]*A.data[1][1] - A.data[0][1]*A.data[1][0];
   return (dvec2) {
