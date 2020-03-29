@@ -3,6 +3,8 @@ import autograd.numpy as np
 import sjs
 import unittest
 
+from scipy.optimize import brentq
+
 class F4:
     def __init__(self, s, a_T, a_Tx, a_Ty, p, p0, p1):
         self._s = s
@@ -84,9 +86,14 @@ class F4:
     def grad_F4(self, args):
         return self._grad_F4(args)
 
+    def hess_F4(self, args):
+        return self._hess_F4(args)
+
 class TestF4(unittest.TestCase):
 
     def test_evaluate(self):
+        eps = 1e-7
+
         for _ in range(10):
             v0 = (1 + np.random.random())/2
             vx, vy = np.random.randn(2)/4
@@ -133,6 +140,68 @@ class TestF4(unittest.TestCase):
                 self.assertAlmostEqual(f4_gt, context.F4)
                 self.assertAlmostEqual(f4_eta_gt, context.F4_eta)
                 self.assertAlmostEqual(f4_th_gt, context.F4_th)
+
+                hess_gt = context_gt.hess_F4(args)
+                hess_fd = context.hess_fd(*args, eps)
+
+    def test_bfgs(self):
+        eps = 1e-7
+
+        for _ in range(10):
+            v0 = (1 + np.random.random())/2
+            vx, vy = np.random.randn(2)/4
+            while max(abs(vx), abs(vy)) > 1/3:
+                vx, vy = np.random.randn(2)/4
+            s = lambda x, y: 0.399 + vx*x + vy*y
+            slow = sjs.Field2(s, lambda x, y: (vx, vy))
+
+            data = np.random.randn(4, 4)
+            h = np.random.random()
+            H = np.diag([1, 1, h, h])
+            data = H@data@H
+
+            p = np.random.randn(2)
+            p0 = p + h*np.random.randn(2)
+            p1 = p + h*np.random.randn(2)
+
+            bicubic = sjs.Bicubic(data)
+            T = bicubic.get_f_on_edge(sjs.BicubicVariable.Lambda, 0)
+            Tx = bicubic.get_fx_on_edge(sjs.BicubicVariable.Lambda, 0)
+            Ty = bicubic.get_fy_on_edge(sjs.BicubicVariable.Lambda, 0)
+
+            a_T = np.array([T.a[i] for i in range(4)])
+            a_Tx = np.array([Tx.a[i] for i in range(4)])
+            a_Ty = np.array([Ty.a[i] for i in range(4)])
+
+            context_gt = F4(lambda args: s(*args), a_T, a_Tx, a_Ty, p, p0, p1)
+
+            xy = sjs.Dvec2(*p)
+            xy0 = sjs.Dvec2(*p0)
+            xy1 = sjs.Dvec2(*p1)
+
+            context = sjs.F4Context(T, Tx, Ty, xy, xy0, xy1, slow)
+
+
+
+            self.assertTrue(abs(hess_gt[0, 0] - hess_fd[0, 0]) < eps)
+            self.assertTrue(abs(hess_gt[1, 0] - hess_fd[1, 0]) < eps)
+            self.assertTrue(abs(hess_gt[0, 1] - hess_fd[0, 1]) < eps)
+            self.assertTrue(abs(hess_gt[1, 1] - hess_fd[1, 1]) < eps)
+
+            xk_gt = args
+            gk_gt = context_gt.grad_F4(xk_gt)
+            Hk_gt = np.linalg.inv(context_gt.hess_F4(xk_gt))
+
+            xk, gk, Hk = context.bfgs_init(*args)
+
+            eps = 1e-5
+
+            print(Hk_gt[1, 1] - Hk[1, 1])
+
+            self.assertTrue(abs(Hk_gt[0, 0] - Hk[0, 0]) < eps)
+            self.assertTrue(abs(Hk_gt[1, 0] - Hk[1, 0]) < eps)
+            self.assertTrue(abs(Hk_gt[0, 1] - Hk[0, 1]) < eps)
+            self.assertTrue(abs(Hk_gt[1, 1] - Hk[1, 1]) < eps)
 
 if __name__ == '__main__':
     unittest.main()
