@@ -26,8 +26,8 @@ void F3_compute(dbl eta, F3_context *context) {
   dvec2 xyeta = dvec2_saxpy(eta, dxy, context->xy0);
 
   dvec2 lp = dvec2_sub(context->xy, xyeta);
-
   dbl L = dvec2_norm(lp);
+  lp = dvec2_dbl_div(lp, L);
   dbl L_eta = -dvec2_dot(lp, dxy);
 
   dbl s0 = field2_f(context->slow, xyeta);
