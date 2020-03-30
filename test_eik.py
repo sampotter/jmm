@@ -9,7 +9,8 @@ class TestEik(unittest.TestCase):
         shape = (2, 2)
         xymin = (0, 0)
         h = 1
-        eik = sjs.Eik(sjs.slow1, shape, xymin, h)
+        slow = sjs.get_constant_slowness_field2()
+        eik = sjs.Eik(slow, shape, xymin, h)
         eik.add_trial(0, 0, sjs.Jet(1, 0, 0, 0))
         eik.add_trial(1, 0, sjs.Jet(1, 0, 0, 0))
         eik.add_trial(0, 1, sjs.Jet(1, 0, 0, 0))
