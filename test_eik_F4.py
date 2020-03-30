@@ -4,6 +4,7 @@ import sjs
 import unittest
 
 from scipy.optimize import brentq
+from test_util import get_linear_speed_s, get_linear_speed_tau
 
 class F4:
     def __init__(self, s, a_T, a_Tx, a_Ty, p, p0, p1):
@@ -19,7 +20,7 @@ class F4:
         self._hess_F4 = autograd.hessian(lambda args: self.F4(args))
 
     def s(self, x):
-        return self._s(x)
+        return self._s(*x)
 
     def grad_s(self, x):
         return self._grad_s(x)
@@ -95,12 +96,9 @@ class TestF4(unittest.TestCase):
         eps = 1e-7
 
         for _ in range(10):
-            v0 = (1 + np.random.random())/2
-            vx, vy = np.random.randn(2)/4
-            while max(abs(vx), abs(vy)) > 1/3:
-                vx, vy = np.random.randn(2)/4
-            s = lambda x, y: 0.399 + vx*x + vy*y
-            slow = sjs.Field2(s, lambda x, y: (vx, vy))
+            vx, vy = np.random.uniform(-0.05, 0.05, (2,))
+            s_gt = get_linear_speed_s(vx, vy)
+            slow = sjs.get_linear_speed_field2(vx, vy)
 
             data = np.random.randn(4, 4)
             h = np.random.random()
@@ -120,7 +118,7 @@ class TestF4(unittest.TestCase):
             a_Tx = np.array([Tx.a[i] for i in range(4)])
             a_Ty = np.array([Ty.a[i] for i in range(4)])
 
-            context_gt = F4(lambda args: s(*args), a_T, a_Tx, a_Ty, p, p0, p1)
+            context_gt = F4(s_gt, a_T, a_Tx, a_Ty, p, p0, p1)
 
             xy = sjs.Dvec2(*p)
             xy0 = sjs.Dvec2(*p0)
@@ -141,29 +139,35 @@ class TestF4(unittest.TestCase):
                 self.assertAlmostEqual(f4_eta_gt, context.F4_eta)
                 self.assertAlmostEqual(f4_th_gt, context.F4_th)
 
-                hess_gt = context_gt.hess_F4(args)
-                hess_fd = context.hess_fd(*args, eps)
-
-    def test_bfgs(self):
-        eps = 1e-7
-
+    def test_bfgs_linear_speed(self):
         for _ in range(10):
-            v0 = (1 + np.random.random())/2
-            vx, vy = np.random.randn(2)/4
-            while max(abs(vx), abs(vy)) > 1/3:
-                vx, vy = np.random.randn(2)/4
-            s = lambda x, y: 0.399 + vx*x + vy*y
-            slow = sjs.Field2(s, lambda x, y: (vx, vy))
+            h = 0.1
 
-            data = np.random.randn(4, 4)
-            h = np.random.random()
-            H = np.diag([1, 1, h, h])
-            data = H@data@H
+            x0, y0 = np.random.uniform(-1, 1 - h, (2,))
+            x1, y1 = x0 + h, y0 + h
+            x, y = x0 - h, y0
 
-            p = np.random.randn(2)
-            p0 = p + h*np.random.randn(2)
-            p1 = p + h*np.random.randn(2)
+            vx, vy = np.random.uniform(-0.05, 0.05, (2,))
+            s_gt = get_linear_speed_s(vx, vy)
+            slow = sjs.get_linear_speed_field2(vx, vy)
 
+            tau_Omega = get_linear_speed_tau(vx, vy)
+            tau = lambda lam, mu: tau_Omega(
+                (1 - lam)*x0 + lam*x1,
+                (1 -  mu)*y0 +  mu*y1
+            )
+            grad_tau = autograd.grad(lambda args: tau(args[0], args[1]))
+            hess_tau = autograd.hessian(lambda args: tau(args[0], args[1]))
+            tau_x = lambda lam, mu: grad_tau(np.array([lam, mu]))[0]
+            tau_y = lambda lam, mu: grad_tau(np.array([lam, mu]))[1]
+            tau_xy = lambda lam, mu: hess_tau(np.array([lam, mu]))[1][0]
+
+            data = np.array([
+                [  tau(0., 0.),    tau(0., 1.),  tau_y(0., 0.),  tau_y(0., 1.)],
+                [  tau(1., 0.),    tau(1., 1.),  tau_y(1., 0.),  tau_y(1., 1.)],
+                [tau_x(0., 0.),  tau_x(0., 1.), tau_xy(0., 0.), tau_xy(0., 1.)],
+                [tau_x(1., 0.),  tau_x(1., 1.), tau_xy(1., 0.), tau_xy(1., 1.)],
+            ])
             bicubic = sjs.Bicubic(data)
             T = bicubic.get_f_on_edge(sjs.BicubicVariable.Lambda, 0)
             Tx = bicubic.get_fx_on_edge(sjs.BicubicVariable.Lambda, 0)
@@ -173,7 +177,8 @@ class TestF4(unittest.TestCase):
             a_Tx = np.array([Tx.a[i] for i in range(4)])
             a_Ty = np.array([Ty.a[i] for i in range(4)])
 
-            context_gt = F4(lambda args: s(*args), a_T, a_Tx, a_Ty, p, p0, p1)
+            p, p0, p1 = np.array([x, y]), np.array([x0, y0]), np.array([x0, y1])
+            context_gt = F4(s_gt, a_T, a_Tx, a_Ty, p, p0, p1)
 
             xy = sjs.Dvec2(*p)
             xy0 = sjs.Dvec2(*p0)
@@ -181,23 +186,39 @@ class TestF4(unittest.TestCase):
 
             context = sjs.F4Context(T, Tx, Ty, xy, xy0, xy1, slow)
 
+            context3 = sjs.F3Context(T, xy, xy0, xy1, slow)
+            def F3(eta):
+                context3.compute(eta)
+                return context3.F3
+            def F3_eta(eta):
+                context3.compute(eta)
+                return context3.F3_eta
+            if np.sign(F3_eta(0.)) == np.sign(F3_eta(1.)):
+                argeta3 = 0. if F3(0.) < F3(1.) else 1.
+            else:
+                argeta3 = brentq(F3_eta, 0, 1)
+            lp = (p - p0 - argeta3*(p1 - p0))
+            lp /= np.linalg.norm(lp)
+            argth3 = np.arctan2(*reversed(lp))
 
+            xk_gt = np.array([argeta3, argth3])
+
+            eps = 1e-7
+
+            hess_gt = context_gt.hess_F4(xk_gt)
+            hess_fd = context.hess_fd(argeta3, argth3, eps)
 
             self.assertTrue(abs(hess_gt[0, 0] - hess_fd[0, 0]) < eps)
             self.assertTrue(abs(hess_gt[1, 0] - hess_fd[1, 0]) < eps)
             self.assertTrue(abs(hess_gt[0, 1] - hess_fd[0, 1]) < eps)
             self.assertTrue(abs(hess_gt[1, 1] - hess_fd[1, 1]) < eps)
 
-            xk_gt = args
             gk_gt = context_gt.grad_F4(xk_gt)
-            Hk_gt = np.linalg.inv(context_gt.hess_F4(xk_gt))
+            Hk_gt = np.linalg.inv(hess_gt)
 
-            xk, gk, Hk = context.bfgs_init(*args)
+            xk, gk, Hk = context.bfgs_init(*xk_gt)
 
-            eps = 1e-5
-
-            print(Hk_gt[1, 1] - Hk[1, 1])
-
+            eps = 1e-6
             self.assertTrue(abs(Hk_gt[0, 0] - Hk[0, 0]) < eps)
             self.assertTrue(abs(Hk_gt[1, 0] - Hk[1, 0]) < eps)
             self.assertTrue(abs(Hk_gt[0, 1] - Hk[0, 1]) < eps)

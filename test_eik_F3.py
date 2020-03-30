@@ -4,6 +4,7 @@ import sjs
 import unittest
 
 from scipy.optimize import brentq
+from test_util import get_linear_speed_s, get_linear_speed_tau
 
 class F3:
     def __init__(self, s, a_T, p, p0, p1):
@@ -41,15 +42,6 @@ class F3:
 
     def grad_F3(self, eta):
         return self._grad_F3(eta)
-
-def get_linear_speed_s(vx, vy):
-    return lambda x, y: 1.0/(1.0 + vx*x + vy*y)
-
-def get_linear_speed_tau(vx, vy):
-    s = lambda x, y: 1.0/(1.0 + vx*x + vy*y)
-    return lambda x, y: np.arccosh(
-        1 + s(x, y)*(vx**2 + vy**2)*(x**2 + y**2)/2
-    )/np.sqrt(vx**2 + vy**2)
 
 class TestF3(unittest.TestCase):
 
