@@ -783,6 +783,7 @@ void eik_solve(eik_s *eik) {
 void eik_add_trial(eik_s *eik, ivec2 ind, jet_s jet) {
   int l = ind2l(eik->shape, ind);
   eik->jets[l] = jet;
+  assert(eik->states[l] != TRIAL && eik->states[l] != VALID);
   eik->states[l] = TRIAL;
   heap_insert(eik->heap, l);
 }
@@ -790,6 +791,7 @@ void eik_add_trial(eik_s *eik, ivec2 ind, jet_s jet) {
 void eik_add_valid(eik_s *eik, ivec2 ind, jet_s jet) {
   int l = ind2l(eik->shape, ind);
   eik->jets[l] = jet;
+  assert(eik->states[l] != TRIAL && eik->states[l] != VALID);
   eik->states[l] = VALID;
 }
 
