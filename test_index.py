@@ -94,6 +94,8 @@ class TestIndex(unittest.TestCase):
     def test_lc2l(self):
         for _ in range(10):
             shape = np.random.randint((2, 1), 1000)
+            # TODO: this fails sometimes! I wonder if it has to do
+            # with the bleeding at the edge of the domain?
             lc = np.random.randint((shape[0] - 1)*(shape[1] - 1))
             l = sjs._lc2l(shape, lc)
             indc_gt = sjs._lc2indc(shape, lc)
