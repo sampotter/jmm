@@ -584,12 +584,87 @@ TODO!
       }
     )
     .def(
+      "__add__",
+      [] (dmat22 const & A, dmat22 const & B) {
+        return dmat22_add(A, B);
+      }
+    )
+    .def(
+      "__sub__",
+      [] (dmat22 const & A, dmat22 const & B) {
+        return dmat22_sub(A, B);
+      }
+    )
+    .def(
+      "__matmul__",
+      [] (dmat22 const & A, dmat22 const & B) {
+        return dmat22_mul(A, B);
+      }
+    )
+    .def(
+      "__mul__",
+      [] (dmat22 const & A, dbl a) {
+        return dmat22_dbl_mul(A, a);
+      }
+    )
+    .def(
+      "__truediv__",
+      [] (dmat22 const & A, dbl a) {
+        return dmat22_dbl_div(A, a);
+      }
+    )
+    .def(
       "__matmul__",
       [] (dmat22 const & A, dvec2 const & x) {
         return dmat22_dvec2_mul(A, x);
       }
     )
+    .def(
+      "solve",
+      [] (dmat22 const & A, dvec2 const & b) {
+        return dmat22_dvec2_solve(A, b);
+      }
+    )
+    .def(
+      "invert",
+      [] (dmat22 & A) {
+        dmat22_invert(&A);
+      }
+    )
+    .def(
+      "trace",
+      [] (dmat22 const & A) {
+        return dmat22_trace(&A);
+      }
+    )
+    .def(
+      "det",
+      [] (dmat22 const & A) {
+        return dmat22_det(&A);
+      }
+    )
+    .def(
+      "eigvals",
+      [] (dmat22 const & A) {
+        dbl lam1, lam2;
+        dmat22_eigvals(&A, &lam1, &lam2);
+        return std::make_pair(lam1, lam2);
+      }
+    )
+    .def(
+      "transpose",
+      [] (dmat22 & A) {
+        dmat22_transpose(&A);
+      }
+    )
     ;
+
+  m.def(
+    "outer",
+    [] (dvec2 const & u, dvec2 const & v) {
+      return dvec2_outer(u, v);
+    }
+  );
 
   py::class_<dmat44>(m, "Dmat44")
     .def(py::init(

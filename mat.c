@@ -1,5 +1,7 @@
 #include "mat.h"
 
+#include <assert.h>
+
 dmat22 dmat22_add(dmat22 A, dmat22 B) {
   return (dmat22) {
     .rows = {
@@ -18,11 +20,33 @@ dmat22 dmat22_sub(dmat22 A, dmat22 B) {
   };
 }
 
-dmat22 dmat22_dbl_div(dmat22 A, dbl a) {
+dmat22 dmat22_mul(dmat22 A, dmat22 B) {
+  dmat22 C;
+  for (int i = 0; i < 2; ++i) {
+    for (int j = 0; j < 2; ++j) {
+      C.data[i][j] = 0;
+      for (int k = 0; k < 2; ++k) {
+        C.data[i][j] += A.data[i][k]*B.data[k][j];
+      }
+    }
+  }
+  return C;
+}
+
+dmat22 dmat22_dbl_mul(dmat22 A, dbl a) {
   return (dmat22) {
     .rows = {
       {a*A.rows[0].x, a*A.rows[0].y},
       {a*A.rows[1].x, a*A.rows[1].y}
+    }
+  };
+}
+
+dmat22 dmat22_dbl_div(dmat22 A, dbl a) {
+  return (dmat22) {
+    .rows = {
+      {A.rows[0].x/a, A.rows[0].y/a},
+      {A.rows[1].x/a, A.rows[1].y/a}
     }
   };
 }
@@ -59,6 +83,29 @@ void dmat22_invert(dmat22 *A) {
       {-A->rows[1].x/det,  A->rows[0].x/det}
     }
   };
+}
+
+dbl dmat22_trace(dmat22 const *A) {
+  return A->data[0][0] + A->data[1][1];
+}
+
+dbl dmat22_det(dmat22 const *A) {
+  return A->data[0][0]*A->data[1][1] - A->data[0][1]*A->data[1][0];
+}
+
+void dmat22_eigvals(dmat22 const *A, dbl *lam1, dbl *lam2) {
+  dbl tr = dmat22_trace(A);
+  dbl disc = tr*tr - 4*dmat22_det(A);
+  assert(disc >= 0);
+  dbl tmp = sqrt(disc);
+  *lam1 = (tr + tmp)/2;
+  *lam2 = (tr - tmp)/2;
+}
+
+void dmat22_transpose(dmat22 *A) {
+  dbl tmp = A->data[1][0];
+  A->data[1][0] = A->data[0][1];
+  A->data[0][1] = tmp;
 }
 
 dvec4 dmat44_dvec4_mul(dmat44 const A, dvec4 const x) {

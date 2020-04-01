@@ -4,6 +4,8 @@
 extern "C" {
 #endif
 
+#include <stdbool.h>
+
 #include "vec.h"
 
 typedef struct {
@@ -15,11 +17,17 @@ typedef struct {
 
 dmat22 dmat22_add(dmat22 A, dmat22 B);
 dmat22 dmat22_sub(dmat22 A, dmat22 B);
+dmat22 dmat22_mul(dmat22 A, dmat22 B);
+dmat22 dmat22_dbl_mul(dmat22 A, dbl a);
 dmat22 dmat22_dbl_div(dmat22 A, dbl a);
 dvec2 dmat22_dvec2_mul(dmat22 A, dvec2 x);
 dvec2 dmat22_dvec2_solve(dmat22 A, dvec2 b);
 dmat22 dvec2_outer(dvec2 u, dvec2 v);
 void dmat22_invert(dmat22 *A);
+dbl dmat22_trace(dmat22 const *A);
+dbl dmat22_det(dmat22 const *A);
+void dmat22_eigvals(dmat22 const *A, dbl *lam1, dbl *lam2);
+void dmat22_transpose(dmat22 *A);
 
 typedef struct {
   union {
