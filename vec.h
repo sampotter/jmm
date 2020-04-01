@@ -30,6 +30,7 @@ dvec2 dvec2_floor(dvec2 v);
 void dvec2_negate(dvec2 *v);
 void dvec2_normalize(dvec2 *v);
 dvec2 dvec2_cproj(dvec2 u, dvec2 v);
+dvec2 dvec2_avg(dvec2 u, dvec2 v);
 
 typedef struct {
   union {

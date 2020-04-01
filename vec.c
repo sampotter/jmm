@@ -78,6 +78,10 @@ dvec2 dvec2_cproj(dvec2 u, dvec2 v) {
   return w;
 }
 
+dvec2 dvec2_avg(dvec2 u, dvec2 v) {
+  return (dvec2) {(u.x + v.x)/2, (u.y + v.y)/2};
+}
+
 dbl dvec4_dot(dvec4 v0, dvec4 v1) {
   dbl tmp = 0;
   for (int i = 0; i < 4; ++i) {
