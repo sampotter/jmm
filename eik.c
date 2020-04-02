@@ -7,6 +7,7 @@
 
 #include "eik_F3.h"
 #include "eik_F4.h"
+#include "eik_S4.h"
 #include "hybrid.h"
 #include "index.h"
 #include "jet.h"
