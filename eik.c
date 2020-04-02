@@ -438,15 +438,19 @@ static void tri(eik_s *eik, int l, int l0, int l1, int ic0) {
  * Returns whether the linear index `l` corresponds to a valid index
  * into `eik`'s domain.
  */
-static bool inbounds(eik_s const *eik, int l) {
-  return 0 <= l && l < eik->nnodes;
+static bool inbounds(eik_s const *eik, ivec2 ind) {
+  ivec2 shape = eik->shape;
+  return 0 <= ind.i && ind.i < shape.i && 0 <= ind.j && ind.j < shape.j;
 }
 
 static bool can_build_cell(eik_s const *eik, int lc) {
   // TODO: do this using SIMD gathers
   for (int i = 0, l; i < NUM_CELL_VERTS; ++i) {
     l = lc2l(eik->shape, lc) + eik->vert_dl[i];
-    if (!inbounds(eik, l)) {
+    // TODO: this is probably wrong: need to double check what's in
+    // vert_dl to be sure---it's probably wrapping around... although
+    // this may not result in an actual bug?
+    if (!inbounds(eik, l2ind(eik->shape, l))) {
       return false;
     }
     state_e state = eik->states[l];
@@ -592,29 +596,53 @@ static void build_cell(eik_s *eik, int lc) {
 }
 
 static void update(eik_s *eik, int l) {
+  /**
+   * First, precompute whether each neighboring node is inbounds. We
+   * need to do this in the (i, j) index space to avoid wrapping
+   * errors.
+   */
+  bool inbounds_[8];
+  {
+    ivec2 ind = l2ind(eik->shape, l), ind0;
+    for (int i0 = 0; i0 < 8; ++i0) {
+      ind0 = ivec2_add(ind, offsets[i0]);
+      inbounds_[i0] = inbounds(eik, ind0);
+    }
+  }
+
   for (int i0 = 1, l0, l1, ic0; i0 < 8; i0 += 2) {
-    l0 = l + eik->nb_dl[i0];
-    if (!inbounds(eik, l0) || eik->states[l0] != VALID) {
+    if (!inbounds_[i0]) {
       continue;
     }
 
-    l1 = l + eik->nb_dl[i0 - 1];
-    if (inbounds(eik, l1) && eik->states[l1] == VALID) {
-      ic0 = i0 - 1;
-      tri(eik, l, l0, l1, ic0);
+    l0 = l + eik->nb_dl[i0];
+    if (eik->states[l0] != VALID) {
+      continue;
     }
 
-    l1 = l + eik->nb_dl[i0 + 1];
-    if (inbounds(eik, l1) && eik->states[l1] == VALID) {
-      ic0 = i0;
-      tri(eik, l, l0, l1, ic0);
+    if (inbounds_[i0 - 1]) {
+      l1 = l + eik->nb_dl[i0 - 1];
+      if (eik->states[l1] == VALID) {
+        ic0 = i0 - 1;
+        tri(eik, l, l0, l1, ic0);
+      }
+    }
+
+    if (inbounds_[i0 + 1]) {
+      l1 = l + eik->nb_dl[i0 + 1];
+      if (eik->states[l1] == VALID) {
+        ic0 = i0;
+        tri(eik, l, l0, l1, ic0);
+      }
     }
   }
 
   for (int i0 = 0, l0; i0 < 8; ++i0) {
-    l0 = l + eik->nb_dl[i0];
-    if (inbounds(eik, l0) && eik->states[l0] == VALID) {
-      line(eik, l, l0);
+    if (inbounds_[i0]) {
+      l0 = l + eik->nb_dl[i0];
+      if (eik->states[l0] == VALID) {
+        line(eik, l, l0);
+      }
     }
   }
 }
@@ -857,10 +885,15 @@ void eik_step(eik_s *eik) {
    * Dijkstra-like algorithm for solving the eikonal equation.
    */
 
+  ivec2 ind0 = l2ind(eik->shape, l0);
+
   // Set FAR nodes to TRIAL and insert them into the heap.
   for (int i = 0, l; i < NUM_NB; ++i) {
+    if (!inbounds(eik, ivec2_add(ind0, offsets[i]))) {
+      continue;
+    }
     l = l0 + eik->nb_dl[i];
-    if (inbounds(eik, l) && eik->states[l] == FAR) {
+    if (eik->states[l] == FAR) {
       eik->states[l] = TRIAL;
       heap_insert(eik->heap, l);
     }
@@ -868,8 +901,11 @@ void eik_step(eik_s *eik) {
 
   // Update neighboring nodes.
   for (int i = 0, l; i < NUM_NB; ++i) {
+    if (!inbounds(eik, ivec2_add(ind0, offsets[i]))) {
+      continue;
+    }
     l = l0 + eik->nb_dl[i];
-    if (inbounds(eik, l) && eik->states[l] == TRIAL) {
+    if (eik->states[l] == TRIAL) {
       update(eik, l);
       adjust(eik, l);
     }
