@@ -7,6 +7,7 @@
 
 #include "eik_F3.h"
 #include "eik_F4.h"
+#include "eik_S4.h"
 #include "hybrid.h"
 #include "index.h"
 #include "jet.h"
@@ -239,6 +240,12 @@ static dvec2 get_xy(eik_s *eik, int l) {
     .y = eik->h*ind.j + eik->xymin.y
   };
   return xy;
+}
+
+dbl S4_th(dbl th, void *data) {
+  S4_context *context = (S4_context *)data;
+  S4_compute(th, context);
+  return context->S4_th;
 }
 
 static void line(eik_s *eik, int l, int l0) {
