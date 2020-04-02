@@ -249,24 +249,42 @@ dbl S4_th(dbl th, void *data) {
 }
 
 static void line(eik_s *eik, int l, int l0) {
+  jet_s const *J0 = &eik->jets[l0];
+  dbl T0 = J0->f;
+  dbl Tx0 = J0->fx;
+  dbl Ty0 = J0->fy;
+
   dvec2 xy = get_xy(eik, l);
   dvec2 xy0 = get_xy(eik, l0);
-  dvec2 xy0_minus_xy = dvec2_sub(xy0, xy);
-  dbl L = dvec2_norm(xy0_minus_xy);
 
-  // TODO: replace this update with the F4 version
+  S4_context context;
+  context.slow = eik->slow;
+  context.s = field2_f(eik->slow, xy);
+  context.s0 = field2_f(eik->slow, xy0);
+  context.lp = dvec2_sub(xy, xy0);
+  context.L = dvec2_norm(context.lp);
+  context.lp = dvec2_dbl_div(context.lp, context.L);
+  context.xy_xy0_avg = dvec2_avg(xy, xy0);
+  context.t0 = (dvec2) {.x = Tx0, .y = Ty0};
+  dvec2_normalize(&context.t0);
 
-  dbl T0 = eik->jets[l0].f;
-  dbl T = T0 + L;
+  dbl th = atan2(context.lp.y, context.lp.x);
+  {
+    dbl th_min = th - PI_OVER_FOUR;
+    dbl th_max = th + PI_OVER_FOUR;
+    th = hybrid(S4_th, th_min, th_max, (void *)&context);
+  }
+
+  dbl T = T0 + context.L*context.S4;
 
   // Check causality
-  assert(T > eik->jets[l0].f);
+  assert(T > T0);
 
-  jet_s *jet = &eik->jets[l];
-  if (T < jet->f) {
-    jet->f = T;
-    jet->fx = -xy0_minus_xy.x/L;
-    jet->fy = -xy0_minus_xy.y/L;
+  jet_s *J = &eik->jets[l];
+  if (T < J->f) {
+    J->f = T;
+    J->fx = context.s*cos(th);
+    J->fy = context.s*sin(th);
   }
 }
 
