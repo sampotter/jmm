@@ -95,32 +95,81 @@ int main() {
     .context = NULL
   };
 
-  int N = 101;
+  int N = 65;
   int i0 = N/2;
   ivec2 shape = {N, N};
   dvec2 xymin = {-1, -1};
   dbl h = 2.0/(N-1);
   eik_init(scheme, &slow, shape, xymin, h);
 
-  int R = 5;
+  int R = N/20;
+  if (R < 5) R = 5;
+
+  /**
+   * Initialize inside box.
+   */
+  // for (int i = 0; i < N; ++i) {
+  //   int abs_di = abs(i - i0);
+  //   dbl x = h*i + xymin.x;
+  //   for (int j = 0; j < N; ++j) {
+  //     int abs_dj = abs(j - i0);
+  //     dbl y = h*j + xymin.y;
+  //     int r = MAX(abs_di, abs_dj);
+  //     if (r <= R) {
+  //       ivec2 ind = {i, j};
+  //       jet J = {u(x, y), ux(x, y), uy(x, y), uxy(x, y)};
+  //       if (r < R) {
+  //         eik_add_valid(scheme, ind, J);
+  //       } else {
+  //         eik_add_trial(scheme, ind, J);
+  //       }
+  //     }
+  //   }
+  // }
+
+  /**
+   * Initialize inside disk.
+   */
   for (int i = 0; i < N; ++i) {
-    int abs_di = abs(i - i0);
-    dbl x = h*i + xymin.x;
+    int di = i - i0, di_sq = di*di;
     for (int j = 0; j < N; ++j) {
-      int abs_dj = abs(j - i0);
-      dbl y = h*j + xymin.y;
-      int r = MAX(abs_di, abs_dj);
-      if (r <= R) {
-        ivec2 ind = {i, j};
+      int dj = j - i0, dj_sq = dj*dj;
+      dbl r = sqrt(di_sq + dj_sq);
+      if (r < R) {
+        dbl x = h*i + xymin.x;
+        dbl y = h*j + xymin.y;
         jet J = {u(x, y), ux(x, y), uy(x, y), uxy(x, y)};
-        if (r < R) {
-          eik_add_valid(scheme, ind, J);
-        } else {
-          eik_add_trial(scheme, ind, J);
+        eik_add_valid(scheme, (ivec2) {i, j}, J);
+      }
+    }
+  }
+  {
+    dbl di[4] = {1, 0, -1,  0};
+    dbl dj[4] = {0, 1,  0, -1};
+    for (int i = 0; i < N; ++i) {
+      for (int j = 0; j < N; ++j) {
+        ivec2 ind = {i, j};
+        if (eik_get_state(scheme, ind) != VALID) {
+          continue;
+        }
+        for (int k = 0; k < 4; ++k) {
+          int i_ = i + di[k];
+          int j_ = j + dj[k];
+          if (0 <= i_ && i_ < N && 0 <= j_ && j_ < N) {
+            ivec2 ind_ = {i_, j_};
+            state_e state = eik_get_state(scheme, ind_);
+            if (state != VALID && state != TRIAL) {
+              dbl x = h*i_ + xymin.x;
+              dbl y = h*j_ + xymin.y;
+              jet J = {u(x, y), ux(x, y), uy(x, y), uxy(x, y)};
+              eik_add_trial(scheme, ind_, J);
+            }
+          }
         }
       }
     }
   }
+
   eik_build_cells(scheme);
 
   eik_solve(scheme);
