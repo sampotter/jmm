@@ -847,10 +847,9 @@ void eik_step(eik_s *eik) {
     for (int i = 0, l; i < NUM_CELL_NB_VERTS; ++i) {
       Txy_sum = 0;
       nterms = 0;
-      for (int j = 0, jc, lc; j < NUM_NB_CELLS; ++j) {
+      for (int j = 0, jc; j < NUM_NB_CELLS; ++j) {
         jc = cell_nb_verts_to_nearby_cells[i][j];
         if (use_for_Txy_average[jc]) {
-          lc = l2lc(eik->shape, l0) + eik->nearby_dlc[jc];
           // We effectively access Txy[jc] in reverse here to
           // efficiently get the Txy value for cell `jc` at the vertex
           // indexed by `i`. See cell_notes.pdf for a visual depiction
