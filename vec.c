@@ -172,6 +172,10 @@ dvec4 dvec4_iota() {
   return iota;
 }
 
+ivec2 ivec2_add(ivec2 p, ivec2 q) {
+  return (ivec2) {p.i + q.i, p.j + q.j};
+}
+
 ivec2 dvec2_to_ivec2(dvec2 v) {
   ivec2 ij = {.i = (int)v.x, .j = (int)v.y};
   return ij;

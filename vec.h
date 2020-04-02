@@ -60,6 +60,8 @@ typedef struct {
   int j;
 } ivec2;
 
+ivec2 ivec2_add(ivec2 p, ivec2 q);
+
 ivec2 dvec2_to_ivec2(dvec2 v);
 
 #ifdef __cplusplus
