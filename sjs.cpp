@@ -96,9 +96,8 @@ dbl field_f_wrapper(dbl x, dbl y, void *context) {
 
 dvec2 field_grad_f_wrapper(dbl x, dbl y, void *context) {
   field2_wrapper * wrap = (field2_wrapper *) context;
-  dvec2 tmp;
-  std::tie(tmp.x, tmp.y) = wrap->grad_f(x, y);
-  return tmp;
+  auto const tmp = wrap->grad_f(x, y);
+  return {tmp[0], tmp[1]};
 }
 
 struct eik_wrapper {
