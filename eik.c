@@ -170,6 +170,17 @@ static int cell_nb_verts_to_nearby_cells[NUM_CELL_NB_VERTS][NUM_NB_CELLS] = {
 };
 #undef _
 
+/**
+ * This array gives the offsets ind "indc" space from the linear
+ * index of a grid node to its four neighboring cells.
+ */
+static ivec2 nb_cell_offsets[NUM_NB_CELLS] = {
+    {.i = -1, .j = -1},
+    {.i =  0, .j = -1},
+    {.i = -1, .j =  0},
+    {.i =  0, .j =  0}
+};
+
 static bool nearby_cell_is_cell_nb[NUM_NEARBY_CELLS] = {
   false, false, false, false,
   false,  true,  true, false,
@@ -213,16 +224,6 @@ static void set_tri_dlc(eik_s *eik) {
 }
 
 static void set_nb_dlc(eik_s *eik) {
-  /**
-   * This array gives the offsets ind "indc" space from the linear
-   * index of a grid node to its four neighboring cells.
-   */
-  static ivec2 nb_cell_offsets[NUM_NB_CELLS] = {
-    {.i = -1, .j = -1},
-    {.i =  0, .j = -1},
-    {.i = -1, .j =  0},
-    {.i =  0, .j =  0}
-  };
   for (int i = 0; i < NUM_CELL_VERTS; ++i) {
     eik->nb_dlc[i] = ind2lc(eik->shape, nb_cell_offsets[i]);
   }
@@ -473,12 +474,19 @@ static bool can_build_cell(eik_s const *eik, int lc) {
  * each incident vertex, which is enough to bilinearly interpolate Txy
  * values.
  */
-static bool cell_is_valid(eik_s const *eik, int lc) {
-  if (!(0 <= lc && lc <= eik->ncells)) {
+static bool cell_is_valid(eik_s const *eik, ivec2 indc) {
+  ivec2 shape = eik->shape;
+  if (!(0 <= indc.i && indc.i < shape.i - 1 &&
+		0 <= indc.j && indc.j < shape.j - 1)) {
     return false;
   }
-  int l = lc2l(eik->shape, lc);
+  int l = indc2l(eik->shape, indc);
   for (int iv = 0, lv; iv < NUM_CELL_VERTS; ++iv) {
+    ivec2 indv = ivec2_add(indc, cell_vert_offsets[iv]);
+    if (!(0 <= indv.i && indv.i < shape.i &&
+		  0 <= indv.j && indv.j < shape.j)) {
+      return false;
+    }
     lv = l + eik->vert_dl[iv];
     if (eik->states[lv] != VALID) {
       return false;
@@ -781,14 +789,16 @@ void eik_step(eik_s *eik) {
   heap_pop(eik->heap);
   eik->states[l0] = VALID;
 
+  ivec2 ind0 = l2ind(eik->shape, l0);
+
   // Determine which of the cells surrounding l0 are now valid. It's
   // enough to check if any of the four nearest cells are valid: it's
   // impossible for them to have been valid (or built before), since
   // one of their vertices just became valid.
   bool valid_cell_nb[NUM_NB_CELLS];
-  for (int ic = 0, lc; ic < NUM_NB_CELLS; ++ic) {
-    lc = l2lc(eik->shape, l0) + eik->nb_dlc[ic];
-    valid_cell_nb[ic] = cell_is_valid(eik, lc);
+  for (int ic = 0; ic < NUM_NB_CELLS; ++ic) {
+    ivec2 indc = ivec2_add(ind0, nb_cell_offsets[ic]);
+    valid_cell_nb[ic] = cell_is_valid(eik, indc);
   }
 
   // TODO: don't build this inline?
@@ -813,7 +823,7 @@ void eik_step(eik_s *eik) {
   // compute new Txy values.
   //
   // NOTE: `use_for_Txy_average` => the cell is inbounds
-  for (int ic = 0, lc; ic < NUM_NEARBY_CELLS; ++ic) {
+  for (int ic = 0; ic < NUM_NEARBY_CELLS; ++ic) {
     for (int j = 0, i; j < NUM_CELL_VERTS; ++j) {
       i = cell_verts_to_cell_nb_verts[ic][j];
       if (i == NO_INDEX) {
@@ -821,8 +831,10 @@ void eik_step(eik_s *eik) {
       }
       use_for_Txy_average[ic] |= nb_incident_on_valid_cell_nb[i];
     }
-    lc = l2lc(eik->shape, l0) + eik->nearby_dlc[ic];
-    use_for_Txy_average[ic] &= cell_is_valid(eik, lc);
+	{
+      ivec2 indc = ivec2_add(ind0, nearby_cell_offsets[ic]);
+      use_for_Txy_average[ic] &= cell_is_valid(eik, indc);
+	}
   }
 
   // Compute new Txy values at the vertices of the cells that we
@@ -883,8 +895,6 @@ void eik_step(eik_s *eik) {
    * The section below corresponds to what's done in a "normal"
    * Dijkstra-like algorithm for solving the eikonal equation.
    */
-
-  ivec2 ind0 = l2ind(eik->shape, l0);
 
   // Set FAR nodes to TRIAL and insert them into the heap.
   for (int i = 0, l; i < NUM_NB; ++i) {
