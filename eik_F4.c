@@ -1,6 +1,9 @@
 #include "eik_F4.h"
 
+#include <assert.h>
 #include <stdio.h>
+
+#include "math.h"
 
 // TODO: change naming conventions to make this take up less space:
 //
@@ -174,24 +177,13 @@ void F4_bfgs_init(dbl eta, dbl th, dvec2 *x0, dvec2 *g0, dmat22 *H0,
   dmat22_invert(H0);
 }
 
-bool F4_bfgs_step(dvec2 xk, dvec2 gk, dmat22 Hk,
-               dvec2 *xk1, dvec2 *gk1, dmat22 *Hk1,
-               F4_context *context) {
-  dvec2 pk = dmat22_dvec2_mul(Hk, gk);
-  dvec2_negate(&pk);
-
-  *xk1 = dvec2_add(xk, pk);
-
-  F4_compute(xk1->x, xk1->y, context);
-
-  if (dvec2_maxnorm(pk) < 1e-15) {
-    return false;
+static void update_dfp(dvec2 xk1, dvec2 xk, dvec2 gk1, dvec2 gk, dmat22 Hk,
+                       dmat22 *Hk1) {
+  if (xk1.x == xk.x && xk1.y == xk.y) {
+    return;
   }
-
-  dvec2 sk = dvec2_sub(*xk1, xk);
-  *gk1 = F4_get_grad(context);
-  dvec2 yk = dvec2_sub(*gk1, gk);
-
+  dvec2 sk = dvec2_sub(xk1, xk);
+  dvec2 yk = dvec2_sub(gk1, gk);
   dvec2 tmp1 = dmat22_dvec2_mul(Hk, yk);
   dbl tmp2 = dvec2_dot(yk, tmp1);
   dmat22 tmp3 = dvec2_outer(tmp1, tmp1);
@@ -199,6 +191,79 @@ bool F4_bfgs_step(dvec2 xk, dvec2 gk, dmat22 Hk,
   tmp3 = dvec2_outer(sk, sk);
   tmp2 = dvec2_dot(yk, sk);
   *Hk1 = dmat22_add(*Hk1, dmat22_dbl_div(tmp3, tmp2));
+}
+
+// static void update_bfgs(dvec2 xk1, dvec2 xk, dvec2 gk1, dvec2 gk, dmat22 Hk,
+//                         dmat22 *Hk1) {
+//   dvec2 sk = dvec2_sub(xk1, xk);
+//   dvec2 yk = dvec2_sub(gk1, gk);
+//   dbl rhok = 1/dvec2_dot(yk, sk);
+
+//   dmat22 tmp = dvec2_outer(sk, yk);
+//   tmp = dmat22_dbl_mul(tmp, -rhok);
+//   tmp.data[0][0] += 1;
+//   tmp.data[1][1] += 1;
+
+//   *Hk1 = dmat22_mul(tmp, Hk);
+//   dmat22_transpose(&tmp);
+//   *Hk1 = dmat22_mul(*Hk1, tmp);
+
+//   tmp = dvec2_outer(sk, sk);
+//   tmp = dmat22_dbl_mul(tmp, rhok);
+
+//   *Hk1 = dmat22_add(*Hk1, tmp);
+// }
+
+bool F4_bfgs_step(dvec2 xk, dvec2 gk, dmat22 Hk,
+                  dvec2 *xk1, dvec2 *gk1, dmat22 *Hk1,
+                  F4_context *context) {
+  dbl fk = context->F4, fk1;
+
+  dvec2 pk = dmat22_dvec2_mul(Hk, gk);
+  dvec2_negate(&pk);
+
+  // Verify that pk is a descent direction.
+  dbl pk_dot_gk = dvec2_dot(pk, gk);
+  assert(pk_dot_gk < 0);
+
+  // Scale the step so that 0 <= eta <= 1.
+  dbl t = pk.x > 0. ? 1. : 0.;
+  t -= xk.x;
+  t /= pk.x;
+  t = clamp(t, 0, 1);
+
+  /**
+   * Do an inexact backtracking line search to find `t` such that the
+   * sufficient decrease conditions are satisfied.
+   */
+  if (t > EPS) {
+    dbl const c1 = 1e-4;
+    dbl const rho = 0.9;
+    while (true) {
+      *xk1 = dvec2_add(xk, dvec2_dbl_mul(pk, t));
+      F4_compute(xk1->x, xk1->y, context);
+      fk1 = context->F4;
+      if (fk1 <= fk + c1*t*pk_dot_gk) {
+        break;
+      } else {
+        t *= rho;
+      }
+    }
+    // Now, compute a new gradient and do the DFP update to update our
+    // approximation of the inverse Hessian.
+    *gk1 = F4_get_grad(context);
+    update_dfp(*xk1, xk, *gk1, gk, Hk, Hk1);
+  }
+
+  if (t < 1 && (fabs(xk1->x) < EPS || fabs(1 - xk1->x) < EPS)) {
+    dbl F4_th_th = Hk1->data[0][0]/dmat22_det(Hk1);
+    dbl F4_th = gk1->y;
+    xk1->y -= F4_th/F4_th_th;
+
+    F4_compute(xk1->x, xk1->y, context);
+    *gk1 = F4_get_grad(context);
+    update_dfp(*xk1, xk, *gk1, gk, Hk, Hk1);
+  }
 
   return true;
 }
