@@ -304,21 +304,99 @@ static void tri(eik_s *eik, int l, int l0, int l1, int ic0) {
   bicubic_variable var = tri_bicubic_vars[ic0];
   int edge = tri_edges[ic0];
   cubic_s T_cubic = bicubic_get_f_on_edge(bicubic, var, edge);
+  cubic_s Tx_cubic = bicubic_get_fx_on_edge(bicubic, var, edge);
+  cubic_s Ty_cubic = bicubic_get_fy_on_edge(bicubic, var, edge);
   if (should_reverse_cubic[ic0]) {
     cubic_reverse_on_unit_interval(&T_cubic);
+    cubic_reverse_on_unit_interval(&Tx_cubic);
+    cubic_reverse_on_unit_interval(&Ty_cubic);
   }
+
+  dvec2 xy = get_xy(eik, l);
+  dvec2 xy0 = get_xy(eik, l0);
+  dvec2 xy1 = get_xy(eik, l1);
+
+  // TODO: try initializing from the mp0 minimizer since it's so cheap
+  // to compute...
 
   /**
    * Compute initial guess for eta and theta by minimizing F3.
    */
-  F3_context context = {
-    .T_cubic = T_cubic,
-    .xy = get_xy(eik, l),
-    .xy0 = get_xy(eik, l0),
-    .xy1 = get_xy(eik, l1)
-  };
-  dbl eta = hybrid(F3_eta, 0, 1, (void *)&context);
-  dbl T = context.F3;
+  dbl eta, th;
+  {
+    F3_context context = {
+      .T_cubic = T_cubic, .xy = xy, .xy0 = xy0, .xy1 = xy1, .slow = eik->slow
+    };
+    eta = hybrid(F3_eta, 0, 1, (void *)&context);
+  }
+  {
+    dvec2 dxy = dvec2_sub(xy1, xy0);
+    dvec2 xyeta = dvec2_add(xy0, dvec2_dbl_mul(dxy, eta));
+    dvec2 lp = dvec2_sub(xy, xyeta);
+    dvec2_normalize(&lp);
+    th = atan2(lp.y, lp.x);
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+  // Minimize F4 in this section.
+  //
+  // TODO: this is still a little rough and unfinished (hence the
+  // "construction signs" delimiting this section). We want to remove
+  // the print statements below and decide on a robust error-handling
+  // strategy so that `abort` is never called.
+
+  dbl T;
+  {
+    F4_context context = {
+      .T_cubic = T_cubic,
+      .Tx_cubic = Tx_cubic,
+      .Ty_cubic = Ty_cubic,
+      .xy = xy,
+      .xy0 = xy0,
+      .xy1 = xy1,
+      .slow = eik->slow
+    };
+
+    dvec2 xk, gk;
+    dmat22 Hk;
+    F4_bfgs_init(eta, th, &xk, &gk, &Hk, &context);
+    dbl Tprev = context.F4;
+
+    int iter = 0;
+    while (F4_bfgs_step(xk, gk, Hk, &xk, &gk, &Hk, &context)) {
+      if (xk.x < 0 || xk.x > 1) {
+        printf("out of bounds: eta = %g\n", xk.x);
+        abort();
+      }
+
+      T = context.F4;
+
+      ++iter;
+
+      if (fabs(T - Tprev) <= EPS*fabs(fmax(T, Tprev)) + EPS) {
+        break;
+      }
+
+      if (dvec2_maxnorm(gk) <= EPS) {
+        break;
+      }
+
+      if (iter >= 20) {
+        printf("exceeded number of iterations\n");
+        abort();
+      }
+      if (T > Tprev) {
+        printf("no decrease in T: (%g > %g)\n", T, Tprev);
+        abort();
+      }
+
+      Tprev = T;
+    }
+
+    th = xk.y;
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
 
   // Check causality
   assert(T > eik->jets[l0].f);
@@ -329,13 +407,11 @@ static void tri(eik_s *eik, int l, int l0, int l1, int ic0) {
    */
   jet_s *jet = &eik->jets[l];
   if (T < jet->f) {
-    dvec2 xy = get_xy(eik, l);
-    dvec2 xyeta = dvec2_ccomb(context.xy0, context.xy1, eta);
-    dvec2 xyeta_minus_xy = dvec2_sub(xyeta, xy);
-    dbl L = dvec2_norm(xyeta_minus_xy);
     jet->f = T;
-    jet->fx = -xyeta_minus_xy.x/L;
-    jet->fy = -xyeta_minus_xy.y/L;
+
+    dbl s = field2_f(eik->slow, xy);
+    jet->fx = s*cos(th);
+    jet->fy = s*sin(th);
   }
 }
 
