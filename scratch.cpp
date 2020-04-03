@@ -95,7 +95,7 @@ int main() {
     .context = NULL
   };
 
-  int N = 65;
+  int N = 1025;
   int i0 = N/2;
   ivec2 shape = {N, N};
   dvec2 xymin = {-1, -1};
