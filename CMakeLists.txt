@@ -1,5 +1,7 @@
 cmake_minimum_required (VERSION 3.15.3)
 
+set (CMAKE_INTERPROCEDURAL_OPTIMIZATION TRUE)
+
 project (_sjs)
 
 set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIC -Wall -Wextra -Werror")
