@@ -365,7 +365,8 @@ static void tri(eik_s *eik, int l, int l0, int l1, int ic0) {
   // the print statements below and decide on a robust error-handling
   // strategy so that `abort` is never called.
 
-  dbl T;
+  dbl T = NAN;
+
   {
     F4_context context = {
       .T_cubic = T_cubic,
