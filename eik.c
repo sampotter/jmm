@@ -610,10 +610,10 @@ static void update(eik_s *eik, int l) {
    * need to do this in the (i, j) index space to avoid wrapping
    * errors.
    */
-  bool inbounds_[8];
+  bool inbounds_[9];
   {
     ivec2 ind = l2ind(eik->shape, l), ind0;
-    for (int i0 = 0; i0 < 8; ++i0) {
+    for (int i0 = 0; i0 < 9; ++i0) {
       ind0 = ivec2_add(ind, offsets[i0]);
       inbounds_[i0] = inbounds(eik, ind0);
     }
