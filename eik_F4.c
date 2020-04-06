@@ -234,7 +234,7 @@ bool F4_bfgs_step(dvec2 xk, dvec2 gk, dmat22 Hk,
    * Do an inexact backtracking line search to find `t` such that the
    * sufficient decrease conditions are satisfied.
    */
-  if (t > EPS) {
+  if (t > EPS && pk_dot_gk < -1e-13) {
     dbl const c1 = 1e-4;
     dbl const rho = 0.9;
 
@@ -249,11 +249,15 @@ bool F4_bfgs_step(dvec2 xk, dvec2 gk, dmat22 Hk,
         t *= rho;
       }
     }
-    // Now, compute a new gradient and do the DFP update to update our
-    // approximation of the inverse Hessian.
-    *gk1 = F4_get_grad(context);
-    update_dfp(*xk1, xk, *gk1, gk, Hk, Hk1);
+  } else {
+    *xk1 = dvec2_add(xk, dvec2_dbl_mul(pk, t));
+    F4_compute(xk1->x, xk1->y, context);
   }
+
+  // Now, compute a new gradient and do the DFP update to update our
+  // approximation of the inverse Hessian.
+  *gk1 = F4_get_grad(context);
+  update_dfp(*xk1, xk, *gk1, gk, Hk, Hk1);
 
   if (t < 1 && (fabs(xk1->x) < EPS || fabs(1 - xk1->x) < EPS)) {
     dbl F4_th_th = Hk1->data[0][0]/dmat22_det(Hk1);
