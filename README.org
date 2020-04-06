@@ -42,6 +42,7 @@ $ python -m unittest
    "branches" menu if you're browsing this repository using
    GitHub). Currently, there are the following branches:
 
-   | Tag    | Description                                      |
-   |--------+--------------------------------------------------|
+   | Tag    | Description                                    |
+   |--------+------------------------------------------------|
+   | v0.1.1 | First version with ~eik~ working for s \neq 1. |
    | v0.1.0 | First version with ~eik~ working for s \equiv 1. |
