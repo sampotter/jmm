@@ -9,7 +9,9 @@ GRTAGS
 GTAGS
 __pycache__
 build
+callgrind.out.*
 cmake-build-debug
 dist
 dists
 scratch
+vgcore.*
