@@ -217,8 +217,6 @@ static void update_dfp(dvec2 xk1, dvec2 xk, dvec2 gk1, dvec2 gk, dmat22 Hk,
 bool F4_bfgs_step(dvec2 xk, dvec2 gk, dmat22 Hk,
                   dvec2 *xk1, dvec2 *gk1, dmat22 *Hk1,
                   F4_context *context) {
-  dbl fk = context->F4, fk1;
-
   dvec2 pk = dmat22_dvec2_mul(Hk, gk);
   dvec2_negate(&pk);
 
@@ -239,6 +237,8 @@ bool F4_bfgs_step(dvec2 xk, dvec2 gk, dmat22 Hk,
   if (t > EPS) {
     dbl const c1 = 1e-4;
     dbl const rho = 0.9;
+
+    dbl fk = context->F4, fk1;
     while (true) {
       *xk1 = dvec2_add(xk, dvec2_dbl_mul(pk, t));
       F4_compute(xk1->x, xk1->y, context);
