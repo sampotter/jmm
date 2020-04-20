@@ -957,6 +957,10 @@ jet_s eik_get_jet(eik_s *eik, ivec2 ind) {
   return eik->jets[l];
 }
 
+jet_s *eik_get_jets_ptr(eik_s const *eik) {
+  return eik->jets;
+}
+
 state_e eik_get_state(eik_s const *eik, ivec2 ind) {
   int l = ind2l(eik->shape, ind);
   return eik->states[l];

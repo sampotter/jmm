@@ -1,4 +1,5 @@
 #include "eik.h"
+#include "npy.h"
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -85,7 +86,12 @@ dbl uxy(dbl x, dbl y) {
   return (d2acosh(tmp)*fx(x, y)*fy(x, y) + dacosh(tmp)*fxy(x, y))/VNORM;
 }
 
-int main() {
+int main(int argc, char *argv[]) {
+  if (argc != 2) {
+    printf("usage: %s <N>\n", argv[0]);
+    exit(EXIT_FAILURE);
+  }
+
   eik * scheme;
   eik_alloc(&scheme);
 
@@ -95,7 +101,7 @@ int main() {
     .context = NULL
   };
 
-  int N = 1025;
+  int N = atoi(argv[1]);
   int i0 = N/2;
   ivec2 shape = {N, N};
   dvec2 xymin = {-1, -1};
@@ -173,6 +179,13 @@ int main() {
   eik_build_cells(scheme);
 
   eik_solve(scheme);
+
+  jet_s *jets = eik_get_jets_ptr(scheme);
+
+  npy_write_2d_dbl_array("T.npy", &jets[0].f, N, N, sizeof(jet_s));
+  npy_write_2d_dbl_array("Tx.npy", &jets[0].fx, N, N, sizeof(jet_s));
+  npy_write_2d_dbl_array("Ty.npy", &jets[0].fy, N, N, sizeof(jet_s));
+  npy_write_2d_dbl_array("Txy.npy", &jets[0].fxy, N, N, sizeof(jet_s));
 
   eik_deinit(scheme);
   eik_dealloc(&scheme);

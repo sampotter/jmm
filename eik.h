@@ -25,6 +25,7 @@ void eik_add_valid(eik_s *eik, ivec2 ind, jet_s jet);
 void eik_make_bd(eik_s *eik, ivec2 ind);
 ivec2 eik_get_shape(eik_s const *eik);
 jet_s eik_get_jet(eik_s *eik, ivec2 ind);
+jet_s *eik_get_jets_ptr(eik_s const *eik);
 state_e eik_get_state(eik_s const *eik, ivec2 ind);
 state_e *eik_get_states_ptr(eik_s const *eik);
 dbl eik_T(eik_s *eik, dvec2 xy);
