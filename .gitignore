@@ -15,3 +15,5 @@ dist
 dists
 scratch
 vgcore.*
+a.out
+.DS_Store
