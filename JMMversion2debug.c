@@ -765,6 +765,20 @@ struct mysol do_update(int ind,int i,int inew,int ix,int iy,struct myvector xnew
 					utype[ind] = 0;						
 				}
 				else {									
+					if( ind == IND ) {
+						printf("2ptu right before calling two_pt_update:\n ind = %i, ind0 = %i, ind1 = %i, ch = %c, u = %.4e\n",ind,ind0,ind1,sol.ch,sol.u);
+						printf("arguments: h = %.4e, dx = (%.4e,%.4e), x0 = (%.4e,%.4e)\n",h2ptu[j1],dx.x,dx.y,x0.x,x0.y);
+						printf("xhat = (%.4e,%.4e),u0 = %.6e, u1 = %.6e,gu0 = (%.6e,%.6e), gu1 = (%.6e,%.6e),shat = %.6e\n",
+							xhat.x,xhat.y,u[ind0],u[ind1],gu[ind0].x,gu[ind0].y,gu[ind1].x,gu[ind1].y,slo[ind]);
+							int m;
+						for( m = 0; m < 41; m++ ) {
+							printf("m = %i, par2 = %.14e\n",m,par2[m]);
+						}
+						for( m = 0; m < 4; m++ ) {
+							printf("m = %i, cpar = %c\n",m,cpar[m]);
+						}
+						printf("cpar[2] = %i\n",cpar[2]);
+					}
 					sol = two_pt_update(NWTarg,NWTres,NWTllim,NWTulim,NWTJac,NWTdir,
 								h2ptu[j1],dx,x0,xhat,u[ind0],u[ind1],
 									gu[ind0],gu[ind1],slo[ind],par2,cpar);	
