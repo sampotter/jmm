@@ -3,7 +3,7 @@
 // 8-point nearest neighborhood
 // segments of rays are approximated with quadratic curves
 
-// Compile command: gcc -Wall HeapSort.c QuickSort.c JMMupdates.c linear_algebra.c slowness_and_uexact.c Newton.c JMMdial1.c -lm -O3
+// Compile command: gcc -Wall HeapSort.c QuickSort.c JMMupdates.c linear_algebra.c slowness_and_uexact.c Newton.c JMMversion2debug.c -lm -O3
 
 // Copyright: Maria Cameron, June 14, 2020
 
@@ -89,7 +89,7 @@ struct mysol do_update(int ind,int i,int inew,int ix,int iy,struct myvector xnew
 				
 //-------- VARIABLES ---------
 char slo_fun = SLOTH;
-char method_template = DIJKSTRA;
+char method_template = DIAL;
 char method_update = JMM2;
 //
 int nx, ny, nxy, nx1, ny1;
@@ -539,8 +539,8 @@ int dial_main_body() {
 			Nfinal++;
 			
 			
-			printf("Nfinal = %i, inew = %i (%i,%i), status = %i, u = %.4e, ue = %.4e, err = %.4e, gu = (%.4e,%.4e)\n",
-					Nfinal,inew,ix,iy,status[inew],u[inew],uexact[inew],u[inew]-uexact[inew],gu[inew].x,gu[inew].y);
+// 			printf("Nfinal = %i, inew = %i (%i,%i), status = %i, u = %.4e, ue = %.4e, err = %.4e, gu = (%.4e,%.4e)\n",
+// 					Nfinal,inew,ix,iy,status[inew],u[inew],uexact[inew],u[inew]-uexact[inew],gu[inew].x,gu[inew].y);
 
 			
 			// scan the nearest neighborhood for possible updates
@@ -552,16 +552,19 @@ int dial_main_body() {
 				if( iy == ny1 && ( i == 2 || i == 3 || i == 4 )) ch = 'n';
 				else if( iy == 0 && ( i == 6 || i == 7 || i == 0 )) ch = 'n';
 				ind = inew + iplus[i];
-// 				printf("inew = %i, i = %i, ind = %i, ix = %i, iy = %i, iplus[%i] = %i\n",inew,i,ind,ix,iy,i,iplus[i]);
-				if( ch == 'y' && status[ind] == 0 ) {
-					sol = do_update(ind,i,inew,ix,iy,xnew,iplus,par1,par2,cpar,NWTarg,NWTres,NWTllim,NWTulim,NWTJac,NWTdir);
-// 					printf("ind = %i, sol.ch = %c, sol.u = %.4e, u[%i] = %.4e\n",ind,sol.ch,sol.u,ind,u[ind]);
-					// if the value is reduced, do adjustments
-					if( sol.ch  == 'y' ) {
-						u[ind] = sol.u;
-						gu[ind] = sol.gu;
-						knew = adjust_bucket(ind,u[ind],minval,gap,bucket,list);
-					} // end if( utemp < u[ind] )
+//  				printf("inew = %i, i = %i, ind = %i, ix = %i, iy = %i, iplus[%i] = %i, ch = %c\n",inew,i,ind,ix,iy,i,iplus[i],ch);
+				if( ch == 'y' ) {
+					if( status[ind] == 0 ) {
+// 						printf("ind = %i, u[%i] = %.4e\n",ind,ind,u[ind]);
+						sol = do_update(ind,i,inew,ix,iy,xnew,iplus,par1,par2,cpar,NWTarg,NWTres,NWTllim,NWTulim,NWTJac,NWTdir);
+// 						printf("ind = %i, sol.ch = %c, sol.u = %.4e, u[%i] = %.4e\n",ind,sol.ch,sol.u,ind,u[ind]);
+						// if the value is reduced, do adjustments
+						if( sol.ch  == 'y' ) {
+							u[ind] = sol.u;
+							gu[ind] = sol.gu;
+							knew = adjust_bucket(ind,u[ind],minval,gap,bucket,list);
+						} // end if( utemp < u[ind] )
+					}	
 				} // end if( ch == 'y' && status[i] == 0 ) {
 			} // end for( i = 0; i < 8; i++ )
 			lcurrent = lcurrent -> next;
@@ -703,7 +706,7 @@ struct mysol do_update(int ind,int i,int inew,int ix,int iy,struct myvector xnew
 								  {-cosx,-cosy},
 								  {0.0,-1.0}};
 	double h1ptu[] = {hxy,hx,hxy,hy,hxy,hx,hxy,hy}; // h for one-point update
-	double h2ptu[] = {-1.0,hy,-1.0,hx,-1.0,hy,-1.0,hx}; // h for 2ptu as a function of j1 = distance between x0 and x1
+// 	double h2ptu[] = {-1.0,hy,-1.0,hx,-1.0,hy,-1.0,hx}; // h for 2ptu as a function of j1 = distance between x0 and x1
 	char ch,ch1ptu;
 	struct mysol sol,update_sol; 
 	int ind0,ind1,j,j0,j1,jtemp;
@@ -719,15 +722,18 @@ struct mysol do_update(int ind,int i,int inew,int ix,int iy,struct myvector xnew
 
 // 	printf("in do_update: ind = %i, i = %i, inew = %i\n",ind,i,inew);
 	xhat = getpoint(ind);
-	getperp = getperp_plus;
+// 	getperp = getperp_plus;
 	cpar[1] = 'p';
 	utemp = INFTY;
 	ch1ptu = 'y';
 	// first do 2-pt-updates
 	for( j = 0; j < 2; j++ ) {
 		ch = 'y';
+// 		printf("j = %i\n",j);
 		j0 = imap[i]; // neighbor index of inew with respect to ind -- the point up for an update
+// 		printf("i = %i, j0 = %i\n",i,j0);
 		j1 = imap1[j0][j];
+// 		printf("j0 = %i, j = %i, j1 = %i\n",j0,j,j1);
 		// take care of boundaries of the computational domain
 		// if j0 is even, there will be no problem
 		// if j0 is odd, care should be taken
@@ -742,20 +748,27 @@ struct mysol do_update(int ind,int i,int inew,int ix,int iy,struct myvector xnew
 				j1 = jtemp;								
 			}
 		}
+// 		printf("j0 = %i, j = %i, j1 = %i\n",j0,j,j1);
 		// now j0 is at some corner, and j1 is in the midpoint of 
 		// some side of the square depicting 8-pt-neighborhood of ind
 		if( ch == 'y' ) { // perform 2-pt-update
 			ind0 = ind + iplus[j0];
 			ind1 = ind + iplus[j1];
+// 			printf("ind0 = %i, ind1 = %i, status0 = %i, status1 = %i\n",ind0,ind1,status[ind0],status[ind1]);
 			if( status[ind0] == status[ind1]) { // we know that one of these points is inew
 			// do 2-pt-update if both of them are Accepted, i.e., status == 1
 				N2ptu++;									
 				x0 = getpoint(ind0);
 				x1 = getpoint(ind1);
 				dx = vec_difference(x1,x0);	
-				if( dot_product(vec_difference(xhat,x1),getperp(dx)) > 0 ) {
+// 				printf("ind0 = %i, ind1 = %i, dx = (%.4e,%.4e)\n",ind0,ind1,dx.x,dx.y);
+				if( dot_product(vec_difference(xhat,x1),getperp_plus(dx)) > 0 ) {
 					getperp = getperp_minus;	
 					cpar[1] = 'm';
+				}
+				else {
+					getperp = getperp_plus;
+					cpar[1] = 'p';
 				}								
 				if( j1%2 == 0 ) {printf("j1 = %i\n",j1); exit(1);}									
 				
@@ -765,37 +778,24 @@ struct mysol do_update(int ind,int i,int inew,int ix,int iy,struct myvector xnew
 					utype[ind] = 0;						
 				}
 				else {									
-					if( ind == IND ) {
-						printf("2ptu right before calling two_pt_update:\n ind = %i, ind0 = %i, ind1 = %i, ch = %c, u = %.4e\n",ind,ind0,ind1,sol.ch,sol.u);
-						printf("arguments: h = %.4e, dx = (%.4e,%.4e), x0 = (%.4e,%.4e)\n",h2ptu[j1],dx.x,dx.y,x0.x,x0.y);
-						printf("xhat = (%.4e,%.4e),u0 = %.6e, u1 = %.6e,gu0 = (%.6e,%.6e), gu1 = (%.6e,%.6e),shat = %.6e\n",
-							xhat.x,xhat.y,u[ind0],u[ind1],gu[ind0].x,gu[ind0].y,gu[ind1].x,gu[ind1].y,slo[ind]);
-							int m;
-						for( m = 0; m < 41; m++ ) {
-							printf("m = %i, par2 = %.14e\n",m,par2[m]);
-						}
-						for( m = 0; m < 4; m++ ) {
-							printf("m = %i, cpar = %c\n",m,cpar[m]);
-						}
-						printf("cpar[2] = %i\n",cpar[2]);
-					}
 					sol = two_pt_update(NWTarg,NWTres,NWTllim,NWTulim,NWTJac,NWTdir,
-								h2ptu[j1],dx,x0,xhat,u[ind0],u[ind1],
+// 								h2ptu[j1],
+								dx,x0,xhat,u[ind0],u[ind1],
 									gu[ind0],gu[ind1],slo[ind],par2,cpar);	
-					if( ind == IND ) {
-						printf("2ptu: ind = %i, ind0 = %i, ind1 = %i, ch = %c, u = %.4e\n",ind,ind0,ind1,sol.ch,sol.u);				
-						printf("arguments: h = %.4e, dx = (%.4e,%.4e), x0 = (%.4e,%.4e)\n",h2ptu[j1],dx.x,dx.y,x0.x,x0.y);
-						printf("xhat = (%.4e,%.4e),u0 = %.6e, u1 = %.6e,gu0 = (%.6e,%.6e), gu1 = (%.6e,%.6e),shat = %.6e\n",
-							xhat.x,xhat.y,u[ind0],u[ind1],gu[ind0].x,gu[ind0].y,gu[ind1].x,gu[ind1].y,slo[ind]);
-							int m;
-						for( m = 0; m < 41; m++ ) {
-							printf("m = %i, par2 = %.14e\n",m,par2[m]);							
-						}	
-						for( m = 0; m < 4; m++ ) {
-							printf("m = %i, cpar = %c\n",m,cpar[m]);							
-						}	
-						printf("cpar[2] = %i\n",cpar[2]);
-					}
+// 					if( ind == IND ) {
+// 						printf("2ptu right after return from two_pt_update:\n ind = %i, ind0 = %i, ind1 = %i, ch = %c, u = %.4e\n",ind,ind0,ind1,sol.ch,sol.u);				
+// 						printf("arguments: h = %.4e, dx = (%.4e,%.4e), x0 = (%.4e,%.4e)\n",h2ptu[j1],dx.x,dx.y,x0.x,x0.y);
+// 						printf("xhat = (%.4e,%.4e),u0 = %.6e, u1 = %.6e,gu0 = (%.6e,%.6e), gu1 = (%.6e,%.6e),shat = %.6e\n",
+// 							xhat.x,xhat.y,u[ind0],u[ind1],gu[ind0].x,gu[ind0].y,gu[ind1].x,gu[ind1].y,slo[ind]);
+// 							int m;
+// 						for( m = 0; m < 41; m++ ) {
+// 							printf("m = %i, par2 = %.14e\n",m,par2[m]);							
+// 						}	
+// 						for( m = 0; m < 4; m++ ) {
+// 							printf("m = %i, cpar = %c\n",m,cpar[m]);							
+// 						}	
+// 						printf("cpar[2] = %i\n",cpar[2]);
+// 					}
 					if( sol.ch == 'y' && sol.u < utemp && sol.u < u[ind] ){
 						utemp = sol.u;
 						gtemp = sol.gu;
@@ -805,16 +805,34 @@ struct mysol do_update(int ind,int i,int inew,int ix,int iy,struct myvector xnew
 						update_sol.u = utemp;
 						update_sol.gu = gtemp;
 						update_sol.ch = 'y';
+// 						if( ind == IND ) {
+// 							printf("2ptu right after return from two_pt_update:\n ind = %i, ind0 = %i, ind1 = %i, ch = %c, u = %.4e\n",ind,ind0,ind1,sol.ch,sol.u);				
+// 							printf("arguments: dx = (%.4e,%.4e), x0 = (%.4e,%.4e)\n",dx.x,dx.y,x0.x,x0.y);
+// 							printf("xhat = (%.4e,%.4e),u0 = %.6e, u1 = %.6e,gu0 = (%.6e,%.6e), gu1 = (%.6e,%.6e),shat = %.6e\n",
+// 								xhat.x,xhat.y,u[ind0],u[ind1],gu[ind0].x,gu[ind0].y,gu[ind1].x,gu[ind1].y,slo[ind]);
+// 								int m;
+// 							for( m = 0; m < 41; m++ ) {
+// 								printf("m = %i, par2 = %.14e\n",m,par2[m]);							
+// 							}	
+// 							for( m = 0; m < 4; m++ ) {
+// 								printf("m = %i, cpar = %c\n",m,cpar[m]);							
+// 							}	
+// 							printf("cpar[2] = %i\n",cpar[2]);
+// 							printf("result: u = %.14e, gu = (%.14e,%.14e)\n",sol.u,sol.gu.x,sol.gu.y);
+// 						}
 					}
 				}			
 			}  // end if( status[ind0] == status[ind1])
 		} // end if( ch == 'y' )
 	} // end for( j = 0; j < 2; j++ ) {
+// 	printf("ch1ptu = %c\n",ch1ptu);
 	if( ch1ptu == 'y' ) { // do one-point update if none of 2-pt-updates was successful
 		xm = a_times_vec(vec_sum(xnew,xhat),0.5);
+// 		printf("xm = (%.4e,%.4e)\n",xm.x,xm.y);
+// 		printf("inew = %i, unew = %.4e, h1ptu[i] = %.4e,slo[inew] = %.4e,slo[ind] = %.4e")
 		sol = one_pt_update(NWTarg,NWTres,NWTllim,NWTulim,NWTJac,NWTdir,
 				u[inew],h1ptu[i],xm,slo[inew],slo[ind],
-			  zhat1ptu[i],getperp(zhat1ptu[i]),par1,cpar);
+			  zhat1ptu[i],getperp_plus(zhat1ptu[i]),par1,cpar);
 		if( ind == IND ) {
 			printf("1ptu: ind = %i, inew = %i, ch = %c, u = %.4e\n",ind,inew,sol.ch,sol.u);		
 		}			
@@ -849,7 +867,7 @@ int main() {
     char fname[100];
     char str1[3][10] = {"JMM1","JMM2","JMM3"};
     char str2[2][10] = {"dijkstra","dial"};
-    int p, pmin = 4, pmax = 4;
+    int p, pmin = 4, pmax = 12;
     double a1ptu,a2ptu;
     char print_errors = 'n';
 

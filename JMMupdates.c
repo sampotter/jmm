@@ -25,7 +25,7 @@
 
 //---------- TWO-PT-UPDATE ---------------
 struct mysol two_pt_update(double *NWTarg,double *NWTres,double *NWTllim,double *NWTulim,double *NWTJac,double *NWTdir,
-			double h,struct myvector dx,struct myvector x0,struct myvector xhat,
+			struct myvector dx,struct myvector x0,struct myvector xhat,
 			double u0,double u1,struct myvector gu0,struct myvector gu1,double shat,
 			double *par,char *cpar);
 void JMM1fun2ptu(double *arg,double *F,double *par,char *cpar);
@@ -212,7 +212,7 @@ double JMM3fun1ptu(double a,double *par,char *cpar) {
 //**************************************************
 
 struct mysol two_pt_update(double *NWTarg,double *NWTres,double *NWTllim,double *NWTulim,double *NWTJac,double *NWTdir,
-				double h,struct myvector dx,struct myvector x0,struct myvector xhat,
+				struct myvector dx,struct myvector x0,struct myvector xhat,
 		double u0,double u1,struct myvector gu0,struct myvector gu1,double shat,
 						   double *par,char *cpar) {
 	struct mysol sol;
@@ -222,6 +222,7 @@ struct mysol two_pt_update(double *NWTarg,double *NWTres,double *NWTllim,double 
 	up0 = dot_product(dx,gu0);
 	up1 = dot_product(dx,gu1);
 	lam = iguess42ptu(cpar[0],x0,dx,xhat,u0,u1,up0,up1);
+	
 	// form array of parameters for nonlinear function evaluations
 	par[0] = u0; par[1] = u1; par[2] = up0; par[3] = up1;
 	par[4] = shat; par[5] = dx.x; par[6] = dx.y; par[7] = xhat.x; par[8] = xhat.y;
@@ -532,15 +533,7 @@ void JMM2fun2ptu(double *arg,double *F,double *par,char *cpar) {
 	F[1] = aux1 + aux0*da0dlam;
 	
 	par[39] = aux0;
-	
-	if( cpar[3] == 'y') printf("in JMM2fun2ptu, cpar[3] = %c\n",cpar[3]);
-	if( cpar[3] == 'y' ) {
-		int m;
-		for( m = 0; m < 41; m++ ) {
-			printf("m = %i, par = %.14e\n",m,par[m]);							
-		}	
-	}
-	
+		
 }
 
 

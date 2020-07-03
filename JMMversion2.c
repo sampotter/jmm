@@ -89,8 +89,8 @@ struct mysol do_update(int ind,int i,int inew,int ix,int iy,struct myvector xnew
 				
 //-------- VARIABLES ---------
 char slo_fun = SLOTH;
-char method_template = DIAL;
-char method_update = JMM3;
+char method_template = DIJKSTRA;
+char method_update = JMM2;
 //
 int nx, ny, nxy, nx1, ny1;
 double hx,hy,hxy,hx2,hy2,rxy,ryx; // hx2 = hx^2, hy2 = hy^2, hxy = sqrt(hx^2 + hy^2), rxy = hx/hy, ryx = hy/hx;
@@ -664,7 +664,6 @@ struct mysol do_update(int ind,int i,int inew,int ix,int iy,struct myvector xnew
 								  {-cosx,-cosy},
 								  {0.0,-1.0}};
 	double h1ptu[] = {hxy,hx,hxy,hy,hxy,hx,hxy,hy}; // h for one-point update
-	double h2ptu[] = {-1.0,hy,-1.0,hx,-1.0,hy,-1.0,hx}; // h for 2ptu as a function of j1 = distance between x0 and x1
 	char ch,ch1ptu;
 	struct mysol sol,update_sol; 
 	int ind0,ind1,j,j0,j1,jtemp;
@@ -711,9 +710,13 @@ struct mysol do_update(int ind,int i,int inew,int ix,int iy,struct myvector xnew
 				x0 = getpoint(ind0);
 				x1 = getpoint(ind1);
 				dx = vec_difference(x1,x0);	
-				if( dot_product(vec_difference(xhat,x1),getperp(dx)) > 0 ) {
+				if( dot_product(vec_difference(xhat,x1),getperp_plus(dx)) > 0 ) {
 					getperp = getperp_minus;	
 					cpar[1] = 'm';
+				}
+				else {
+					getperp = getperp_plus;
+					cpar[1] = 'p';
 				}								
 				if( j1%2 == 0 ) {printf("j1 = %i\n",j1); exit(1);}									
 				
@@ -724,7 +727,7 @@ struct mysol do_update(int ind,int i,int inew,int ix,int iy,struct myvector xnew
 				}
 				else {									
 					sol = two_pt_update(NWTarg,NWTres,NWTllim,NWTulim,NWTJac,NWTdir,
-								h2ptu[j1],dx,x0,xhat,u[ind0],u[ind1],
+								dx,x0,xhat,u[ind0],u[ind1],
 									gu[ind0],gu[ind1],slo[ind],par2,cpar);	
 					if( sol.ch == 'y' && sol.u < utemp && sol.u < u[ind] ){
 						utemp = sol.u;
@@ -744,7 +747,7 @@ struct mysol do_update(int ind,int i,int inew,int ix,int iy,struct myvector xnew
 		xm = a_times_vec(vec_sum(xnew,xhat),0.5);
 		sol = one_pt_update(NWTarg,NWTres,NWTllim,NWTulim,NWTJac,NWTdir,
 				u[inew],h1ptu[i],xm,slo[inew],slo[ind],
-			  zhat1ptu[i],getperp(zhat1ptu[i]),par1,cpar);
+			  zhat1ptu[i],getperp_plus(zhat1ptu[i]),par1,cpar);
 		if( sol.ch == 'y' && sol.u < u[ind] && sol.u < utemp ) {
 			utemp = sol.u;
 			gtemp = sol.gu;
