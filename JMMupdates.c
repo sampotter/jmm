@@ -217,7 +217,7 @@ struct mysol two_pt_update(double *NWTarg,double *NWTres,double *NWTllim,double 
 				struct myvector dx,struct myvector x0,struct myvector xhat,
 		double u0,double u1,struct myvector gu0,struct myvector gu1,double shat,
 						   double *par,char *cpar) {
-  (void) h; // TODO: Masha fix this
+//   (void) h; // TODO: Masha fix this
 
 	struct mysol sol;
 	double up0,up1;
