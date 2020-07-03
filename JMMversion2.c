@@ -11,6 +11,7 @@
 #include <stdlib.h>
 #include <math.h>
 #include <time.h>
+#include <errno.h>
 #include "Newton.h"
 #include "linear_algebra.h"
 #include "slowness_and_uexact.h"
@@ -89,7 +90,7 @@ struct mysol do_update(int ind,int i,int inew,int ix,int iy,struct myvector xnew
 				
 //-------- VARIABLES ---------
 char slo_fun = SLOTH;
-char method_template = DIJKSTRA;
+char method_template = DIAL;
 char method_update = JMM2;
 //
 int nx, ny, nxy, nx1, ny1;
@@ -813,6 +814,10 @@ int main() {
 
 	sprintf(fname,"Data/%s%s_ibox_slo%c.txt",str1[(int)method_update-1],str2[(int)method_template],slo_fun);
 	fg = fopen(fname,"w");
+	if( fg == NULL ) {
+		printf("Cannot open file %d %s\n",errno,fname);
+		exit(1);
+	}
 		
 	for( p = pmin; p <= pmax; p++ ) {
 		nx = pow(2,p) + 1;

@@ -3,7 +3,7 @@
 // 8-point nearest neighborhood
 // segments of rays are approximated with quadratic curves
 
-// Compile command: gcc -Wall HeapSort.c QuickSort.c JMMupdates.c linear_algebra.c slowness_and_uexact.c Newton.c JMMversion2.c -lm -O3
+// Compile command: gcc -Wall HeapSort.c QuickSort.c JMMupdates.c linear_algebra.c slowness_and_uexact.c Newton.c JMMversion3.c -lm -O3
 
 // Copyright: Maria Cameron, June 14, 2020
 
@@ -90,8 +90,8 @@ struct mysol do_update(int ind,int i,int inew,int ix,int iy,struct myvector xnew
 				
 //-------- VARIABLES ---------
 char slo_fun = SLOTH;
-char method_template = DIAL;
-char method_update = JMM2;
+char method_template = DIJKSTRA;
+char method_update = JMM3;
 //
 int nx, ny, nxy, nx1, ny1;
 double hx,hy,hxy,hx2,hy2,rxy,ryx; // hx2 = hx^2, hy2 = hy^2, hxy = sqrt(hx^2 + hy^2), rxy = hx/hy, ryx = hy/hx;
@@ -204,6 +204,10 @@ void dijkstra_init() {
   struct myvector z;
 
 
+// "Allocate memory for count, pos and tree
+	count = (int *)malloc(sizeof(int));
+	tree = (int *)malloc(nxy*sizeof(int));
+	pos = (int *)malloc(nxy*sizeof(int));
 	// initialize all mesh points
 	for ( ind = 0; ind < nxy; ind++ ) {
 		u[ind] = INFTY;
@@ -798,14 +802,7 @@ int main() {
 	status = (state_e *)malloc(k*sizeof(state_e));
 	utype = (int *)malloc(k*sizeof(int));
 	gu = (struct myvector *)malloc(k*sizeof(struct myvector));
-	
-	if( method_template == DIJKSTRA) {
-	printf("Allocate memory for count, pos and tree\n");
-		count = (int *)malloc(sizeof(int));
-		tree = (int *)malloc(k*sizeof(int));
-		pos = (int *)malloc(k*sizeof(int));
-	}
-		
+			
 	// for least squares fit
 	AtA.a11 = 0.0; AtA.a12 = 0.0; AtA.a21 = 0.0;AtA.a22 = 0.0;
 	for( k = 0; k < 4; k++ ) {
@@ -903,9 +900,18 @@ int main() {
 		printf("N1ptu per point = %.4e, N2ptu per point = %.4e\n",a1ptu,a2ptu);			
 		fprintf(fg,"%i\t %.4e\t %.4e\t %.4e\t%.4e\t%.4e\t%.4e\t%g\t%.3f\t%.3f\n",
 				  nx,errmax,erms,errmax/umax,erms/urms,gerrmax,germs,cpu,a1ptu,a2ptu);
-		if( method_template == DIAL ) {		
-			free(bucket);
-			free(list);		
+		switch ( method_template ) {	
+			case DIAL:	
+			     free(bucket);
+			     free(list);	
+			     break;
+			case DIJKSTRA:
+				free(pos);
+				free(tree);
+				free(count);
+				break; 
+			default:
+				break;	  	
 	  	}
 		// for least squares fit for errors
 		  aux = -log(nx1);
