@@ -10,7 +10,22 @@ set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC -Wall -Wextra -Werror")
 
 find_package (pybind11 REQUIRED)
 
-file (GLOB SJS_SRCS *.c *.h)
+set (SJS_SRCS
+  bicubic.c
+  cubic.c
+  eik.c
+  eik_F3.c
+  eik_F4.c
+  eik_S4.c
+  field.c
+  heap.c
+  hybrid.c
+  index.c
+  mat.c
+  math.c
+  npy.c
+  vec.c
+  )
 
 add_library (sjs STATIC ${SJS_SRCS})
 if (IPO_SUPPORTED)
@@ -24,3 +39,20 @@ set_property (TARGET _sjs PROPERTY CXX_STANDARD 17)
 
 add_executable (scratch scratch.cpp)
 target_link_libraries (scratch PRIVATE sjs)
+
+# Masha's library
+
+set (MASHA_LIB_SRCS
+  JMMversion2.c
+  HeapSort.c
+  QuickSort.c
+  JMMupdates.c
+  linear_algebra.c
+  slowness_and_uexact.c
+  Newton.c
+  )
+
+add_executable (JMMversion2 ${MASHA_LIB_SRCS})
+if (IPO_SUPPORTED)
+  set_property (TARGET JMMversion2 PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
+endif ()

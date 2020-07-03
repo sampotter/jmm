@@ -155,6 +155,8 @@ void JMM1fun1ptu( double *arg,double *dF,double *par,char *cpar ) {
 
 // typedef void (*JAC_PTR)(double *arg,double *Jac,double *par);
 void JMM1Jac1ptu(double *arg,double *Jac,double *par,char *cpar) {
+  (void) arg; // unused
+
 // 	par[0] = xm.x; par[1] = xm.y; par[2] = wh.x; par[3] = wh.y; par[4] = s0; par[5] = shat;
 	double s0 = par[4],shat = par[5];
 	struct myvector wh = {par[2],par[3]};
@@ -215,6 +217,8 @@ struct mysol two_pt_update(double *NWTarg,double *NWTres,double *NWTllim,double 
 				double h,struct myvector dx,struct myvector x0,struct myvector xhat,
 		double u0,double u1,struct myvector gu0,struct myvector gu1,double shat,
 						   double *par,char *cpar) {
+  (void) h; // TODO: Masha fix this
+
 	struct mysol sol;
 	double up0,up1;
 	double lam,a;
