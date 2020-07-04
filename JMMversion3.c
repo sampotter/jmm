@@ -64,16 +64,39 @@ struct mymesh {
 	double ymin; // y-coordinate of lower left corner
 };
 
+struct bucket_sort_stuff {
+	double gap; // the minimal difference between the value at child and the value at parent 
+	int nxy; // the number of mesh points
+	struct mylist *list; // list is associated with every mesh point
+	int Nbuckets; // the number of buckets
+	int Nb1; // Nb1 = Nbuckets - 1
+	struct mybucket *bucket;
+	int bcount; // the number of boundary points
+	int *bdry; // indices of boundary points
+	double *blist; // list of values of boundary points
+	int jbdry; // the first index of  boundary point with no assigned bucket
+	double Bmax; // boundary points with values less than Bmax should be assigned to buckets 
+	int ibcurrent; // the index of the current bucket
+};
+
+struct binary_tree_stuff {
+	int *count;
+	int *pos;
+	int *tree;
+};
+
 typedef enum state {FAR, TRIAL, VALID, BOUNDARY} state_e;
 
 //-------- FUNCTIONS ---------
 int main(void);
 void param(int nx,int ny,int nxy,struct myvector *xstart,struct mymesh *mesh,double *slo);
 void dial_init(struct mymesh *mesh,struct myvector *xstart,double *slo,double *u,struct myvector *gu,state_e *status);
-void dijkstra_init(struct mymesh *mesh,struct myvector *xstart,double *slo,double *u,struct myvector *gu,state_e *status);
+struct binary_tree_stuff  *dijkstra_init(struct mymesh *mesh,struct myvector *xstart,
+		double *slo,double *u,struct myvector *gu,state_e *status);
 //
-int dial_main_body(struct mymesh *mesh,double *slo,double *u,struct myvector *gu,state_e *status,int *,int *);
-int dijkstra_main_body(struct mymesh *mesh,double *slo,double *u,struct myvector *gu,state_e *status,int *,int *);
+int dial_main_body(struct mymesh *mesh,double *slo,double *u,struct myvector *gu,state_e *status,int *N1ptu,int *N2ptu);
+int dijkstra_main_body(struct mymesh *mesh,double *slo,double *u,struct myvector *gu,state_e *status,
+	struct binary_tree_stuff *Btree,int *N1ptu,int *N2ptu);
 
 struct myvector getpoint(int ind,struct mymesh *mesh); 
 int get_lower_left_index(struct myvector *z,struct mymesh *mesh);
@@ -91,24 +114,21 @@ struct mysol do_update(int ind,int i,int inew,int ix,int iy,struct myvector xnew
 				
 //-------- VARIABLES ---------
 char slo_fun = SLOTH;
-char method_template = DIAL;
+char method_template = DIJKSTRA;
 char method_update = JMM3;
 //
 // 
+	//--- variables for bucket sort ---
+	struct mybucket *bucket;
+	struct mylist *list;
+	double gap,maxgap,AGAP = INFTY; // update gap = min_{ind}(u[ind] - max(u0,u1)); maxgap = max_{ind}(u[ind] - u)
+	int Nbuckets,Nb1; // Nb1 = Nbuckets - 1
+	int ibcurrent; // index of the current bucket
+	//--- variables for boundary conditions for Dial-like solvers
+	double Bmax;
+	int *bdry,jbdry = 0,bcount;
+	double *blist;
 
-//--- variables for bucket sort ---
-struct mybucket *bucket;
-struct mylist *list;
-double minval = 0.0,maxval; // min and max of slowness and min and max values of u on the ibox boundary
-double gap,maxgap,AGAP = INFTY; // update gap = min_{ind}(u[ind] - max(u0,u1)); maxgap = max_{ind}(u[ind] - u)
-int Nbuckets,Nb1; // Nb1 = Nbuckets - 1
-int ibcurrent; // index of the current bucket
-//--- variables for boundary conditions for Dial-like solvers
-double Bmax;
-int *bdry,jbdry = 0,bcount;
-double *blist;
-//--- variables for heap sort
-int *pos,*tree,*count;
 
 
 // int IND = 27,P0,P1;
@@ -164,14 +184,18 @@ void param(int nx,int ny,int nxy,struct myvector *xstart,struct mymesh *mesh,dou
 
 /************************************/
 
-void dijkstra_init(struct mymesh *mesh,struct myvector *xstart,
+struct binary_tree_stuff *dijkstra_init(struct mymesh *mesh,struct myvector *xstart,
 		double *slo,double *u,struct myvector *gu,state_e *status) {
-  int i,j,ind,kx,ky;
-  int imin,imax,jmin,jmax;
-  struct myvector z;
+	int i,j,ind,kx,ky;
+	int imin,imax,jmin,jmax;
+	struct myvector z;
+	//--- variables for heap sort
+	int *pos,*tree,*count;
+	struct binary_tree_stuff *Btree;
 
 
 // "Allocate memory for count, pos and tree
+	Btree = (struct binary_tree_stuff *)malloc(sizeof(struct binary_tree_stuff));
 	count = (int *)malloc(sizeof(int));
 	tree = (int *)malloc((mesh->nxy)*sizeof(int));
 	pos = (int *)malloc((mesh->nxy)*sizeof(int));
@@ -202,6 +226,10 @@ void dijkstra_init(struct mymesh *mesh,struct myvector *xstart,
     		}
     	}
     } 
+    Btree->count = count;
+    Btree->pos = pos;
+    Btree->tree = tree;
+    return Btree;
 }
 
 
@@ -210,7 +238,8 @@ void dijkstra_init(struct mymesh *mesh,struct myvector *xstart,
 //--- DIJKSTRA-LIKE HERMITE MARCHER
 
 int dijkstra_main_body(struct mymesh *mesh,double *slo,
-		double *u,struct myvector *gu,state_e *status,int *N1ptu,int *N2ptu) {
+		double *u,struct myvector *gu,state_e *status,struct binary_tree_stuff *Btree,
+		int *N1ptu,int *N2ptu) {
 	int *iplus;
 	int Nfinal = 0;
 	struct myvector xnew;
@@ -261,13 +290,13 @@ int dijkstra_main_body(struct mymesh *mesh,double *slo,
 	par1 = (double *)malloc(npar1*sizeof(double));
 	par2 = (double *)malloc(npar2*sizeof(double));
 	
-	while( *count > 0 ) { // && Nfinal < NFMAX 
-		inew = tree[1];
+	while( *(Btree->count) > 0 ) { // && Nfinal < NFMAX 
+		inew = (Btree->tree)[1];
 		xnew = getpoint(inew,mesh);
 		ix = inew%(mesh->nx);
 		iy = inew/(mesh->nx);    
 		status[inew] = VALID;
-		deltree(count,tree,pos,u);
+		deltree(Btree->count,Btree->tree,Btree->pos,u);
 		Nfinal++;
 
 // 			printf("Nfinal = %i, inew = %i (%i,%i), u = %.4e, err = %.4e, gu = (%.4e,%.4e)\n",
@@ -288,10 +317,10 @@ int dijkstra_main_body(struct mymesh *mesh,double *slo,
 				if( sol.ch  == 'y' ) {
 					u[ind] = sol.u;
 					gu[ind] = sol.gu;
-					if( status[ind] == TRIAL ) updatetree(ind,count,tree,pos,u);
+					if( status[ind] == TRIAL ) updatetree(ind,Btree->count,Btree->tree,Btree->pos,u);
 					else {
 						status[ind] = TRIAL;
-						addtree(ind,count,tree,pos,u);
+						addtree(ind,Btree->count,Btree->tree,Btree->pos,u);
 					}
 					
 				}
@@ -737,6 +766,9 @@ int main() {
 	
 	struct mymesh *mesh;
 	
+	//--- variables for heap sort
+	struct binary_tree_stuff *Btree;
+	
 	xstart = (struct myvector *)malloc(sizeof(struct myvector));
 	mesh = (struct mymesh *)malloc(sizeof(struct mymesh));
 	N1ptu = (int *)malloc(sizeof(ind));
@@ -785,8 +817,8 @@ int main() {
 				printf("ACTUAL GAP = %.4e, gap = %.4e, AGAP - gap = %.4e\n",AGAP,gap,AGAP-gap);
 				break;
 			case DIJKSTRA:
-				dijkstra_init(mesh,xstart,slo,u,gu,status);
-				k = dijkstra_main_body(mesh,slo,u,gu,status,N1ptu,N2ptu);
+				Btree = dijkstra_init(mesh,xstart,slo,u,gu,status);
+				k = dijkstra_main_body(mesh,slo,u,gu,status,Btree,N1ptu,N2ptu);
 				break;
 			default:
 				printf("method_template = %c while must be 0 (DIAL), or 1 (DIJKSTRA)\n",method_template);
@@ -850,9 +882,10 @@ int main() {
 			     free(list);
 			     break;
 			case DIJKSTRA:
-				free(pos);
-				free(tree);
-				free(count);
+				free(Btree);
+// 				free(pos);
+// 				free(tree);
+// 				free(count);
 				break;
 			default:
 				break;	

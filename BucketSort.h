@@ -10,6 +10,7 @@ struct mybucket {
 	double minval; // minimal possible value in the bucket
 };
 
+
 void dial_list_init(struct mylist *list,int ind);
 void dial_bucket_init(struct mybucket *bucket,int iskip,double gap);
 void print_buckets(int Nbuckets,struct mybucket *bucket,struct mylist *list);
