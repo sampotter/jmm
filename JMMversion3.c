@@ -3,7 +3,7 @@
 // 8-point nearest neighborhood
 // segments of rays are approximated with quadratic curves
 
-// Compile command: gcc -Wall HeapSort.c QuickSort.c JMMupdates.c linear_algebra.c slowness_and_uexact.c Newton.c JMMversion3.c -lm -O3
+// Compile command: gcc -Wall BucketSort.c HeapSort.c QuickSort.c JMMupdates.c linear_algebra.c slowness_and_uexact.c Newton.c JMMversion3.c -lm -O3
 
 // Copyright: Maria Cameron, June 14, 2020
 
@@ -18,6 +18,7 @@
 #include "JMMupdates.h"
 #include "QuickSort.h"
 #include "HeapSort.h"
+#include "BucketSort.h"
 
 // type of method's template
 #define DIJKSTRA 0
@@ -52,18 +53,6 @@
 #define NY 4097
 #define RAD 0.1 // Radius for local factoring
 
-struct mylist {
-	struct mylist *next; // pointer to the next node in the list
-	struct mylist *previous; // pointer to the previous node in the list
-	int ind; // index of node in the list
-	int ibucket; // index of bucket where the point is currently located
-};
-
-struct mybucket {
-	struct mylist *list; // pointer to the list of nodes in this bucket
-	double minval; // minimal possible value in the bucket
-};
-
 typedef enum state {FAR, TRIAL, VALID, BOUNDARY} state_e;
 
 //-------- FUNCTIONS ---------
@@ -74,13 +63,11 @@ void dijkstra_init(double *slo,double *u,struct myvector *gu,state_e *status);
 //
 int dial_main_body(double *slo,double *u,struct myvector *gu,state_e *status);
 int dijkstra_main_body(double *slo,double *u,struct myvector *gu,state_e *status);
-struct myvector getpoint(int ind); 
 
+struct myvector getpoint(int ind); 
 int get_lower_left_index(struct myvector z);
-//---- D I A L ----
-int find_bucket(double utemp,double v,double g);
-void print_buckets(void);
-int adjust_bucket(int ind,double newval,double v,double g,struct mybucket *bucket,struct mylist *list);
+
+
 //---- U P D A T E S
 struct mysol do_update(int ind,int i,int inew,int ix,int iy,struct myvector xnew,
 				double *slo,double *u,struct myvector *gu,state_e *status,
@@ -92,27 +79,22 @@ struct mysol do_update(int ind,int i,int inew,int ix,int iy,struct myvector xnew
 				
 //-------- VARIABLES ---------
 char slo_fun = SLOTH;
-char method_template = DIJKSTRA;
+char method_template = DIAL;
 char method_update = JMM3;
 //
 int nx, ny, nxy, nx1, ny1;
-double hx,hy,hxy,hx2,hy2,rxy,ryx; // hx2 = hx^2, hy2 = hy^2, hxy = sqrt(hx^2 + hy^2), rxy = hx/hy, ryx = hy/hx;
+double hx,hy,hxy; // hx2 = hx^2, hy2 = hy^2, hxy = sqrt(hx^2 + hy^2), rxy = hx/hy, ryx = hy/hx;
 double XMIN,XMAX,YMIN,YMAX;
 int istart;
 struct myvector xstart;
 double RAD2 = RAD*RAD;
 double cosx,cosy;
 int N1ptu,N2ptu;
-//
-double *u,*slo; // u = value function, slo = slowness
-state_e *status; // status of the mesh point: 1 = finalized, 0 = not finalized
-double *uexact;
-struct myvector  *gu;
 
 //--- variables for bucket sort ---
 struct mybucket *bucket;
 struct mylist *list;
-double slo_min,slo_max,minval = 0.0,maxval; // min and max of slowness and min and max values of u on the ibox boundary
+double minval = 0.0,maxval; // min and max of slowness and min and max values of u on the ibox boundary
 double gap,maxgap,AGAP = INFTY; // update gap = min_{ind}(u[ind] - max(u0,u1)); maxgap = max_{ind}(u[ind] - u)
 int Nbuckets,Nb1; // Nb1 = Nbuckets - 1
 int ibcurrent; // index of the current bucket
@@ -132,7 +114,6 @@ int *pos,*tree,*count;
 void param(double *slo) {
 
 	int ind;
-	struct myvector z;
 	
 	switch( slo_fun ) {
 	  case '1': case 'm':
@@ -176,21 +157,12 @@ void param(double *slo) {
 	}	  	
 	hx = (XMAX - XMIN)/nx1;
 	hy = (YMAX - YMIN)/ny1;
-	hx2 = hx*hx;
-	hy2 = hy*hy;
-	hxy = sqrt(hx2 + hy2);
-	rxy = hx/hy;
-	ryx = hy/hx;
+	hxy = sqrt(hx*hx + hy*hy);
 	cosx = hx/hxy;
 	cosy = hy/hxy;
 	
-	slo_min = INFTY;
-	slo_max = 0.0;
 	for( ind = 0; ind < nxy; ind++ ) {
-		z = getpoint(ind);
-		slo[ind] = slowness(slo_fun,z);
-		if( ind != istart ) slo_min = min(slo_min,slo[ind]);
-		slo_max = max(slo_max,slo[ind]);
+		slo[ind] = slowness(slo_fun,getpoint(ind));
 	}
 }
 
@@ -306,8 +278,8 @@ int dijkstra_main_body(double *slo,double *u,struct myvector *gu,state_e *status
 		deltree(count,tree,pos,u);
 		Nfinal++;
 
-// 			printf("Nfinal = %i, inew = %i (%i,%i), status = %i, u = %.4e, ue = %.4e, err = %.4e, gu = (%.4e,%.4e)\n",
-// 					Nfinal,inew,ix,iy,status[inew],u[inew],uexact[inew],u[inew]-uexact[inew],gu[inew].x,gu[inew].y);
+// 			printf("Nfinal = %i, inew = %i (%i,%i), u = %.4e, err = %.4e, gu = (%.4e,%.4e)\n",
+// 					Nfinal,inew,ix,iy,u[inew],u[inew]-exact_solution(slo_fun,xnew,slo[inew]),gu[inew].x,gu[inew].y);
 			
 		for( i = 0; i < 8; i++ ) {
 			// take care of the boundaries of the computational domain
@@ -346,31 +318,16 @@ void dial_init(double *slo,double *u,struct myvector *gu,state_e *status) {
 	int i,j,ind,k; 
 	int imin,imax,jmin,jmax,kx,ky;
 	double rat,rr;
+	double slo_min,slo_max;
+	struct myvector z;
+	double hx2,hy2;
 	
-	// gap for the bucket sort
-	printf("slo_min = %.4e, slo_max = %.4e\n",slo_min,slo_max);
-	slo_min = min(slo_min,0.5*(slowness(slo_fun,xstart) + slo_min));	
-	gap = 0.9*slo_min*min(hx2,hy2)/hxy; // 0.9 is the safety factor
-	maxgap = slo_max*hxy;
-	printf("gap = %.4e, maxgap = %.4e\n",gap,maxgap);
-
-	// set up bucket sort
-	rat = maxgap/gap;
-	rr = round(rat);
-	if( fabs(rat - rr) < TOL ) Nbuckets = trunc(rr) + 2;
-	else Nbuckets = trunc(floor(rat) + 1) + 2;
-	Nb1 = Nbuckets - 1;
-	printf("Nbuckets = %i, Nb1 = %i\n",Nbuckets,Nb1);
-	bucket = (struct mybucket*)malloc(Nbuckets*sizeof(struct mybucket));
 	list = (struct mylist*)malloc(nxy*sizeof(struct mylist));
 	// initialize all mesh points
 	for ( ind = 0; ind < nxy; ind++ ) {
 		u[ind] = INFTY;
 		status[ind] = TRIAL;
-		list[ind].ind = ind;
-		list[ind].previous = NULL;
-		list[ind].next = NULL;
-		list[ind].ibucket = -1; // no bucket is assigned
+		dial_list_init(list + ind,ind);
 	}
 	ind = get_lower_left_index(xstart);
 	printf("ind = get_lower_left_index(xstart) = %i, (%i,%i)\n",ind,ind%nx,ind/nx);
@@ -389,8 +346,9 @@ void dial_init(double *slo,double *u,struct myvector *gu,state_e *status) {
 	for( i = imin; i <= imax; i++ ) {
 		for( j = jmin; j <= jmax; j++ ) {
 			ind = i + j*nx;
-			u[ind] = uexact[ind];
-			gu[ind] = exact_gradient(slo_fun,getpoint(ind),slo[ind]);
+			z = getpoint(ind);
+			u[ind] = exact_solution(slo_fun,z,slo[ind]);
+			gu[ind] = exact_gradient(slo_fun,z,slo[ind]);
 			if( i == imin || j == jmin || i == imax || j == jmax ) {
 				bdry[bcount] = ind;
 				blist[bcount] = u[ind];
@@ -403,6 +361,35 @@ void dial_init(double *slo,double *u,struct myvector *gu,state_e *status) {
 		}
 	}
 	quicksort(blist,bdry,0,bcount-1);	
+	
+	slo_min = INFTY;
+	slo_max = 0.0;
+	// find gap for bucket sort
+	for( i = 0; i < nx; i++ ) {
+		for( j = 0; j < ny; j++ ) {
+			if( i <= imin || i >= imax || j <= jmin || j >= jmax ) {
+				ind = i + nx*j;
+				slo_min = min(slo[ind],slo_min);
+				slo_max = max(slo[ind],slo_max);
+			}		
+		}
+	}
+	printf("slo_min = %.4e, slo_max = %.4e\n",slo_min,slo_max);
+	hx2 = hx*hx;
+	hy2 = hy*hy;
+	gap = 0.9*slo_min*min(hx2,hy2)/hxy; // 0.9 is the safety factor
+	maxgap = slo_max*hxy;
+	printf("gap = %.4e, maxgap = %.4e\n",gap,maxgap);
+
+	// set up bucket sort
+	rat = maxgap/gap;
+	rr = round(rat);
+	if( fabs(rat - rr) < TOL ) Nbuckets = trunc(rr) + 2;
+	else Nbuckets = trunc(floor(rat) + 1) + 2;
+	Nb1 = Nbuckets - 1;
+	printf("Nbuckets = %i, Nb1 = %i\n",Nbuckets,Nb1);
+	bucket = (struct mybucket*)malloc(Nbuckets*sizeof(struct mybucket));
+	
 	Bmax = Nb1*gap;
 	int iskip = 0;
 	
@@ -412,16 +399,15 @@ void dial_init(double *slo,double *u,struct myvector *gu,state_e *status) {
 	}		 
 // 		set up buckets
 	for( i = 0; i < Nbuckets; i++ ) {
-		bucket[i].list = NULL;
-		bucket[i].minval = (iskip + i)*gap;
+		dial_bucket_init(bucket + i,iskip + i,gap);
 	}
 	jbdry = 0;
 	ind = bdry[jbdry];
-	ibcurrent = adjust_bucket(ind,u[ind],0.0,gap,bucket,list);
+	ibcurrent = adjust_bucket(ind,u[ind],gap,Nbuckets,bucket,list);
 	jbdry = 1;
 	while( jbdry < bcount && blist[jbdry] < Bmax ) {
 		ind = bdry[jbdry];
-		k = adjust_bucket(ind,u[ind],0.0,gap,bucket,list);
+		k = adjust_bucket(ind,u[ind],gap,Nbuckets,bucket,list);
 		jbdry++;
 	}
 }
@@ -508,8 +494,8 @@ int dial_main_body(double *slo,double *u,struct myvector *gu,state_e *status) {
 			Nfinal++;
 			
 			
-// 			printf("Nfinal = %i, inew = %i (%i,%i), status = %i, u = %.4e, ue = %.4e, err = %.4e, gu = (%.4e,%.4e)\n",
-// 					Nfinal,inew,ix,iy,status[inew],u[inew],uexact[inew],u[inew]-uexact[inew],gu[inew].x,gu[inew].y);
+// 			printf("Nfinal = %i, inew = %i (%i,%i), u = %.4e, err = %.4e, gu = (%.4e,%.4e)\n",
+// 					Nfinal,inew,ix,iy,u[inew],u[inew]-exact_solution(slo_fun,xnew,slo[inew]),gu[inew].x,gu[inew].y);
 
 			
 			// scan the nearest neighborhood for possible updates
@@ -527,7 +513,7 @@ int dial_main_body(double *slo,double *u,struct myvector *gu,state_e *status) {
 					if( sol.ch  == 'y' ) {
 						u[ind] = sol.u;
 						gu[ind] = sol.gu;
-						knew = adjust_bucket(ind,u[ind],minval,gap,bucket,list);
+						knew = adjust_bucket(ind,u[ind],gap,Nbuckets,bucket,list);
 					} // end if( utemp < u[ind] )
 				} // end if( ch == 'y' && status[i] != VALID ) {
 			} // end for( i = 0; i < 8; i++ )
@@ -543,76 +529,13 @@ int dial_main_body(double *slo,double *u,struct myvector *gu,state_e *status) {
 			Bmax = vcurrent + gap*Nb1;
 			while( jbdry < bcount && blist[jbdry] < Bmax ) {
 				ind = bdry[jbdry];
-				knew = adjust_bucket(ind,u[ind],minval,gap,bucket,list);
+				knew = adjust_bucket(ind,u[ind],gap,Nbuckets,bucket,list);
 				jbdry++;
 			}		
 		}		
 	} // while( empty_count < Nbucket )
 	return kbucket;
 } 
-
-//---------------------------------------------------------------
-void print_buckets() {
-	int k;
-	struct mylist *lnew;
-		for( k = 0; k < Nbuckets; k++ ) {
-			printf("Bucket %i:\n",k);
-			lnew = bucket[k].list;
-			while( lnew != NULL ) {
-				printf("%i\t",lnew -> ind);
-				lnew = lnew -> next;
-			}
-			printf("\n");
-		}
-}
-//---------------------------------------------------------------
-
-int adjust_bucket(int ind,double newval,double v,double g,struct mybucket *bucket,struct mylist *list) {
-	int k,knew;
-	// find index of new bucket
-	k = find_bucket(newval,v,g);
-	knew = k%Nbuckets;
-	if( knew != list[ind].ibucket ) { 	// adjust bucket
-		if( list[ind].ibucket >= 0 ) { // disconnect from the list
-			if( list[ind].previous != NULL ) { // if this is not the first index in the bucket
-				((list + ind) -> previous) -> next = (list + ind) -> next;
-			}
-			else { // if it is the first index, make the next index if any the first one
-				(bucket + list[ind].ibucket) -> list = list[ind].next;
-			}	
-			if( list[ind].next != NULL ) {// attach the next indices to the previous ones
-				((list + ind) -> next) -> previous = (list + ind) -> previous;
-			}
-			list[ind].previous = NULL;
-			list[ind].next = NULL;
-		}
-		if( bucket[knew].list != NULL ) { // if the bucket is not empty, attach to the new bucket in the beginning of it
-			((bucket + knew) -> list) -> previous = list + ind;
-			(list + ind) -> next = (bucket + knew) -> list;
-			(bucket + knew) -> list = list + ind;
-		}
-		else { // if the bucket is empty, start new bucket
-			(bucket + knew) -> list = list + ind;
-			bucket[knew].minval = find_bucket(newval,v,g)*g;
-		}
-		list[ind].ibucket = knew;
-	}
-	return knew;
-}
-
-
-//---------------------------------------------------------------
-
-int find_bucket(double utemp,double v,double g) {
-	int k;
-	double rat,rr;
-	
-	rat = (utemp - v)/g;
-	rr = round(rat);
-	if( fabs(rat - rr) < TOL ) k = max(trunc(rr) - 1,0);
-	else k = trunc(floor(rat));
-	return k;
-}
 
 //---------------------------------------------------------------
 
@@ -769,6 +692,7 @@ int main() {
     double dd,errmax = 0.0,erms = 0.0;
     double gg,gerrmax = 0.0,germs = 0.0;
     double urms,umax;
+    struct myvector z;
     clock_t CPUbegin;
     double cpu;
     FILE *fg,*ferr;
@@ -852,19 +776,20 @@ int main() {
 		for( j=0; j<ny; j++ ) {
 		  for( i=0; i<nx; i++ ) {
 		  	  ind = i + nx*j;
+		  	  z = getpoint(ind);
 			  umax = max(u[ind],umax);
 			  urms += u[ind]*u[ind];
-			  dd = fabs(u[ind] - exact_solution(slo_fun,getpoint(ind),slo[ind]));
+			  dd = fabs(u[ind] - exact_solution(slo_fun,z,slo[ind]));
 			  errmax = max(errmax,dd);
 			  erms += dd*dd;
-			  gg = norm(vec_difference(gu[ind],exact_gradient(slo_fun,getpoint(ind),slo[ind])));
+			  gg = norm(vec_difference(gu[ind],exact_gradient(slo_fun,z,slo[ind])));
 			  if( isfinite(gg) ) {
 			  	gerrmax = max(gg,gerrmax);			  
 			  	germs += gg*gg;
 			  	kg++;
 			  }	
 			  if( print_errors == 'y' ) {
-			  	  fprintf(ferr,"%.4e\t",u[ind] - uexact[ind]);
+			  	  fprintf(ferr,"%.4e\t",u[ind] - exact_solution(slo_fun,z,slo[ind]));
 			  }
 		  }
 		  if( print_errors == 'y' ) {
