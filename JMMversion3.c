@@ -68,12 +68,12 @@ typedef enum state {FAR, TRIAL, VALID, BOUNDARY} state_e;
 
 //-------- FUNCTIONS ---------
 int main(void);
-void param(void);
-void dial_init(void);
-void dijkstra_init(void);
+void param(double *slo);
+void dial_init(double *slo,double *u,struct myvector *gu,state_e *status);
+void dijkstra_init(double *slo,double *u,struct myvector *gu,state_e *status);
 //
-int dial_main_body(void);
-int dijkstra_main_body(void);
+int dial_main_body(double *slo,double *u,struct myvector *gu,state_e *status);
+int dijkstra_main_body(double *slo,double *u,struct myvector *gu,state_e *status);
 struct myvector getpoint(int ind); 
 
 int get_lower_left_index(struct myvector z);
@@ -82,7 +82,9 @@ int find_bucket(double utemp,double v,double g);
 void print_buckets(void);
 int adjust_bucket(int ind,double newval,double v,double g,struct mybucket *bucket,struct mylist *list);
 //---- U P D A T E S
-struct mysol do_update(int ind,int i,int inew,int ix,int iy,struct myvector xnew,int *iplus,double *par1,double *par2,char *cpar,
+struct mysol do_update(int ind,int i,int inew,int ix,int iy,struct myvector xnew,
+				double *slo,double *u,struct myvector *gu,state_e *status,
+				int *iplus,double *par1,double *par2,char *cpar,
 				double *NWTarg,double *NWTres,double *NWTllim,double *NWTulim,double *NWTJac,double *NWTdir);
 				
 
@@ -127,7 +129,7 @@ int *pos,*tree,*count;
 //--------------------------------------------
 //---------------------------------------------------------------
 
-void param() {
+void param(double *slo) {
 
 	int ind;
 	struct myvector z;
@@ -189,15 +191,12 @@ void param() {
 		slo[ind] = slowness(slo_fun,z);
 		if( ind != istart ) slo_min = min(slo_min,slo[ind]);
 		slo_max = max(slo_max,slo[ind]);
-		if( slo_fun == '1' ||  slo_fun == 'v' || slo_fun == 'm' || slo_fun == 'p' || slo_fun == 'g' ) {
-			uexact[ind] = exact_solution(slo_fun,z,slo[ind]);	
-		}	
 	}
 }
 
 /************************************/
 
-void dijkstra_init() {
+void dijkstra_init(double *slo,double *u,struct myvector *gu,state_e *status) {
   int i,j,i0,j0,ind,ind0,KX,KY;
   int imin,imax,jmin,jmax;
   struct myvector z;
@@ -232,7 +231,7 @@ void dijkstra_init() {
     		ind = i + nx*j;
     		status[ind] = VALID;
     		z = getpoint(ind);
-    		u[ind] = uexact[ind];
+    		u[ind] = exact_solution(slo_fun,z,slo[ind]);
     		gu[ind] = exact_gradient(slo_fun,z,slo[ind]);
     		if( i == imin || i == imax || j == jmin || j == jmax ) {
     			status[ind] = TRIAL;
@@ -247,7 +246,7 @@ void dijkstra_init() {
 //---------------------------------------------------------------
 //--- DIJKSTRA-LIKE HERMITE MARCHER
 
-int dijkstra_main_body() {
+int dijkstra_main_body(double *slo,double *u,struct myvector *gu,state_e *status) {
 	int *iplus;
 	int Nfinal = 0;
 	struct myvector xnew;
@@ -319,7 +318,7 @@ int dijkstra_main_body() {
 			else if( iy == 0 && ( i == 6 || i == 7 || i == 0 )) ch = 'n';
 			ind = inew + iplus[i];
 			if( ch == 'y' && status[ind] != VALID ) {
-				sol = do_update(ind,i,inew,ix,iy,xnew,iplus,par1,par2,cpar,NWTarg,NWTres,NWTllim,NWTulim,NWTJac,NWTdir);
+				sol = do_update(ind,i,inew,ix,iy,xnew,slo,u,gu,status,iplus,par1,par2,cpar,NWTarg,NWTres,NWTllim,NWTulim,NWTJac,NWTdir);
 				// if the value is reduced, do adjustments
 				if( sol.ch  == 'y' ) {
 					u[ind] = sol.u;
@@ -343,7 +342,7 @@ int dijkstra_main_body() {
 
 //---------------------------------------------------------------
 
-void dial_init() { 
+void dial_init(double *slo,double *u,struct myvector *gu,state_e *status) {
 	int i,j,ind,k; 
 	int imin,imax,jmin,jmax,kx,ky;
 	double rat,rr;
@@ -438,7 +437,7 @@ void dial_init() {
 //---------------------------------------------------------------
 //--- DIAL-BASED HERMITE MARCHER
 
-int dial_main_body() {
+int dial_main_body(double *slo,double *u,struct myvector *gu,state_e *status) {
 	struct mybucket *bcurrent;
 	struct mylist *lcurrent; //,*lnew;
 	double vcurrent;
@@ -523,7 +522,7 @@ int dial_main_body() {
 				else if( iy == 0 && ( i == 6 || i == 7 || i == 0 )) ch = 'n';
 				ind = inew + iplus[i];
 				if( ch == 'y' && status[ind] != VALID ) {
-					sol = do_update(ind,i,inew,ix,iy,xnew,iplus,par1,par2,cpar,NWTarg,NWTres,NWTllim,NWTulim,NWTJac,NWTdir);
+					sol = do_update(ind,i,inew,ix,iy,xnew,slo,u,gu,status,iplus,par1,par2,cpar,NWTarg,NWTres,NWTllim,NWTulim,NWTJac,NWTdir);
 					// if the value is reduced, do adjustments
 					if( sol.ch  == 'y' ) {
 						u[ind] = sol.u;
@@ -639,7 +638,9 @@ int get_lower_left_index(struct myvector z) {
 
 //---------------------------------------------------------------
 //---------------------------------------------------------------
-struct mysol do_update(int ind,int i,int inew,int ix,int iy,struct myvector xnew,int *iplus,double *par1,double *par2,char *cpar,
+struct mysol do_update(int ind,int i,int inew,int ix,int iy,struct myvector xnew,
+				double *slo,double *u,struct myvector *gu,state_e *status,
+				int *iplus,double *par1,double *par2,char *cpar,
 				double *NWTarg,double *NWTres,double *NWTllim,double *NWTulim,double *NWTJac,double *NWTdir) {
 	// indices of 8 nearest neighbors of X
 	//          3
@@ -783,13 +784,10 @@ int main() {
 	struct myvector Atb[4],pc;
 	char str3[4][20] = {"ErrMax","ERMS","GRADIENT, ERRMAX","GRADIENT, ERMS"};
 
+	double *u,*slo; // u = value function, slo = slowness
+	struct myvector  *gu;
+	state_e *status; // status of the mesh point: 1 = finalized, 0 = not finalized
 
-	k = NX*NY;
-	u = (double *)malloc(k*sizeof(double));
-	uexact = (double *)malloc(k*sizeof(double));
-	slo = (double *)malloc(k*sizeof(double));
-	status = (state_e *)malloc(k*sizeof(state_e));
-	gu = (struct myvector *)malloc(k*sizeof(struct myvector));
 			
 	// for least squares fit
 	AtA.a11 = 0.0; AtA.a12 = 0.0; AtA.a21 = 0.0;AtA.a22 = 0.0;
@@ -811,6 +809,11 @@ int main() {
 		nx1 = nx - 1;
 		ny1 = ny - 1;
 		nxy = nx*ny;
+		// set main variables
+		u = (double *)malloc(nxy*sizeof(double));
+		slo = (double *)malloc(nxy*sizeof(double));
+		status = (state_e *)malloc(nxy*sizeof(state_e));
+		gu = (struct myvector *)malloc(nxy*sizeof(struct myvector));
 		// set stats trackers to zero
 		errmax = 0.0;
 		erms = 0.0;
@@ -822,17 +825,17 @@ int main() {
 		N1ptu = 0;
 		// start
 		printf("slo_fun = %c, method_update = %s, method_template = %s\n",slo_fun,str1[(int)method_update-1],str2[(int)method_template]);
-		param();
+		param(slo);
 		CPUbegin=clock();
 		switch( method_template ) {
 			case DIAL:
-				dial_init();
-				k = dial_main_body();
+				dial_init(slo,u,gu,status);
+				k = dial_main_body(slo,u,gu,status);
 				printf("ACTUAL GAP = %.4e, gap = %.4e, AGAP - gap = %.4e\n",AGAP,gap,AGAP-gap);
 				break;
 			case DIJKSTRA:
-				dijkstra_init();
-				k = dijkstra_main_body();
+				dijkstra_init(slo,u,gu,status);
+				k = dijkstra_main_body(slo,u,gu,status);
 				break;
 			default:
 				printf("method_template = %c while must be 0 (DIAL), or 1 (DIJKSTRA)\n",method_template);
@@ -851,7 +854,7 @@ int main() {
 		  	  ind = i + nx*j;
 			  umax = max(u[ind],umax);
 			  urms += u[ind]*u[ind];
-			  dd = fabs(u[ind] - uexact[ind]);			  
+			  dd = fabs(u[ind] - exact_solution(slo_fun,getpoint(ind),slo[ind]));
 			  errmax = max(errmax,dd);
 			  erms += dd*dd;
 			  gg = norm(vec_difference(gu[ind],exact_gradient(slo_fun,getpoint(ind),slo[ind])));
@@ -884,6 +887,11 @@ int main() {
 		printf("N1ptu per point = %.4e, N2ptu per point = %.4e\n",a1ptu,a2ptu);			
 		fprintf(fg,"%i\t %.4e\t %.4e\t %.4e\t%.4e\t%.4e\t%.4e\t%g\t%.3f\t%.3f\n",
 				  nx,errmax,erms,errmax/umax,erms/urms,gerrmax,germs,cpu,a1ptu,a2ptu);
+		// free memory
+		free(u);
+		free(slo);
+		free(gu);
+		free(status);
 		switch ( method_template ) {
 			case DIAL:
 			     free(bucket);
