@@ -35,7 +35,6 @@
 #define SLOTH 'g' // s(x,y)^2 = 4 - 6*y
 
 
-
 #define PI 3.141592653589793
 #define E3 0.333333333333333 // 1/3
 #define TT3 0.666666666666666 // 2/3
@@ -49,28 +48,40 @@
 #define min(a,b) ((a) <= (b) ? (a) : (b))
 #define INFTY 1.0e+6
 #define TOL 1.0e-14
-#define NX 4097
-#define NY 4097
 #define RAD 0.1 // Radius for local factoring
+
+// mesh for 8-pt nearest neighborhood
+struct mymesh {
+	int nx; // #of mesh points along x direction
+	int ny; // #of mesh points along x direction
+	int nxy; // total mesh size nx*ny
+	int nx1; // nx - 1
+	int ny1; // ny - 1
+	double hx; // mesh step in x direction
+	double hy; // mesh step in y direction
+	double hxy; // step along diagonal of mesh cell
+	double xmin; // x-coordinate of lower left corner
+	double ymin; // y-coordinate of lower left corner
+};
 
 typedef enum state {FAR, TRIAL, VALID, BOUNDARY} state_e;
 
 //-------- FUNCTIONS ---------
 int main(void);
-void param(double *slo);
-void dial_init(double *slo,double *u,struct myvector *gu,state_e *status);
-void dijkstra_init(double *slo,double *u,struct myvector *gu,state_e *status);
+void param(int nx,int ny,int nxy,struct mymesh *mesh,double *slo);
+void dial_init(struct mymesh *mesh,double *slo,double *u,struct myvector *gu,state_e *status);
+void dijkstra_init(struct mymesh *mesh,double *slo,double *u,struct myvector *gu,state_e *status);
 //
-int dial_main_body(double *slo,double *u,struct myvector *gu,state_e *status);
-int dijkstra_main_body(double *slo,double *u,struct myvector *gu,state_e *status);
+int dial_main_body(struct mymesh *mesh,double *slo,double *u,struct myvector *gu,state_e *status);
+int dijkstra_main_body(struct mymesh *mesh,double *slo,double *u,struct myvector *gu,state_e *status);
 
-struct myvector getpoint(int ind); 
-int get_lower_left_index(struct myvector z);
-
+struct myvector getpoint(int ind,struct mymesh *mesh); 
+int get_lower_left_index(struct myvector z,struct mymesh *mesh);
+void setup_mesh(int nx,int ny,int nxy,double xmin,double xmax,double ymin,double ymax,struct mymesh *mesh);
 
 //---- U P D A T E S
 struct mysol do_update(int ind,int i,int inew,int ix,int iy,struct myvector xnew,
-				double *slo,double *u,struct myvector *gu,state_e *status,
+				struct mymesh *mesh,double *slo,double *u,struct myvector *gu,state_e *status,
 				int *iplus,double *par1,double *par2,char *cpar,
 				double *NWTarg,double *NWTres,double *NWTllim,double *NWTulim,double *NWTJac,double *NWTdir);
 				
@@ -82,13 +93,8 @@ char slo_fun = SLOTH;
 char method_template = DIAL;
 char method_update = JMM3;
 //
-int nx, ny, nxy, nx1, ny1;
-double hx,hy,hxy; // hx2 = hx^2, hy2 = hy^2, hxy = sqrt(hx^2 + hy^2), rxy = hx/hy, ryx = hy/hx;
-double XMIN,XMAX,YMIN,YMAX;
-int istart;
+// 
 struct myvector xstart;
-double RAD2 = RAD*RAD;
-double cosx,cosy;
 int N1ptu,N2ptu;
 
 //--- variables for bucket sort ---
@@ -111,9 +117,10 @@ int *pos,*tree,*count;
 //--------------------------------------------
 //---------------------------------------------------------------
 
-void param(double *slo) {
+void param(int nx,int ny,int nxy,struct mymesh *mesh,double *slo) {
 
 	int ind;
+	double XMIN,XMAX,YMIN,YMAX;	
 	
 	switch( slo_fun ) {
 	  case '1': case 'm':
@@ -154,55 +161,51 @@ void param(double *slo) {
 		printf("Set an appropriate slo_fun\n");  
 		exit(1);
 		break;
-	}	  	
-	hx = (XMAX - XMIN)/nx1;
-	hy = (YMAX - YMIN)/ny1;
-	hxy = sqrt(hx*hx + hy*hy);
-	cosx = hx/hxy;
-	cosy = hy/hxy;
+	}	
+	setup_mesh(nx,ny,nxy,XMIN,XMAX,YMIN,YMAX,mesh);  	
 	
 	for( ind = 0; ind < nxy; ind++ ) {
-		slo[ind] = slowness(slo_fun,getpoint(ind));
+		slo[ind] = slowness(slo_fun,getpoint(ind,mesh));
 	}
 }
 
 /************************************/
 
-void dijkstra_init(double *slo,double *u,struct myvector *gu,state_e *status) {
-  int i,j,i0,j0,ind,ind0,KX,KY;
+void dijkstra_init(struct mymesh *mesh,double *slo,double *u,struct myvector *gu,state_e *status) {
+  int i,j,i0,j0,ind,ind0,kx,ky;
   int imin,imax,jmin,jmax;
   struct myvector z;
 
 
 // "Allocate memory for count, pos and tree
 	count = (int *)malloc(sizeof(int));
-	tree = (int *)malloc(nxy*sizeof(int));
-	pos = (int *)malloc(nxy*sizeof(int));
+	tree = (int *)malloc((mesh->nxy)*sizeof(int));
+	pos = (int *)malloc((mesh->nxy)*sizeof(int));
 	// initialize all mesh points
-	for ( ind = 0; ind < nxy; ind++ ) {
+	for ( ind = 0; ind < (mesh->nxy); ind++ ) {
 		u[ind] = INFTY;
 		status[ind] = FAR;
 	}
     // initialize the point source
-	ind0 = get_lower_left_index(xstart);
+	ind0 = get_lower_left_index(xstart,mesh);
 	// initialize the nearest neighbors of the point source  
-    i0 = floor(((xstart.x) - XMIN)/hx);
-    j0 = floor(((xstart.y) - YMIN)/hy);
-    printf("(%i,%i)\n",i0,j0);
+    i0 = floor(((xstart.x) - (mesh->xmin))/(mesh->hx));
+    j0 = floor(((xstart.y) - (mesh->ymin))/(mesh->hy));
+//     printf("(%i,%i)\n",i0,j0);
     
-    KX = round(RAD/hx);
-    KY = round(RAD/hy);
-    imin = max(0,i0 - KX);
-    imax = min(nx1,i0 + KX);
-    jmin = max(0,j0 - KY);
-    jmax = min(ny1,j0 + KY);
+    kx = round(RAD/(mesh->hx));
+    ky = round(RAD/(mesh->hy));
+    imin = max(0,i0 - kx);
+    imax = min((mesh->nx1),i0 + kx);
+    jmin = max(0,j0 - ky);
+    jmax = min((mesh->ny1),j0 + ky);
  
  	*count = 0; // the binary tree is empty
     for( i = imin; i <= imax; i++ ) {
     	for( j = jmin; j <= jmax; j++ ) {
-    		ind = i + nx*j;
+    		ind = i + (mesh->nx)*j;
     		status[ind] = VALID;
-    		z = getpoint(ind);
+    		z = getpoint(ind,mesh);
     		u[ind] = exact_solution(slo_fun,z,slo[ind]);
     		gu[ind] = exact_gradient(slo_fun,z,slo[ind]);
     		if( i == imin || i == imax || j == jmin || j == jmax ) {
@@ -218,7 +221,7 @@ void dijkstra_init(double *slo,double *u,struct myvector *gu,state_e *status) {
 //---------------------------------------------------------------
 //--- DIJKSTRA-LIKE HERMITE MARCHER
 
-int dijkstra_main_body(double *slo,double *u,struct myvector *gu,state_e *status) {
+int dijkstra_main_body(struct mymesh *mesh,double *slo,double *u,struct myvector *gu,state_e *status) {
 	int *iplus;
 	int Nfinal = 0;
 	struct myvector xnew;
@@ -240,16 +243,16 @@ int dijkstra_main_body(double *slo,double *u,struct myvector *gu,state_e *status
 	//   6 ----------- 0
 	//          7
 
-// 	int iplus[8] = {-nx+1,1,nx+1,nx,nx-1,-1,-nx-1,-nx}; // shifts for neighbors 0...7	
+// 	int iplus[8] = {-(mesh->nx)+1,1,(mesh->nx)+1,(mesh->nx),(mesh->nx)-1,-1,-(mesh->nx)-1,-(mesh->nx)}; // shifts for neighbors 0...7	
 	iplus = (int *)malloc(8*sizeof(int));
-	iplus[0] = -nx+1;
+	iplus[0] = -(mesh->nx)+1;
 	iplus[1] = 1;
-	iplus[2] = nx+1;
-	iplus[3] = nx;
-	iplus[4] = nx-1;
+	iplus[2] = (mesh->nx)+1;
+	iplus[3] = (mesh->nx);
+	iplus[4] = (mesh->nx)-1;
 	iplus[5] = -1;
-	iplus[6] = -nx-1;
-	iplus[7] = -nx;
+	iplus[6] = -(mesh->nx)-1;
+	iplus[7] = -(mesh->nx);
 
 	par1 = (double *)malloc(npar1*sizeof(double));
 	par2 = (double *)malloc(npar2*sizeof(double));
@@ -271,9 +274,9 @@ int dijkstra_main_body(double *slo,double *u,struct myvector *gu,state_e *status
 	
 	while( *count > 0 ) { // && Nfinal < NFMAX 
 		inew = tree[1];
-		xnew = getpoint(inew);
-		ix = inew%nx;
-		iy = inew/nx;    
+		xnew = getpoint(inew,mesh);
+		ix = inew%(mesh->nx);
+		iy = inew/(mesh->nx);    
 		status[inew] = VALID;
 		deltree(count,tree,pos,u);
 		Nfinal++;
@@ -284,13 +287,13 @@ int dijkstra_main_body(double *slo,double *u,struct myvector *gu,state_e *status
 		for( i = 0; i < 8; i++ ) {
 			// take care of the boundaries of the computational domain
 			ch = 'y';
-			if( ix == nx1 && ( i == 0 || i == 1 || i == 2 )) ch = 'n';
+			if( ix == (mesh->nx1) && ( i == 0 || i == 1 || i == 2 )) ch = 'n';
 			else if( ix == 0 && ( i == 4 || i == 5 || i == 6 )) ch = 'n';
-			if( iy == ny1 && ( i == 2 || i == 3 || i == 4 )) ch = 'n';
+			if( iy == (mesh->ny1) && ( i == 2 || i == 3 || i == 4 )) ch = 'n';
 			else if( iy == 0 && ( i == 6 || i == 7 || i == 0 )) ch = 'n';
 			ind = inew + iplus[i];
 			if( ch == 'y' && status[ind] != VALID ) {
-				sol = do_update(ind,i,inew,ix,iy,xnew,slo,u,gu,status,iplus,par1,par2,cpar,NWTarg,NWTres,NWTllim,NWTulim,NWTJac,NWTdir);
+				sol = do_update(ind,i,inew,ix,iy,xnew,mesh,slo,u,gu,status,iplus,par1,par2,cpar,NWTarg,NWTres,NWTllim,NWTulim,NWTJac,NWTdir);
 				// if the value is reduced, do adjustments
 				if( sol.ch  == 'y' ) {
 					u[ind] = sol.u;
@@ -314,7 +317,7 @@ int dijkstra_main_body(double *slo,double *u,struct myvector *gu,state_e *status
 
 //---------------------------------------------------------------
 
-void dial_init(double *slo,double *u,struct myvector *gu,state_e *status) {
+void dial_init(struct mymesh *mesh,double *slo,double *u,struct myvector *gu,state_e *status) {
 	int i,j,ind,k; 
 	int imin,imax,jmin,jmax,kx,ky;
 	double rat,rr;
@@ -322,31 +325,34 @@ void dial_init(double *slo,double *u,struct myvector *gu,state_e *status) {
 	struct myvector z;
 	double hx2,hy2;
 	
-	list = (struct mylist*)malloc(nxy*sizeof(struct mylist));
+	list = (struct mylist*)malloc((mesh->nxy)*sizeof(struct mylist));
 	// initialize all mesh points
-	for ( ind = 0; ind < nxy; ind++ ) {
+	for ( ind = 0; ind < (mesh->nxy); ind++ ) {
 		u[ind] = INFTY;
 		status[ind] = TRIAL;
 		dial_list_init(list + ind,ind);
 	}
-	ind = get_lower_left_index(xstart);
-	printf("ind = get_lower_left_index(xstart) = %i, (%i,%i)\n",ind,ind%nx,ind/nx);
+	ind = get_lower_left_index(xstart,mesh);
+// 	printf("ind = get_lower_left_index(xstart) = %i, (%i,%i)\n",ind,ind%(mesh->nx),ind/(mesh->nx));
+// 	printf("Mesh: nx = %i, ny = %i, nxy = %i, nx1 = %i, ny1 = %i\n",(mesh->nx),(mesh->ny),(mesh->nxy),(mesh->nx1),(mesh->ny1));
+// 	printf("mesh: hx = %.4e, hy = %.4e, hxy = %.4e, xmin = %.4e, ymin = %.4e\n",(mesh->hx),(mesh->hy),(mesh->hxy),(mesh->xmin),(mesh->ymin));
+
 // 		initialize the initial box
-	kx = round(RAD/hx);
-	ky = round(RAD/hy);
-	imin = max(0,ind%nx - kx);
-	imax = min(nx-1,ind%nx + kx);
-	jmin = max(0,ind/nx - ky);
-	jmax = min(nx-1,ind/nx + ky);
-// 	printf("kx = %i, ky = %i, istart = %i, imin = %i, imax = %i, jmin = %i, jmax = %i\n",
-// 				kx,ky,istart,imin,imax,jmin,jmax);
+	kx = round(RAD/(mesh->hx));
+	ky = round(RAD/(mesh->hy));
+	imin = max(0,ind%(mesh->nx) - kx);
+	imax = min((mesh->nx)-1,ind%(mesh->nx) + kx);
+	jmin = max(0,ind/(mesh->nx) - ky);
+	jmax = min((mesh->nx)-1,ind/(mesh->nx) + ky);
+// 	printf("kx = %i, ky = %i, imin = %i, imax = %i, jmin = %i, jmax = %i\n",
+// 				kx,ky,imin,imax,jmin,jmax);
 	bdry = (int *)malloc(2*(imax-imin+jmax-jmin)*sizeof(int));
 	blist = (double *)malloc(2*(imax-imin+jmax-jmin)*sizeof(double));
 	bcount = 0;
 	for( i = imin; i <= imax; i++ ) {
 		for( j = jmin; j <= jmax; j++ ) {
-			ind = i + j*nx;
-			z = getpoint(ind);
+			ind = i + j*(mesh->nx);
+			z = getpoint(ind,mesh);
 			u[ind] = exact_solution(slo_fun,z,slo[ind]);
 			gu[ind] = exact_gradient(slo_fun,z,slo[ind]);
 			if( i == imin || j == jmin || i == imax || j == jmax ) {
@@ -365,20 +371,21 @@ void dial_init(double *slo,double *u,struct myvector *gu,state_e *status) {
 	slo_min = INFTY;
 	slo_max = 0.0;
 	// find gap for bucket sort
-	for( i = 0; i < nx; i++ ) {
-		for( j = 0; j < ny; j++ ) {
+	for( i = 0; i < (mesh->nx); i++ ) {
+		for( j = 0; j < (mesh->ny); j++ ) {
 			if( i <= imin || i >= imax || j <= jmin || j >= jmax ) {
-				ind = i + nx*j;
+				ind = i + (mesh->nx)*j;
 				slo_min = min(slo[ind],slo_min);
 				slo_max = max(slo[ind],slo_max);
 			}		
 		}
 	}
 	printf("slo_min = %.4e, slo_max = %.4e\n",slo_min,slo_max);
-	hx2 = hx*hx;
-	hy2 = hy*hy;
-	gap = 0.9*slo_min*min(hx2,hy2)/hxy; // 0.9 is the safety factor
-	maxgap = slo_max*hxy;
+	hx2 = (mesh->hx)*(mesh->hx);
+	hy2 = (mesh->hy)*(mesh->hy);
+	gap = 0.9*slo_min*min(hx2,hy2)/(mesh->hxy); // 0.9 is the safety factor
+//  	printf("hx = %.4e, hy = %.4e, hxy = %.4e, gg = %.4e\n",mesh->hx,mesh->hy,mesh->hxy,min(hx2,hy2)/(mesh->hxy));
+	maxgap = slo_max*(mesh->hxy);
 	printf("gap = %.4e, maxgap = %.4e\n",gap,maxgap);
 
 	// set up bucket sort
@@ -423,7 +430,7 @@ void dial_init(double *slo,double *u,struct myvector *gu,state_e *status) {
 //---------------------------------------------------------------
 //--- DIAL-BASED HERMITE MARCHER
 
-int dial_main_body(double *slo,double *u,struct myvector *gu,state_e *status) {
+int dial_main_body(struct mymesh *mesh,double *slo,double *u,struct myvector *gu,state_e *status) {
 	struct mybucket *bcurrent;
 	struct mylist *lcurrent; //,*lnew;
 	double vcurrent;
@@ -450,16 +457,16 @@ int dial_main_body(double *slo,double *u,struct myvector *gu,state_e *status) {
 	//   6 ----------- 0
 	//          7
 
-// 	int iplus[8] = {-nx+1,1,nx+1,nx,nx-1,-1,-nx-1,-nx}; // shifts for neighbors 0...7	
+// 	int iplus[8] = {-(mesh->nx)+1,1,(mesh->nx)+1,(mesh->nx),(mesh->nx)-1,-1,-(mesh->nx)-1,-(mesh->nx)}; // shifts for neighbors 0...7	
 	iplus = (int *)malloc(8*sizeof(int));
-	iplus[0] = -nx+1;
+	iplus[0] = -(mesh->nx)+1;
 	iplus[1] = 1;
-	iplus[2] = nx+1;
-	iplus[3] = nx;
-	iplus[4] = nx-1;
+	iplus[2] = (mesh->nx)+1;
+	iplus[3] = (mesh->nx);
+	iplus[4] = (mesh->nx)-1;
 	iplus[5] = -1;
-	iplus[6] = -nx-1;
-	iplus[7] = -nx;
+	iplus[6] = -(mesh->nx)-1;
+	iplus[7] = -(mesh->nx);
 
 	par1 = (double *)malloc(npar1*sizeof(double));
 	par2 = (double *)malloc(npar2*sizeof(double));
@@ -488,9 +495,9 @@ int dial_main_body(double *slo,double *u,struct myvector *gu,state_e *status) {
 		while( lcurrent != NULL) { 
 			inew = lcurrent -> ind; // index of the new accepted point
 			status[inew] = VALID;
-			xnew = getpoint(inew);
-			ix = inew%nx;
-			iy = inew/nx;
+			xnew = getpoint(inew,mesh);
+			ix = inew%(mesh->nx);
+			iy = inew/(mesh->nx);
 			Nfinal++;
 			
 			
@@ -502,13 +509,13 @@ int dial_main_body(double *slo,double *u,struct myvector *gu,state_e *status) {
 			for( i = 0; i < 8; i++ ) {
 				// take care of the boundaries of the computational domain
 				ch = 'y';
-				if( ix == nx1 && ( i == 0 || i == 1 || i == 2 )) ch = 'n';
+				if( ix == (mesh->nx1) && ( i == 0 || i == 1 || i == 2 )) ch = 'n';
 				else if( ix == 0 && ( i == 4 || i == 5 || i == 6 )) ch = 'n';
-				if( iy == ny1 && ( i == 2 || i == 3 || i == 4 )) ch = 'n';
+				if( iy == (mesh->ny1) && ( i == 2 || i == 3 || i == 4 )) ch = 'n';
 				else if( iy == 0 && ( i == 6 || i == 7 || i == 0 )) ch = 'n';
 				ind = inew + iplus[i];
 				if( ch == 'y' && status[ind] != VALID ) {
-					sol = do_update(ind,i,inew,ix,iy,xnew,slo,u,gu,status,iplus,par1,par2,cpar,NWTarg,NWTres,NWTllim,NWTulim,NWTJac,NWTdir);
+					sol = do_update(ind,i,inew,ix,iy,xnew,mesh,slo,u,gu,status,iplus,par1,par2,cpar,NWTarg,NWTres,NWTllim,NWTulim,NWTJac,NWTdir);
 					// if the value is reduced, do adjustments
 					if( sol.ch  == 'y' ) {
 						u[ind] = sol.u;
@@ -539,30 +546,46 @@ int dial_main_body(double *slo,double *u,struct myvector *gu,state_e *status) {
 
 //---------------------------------------------------------------
 
-struct myvector getpoint(int ind) {
+struct myvector getpoint(int ind,struct mymesh *mesh) {
 	struct myvector z;
 	
-	z.x = XMIN + hx*(ind%nx);
-	z.y = YMIN + hy*(ind/nx);
+	z.x = (mesh->xmin) + (mesh->hx)*(ind%(mesh->nx));
+	z.y = (mesh->ymin) + (mesh->hy)*(ind/(mesh->nx));
 	return z;
 }
 
 //---------------------------------------------------------------
 
-int get_lower_left_index(struct myvector z) {
+int get_lower_left_index(struct myvector z,struct mymesh *mesh) {
 	int i,j,ind;
 	
-	i = floor((z.x - XMIN)/hx);
-	j = floor((z.y - YMIN)/hy);
-	ind = i + nx*j;
+	i = floor((z.x - (mesh->xmin))/(mesh->hx));
+	j = floor((z.y - (mesh->ymin))/(mesh->hy));
+	ind = i + (mesh->nx)*j;
 	return ind;
 }
 
+//---------------------------------------------------------------
+
+void setup_mesh(int nx,int ny,int nxy,double xmin,double xmax,double ymin,double ymax,struct mymesh *mesh) {
+	mesh -> nx = nx;
+	mesh -> ny = ny;
+	mesh -> nxy = nxy;
+	mesh -> nx1 = nx - 1;
+	mesh -> ny1 = ny - 1;
+	mesh -> hx = (xmax - xmin)/(mesh->nx1);
+	mesh -> hy = (ymax - ymin)/(mesh->ny1);
+	mesh -> hxy = sqrt((mesh->hx)*(mesh->hx) + (mesh->hy)*(mesh->hy));
+	mesh -> xmin = xmin;
+	mesh -> ymin = ymin;
+// 	printf("Mesh: nx = %i, ny = %i, nxy = %i, nx1 = %i, ny1 = %i\n",(mesh->nx),(mesh->ny),(mesh->nxy),(mesh->nx1),(mesh->ny1));
+// 	printf("mesh: hx = %.4e, hy = %.4e, hxy = %.4e, xmin = %.4e, ymin = %.4e\n",(mesh->hx),(mesh->hy),(mesh->hxy),(mesh->xmin),(mesh->ymin));
+}
 
 //---------------------------------------------------------------
 //---------------------------------------------------------------
 struct mysol do_update(int ind,int i,int inew,int ix,int iy,struct myvector xnew,
-				double *slo,double *u,struct myvector *gu,state_e *status,
+				struct mymesh *mesh,double *slo,double *u,struct myvector *gu,state_e *status,
 				int *iplus,double *par1,double *par2,char *cpar,
 				double *NWTarg,double *NWTres,double *NWTllim,double *NWTulim,double *NWTJac,double *NWTdir) {
 	// indices of 8 nearest neighbors of X
@@ -583,6 +606,9 @@ struct mysol do_update(int ind,int i,int inew,int ix,int iy,struct myvector xnew
 	// if inew is j neighbor of ind, then the other neighbors for 2-pt-update are
 	// imap1[j][0] and imap1[j][1] 				   
 	// directions of unit vector zhat for one-point update
+	double cosx = (mesh->hx)/(mesh->hxy);
+	double cosy = (mesh->hy)/(mesh->hxy);
+
 	struct myvector zhat1ptu[] = {{cosx,-cosy},
 								  {1.0,0.0},
 								  {cosx,cosy},
@@ -591,7 +617,7 @@ struct mysol do_update(int ind,int i,int inew,int ix,int iy,struct myvector xnew
 								  {-1.0,0.0},
 								  {-cosx,-cosy},
 								  {0.0,-1.0}};
-	double h1ptu[] = {hxy,hx,hxy,hy,hxy,hx,hxy,hy}; // h for one-point update
+	double h1ptu[] = {(mesh->hxy),(mesh->hx),(mesh->hxy),(mesh->hy),(mesh->hxy),(mesh->hx),(mesh->hxy),(mesh->hy)}; // h for one-point update
 	char ch,ch1ptu;
 	struct mysol sol,update_sol; 
 	int ind0,ind1,j,j0,j1,jtemp;
@@ -603,7 +629,7 @@ struct mysol do_update(int ind,int i,int inew,int ix,int iy,struct myvector xnew
 	update_sol.u = INFTY;
 	update_sol.ch = 'n';
 
-	xhat = getpoint(ind);
+	xhat = getpoint(ind,mesh);
 	getperp = getperp_plus;
 	cpar[1] = 'p';
 	utemp = INFTY;
@@ -617,9 +643,9 @@ struct mysol do_update(int ind,int i,int inew,int ix,int iy,struct myvector xnew
 		// if j0 is even, there will be no problem
 		// if j0 is odd, care should be taken
 		if( j0%2 == 1 ) { 
-			if( iy == ny1 && ( j0 == 5 || j0 == 1 ) && j == 1 ) ch = 'n'; // (5,4) and (1,2) are rejected
+			if( iy == (mesh->ny1) && ( j0 == 5 || j0 == 1 ) && j == 1 ) ch = 'n'; // (5,4) and (1,2) are rejected
 			else if( iy == 0 && ( j0 == 5 || j0 == 1 ) && j == 0 ) ch = 'n'; // eliminate (5,6) and (1,0)
-			if( ix == nx1 && ( j0 == 3 || j0 == 7 ) && j == 1 ) ch = 'n'; // eliminate (3,2) and (7,0)
+			if( ix == (mesh->nx1) && ( j0 == 3 || j0 == 7 ) && j == 1 ) ch = 'n'; // eliminate (3,2) and (7,0)
 			else if( ix == 0 && (j0 == 3 || j0 == 7 ) && j == 0 ) ch = 'n'; // eliminate (3,4) and (7,6)
 			if( ch == 'y' ) { // swap j0 and j1 so that j0 is at distance hxy from xhat
 				jtemp = j0;
@@ -635,8 +661,8 @@ struct mysol do_update(int ind,int i,int inew,int ix,int iy,struct myvector xnew
 			if( status[ind0] == status[ind1]) { // we know that one of these points is inew
 			// do 2-pt-update if both of them are Accepted, i.e., status == VALID
 				N2ptu++;									
-				x0 = getpoint(ind0);
-				x1 = getpoint(ind1);
+				x0 = getpoint(ind0,mesh);
+				x1 = getpoint(ind1,mesh);
 				dx = vec_difference(x1,x0);	
 				if( dot_product(vec_difference(xhat,x1),getperp_plus(dx)) > 0 ) {
 					getperp = getperp_minus;	
@@ -688,6 +714,8 @@ struct mysol do_update(int ind,int i,int inew,int ix,int iy,struct myvector xnew
 //---------------------------------------------------------------
 
 int main() {
+    int p, pmin = 4, pmax = 12; // mesh sizes along single dimension run from 2^pmin + 1 to 2^pmax + 1
+	int nx,ny,nxy; // mesh size
     int i,j,k,ind,kg; 
     double dd,errmax = 0.0,erms = 0.0;
     double gg,gerrmax = 0.0,germs = 0.0;
@@ -699,7 +727,6 @@ int main() {
     char fname[100];
     char str1[3][10] = {"JMM1","JMM2","JMM3"};
     char str2[2][10] = {"dijkstra","dial"};
-    int p, pmin = 4, pmax = 12;
     double a1ptu,a2ptu;
     char print_errors = 'n';
 
@@ -711,7 +738,11 @@ int main() {
 	double *u,*slo; // u = value function, slo = slowness
 	struct myvector  *gu;
 	state_e *status; // status of the mesh point: 1 = finalized, 0 = not finalized
-
+	
+	struct mymesh *mesh;
+	
+	mesh = (struct mymesh *)malloc(sizeof(struct mymesh));
+	if( mesh == NULL ) {printf("Cannot allocate memory for mesh\n"); exit(1);}
 			
 	// for least squares fit
 	AtA.a11 = 0.0; AtA.a12 = 0.0; AtA.a21 = 0.0;AtA.a22 = 0.0;
@@ -730,8 +761,6 @@ int main() {
 	for( p = pmin; p <= pmax; p++ ) {
 		nx = pow(2,p) + 1;
 		ny = nx;
-		nx1 = nx - 1;
-		ny1 = ny - 1;
 		nxy = nx*ny;
 		// set main variables
 		u = (double *)malloc(nxy*sizeof(double));
@@ -749,17 +778,17 @@ int main() {
 		N1ptu = 0;
 		// start
 		printf("slo_fun = %c, method_update = %s, method_template = %s\n",slo_fun,str1[(int)method_update-1],str2[(int)method_template]);
-		param(slo);
+		param(nx,ny,nxy,mesh,slo);
 		CPUbegin=clock();
 		switch( method_template ) {
 			case DIAL:
-				dial_init(slo,u,gu,status);
-				k = dial_main_body(slo,u,gu,status);
+				dial_init(mesh,slo,u,gu,status);
+				k = dial_main_body(mesh,slo,u,gu,status);
 				printf("ACTUAL GAP = %.4e, gap = %.4e, AGAP - gap = %.4e\n",AGAP,gap,AGAP-gap);
 				break;
 			case DIJKSTRA:
-				dijkstra_init(slo,u,gu,status);
-				k = dijkstra_main_body(slo,u,gu,status);
+				dijkstra_init(mesh,slo,u,gu,status);
+				k = dijkstra_main_body(mesh,slo,u,gu,status);
 				break;
 			default:
 				printf("method_template = %c while must be 0 (DIAL), or 1 (DIJKSTRA)\n",method_template);
@@ -773,10 +802,10 @@ int main() {
 		if( print_errors == 'y' ) {
 			ferr = fopen("err2.txt","w");
 		}
-		for( j=0; j<ny; j++ ) {
-		  for( i=0; i<nx; i++ ) {
-		  	  ind = i + nx*j;
-		  	  z = getpoint(ind);
+		for( j=0; j<(mesh->ny); j++ ) {
+		  for( i=0; i<(mesh->nx); i++ ) {
+		  	  ind = i + (mesh->nx)*j;
+		  	  z = getpoint(ind,mesh);
 			  umax = max(u[ind],umax);
 			  urms += u[ind]*u[ind];
 			  dd = fabs(u[ind] - exact_solution(slo_fun,z,slo[ind]));
@@ -805,13 +834,13 @@ int main() {
 		a1ptu = (double)N1ptu/nxy;
 		a2ptu = (double)N2ptu/nxy;
 
-		printf("NX = %i, NY = %i, errmax = %.4e, erms = %.4e, n_errmax = %.4e, n_erms = %.4e, gerrmax = %.4e\tgerms = %.4e\tCPU time = %g\n",
-				  nx,ny,errmax,erms,errmax/umax,erms/urms,gerrmax,germs,cpu);
+		printf("(mesh->nx) = %i, (mesh->ny) = %i, errmax = %.4e, erms = %.4e, n_errmax = %.4e, n_erms = %.4e, gerrmax = %.4e\tgerms = %.4e\tCPU time = %g\n",
+				  (mesh->nx),(mesh->ny),errmax,erms,errmax/umax,erms/urms,gerrmax,germs,cpu);
 		printf("%i\t %.4e\t %.4e\t %.4e\t%.4e\t%g\n",
-				  nx,errmax,erms,errmax/umax,erms/urms,cpu);
+				  (mesh->nx),errmax,erms,errmax/umax,erms/urms,cpu);
 		printf("N1ptu per point = %.4e, N2ptu per point = %.4e\n",a1ptu,a2ptu);			
 		fprintf(fg,"%i\t %.4e\t %.4e\t %.4e\t%.4e\t%.4e\t%.4e\t%g\t%.3f\t%.3f\n",
-				  nx,errmax,erms,errmax/umax,erms/urms,gerrmax,germs,cpu,a1ptu,a2ptu);
+				  (mesh->nx),errmax,erms,errmax/umax,erms/urms,gerrmax,germs,cpu,a1ptu,a2ptu);
 		// free memory
 		free(u);
 		free(slo);
@@ -831,7 +860,7 @@ int main() {
 				break;	
 	  	}
 		// for least squares fit for errors
-		  aux = -log(nx1);
+		  aux = -log((mesh->nx1));
 		  aux0 = log(errmax);
 		  aux1 = log(erms);
 		  aux2 = log(gerrmax);
