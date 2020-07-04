@@ -22,8 +22,7 @@ struct myvector gradslo(char slo_fun,struct myvector x,double s);
 struct mymatrix Hslo(char slo_fun,struct myvector x,struct myvector gs,double s);
 double exact_solution(char slo_fun,struct myvector x,double s);
 struct myvector exact_gradient(char slo_fun,struct myvector x,double s);
-void set_params(char slo_fun);
-
+void set_params( char slo_fun,struct myvector *xstart );
 
 // Parameters for slowness field from Qi + Vladimirsky
 double QVf0,QVs0,QVvv,QVvnorm; // QVf0 = 1/QVs0, QVvv = ||QVv||^2
@@ -34,15 +33,8 @@ double S02 = 4.0, nG0 = 3.0, nG02 = 9.0; // nG0 = ||G0||, nG02 = ||G0||^2
 struct myvector G0 = {0.0,-3.0};
 
 /**************************************/
-void set_params( char slo_fun ) {
+void set_params( char slo_fun,struct myvector *xstart ) {
   switch( slo_fun ) {
-  	case 'v': 
-		QVs0 = 2.0;
-		QVf0 = 1.0/QVs0;
-		QVv.x = 0.5; QVv.y = 0.0;  
-		QVvv = normsquared(QVv);
-		QVvnorm = sqrt(QVvv);
-		break;
 	case 'p':
 		QVs0 = 1.0;
 		QVf0 = 1.0/QVs0;
@@ -50,9 +42,18 @@ void set_params( char slo_fun ) {
 		QVvv = normsquared(QVv);
 		QVvnorm = sqrt(QVvv);
 		break;
+  	case 'v': 
+		QVs0 = 2.0;
+		QVf0 = 1.0/QVs0;
+		QVv.x = 0.5; QVv.y = 0.0;  
+		QVvv = normsquared(QVv);
+		QVvnorm = sqrt(QVvv);
+		break;
 	default:  		
   		break; 
   	}	
+  	xstart->x = 0.0;
+  	xstart->y = 0.0;
 }
 
 /**************************************/
@@ -152,8 +153,6 @@ struct mymatrix Hslo(char slo_fun,struct myvector x,struct myvector gs,double s)
 double exact_solution(char slo_fun,struct myvector x,double s) {
   double uex;
   double aux,sig;
-  struct myvector dx;
-  struct myvector xstart = {0.0,0.0};
   
   switch( slo_fun ) {
   	case '1':
@@ -164,13 +163,11 @@ double exact_solution(char slo_fun,struct myvector x,double s) {
   	  uex = 0.5*x.x*x.x + 2.0*aux*aux;
   	  break;
 	case 'v': case 'p':
-		dx = vec_difference(x,xstart);
-		uex = acosh(1.0 + 0.5*QVs0*QVvv*s*normsquared(dx))/QVvnorm;
+		uex = acosh(1.0 + 0.5*QVs0*QVvv*s*normsquared(x))/QVvnorm;
 		break;
 	case 'g':	
-		dx = vec_difference(x,xstart);
-		aux = S02 + dot_product(G0,dx); // sbar^2
-		sig = sqrt(2.0*(aux - sqrt(aux*aux - nG02*normsquared(dx)))/nG02);
+		aux = S02 + dot_product(G0,x); // sbar^2
+		sig = sqrt(2.0*(aux - sqrt(aux*aux - nG02*normsquared(x)))/nG02);
 		uex = (aux - nG02*sig*sig*E6)*sig;
 		break;
   	default:
@@ -183,14 +180,12 @@ double exact_solution(char slo_fun,struct myvector x,double s) {
 
 /*************************************/
 struct myvector exact_gradient(char slo_fun,struct myvector x,double s) {
-  double aux,aux0,aux1,dxdx,sig;
-  struct myvector g,dx,gsig;
-  struct myvector xstart = {0.0,0.0};
+  double aux,aux0,aux1,xx,sig;
+  struct myvector g,gsig;
   
-  dx = vec_difference(x,xstart);
   switch( slo_fun ) {
   	case '1':
-  	  g = a_times_vec(dx,s/norm(dx));
+  	  g = a_times_vec(x,s/norm(x));
   	  break;
   	case 'm':    	  	
   	  aux = sin(x.x + x.y);
@@ -198,20 +193,18 @@ struct myvector exact_gradient(char slo_fun,struct myvector x,double s) {
   	  g.y = aux;
   	  break;
 	case 'v': case 'p':
-		dx = vec_difference(x,xstart);
-		dxdx = normsquared(dx);
-		aux0 = 1.0 + 0.5*QVs0*QVvv*s*dxdx;
+		xx = normsquared(x);
+		aux0 = 1.0 + 0.5*QVs0*QVvv*s*xx;
 		aux = QVs0*QVvnorm*s/sqrt(aux0*aux0 - 1.0);
 		// grad u = aux*(dx - 0.5*dxdx*s*v)
-		g = a_times_vec(vec_difference(dx,a_times_vec(QVv,0.5*dxdx*s)),aux);
+		g = a_times_vec(vec_difference(x,a_times_vec(QVv,0.5*xx*s)),aux);
 		break;
 	case 'g':
-		dx = vec_difference(x,xstart);
-		aux = S02 + dot_product(G0,dx); // sbar^2
-		aux1 = sqrt(aux*aux - nG02*normsquared(dx));
+		aux = S02 + dot_product(G0,x); // sbar^2
+		aux1 = sqrt(aux*aux - nG02*normsquared(x));
 		aux0 = sqrt(aux - aux1);
 		sig = aux0*SQ2/nG0;
-		gsig = a_times_vec(vec_difference(G0,a_times_vec(vec_lin_comb(G0,dx,aux,-nG02),1.0/aux1)),(0.5*SQ2/(nG0*aux0)));
+		gsig = a_times_vec(vec_difference(G0,a_times_vec(vec_lin_comb(G0,x,aux,-nG02),1.0/aux1)),(0.5*SQ2/(nG0*aux0)));
 		g = vec_lin_comb(G0,gsig,sig,aux-0.5*nG02*sig*sig);
 		break;
   	default:
