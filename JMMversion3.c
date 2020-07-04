@@ -106,7 +106,6 @@ double *u,*slo; // u = value function, slo = slowness
 state_e *status; // status of the mesh point: 1 = finalized, 0 = not finalized
 double *uexact;
 struct myvector  *gu;
-int *utype;
 
 //--- variables for bucket sort ---
 struct mybucket *bucket;
@@ -392,7 +391,6 @@ void dial_init() {
 		for( j = jmin; j <= jmax; j++ ) {
 			ind = i + j*nx;
 			u[ind] = uexact[ind];
-			utype[ind] = 0;
 			gu[ind] = exact_gradient(slo_fun,getpoint(ind),slo[ind]);
 			if( i == imin || j == jmin || i == imax || j == jmax ) {
 				bdry[bcount] = ind;
@@ -726,26 +724,18 @@ struct mysol do_update(int ind,int i,int inew,int ix,int iy,struct myvector xnew
 				}								
 				if( j1%2 == 0 ) {printf("j1 = %i\n",j1); exit(1);}									
 				
-				if( ind0 == istart || ind1 == istart ) { // in icircle: use the exact solution
-					utemp = uexact[ind];
-					gtemp = exact_gradient(slo_fun,xhat,slo[ind]);
-					utype[ind] = 0;						
+				sol = two_pt_update(NWTarg,NWTres,NWTllim,NWTulim,NWTJac,NWTdir,
+							dx,x0,xhat,u[ind0],u[ind1],
+								gu[ind0],gu[ind1],slo[ind],par2,cpar);	
+				if( sol.ch == 'y' && sol.u < utemp && sol.u < u[ind] ){
+					utemp = sol.u;
+					gtemp = sol.gu;
+					AGAP = min(AGAP,min(utemp - u[ind0],utemp - u[ind1]));
+					ch1ptu = 'n';
+					update_sol.u = utemp;
+					update_sol.gu = gtemp;
+					update_sol.ch = 'y';
 				}
-				else {									
-					sol = two_pt_update(NWTarg,NWTres,NWTllim,NWTulim,NWTJac,NWTdir,
-								dx,x0,xhat,u[ind0],u[ind1],
-									gu[ind0],gu[ind1],slo[ind],par2,cpar);	
-					if( sol.ch == 'y' && sol.u < utemp && sol.u < u[ind] ){
-						utemp = sol.u;
-						gtemp = sol.gu;
-						AGAP = min(AGAP,min(utemp - u[ind0],utemp - u[ind1]));
-						utype[ind] = 2;
-						ch1ptu = 'n';
-						update_sol.u = utemp;
-						update_sol.gu = gtemp;
-						update_sol.ch = 'y';
-					}
-				}			
 			}  // end if( status[ind0] == status[ind1])
 		} // end if( ch == 'y' )
 	} // end for( j = 0; j < 2; j++ ) {
@@ -758,7 +748,6 @@ struct mysol do_update(int ind,int i,int inew,int ix,int iy,struct myvector xnew
 			utemp = sol.u;
 			gtemp = sol.gu;
 			AGAP = min(AGAP,utemp - u[inew]);
-			utype[ind] = 1;
 			update_sol.u = utemp;
 			update_sol.gu = gtemp;
 			update_sol.ch = 'y';
@@ -781,7 +770,7 @@ int main() {
     double urms,umax;
     clock_t CPUbegin;
     double cpu;
-    FILE *fg,*ferr,*ftype;
+    FILE *fg,*ferr;
     char fname[100];
     char str1[3][10] = {"JMM1","JMM2","JMM3"};
     char str2[2][10] = {"dijkstra","dial"};
@@ -800,7 +789,6 @@ int main() {
 	uexact = (double *)malloc(k*sizeof(double));
 	slo = (double *)malloc(k*sizeof(double));
 	status = (state_e *)malloc(k*sizeof(state_e));
-	utype = (int *)malloc(k*sizeof(int));
 	gu = (struct myvector *)malloc(k*sizeof(struct myvector));
 			
 	// for least squares fit
@@ -857,7 +845,6 @@ int main() {
 		kg = 0;
 		if( print_errors == 'y' ) {
 			ferr = fopen("err2.txt","w");
-			ftype = fopen("utype.txt","w");
 		}
 		for( j=0; j<ny; j++ ) {
 		  for( i=0; i<nx; i++ ) {
@@ -875,17 +862,14 @@ int main() {
 			  }	
 			  if( print_errors == 'y' ) {
 			  	  fprintf(ferr,"%.4e\t",u[ind] - uexact[ind]);
-			  	  fprintf(ftype,"%i\t",utype[ind]);
 			  }
 		  }
 		  if( print_errors == 'y' ) {
 		  	  fprintf(ferr,"\n");
-		  	  fprintf(ftype,"\n");
 		  }	  
 		}
 		if( print_errors == 'y' ) {
 			fclose(ferr);
-			fclose(ftype);
 		}	
 		urms = sqrt(urms/nxy);
 		erms = sqrt(erms/nxy);
@@ -900,18 +884,18 @@ int main() {
 		printf("N1ptu per point = %.4e, N2ptu per point = %.4e\n",a1ptu,a2ptu);			
 		fprintf(fg,"%i\t %.4e\t %.4e\t %.4e\t%.4e\t%.4e\t%.4e\t%g\t%.3f\t%.3f\n",
 				  nx,errmax,erms,errmax/umax,erms/urms,gerrmax,germs,cpu,a1ptu,a2ptu);
-		switch ( method_template ) {	
-			case DIAL:	
+		switch ( method_template ) {
+			case DIAL:
 			     free(bucket);
-			     free(list);	
+			     free(list);
 			     break;
 			case DIJKSTRA:
 				free(pos);
 				free(tree);
 				free(count);
-				break; 
+				break;
 			default:
-				break;	  	
+				break;	
 	  	}
 		// for least squares fit for errors
 		  aux = -log(nx1);
