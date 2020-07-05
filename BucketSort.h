@@ -26,7 +26,7 @@ struct bucket_sort_stuff {
 
 void dial_list_init(struct mylist *list,int ind);
 void dial_bucket_init(struct mybucket *bucket,int iskip,double gap);
-void print_buckets(int Nbuckets,struct mybucket *bucket,struct mylist *list);
+void print_buckets(int Nbuckets,struct mybucket *bucket);
 int adjust_bucket(int ind,double newval,double g,int Nbuckets,struct mybucket *bucket,struct mylist *list);
 int find_bucket(double utemp,double g);
 void myfree(struct bucket_sort_stuff  *BB);

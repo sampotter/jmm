@@ -46,6 +46,7 @@ target_link_libraries (scratch PRIVATE sjs)
 
 set (MASHA_LIB_SRCS
   JMMversion3.c
+  BucketSort.c
   HeapSort.c
   QuickSort.c
   JMMupdates.c
