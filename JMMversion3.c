@@ -3,7 +3,7 @@
 // 8-point nearest neighborhood
 // segments of rays are approximated with quadratic curves
 
-// Compile command: gcc -Wall BucketSort.c HeapSort.c QuickSort.c JMMupdates.c linear_algebra.c slowness_and_uexact.c Newton.c JMMversion3.c -lm -O3
+// Compile command: gcc -Wall mesh.c BucketSort.c HeapSort.c QuickSort.c JMMupdates.c linear_algebra.c slowness_and_uexact.c Newton.c JMMversion3.c -lm -O3
 
 // Copyright: Maria Cameron, June 14, 2020
 
@@ -19,6 +19,7 @@
 #include "QuickSort.h"
 #include "HeapSort.h"
 #include "BucketSort.h"
+#include "mesh.h"
 
 // type of method's template
 #define DIJKSTRA 0
@@ -34,35 +35,14 @@
 #define SINEFUN 'm' // s(x,y) = [[sin(x+y)]^2 + [x + sin(x+y)]^2]^{1/2}
 #define SLOTH 'g' // s(x,y)^2 = 4 - 6*y
 
-
-#define PI 3.141592653589793
-#define E3 0.333333333333333 // 1/3
-#define TT3 0.666666666666666 // 2/3
-#define E6 0.166666666666666 // 1/6
-#define E18 0.055555555555556 // 1/18
-#define SQ2 1.414213562373095 // sqrt(2)
-
 #define mabs(a) ((a) >= 0 ? (a) : -(a))
 #define sgn(a) ((a) == 0 ? 0 : ((a) > 0  ? 1 : -1 ))
 #define max(a,b) ((a) >= (b) ? (a) : (b))
 #define min(a,b) ((a) <= (b) ? (a) : (b))
 #define INFTY 1.0e+6
 #define TOL 1.0e-14
-#define RAD 0.1 // Radius for local factoring
+#define RAD 0.1 // the initial box is [-RAD,RAD]^2
 
-// mesh for 8-pt nearest neighborhood
-struct mymesh {
-	int nx; // #of mesh points along x direction
-	int ny; // #of mesh points along x direction
-	int nxy; // total mesh size nx*ny
-	int nx1; // nx - 1
-	int ny1; // ny - 1
-	double hx; // mesh step in x direction
-	double hy; // mesh step in y direction
-	double hxy; // step along diagonal of mesh cell
-	double xmin; // x-coordinate of lower left corner
-	double ymin; // y-coordinate of lower left corner
-};
 
 
 typedef enum state {FAR, TRIAL, VALID, BOUNDARY} state_e;
@@ -80,9 +60,6 @@ int dial_main_body(struct mymesh *mesh,double *slo,double *u,struct myvector *gu
 int dijkstra_main_body(struct mymesh *mesh,double *slo,double *u,struct myvector *gu,state_e *status,
 		struct binary_tree_stuff *Btree,int *N1ptu,int *N2ptu);
 
-struct myvector getpoint(int ind,struct mymesh *mesh); 
-int get_lower_left_index(struct myvector *z,struct mymesh *mesh);
-void setup_mesh(int nx,int ny,int nxy,double xmin,double xmax,double ymin,double ymax,struct mymesh *mesh);
 
 //---- U P D A T E S
 struct mysol do_update(int ind,int i,int inew,int ix,int iy,struct myvector xnew,
@@ -101,15 +78,10 @@ char method_update = JMM3;
 //
 // 
 
-
-
-// int IND = 27,P0,P1;
-
 //--------------------------------------------
 //---------------------------------------------------------------
 
 void param(int nx,int ny,int nxy,struct myvector *xstart,struct mymesh *mesh,double *slo) {
-
 	int ind;
 	double XMIN,XMAX,YMIN,YMAX;	
 	
@@ -605,44 +577,6 @@ int dial_main_body(struct mymesh *mesh,double *slo,double *u,struct myvector *gu
 	} // while( empty_count < Nbucket )
 	return kbucket;
 } 
-
-//---------------------------------------------------------------
-
-struct myvector getpoint(int ind,struct mymesh *mesh) {
-	struct myvector z;
-	
-	z.x = (mesh->xmin) + (mesh->hx)*(ind%(mesh->nx));
-	z.y = (mesh->ymin) + (mesh->hy)*(ind/(mesh->nx));
-	return z;
-}
-
-//---------------------------------------------------------------
-
-int get_lower_left_index(struct myvector *z,struct mymesh *mesh) {
-	int i,j,ind;
-	
-	i = floor((z->x - (mesh->xmin))/(mesh->hx));
-	j = floor((z->y - (mesh->ymin))/(mesh->hy));
-	ind = i + (mesh->nx)*j;
-	return ind;
-}
-
-//---------------------------------------------------------------
-
-void setup_mesh(int nx,int ny,int nxy,double xmin,double xmax,double ymin,double ymax,struct mymesh *mesh) {
-	mesh -> nx = nx;
-	mesh -> ny = ny;
-	mesh -> nxy = nxy;
-	mesh -> nx1 = nx - 1;
-	mesh -> ny1 = ny - 1;
-	mesh -> hx = (xmax - xmin)/(mesh->nx1);
-	mesh -> hy = (ymax - ymin)/(mesh->ny1);
-	mesh -> hxy = sqrt((mesh->hx)*(mesh->hx) + (mesh->hy)*(mesh->hy));
-	mesh -> xmin = xmin;
-	mesh -> ymin = ymin;
-// 	printf("Mesh: nx = %i, ny = %i, nxy = %i, nx1 = %i, ny1 = %i\n",(mesh->nx),(mesh->ny),(mesh->nxy),(mesh->nx1),(mesh->ny1));
-// 	printf("mesh: hx = %.4e, hy = %.4e, hxy = %.4e, xmin = %.4e, ymin = %.4e\n",(mesh->hx),(mesh->hy),(mesh->hxy),(mesh->xmin),(mesh->ymin));
-}
 
 //---------------------------------------------------------------
 //---------------------------------------------------------------
