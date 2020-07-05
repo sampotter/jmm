@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <math.h>
 #include "BucketSort.h"
+#include "QuickSort.h"
 #define INFTY 1.0e+6
 #define TOL 1.0e-14
 #define mabs(a) ((a) >= 0 ? (a) : -(a))
@@ -15,6 +16,9 @@ void print_buckets(int Nbuckets,struct mybucket *bucket);
 int adjust_bucket(int ind,double newval,double g,int Nbuckets,struct mybucket *bucket,struct mylist *list);
 int find_bucket(double utemp,double g);
 void myfree(struct bucket_sort_stuff  *BB);
+void start_filling_buckets(struct bucket_sort_stuff  *BB,int Nbuckets,struct mybucket *bucket,
+		struct mylist *list,double gap,int *bdry,double *blist,int bcount);
+
 //---------------------------------------------------------------
 
 void dial_list_init(struct mylist *list,int ind) {
@@ -101,3 +105,43 @@ void myfree(struct bucket_sort_stuff  *BB) {
 	free(BB->blist); // list of values of boundary points
 	free(BB);
 }
+
+//---------------------------------------------------------------
+void start_filling_buckets(struct bucket_sort_stuff  *BB,int Nbuckets,struct mybucket *bucket,
+		struct mylist *list,double gap,int *bdry,double *blist,int bcount){	
+	int iskip = 0,i,ibcurrent,jbdry;
+	double Bmax;
+	// sort boundary points in increasing order
+	quicksort(blist,bdry,0,bcount-1);	
+
+	Bmax = Nbuckets*gap;
+	while( Bmax < blist[0] ) {
+		Bmax +=Bmax;	
+		iskip+=Nbuckets;
+	}		 
+	// 		set up buckets
+	for( i = 0; i < Nbuckets; i++ ) {
+		dial_bucket_init(bucket + i,iskip + i,gap);
+	}
+	ibcurrent = adjust_bucket(bdry[0],blist[0],gap,Nbuckets,bucket,list);
+	jbdry = 1;
+	while( jbdry < bcount && blist[jbdry] < Bmax ) {
+		i = adjust_bucket(bdry[jbdry],blist[jbdry],gap,Nbuckets,bucket,list);
+		jbdry++;
+	}
+	// setup struct bucket_sort_stuff 
+	BB->gap = gap;
+	BB->list = list;
+	BB->Nbuckets = Nbuckets;
+	BB->bucket = bucket;
+	BB->bcount = bcount;
+	BB->bdry = bdry;
+	BB->blist = blist;
+	BB->jbdry = jbdry;
+	BB->Bmax = Bmax;
+	BB->ibcurrent = ibcurrent;
+}
+
+
+
+

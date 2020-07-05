@@ -30,3 +30,5 @@ void print_buckets(int Nbuckets,struct mybucket *bucket);
 int adjust_bucket(int ind,double newval,double g,int Nbuckets,struct mybucket *bucket,struct mylist *list);
 int find_bucket(double utemp,double g);
 void myfree(struct bucket_sort_stuff  *BB);
+void start_filling_buckets(struct bucket_sort_stuff  *BB,int Nbuckets,struct mybucket *bucket,
+		struct mylist *list,double gap,int *bdry,double *blist,int bcount);

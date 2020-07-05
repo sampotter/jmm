@@ -274,14 +274,13 @@ struct bucket_sort_stuff *dial_init(struct mymesh *mesh,struct myvector *xstart,
 	struct mylist *list;
 	double gap,maxgap; // update gap = min_{ind}(u[ind] - max(u0,u1)); maxgap = max_{ind}(u[ind] - u)
 	int Nbuckets; 
-	int ibcurrent; // index of the current bucket
 	//--- variables for boundary conditions for Dial-like solvers
-	double Bmax;
-	int *bdry,jbdry = 0,bcount;
+	int *bdry,bcount;
 	double *blist;
 	struct bucket_sort_stuff *BB;
 
-	
+	BB = (struct bucket_sort_stuff *)malloc(sizeof(struct bucket_sort_stuff));
+
 	list = (struct mylist*)malloc((mesh->nxy)*sizeof(struct mylist));
 	// initialize all mesh points
 	for ( ind = 0; ind < (mesh->nxy); ind++ ) {
@@ -314,9 +313,7 @@ struct bucket_sort_stuff *dial_init(struct mymesh *mesh,struct myvector *xstart,
 				status[ind] = VALID;
 			}	
 		}
-	}
-	quicksort(blist,bdry,0,bcount-1);	
-	
+	}	
 	// find gap for bucket sort
 	// find min and max slowness in Omega \ ibox
 	slo_min = INFTY;
@@ -347,38 +344,9 @@ struct bucket_sort_stuff *dial_init(struct mymesh *mesh,struct myvector *xstart,
 	printf("Nbuckets = %i\n",Nbuckets);
 	bucket = (struct mybucket*)malloc(Nbuckets*sizeof(struct mybucket));
 	
-	// put some initial number of boundary points to buckets
-	Bmax = Nbuckets*gap;
-	int iskip = 0;
-	while( Bmax < blist[0] ) {
-		Bmax +=Bmax;	
-		iskip+=Nbuckets;
-	}		 
-	// 		set up buckets
-	for( i = 0; i < Nbuckets; i++ ) {
-		dial_bucket_init(bucket + i,iskip + i,gap);
-	}
-	jbdry = 0;
-	ind = bdry[jbdry];
-	ibcurrent = adjust_bucket(ind,u[ind],gap,Nbuckets,bucket,list);
-	jbdry = 1;
-	while( jbdry < bcount && blist[jbdry] < Bmax ) {
-		ind = bdry[jbdry];
-		k = adjust_bucket(ind,u[ind],gap,Nbuckets,bucket,list);
-		jbdry++;
-	}
-	// setup struct bucket_sort_stuff 
-	BB = (struct bucket_sort_stuff *)malloc(sizeof(struct bucket_sort_stuff));
-	BB->gap = gap;
-	BB->list = list;
-	BB->Nbuckets = Nbuckets;
-	BB->bucket = bucket;
-	BB->bcount = bcount;
-	BB->bdry = bdry;
-	BB->blist = blist;
-	BB->jbdry = jbdry;
-	BB->Bmax = Bmax;
-	BB->ibcurrent = ibcurrent;
+	// setup buckets and put some initial number of boundary points to buckets
+	start_filling_buckets(BB,Nbuckets,bucket,list,gap,bdry,blist,bcount);
+	
 	return BB;
 }
 
