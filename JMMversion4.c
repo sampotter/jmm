@@ -3,7 +3,7 @@
 // 8-point nearest neighborhood
 // segments of rays are approximated with quadratic curves
 
-// Compile command: gcc -Wall mesh.c BucketSort.c HeapSort.c QuickSort.c JMMupdates.c linear_algebra.c slowness_and_uexact.c Newton.c JMMversion3.c -lm -O3
+// Compile command: gcc -Wall mesh.c BucketSort.c HeapSort.c QuickSort.c JMMupdates.c linear_algebra.c slowness_and_uexact.c Newton.c JMMversion4.c -lm -O3
 
 // Copyright: Maria Cameron, June 14, 2020
 
@@ -361,7 +361,6 @@ int dial_main_body(struct mymesh *mesh,double *slo,double *u,struct myvector *gu
 	double Bmax;
 	int *bdry,jbdry,bcount;
 	double *blist;
-	int testcount;
 	
 	bucket = BB->bucket;
 	list = BB->list;
@@ -404,15 +403,13 @@ int dial_main_body(struct mymesh *mesh,double *slo,double *u,struct myvector *gu
 	cpar[0] = slo_fun;
 	cpar[2] = method_update; 
 	
-	while( empty_count < Nbuckets ) { // && Nfinal < NFMAX 
+	while( empty_count < Nbuckets ) { 
 		bcurrent = bucket + ibcurrent; // pointer to the current bucket
 		lcurrent = bcurrent -> list;
 		vcurrent = bcurrent -> minval;
 		if( lcurrent == NULL ) empty_count++;
 		else empty_count = 0;
 		(bucket + ibcurrent) -> list = NULL; // empty the current bucket
-		testcount = (bucket + ibcurrent) -> count;
-		(bucket + ibcurrent) -> count = 0;
 		bucket_count = 0;
 		while( lcurrent != NULL) { 
 			inew = lcurrent -> ind; // index of the new accepted point
@@ -448,10 +445,6 @@ int dial_main_body(struct mymesh *mesh,double *slo,double *u,struct myvector *gu
 			lcurrent = lcurrent -> next;
 			bucket_count++;
 		} // end while( lcurrent != NULL )
-		if( testcount != bucket_count ) {
-			printf("kbucket = %i, testcount = %i, bucket_count = %i\n",kbucket,testcount,bucket_count);
-			exit(1);
-		}
 		kbucket++;
 		// move on to the next bucket
 		ibcurrent++;

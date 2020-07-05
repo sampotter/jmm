@@ -33,6 +33,7 @@ void dial_list_init(struct mylist *list,int ind) {
 void dial_bucket_init(struct mybucket *bucket,int i,double gap) {
 	bucket -> list = NULL;
 	bucket -> minval = i*gap;
+	bucket -> count = 0;
 }
 
 //---------------------------------------------------------------
@@ -69,6 +70,7 @@ int adjust_bucket(int ind,double newval,double g,int Nbuckets,struct mybucket *b
 			}
 			list[ind].previous = NULL;
 			list[ind].next = NULL;
+			bucket[list[ind].ibucket].count--;
 		}
 		if( bucket[knew].list != NULL ) { // if the bucket is not empty, attach to the new bucket in the beginning of it
 			((bucket + knew) -> list) -> previous = list + ind;
@@ -80,6 +82,7 @@ int adjust_bucket(int ind,double newval,double g,int Nbuckets,struct mybucket *b
 			bucket[knew].minval = find_bucket(newval,g)*g;
 		}
 		list[ind].ibucket = knew;
+		bucket[list[ind].ibucket].count++;
 	}
 	return knew;
 }
@@ -156,4 +159,21 @@ int find_number_of_buckets(double gap,double maxgap) {
 
 	return Nbuckets;
 }
+
+//---------------------------------------------------------------
+
+// double form_list_of_new_valid_points(struct mybucket *bucket,int ibcurrent,int *newlist) {
+// 		bcurrent = bucket + ibcurrent; // pointer to the current bucket
+// 		lcurrent = bcurrent -> list;
+// 		vcurrent = bcurrent -> minval;
+// 		if( lcurrent == NULL ) empty_count++;
+// 		else empty_count = 0;
+// 		(bucket + ibcurrent) -> list = NULL; // empty the current bucket
+// 		bucket_count = 0;
+// 		while( lcurrent != NULL) { 
+// 			inew = lcurrent -> ind; // index of the new accepted point
+// 			status[inew] = VALID;
+// 			xnew = getpoint(inew,mesh);
+// 			Nfinal++;
+// }
 

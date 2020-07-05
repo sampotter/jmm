@@ -8,6 +8,7 @@ struct mylist {
 struct mybucket {
 	struct mylist *list; // pointer to the list of nodes in this bucket
 	double minval; // minimal possible value in the bucket
+	int count; // the number of points in the bucket
 };
 
 struct bucket_sort_stuff {
