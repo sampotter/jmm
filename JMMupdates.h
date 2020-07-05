@@ -1,6 +1,7 @@
 struct mysol {
   double u;
   struct myvector gu;
+  double gap; 
   char ch;
 };  
 

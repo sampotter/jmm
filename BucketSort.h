@@ -10,9 +10,23 @@ struct mybucket {
 	double minval; // minimal possible value in the bucket
 };
 
+struct bucket_sort_stuff {
+	double gap; // the minimal difference between the value at child and the value at parent 
+	struct mylist *list; // list is associated with every mesh point
+	int Nbuckets; // the number of buckets
+	struct mybucket *bucket;
+	int bcount; // the number of boundary points
+	int *bdry; // indices of boundary points
+	double *blist; // list of values of boundary points
+	int jbdry; // the first index of  boundary point with no assigned bucket
+	double Bmax; // boundary points with values less than Bmax should be assigned to buckets 
+	int ibcurrent; // the index of the current bucket
+};
+
 
 void dial_list_init(struct mylist *list,int ind);
 void dial_bucket_init(struct mybucket *bucket,int iskip,double gap);
 void print_buckets(int Nbuckets,struct mybucket *bucket,struct mylist *list);
 int adjust_bucket(int ind,double newval,double g,int Nbuckets,struct mybucket *bucket,struct mylist *list);
 int find_bucket(double utemp,double g);
+void myfree(struct bucket_sort_stuff  *BB);

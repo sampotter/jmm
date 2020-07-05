@@ -64,39 +64,21 @@ struct mymesh {
 	double ymin; // y-coordinate of lower left corner
 };
 
-struct bucket_sort_stuff {
-	double gap; // the minimal difference between the value at child and the value at parent 
-	int nxy; // the number of mesh points
-	struct mylist *list; // list is associated with every mesh point
-	int Nbuckets; // the number of buckets
-	int Nb1; // Nb1 = Nbuckets - 1
-	struct mybucket *bucket;
-	int bcount; // the number of boundary points
-	int *bdry; // indices of boundary points
-	double *blist; // list of values of boundary points
-	int jbdry; // the first index of  boundary point with no assigned bucket
-	double Bmax; // boundary points with values less than Bmax should be assigned to buckets 
-	int ibcurrent; // the index of the current bucket
-};
-
-struct binary_tree_stuff {
-	int *count;
-	int *pos;
-	int *tree;
-};
 
 typedef enum state {FAR, TRIAL, VALID, BOUNDARY} state_e;
 
 //-------- FUNCTIONS ---------
 int main(void);
 void param(int nx,int ny,int nxy,struct myvector *xstart,struct mymesh *mesh,double *slo);
-void dial_init(struct mymesh *mesh,struct myvector *xstart,double *slo,double *u,struct myvector *gu,state_e *status);
+struct bucket_sort_stuff *dial_init(struct mymesh *mesh,struct myvector *xstart,double *slo,
+		double *u,struct myvector *gu,state_e *status);
 struct binary_tree_stuff  *dijkstra_init(struct mymesh *mesh,struct myvector *xstart,
 		double *slo,double *u,struct myvector *gu,state_e *status);
 //
-int dial_main_body(struct mymesh *mesh,double *slo,double *u,struct myvector *gu,state_e *status,int *N1ptu,int *N2ptu);
+int dial_main_body(struct mymesh *mesh,double *slo,double *u,struct myvector *gu,state_e *status,
+		struct bucket_sort_stuff *BB,int *N1ptu,int *N2ptu);
 int dijkstra_main_body(struct mymesh *mesh,double *slo,double *u,struct myvector *gu,state_e *status,
-	struct binary_tree_stuff *Btree,int *N1ptu,int *N2ptu);
+		struct binary_tree_stuff *Btree,int *N1ptu,int *N2ptu);
 
 struct myvector getpoint(int ind,struct mymesh *mesh); 
 int get_lower_left_index(struct myvector *z,struct mymesh *mesh);
@@ -114,20 +96,10 @@ struct mysol do_update(int ind,int i,int inew,int ix,int iy,struct myvector xnew
 				
 //-------- VARIABLES ---------
 char slo_fun = SLOTH;
-char method_template = DIJKSTRA;
+char method_template = DIAL;
 char method_update = JMM3;
 //
 // 
-	//--- variables for bucket sort ---
-	struct mybucket *bucket;
-	struct mylist *list;
-	double gap,maxgap,AGAP = INFTY; // update gap = min_{ind}(u[ind] - max(u0,u1)); maxgap = max_{ind}(u[ind] - u)
-	int Nbuckets,Nb1; // Nb1 = Nbuckets - 1
-	int ibcurrent; // index of the current bucket
-	//--- variables for boundary conditions for Dial-like solvers
-	double Bmax;
-	int *bdry,jbdry = 0,bcount;
-	double *blist;
 
 
 
@@ -336,7 +308,7 @@ int dijkstra_main_body(struct mymesh *mesh,double *slo,
 
 //---------------------------------------------------------------
 
-void dial_init(struct mymesh *mesh,struct myvector *xstart,
+struct bucket_sort_stuff *dial_init(struct mymesh *mesh,struct myvector *xstart,
 		double *slo,double *u,struct myvector *gu,state_e *status) {
 	int i,j,ind,k; 
 	int imin,imax,jmin,jmax,kx,ky;
@@ -344,6 +316,18 @@ void dial_init(struct mymesh *mesh,struct myvector *xstart,
 	double slo_min,slo_max;
 	struct myvector z;
 	double hx2,hy2;
+	//--- variables for bucket sort ---
+	struct mybucket *bucket;
+	struct mylist *list;
+	double gap,maxgap; // update gap = min_{ind}(u[ind] - max(u0,u1)); maxgap = max_{ind}(u[ind] - u)
+	int Nbuckets,Nb1; // Nb1 = Nbuckets - 1
+	int ibcurrent; // index of the current bucket
+	//--- variables for boundary conditions for Dial-like solvers
+	double Bmax;
+	int *bdry,jbdry = 0,bcount;
+	double *blist;
+	struct bucket_sort_stuff *BB;
+
 	
 	list = (struct mylist*)malloc((mesh->nxy)*sizeof(struct mylist));
 	// initialize all mesh points
@@ -437,6 +421,34 @@ void dial_init(struct mymesh *mesh,struct myvector *xstart,
 		k = adjust_bucket(ind,u[ind],gap,Nbuckets,bucket,list);
 		jbdry++;
 	}
+	// setup struct bucket_sort_stuff 
+	BB = (struct bucket_sort_stuff *)malloc(sizeof(struct bucket_sort_stuff));
+	BB->gap = gap;
+	BB->list = list;
+	BB->Nbuckets = Nbuckets;
+	BB->bucket = bucket;
+	BB->bcount = bcount;
+	BB->bdry = bdry;
+	BB->blist = blist;
+	BB->jbdry = jbdry;
+	BB->Bmax = Bmax;
+	BB->ibcurrent = ibcurrent;
+	return BB;
+	
+// struct bucket_sort_stuff {
+// 	double gap; // the minimal difference between the value at child and the value at parent 
+// 	struct mylist *list; // list is associated with every mesh point
+// 	int Nbuckets; // the number of buckets
+// 	struct mybucket *bucket;
+// 	int bcount; // the number of boundary points
+// 	int *bdry; // indices of boundary points
+// 	double *blist; // list of values of boundary points
+// 	int jbdry; // the first index of  boundary point with no assigned bucket
+// 	double Bmax; // boundary points with values less than Bmax should be assigned to buckets 
+// 	int ibcurrent; // the index of the current bucket
+// };
+
+	
 }
 
 
@@ -451,7 +463,7 @@ void dial_init(struct mymesh *mesh,struct myvector *xstart,
 //--- DIAL-BASED HERMITE MARCHER
 
 int dial_main_body(struct mymesh *mesh,double *slo,double *u,struct myvector *gu,
-		state_e *status,int *N1ptu,int *N2ptu) {
+		state_e *status,struct bucket_sort_stuff *BB,int *N1ptu,int *N2ptu) {
 	struct mybucket *bcurrent;
 	struct mylist *lcurrent; //,*lnew;
 	double vcurrent;
@@ -468,6 +480,30 @@ int dial_main_body(struct mymesh *mesh,double *slo,double *u,struct myvector *gu
 	// for Newton's solver
 	double *NWTarg, *NWTres, *NWTllim, *NWTulim, *NWTJac, *NWTdir;
 	char *cpar;
+	
+	// variables for bucket sort
+	struct mybucket *bucket;
+	struct mylist *list;
+	double gap; 
+	int Nbuckets,Nb1; // Nb1 = Nbuckets - 1
+	int ibcurrent; // index of the current bucket
+	//--- variables for boundary conditions for Dial-like solvers
+	double Bmax;
+	int *bdry,jbdry,bcount;
+	double *blist;
+	
+	bucket = BB->bucket;
+	list = BB->list;
+	gap = BB->gap;
+	Nbuckets = BB->Nbuckets;
+	Nb1 = Nbuckets-1;
+	ibcurrent = BB->ibcurrent;
+	Bmax = BB->Bmax;
+	bdry = BB->bdry;
+	jbdry = BB->jbdry;
+	blist = BB->blist;
+	bcount = BB->bcount;
+
 
 	// indices of 8 nearest neighbors of X
 	//          3
@@ -542,6 +578,10 @@ int dial_main_body(struct mymesh *mesh,double *slo,double *u,struct myvector *gu
 					if( sol.ch  == 'y' ) {
 						u[ind] = sol.u;
 						gu[ind] = sol.gu;
+						if(sol.gap < gap) {
+							printf("ind = %i, inew = %i, actual gap = %.14e < gap = %.14e\n",ind,inew,sol.gap,gap);
+							exit(1);
+						}
 						knew = adjust_bucket(ind,u[ind],gap,Nbuckets,bucket,list);
 					} // end if( utemp < u[ind] )
 				} // end if( ch == 'y' && status[i] != VALID ) {
@@ -703,11 +743,12 @@ struct mysol do_update(int ind,int i,int inew,int ix,int iy,struct myvector xnew
 				if( sol.ch == 'y' && sol.u < utemp && sol.u < u[ind] ){
 					utemp = sol.u;
 					gtemp = sol.gu;
-					AGAP = min(AGAP,min(utemp - u[ind0],utemp - u[ind1]));
+					sol.gap = min(utemp - u[ind0],utemp - u[ind1]);
 					ch1ptu = 'n';
 					update_sol.u = utemp;
 					update_sol.gu = gtemp;
 					update_sol.ch = 'y';
+					update_sol.gap = sol.gap;
 				}
 			}  // end if( status[ind0] == status[ind1])
 		} // end if( ch == 'y' )
@@ -720,10 +761,11 @@ struct mysol do_update(int ind,int i,int inew,int ix,int iy,struct myvector xnew
 		if( sol.ch == 'y' && sol.u < u[ind] && sol.u < utemp ) {
 			utemp = sol.u;
 			gtemp = sol.gu;
-			AGAP = min(AGAP,utemp - u[inew]);
+			sol.gap = utemp - u[inew];
 			update_sol.u = utemp;
 			update_sol.gu = gtemp;
 			update_sol.ch = 'y';
+					update_sol.gap = sol.gap;
 		}
 		(*N1ptu)++;						
 	}
@@ -768,6 +810,7 @@ int main() {
 	
 	//--- variables for heap sort
 	struct binary_tree_stuff *Btree;
+	struct bucket_sort_stuff *BB;
 	
 	xstart = (struct myvector *)malloc(sizeof(struct myvector));
 	mesh = (struct mymesh *)malloc(sizeof(struct mymesh));
@@ -812,9 +855,8 @@ int main() {
 		CPUbegin=clock();
 		switch( method_template ) {
 			case DIAL:
-				dial_init(mesh,xstart,slo,u,gu,status);
-				k = dial_main_body(mesh,slo,u,gu,status,N1ptu,N2ptu);
-				printf("ACTUAL GAP = %.4e, gap = %.4e, AGAP - gap = %.4e\n",AGAP,gap,AGAP-gap);
+				BB = dial_init(mesh,xstart,slo,u,gu,status);
+				k = dial_main_body(mesh,slo,u,gu,status,BB,N1ptu,N2ptu);
 				break;
 			case DIJKSTRA:
 				Btree = dijkstra_init(mesh,xstart,slo,u,gu,status);
@@ -864,7 +906,7 @@ int main() {
 		a1ptu = (double)(*N1ptu)/nxy;
 		a2ptu = (double)(*N2ptu)/nxy;
 
-		printf("(mesh->nx) = %i, (mesh->ny) = %i, errmax = %.4e, erms = %.4e, n_errmax = %.4e, n_erms = %.4e, gerrmax = %.4e\tgerms = %.4e\tCPU time = %g\n",
+		printf("NX = %i, NY = %i, errmax = %.4e, erms = %.4e, n_errmax = %.4e, n_erms = %.4e, gerrmax = %.4e\tgerms = %.4e\tCPU time = %g\n",
 				  (mesh->nx),(mesh->ny),errmax,erms,errmax/umax,erms/urms,gerrmax,germs,cpu);
 		printf("%i\t %.4e\t %.4e\t %.4e\t%.4e\t%g\n",
 				  (mesh->nx),errmax,erms,errmax/umax,erms/urms,cpu);
@@ -878,14 +920,13 @@ int main() {
 		free(status);
 		switch ( method_template ) {
 			case DIAL:
-			     free(bucket);
-			     free(list);
+			     myfree(BB);
 			     break;
 			case DIJKSTRA:
+				free(Btree->pos);
+				free(Btree->tree);
+				free(Btree->count);
 				free(Btree);
-// 				free(pos);
-// 				free(tree);
-// 				free(count);
 				break;
 			default:
 				break;	

@@ -14,6 +14,7 @@ void dial_bucket_init(struct mybucket *bucket,int iskip,double gap);
 void print_buckets(int Nbuckets,struct mybucket *bucket,struct mylist *list);
 int adjust_bucket(int ind,double newval,double g,int Nbuckets,struct mybucket *bucket,struct mylist *list);
 int find_bucket(double utemp,double g);
+void myfree(struct bucket_sort_stuff  *BB);
 //---------------------------------------------------------------
 
 void dial_list_init(struct mylist *list,int ind) {
@@ -92,3 +93,11 @@ int find_bucket(double utemp,double g) {
 	return k;
 }
 
+//---------------------------------------------------------------
+void myfree(struct bucket_sort_stuff  *BB) {
+	free(BB->list); // list is associated with every mesh point
+	free(BB->bucket);
+	free(BB->bdry); // indices of boundary points
+	free(BB->blist); // list of values of boundary points
+	free(BB);
+}
