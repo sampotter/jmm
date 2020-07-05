@@ -24,3 +24,4 @@ char inmesh_test(int inew,int i,struct mymesh *mesh);
 void set_index_shifts_for_nearest_neighbors(int *iplus,struct mymesh *mesh);
 struct i2ptu set_update_triangle(int ix,int iy,int i,int j,struct mymesh *mesh);
 void set_ibox(double RAD,int ind,int *ibox,struct mymesh *mesh);
+struct myvector find_gap(struct mymesh *,double *,int *);

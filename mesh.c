@@ -7,6 +7,10 @@
 #define sgn(a) ((a) == 0 ? 0 : ((a) > 0  ? 1 : -1 ))
 #define max(a,b) ((a) >= (b) ? (a) : (b))
 #define min(a,b) ((a) <= (b) ? (a) : (b))
+#define INFTY 1.0e+6
+#define TOL 1.0e-14
+
+#define SAFETY_FAC 0.9 // safety factor for finding gap
 
 struct myvector getpoint(int ind,struct mymesh *mesh); 
 int get_lower_left_index(struct myvector *z,struct mymesh *mesh);
@@ -15,6 +19,8 @@ char inmesh_test(int inew,int i,struct mymesh *mesh);
 void set_index_shifts_for_nearest_neighbors(int *iplus,struct mymesh *mesh);
 struct i2ptu set_update_triangle(int ix,int iy,int i,int j,struct mymesh *mesh);
 void set_ibox(double RAD,int ind,int *ibox,struct mymesh *mesh);
+struct myvector find_gap(struct mymesh *,double *,int *);
+
 //---------------------------------------------------------------
 
 struct myvector getpoint(int ind,struct mymesh *mesh) {
@@ -131,4 +137,30 @@ void set_ibox(double RAD,int ind,int *ibox,struct mymesh *mesh) {
 	ibox[1] = min((mesh->nx)-1,ind%(mesh->nx) + kx);
 	ibox[2] = max(0,ind/(mesh->nx) - ky);
 	ibox[3] = min((mesh->nx)-1,ind/(mesh->nx) + ky);
+}
+
+//---------------------------------------------------------------
+
+struct myvector find_gap(struct mymesh *mesh,double *slo,int *ibox) {
+	double slo_min = INFTY,slo_max = 0.0;
+	int i,j,ind;
+	double hx2,hy2;
+	struct myvector gg;
+	// find min and max slowness in Omega \ ibox
+	for( i = 0; i < (mesh->nx); i++ ) {
+		for( j = 0; j < (mesh->ny); j++ ) {
+			if( i <= ibox[0] || i >= ibox[1] || j <= ibox[2] || j >= ibox[3] ) {
+				ind = i + (mesh->nx)*j;
+				slo_min = min(slo[ind],slo_min);
+				slo_max = max(slo[ind],slo_max);
+			}		
+		}
+	}
+	printf("slo_min = %.4e, slo_max = %.4e\n",slo_min,slo_max);
+	hx2 = (mesh->hx)*(mesh->hx);
+	hy2 = (mesh->hy)*(mesh->hy);
+	gg.x = SAFETY_FAC*slo_min*min(hx2,hy2)/(mesh->hxy); // gap
+	gg.y = slo_max*(mesh->hxy); //maxgap
+
+	return gg;
 }

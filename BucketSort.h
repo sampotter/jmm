@@ -32,3 +32,4 @@ int find_bucket(double utemp,double g);
 void myfree(struct bucket_sort_stuff  *BB);
 void start_filling_buckets(struct bucket_sort_stuff  *BB,int Nbuckets,struct mybucket *bucket,
 		struct mylist *list,double gap,int *bdry,double *blist,int bcount);
+int find_number_of_buckets(double gap,double maxgap);		

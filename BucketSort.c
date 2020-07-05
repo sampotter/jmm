@@ -3,6 +3,7 @@
 #include <math.h>
 #include "BucketSort.h"
 #include "QuickSort.h"
+
 #define INFTY 1.0e+6
 #define TOL 1.0e-14
 #define mabs(a) ((a) >= 0 ? (a) : -(a))
@@ -18,7 +19,7 @@ int find_bucket(double utemp,double g);
 void myfree(struct bucket_sort_stuff  *BB);
 void start_filling_buckets(struct bucket_sort_stuff  *BB,int Nbuckets,struct mybucket *bucket,
 		struct mylist *list,double gap,int *bdry,double *blist,int bcount);
-
+int find_number_of_buckets(double gap,double maxgap);
 //---------------------------------------------------------------
 
 void dial_list_init(struct mylist *list,int ind) {
@@ -142,6 +143,17 @@ void start_filling_buckets(struct bucket_sort_stuff  *BB,int Nbuckets,struct myb
 	BB->ibcurrent = ibcurrent;
 }
 
+//----------------------------------------------------------------
 
+int find_number_of_buckets(double gap,double maxgap) {
+	double rat,rr;
+	int Nbuckets;
+	// the number of buckets of chosen one more than necessary to exclude roundoff effects	
+	rat = maxgap/gap;
+	rr = round(rat);
+	if( fabs(rat - rr) < TOL ) Nbuckets = trunc(rr) + 2;
+	else Nbuckets = trunc(floor(rat) + 1) + 2;
 
+	return Nbuckets;
+}
 

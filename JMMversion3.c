@@ -265,10 +265,7 @@ struct bucket_sort_stuff *dial_init(struct mymesh *mesh,struct myvector *xstart,
 		double *slo,double *u,struct myvector *gu,state_e *status) {
 	int i,j,ind,k; 
 	int *ibox;
-	double rat,rr;
-	double slo_min,slo_max;
 	struct myvector z;
-	double hx2,hy2;
 	//--- variables for bucket sort ---
 	struct mybucket *bucket;
 	struct mylist *list;
@@ -314,33 +311,19 @@ struct bucket_sort_stuff *dial_init(struct mymesh *mesh,struct myvector *xstart,
 			}	
 		}
 	}	
-	// find gap for bucket sort
-	// find min and max slowness in Omega \ ibox
-	slo_min = INFTY;
-	slo_max = 0.0;
-	for( i = 0; i < (mesh->nx); i++ ) {
-		for( j = 0; j < (mesh->ny); j++ ) {
-			if( i <= ibox[0] || i >= ibox[1] || j <= ibox[2] || j >= ibox[3] ) {
-				ind = i + (mesh->nx)*j;
-				slo_min = min(slo[ind],slo_min);
-				slo_max = max(slo[ind],slo_max);
-			}		
-		}
-	}
-	printf("slo_min = %.4e, slo_max = %.4e\n",slo_min,slo_max);
-	hx2 = (mesh->hx)*(mesh->hx);
-	hy2 = (mesh->hy)*(mesh->hy);
-	gap = 0.9*slo_min*min(hx2,hy2)/(mesh->hxy); // 0.9 is the safety factor
-//  	printf("hx = %.4e, hy = %.4e, hxy = %.4e, gg = %.4e\n",mesh->hx,mesh->hy,mesh->hxy,min(hx2,hy2)/(mesh->hxy));
-	maxgap = slo_max*(mesh->hxy);
+	// find gap and maxgap for bucket sort
+	z = find_gap(mesh,slo,ibox); // in mesh.c
+	gap = z.x;
+	maxgap = z.y;
 	printf("gap = %.4e, maxgap = %.4e\n",gap,maxgap);
 
 	// set up bucket sort
+	Nbuckets = find_number_of_buckets(gap,maxgap);
 	// the number of buckets of chosen one more than necessary to exclude roundoff effects
-	rat = maxgap/gap;
-	rr = round(rat);
-	if( fabs(rat - rr) < TOL ) Nbuckets = trunc(rr) + 2;
-	else Nbuckets = trunc(floor(rat) + 1) + 2;
+// 	rat = maxgap/gap;
+// 	rr = round(rat);
+// 	if( fabs(rat - rr) < TOL ) Nbuckets = trunc(rr) + 2;
+// 	else Nbuckets = trunc(floor(rat) + 1) + 2;
 	printf("Nbuckets = %i\n",Nbuckets);
 	bucket = (struct mybucket*)malloc(Nbuckets*sizeof(struct mybucket));
 	
