@@ -273,7 +273,7 @@ struct bucket_sort_stuff *dial_init(struct mymesh *mesh,struct myvector *xstart,
 	struct mybucket *bucket;
 	struct mylist *list;
 	double gap,maxgap; // update gap = min_{ind}(u[ind] - max(u0,u1)); maxgap = max_{ind}(u[ind] - u)
-	int Nbuckets,Nb1; // Nb1 = Nbuckets - 1
+	int Nbuckets; 
 	int ibcurrent; // index of the current bucket
 	//--- variables for boundary conditions for Dial-like solvers
 	double Bmax;
@@ -317,9 +317,10 @@ struct bucket_sort_stuff *dial_init(struct mymesh *mesh,struct myvector *xstart,
 	}
 	quicksort(blist,bdry,0,bcount-1);	
 	
+	// find gap for bucket sort
+	// find min and max slowness in Omega \ ibox
 	slo_min = INFTY;
 	slo_max = 0.0;
-	// find gap for bucket sort
 	for( i = 0; i < (mesh->nx); i++ ) {
 		for( j = 0; j < (mesh->ny); j++ ) {
 			if( i <= ibox[0] || i >= ibox[1] || j <= ibox[2] || j >= ibox[3] ) {
@@ -338,22 +339,22 @@ struct bucket_sort_stuff *dial_init(struct mymesh *mesh,struct myvector *xstart,
 	printf("gap = %.4e, maxgap = %.4e\n",gap,maxgap);
 
 	// set up bucket sort
+	// the number of buckets of chosen one more than necessary to exclude roundoff effects
 	rat = maxgap/gap;
 	rr = round(rat);
 	if( fabs(rat - rr) < TOL ) Nbuckets = trunc(rr) + 2;
 	else Nbuckets = trunc(floor(rat) + 1) + 2;
-	Nb1 = Nbuckets - 1;
-	printf("Nbuckets = %i, Nb1 = %i\n",Nbuckets,Nb1);
+	printf("Nbuckets = %i\n",Nbuckets);
 	bucket = (struct mybucket*)malloc(Nbuckets*sizeof(struct mybucket));
 	
-	Bmax = Nb1*gap;
+	// put some initial number of boundary points to buckets
+	Bmax = Nbuckets*gap;
 	int iskip = 0;
-	
 	while( Bmax < blist[0] ) {
 		Bmax +=Bmax;	
 		iskip+=Nbuckets;
 	}		 
-// 		set up buckets
+	// 		set up buckets
 	for( i = 0; i < Nbuckets; i++ ) {
 		dial_bucket_init(bucket + i,iskip + i,gap);
 	}
