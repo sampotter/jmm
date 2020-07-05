@@ -130,8 +130,8 @@ void param(int nx,int ny,int nxy,struct myvector *xstart,struct mymesh *mesh,dou
 
 struct binary_tree_stuff *dijkstra_init(struct mymesh *mesh,struct myvector *xstart,
 		double *slo,double *u,struct myvector *gu,state_e *status) {
-	int i,j,ind,kx,ky;
-	int imin,imax,jmin,jmax;
+	int i,j,ind;
+	int *ibox;
 	struct myvector z;
 	//--- variables for heap sort
 	int *pos,*tree,*count;
@@ -149,22 +149,18 @@ struct binary_tree_stuff *dijkstra_init(struct mymesh *mesh,struct myvector *xst
 		status[ind] = FAR;
 	}
 	ind = get_lower_left_index(xstart,mesh);
-	kx = round(RAD/(mesh->hx));
-	ky = round(RAD/(mesh->hy));
-	imin = max(0,ind%(mesh->nx) - kx);
-	imax = min((mesh->nx)-1,ind%(mesh->nx) + kx);
-	jmin = max(0,ind/(mesh->nx) - ky);
-	jmax = min((mesh->nx)-1,ind/(mesh->nx) + ky);
+	ibox = (int *)malloc(4*sizeof(int)); //ibox = {imin,imax,jmin,jmax}
+	set_ibox(RAD,ind,ibox,mesh);
  
  	*count = 0; // the binary tree is empty
-    for( i = imin; i <= imax; i++ ) {
-    	for( j = jmin; j <= jmax; j++ ) {
+	for( i = ibox[0]; i <= ibox[1]; i++ ) {
+		for( j = ibox[2]; j <= ibox[3]; j++ ) {
     		ind = i + (mesh->nx)*j;
     		status[ind] = VALID;
     		z = vec_difference(getpoint(ind,mesh),*xstart);
     		u[ind] = exact_solution(slo_fun,z,slo[ind]);
     		gu[ind] = exact_gradient(slo_fun,z,slo[ind]);
-    		if( i == imin || i == imax || j == jmin || j == jmax ) {
+			if( i == ibox[0] || j == ibox[2] || i == ibox[1] || j == ibox[3] ) {
     			status[ind] = TRIAL;
     			addtree(ind,count,tree,pos,u);
     		}
@@ -268,7 +264,7 @@ int dijkstra_main_body(struct mymesh *mesh,double *slo,
 struct bucket_sort_stuff *dial_init(struct mymesh *mesh,struct myvector *xstart,
 		double *slo,double *u,struct myvector *gu,state_e *status) {
 	int i,j,ind,k; 
-	int imin,imax,jmin,jmax,kx,ky;
+	int *ibox;
 	double rat,rr;
 	double slo_min,slo_max;
 	struct myvector z;
@@ -294,29 +290,21 @@ struct bucket_sort_stuff *dial_init(struct mymesh *mesh,struct myvector *xstart,
 		dial_list_init(list + ind,ind);
 	}
 	ind = get_lower_left_index(xstart,mesh);
-// 	printf("ind = get_lower_left_index(xstart) = %i, (%i,%i)\n",ind,ind%(mesh->nx),ind/(mesh->nx));
-// 	printf("Mesh: nx = %i, ny = %i, nxy = %i, nx1 = %i, ny1 = %i\n",(mesh->nx),(mesh->ny),(mesh->nxy),(mesh->nx1),(mesh->ny1));
-// 	printf("mesh: hx = %.4e, hy = %.4e, hxy = %.4e, xmin = %.4e, ymin = %.4e\n",(mesh->hx),(mesh->hy),(mesh->hxy),(mesh->xmin),(mesh->ymin));
-
 // 		initialize the initial box
-	kx = round(RAD/(mesh->hx));
-	ky = round(RAD/(mesh->hy));
-	imin = max(0,ind%(mesh->nx) - kx);
-	imax = min((mesh->nx)-1,ind%(mesh->nx) + kx);
-	jmin = max(0,ind/(mesh->nx) - ky);
-	jmax = min((mesh->nx)-1,ind/(mesh->nx) + ky);
-// 	printf("kx = %i, ky = %i, imin = %i, imax = %i, jmin = %i, jmax = %i\n",
-// 				kx,ky,imin,imax,jmin,jmax);
-	bdry = (int *)malloc(2*(imax-imin+jmax-jmin)*sizeof(int));
-	blist = (double *)malloc(2*(imax-imin+jmax-jmin)*sizeof(double));
+	ibox = (int *)malloc(4*sizeof(int)); //ibox = {imin,imax,jmin,jmax}
+	set_ibox(RAD,ind,ibox,mesh);
+
+	k = 2*(ibox[1]-ibox[0]+ibox[3]-ibox[2]);
+	bdry = (int *)malloc(k*sizeof(int));
+	blist = (double *)malloc(k*sizeof(double));
 	bcount = 0;
-	for( i = imin; i <= imax; i++ ) {
-		for( j = jmin; j <= jmax; j++ ) {
+	for( i = ibox[0]; i <= ibox[1]; i++ ) {
+		for( j = ibox[2]; j <= ibox[3]; j++ ) {
 			ind = i + j*(mesh->nx);
     		z = vec_difference(getpoint(ind,mesh),*xstart);
 			u[ind] = exact_solution(slo_fun,z,slo[ind]);
 			gu[ind] = exact_gradient(slo_fun,z,slo[ind]);
-			if( i == imin || j == jmin || i == imax || j == jmax ) {
+			if( i == ibox[0] || j == ibox[2] || i == ibox[1] || j == ibox[3] ) {
 				bdry[bcount] = ind;
 				blist[bcount] = u[ind];
 				status[ind] = TRIAL;
@@ -334,7 +322,7 @@ struct bucket_sort_stuff *dial_init(struct mymesh *mesh,struct myvector *xstart,
 	// find gap for bucket sort
 	for( i = 0; i < (mesh->nx); i++ ) {
 		for( j = 0; j < (mesh->ny); j++ ) {
-			if( i <= imin || i >= imax || j <= jmin || j >= jmax ) {
+			if( i <= ibox[0] || i >= ibox[1] || j <= ibox[2] || j >= ibox[3] ) {
 				ind = i + (mesh->nx)*j;
 				slo_min = min(slo[ind],slo_min);
 				slo_max = max(slo[ind],slo_max);
@@ -391,30 +379,7 @@ struct bucket_sort_stuff *dial_init(struct mymesh *mesh,struct myvector *xstart,
 	BB->Bmax = Bmax;
 	BB->ibcurrent = ibcurrent;
 	return BB;
-	
-// struct bucket_sort_stuff {
-// 	double gap; // the minimal difference between the value at child and the value at parent 
-// 	struct mylist *list; // list is associated with every mesh point
-// 	int Nbuckets; // the number of buckets
-// 	struct mybucket *bucket;
-// 	int bcount; // the number of boundary points
-// 	int *bdry; // indices of boundary points
-// 	double *blist; // list of values of boundary points
-// 	int jbdry; // the first index of  boundary point with no assigned bucket
-// 	double Bmax; // boundary points with values less than Bmax should be assigned to buckets 
-// 	int ibcurrent; // the index of the current bucket
-// };
-
-	
 }
-
-
-//---------------------------------------------------------------
-
-
-
-
-
 
 //---------------------------------------------------------------
 //--- DIAL-BASED HERMITE MARCHER

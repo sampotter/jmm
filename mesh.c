@@ -3,6 +3,10 @@
 #include <math.h>
 #include "linear_algebra.h"
 #include "mesh.h"
+#define mabs(a) ((a) >= 0 ? (a) : -(a))
+#define sgn(a) ((a) == 0 ? 0 : ((a) > 0  ? 1 : -1 ))
+#define max(a,b) ((a) >= (b) ? (a) : (b))
+#define min(a,b) ((a) <= (b) ? (a) : (b))
 
 struct myvector getpoint(int ind,struct mymesh *mesh); 
 int get_lower_left_index(struct myvector *z,struct mymesh *mesh);
@@ -10,6 +14,7 @@ void setup_mesh(int nx,int ny,int nxy,double xmin,double xmax,double ymin,double
 char inmesh_test(int inew,int i,struct mymesh *mesh);
 void set_index_shifts_for_nearest_neighbors(int *iplus,struct mymesh *mesh);
 struct i2ptu set_update_triangle(int ix,int iy,int i,int j,struct mymesh *mesh);
+void set_ibox(double RAD,int ind,int *ibox,struct mymesh *mesh);
 //---------------------------------------------------------------
 
 struct myvector getpoint(int ind,struct mymesh *mesh) {
@@ -117,3 +122,13 @@ struct i2ptu set_update_triangle(int ix,int iy,int i,int j,struct mymesh *mesh) 
 	return ut;
 }
 
+//----------------------------------------------------------------
+void set_ibox(double RAD,int ind,int *ibox,struct mymesh *mesh) {
+    int kx,ky;
+ 	kx = round(RAD/(mesh->hx));
+	ky = round(RAD/(mesh->hy));
+	ibox[0] = max(0,ind%(mesh->nx) - kx);
+	ibox[1] = min((mesh->nx)-1,ind%(mesh->nx) + kx);
+	ibox[2] = max(0,ind/(mesh->nx) - ky);
+	ibox[3] = min((mesh->nx)-1,ind/(mesh->nx) + ky);
+}
