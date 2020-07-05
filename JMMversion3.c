@@ -62,7 +62,7 @@ int dijkstra_main_body(struct mymesh *mesh,double *slo,double *u,struct myvector
 
 
 //---- U P D A T E S
-struct mysol do_update(int ind,int i,int inew,int ix,int iy,struct myvector xnew,
+struct mysol do_update(int ind,int i,int inew,struct myvector xnew,
 				struct mymesh *mesh,double *slo,double *u,struct myvector *gu,state_e *status,
 				int *iplus,double *par1,double *par2,char *cpar,
 				double *NWTarg,double *NWTres,double *NWTllim,double *NWTulim,double *NWTJac,double *NWTdir,
@@ -188,7 +188,7 @@ int dijkstra_main_body(struct mymesh *mesh,double *slo,
 	int Nfinal = 0;
 	struct myvector xnew;
 	char ch;
-	int inew,ind,ix,iy,i;
+	int inew,ind,i;
 	// for Newton's solver
 	double *par1,*par2; // # of parameters for nonlinear equation for 1ptu and 2ptu
   	int npar1 = 17, npar2 = 41, ncpar = 3; // # of parameters for nonlinear equation for 1ptu and 2ptu
@@ -207,14 +207,7 @@ int dijkstra_main_body(struct mymesh *mesh,double *slo,
 
 // 	shifts for neighbors 0...7	
 	iplus = (int *)malloc(8*sizeof(int));
-	iplus[0] = -(mesh->nx)+1;
-	iplus[1] = 1;
-	iplus[2] = (mesh->nx)+1;
-	iplus[3] = (mesh->nx);
-	iplus[4] = (mesh->nx)-1;
-	iplus[5] = -1;
-	iplus[6] = -(mesh->nx)-1;
-	iplus[7] = -(mesh->nx);
+	set_index_shifts_for_nearest_neighbors(iplus,mesh);
 
 	par1 = (double *)malloc(npar1*sizeof(double));
 	par2 = (double *)malloc(npar2*sizeof(double));
@@ -231,14 +224,10 @@ int dijkstra_main_body(struct mymesh *mesh,double *slo,
 	cpar[0] = slo_fun;
 	cpar[2] = method_update; // JMMs
   	
-	par1 = (double *)malloc(npar1*sizeof(double));
-	par2 = (double *)malloc(npar2*sizeof(double));
 	
 	while( *(Btree->count) > 0 ) { // && Nfinal < NFMAX 
 		inew = (Btree->tree)[1];
 		xnew = getpoint(inew,mesh);
-		ix = inew%(mesh->nx);
-		iy = inew/(mesh->nx);    
 		status[inew] = VALID;
 		deltree(Btree->count,Btree->tree,Btree->pos,u);
 		Nfinal++;
@@ -248,14 +237,10 @@ int dijkstra_main_body(struct mymesh *mesh,double *slo,
 			
 		for( i = 0; i < 8; i++ ) {
 			// take care of the boundaries of the computational domain
-			ch = 'y';
-			if( ix == (mesh->nx1) && ( i == 0 || i == 1 || i == 2 )) ch = 'n';
-			else if( ix == 0 && ( i == 4 || i == 5 || i == 6 )) ch = 'n';
-			if( iy == (mesh->ny1) && ( i == 2 || i == 3 || i == 4 )) ch = 'n';
-			else if( iy == 0 && ( i == 6 || i == 7 || i == 0 )) ch = 'n';
+			ch = inmesh_test(inew,i,mesh);
 			ind = inew + iplus[i];
 			if( ch == 'y' && status[ind] != VALID ) {
-				sol = do_update(ind,i,inew,ix,iy,xnew,mesh,slo,u,gu,status,iplus,par1,par2,cpar,
+				sol = do_update(ind,i,inew,xnew,mesh,slo,u,gu,status,iplus,par1,par2,cpar,
 						NWTarg,NWTres,NWTllim,NWTulim,NWTJac,NWTdir,N1ptu,N2ptu);
 				// if the value is reduced, do adjustments
 				if( sol.ch  == 'y' ) {
@@ -439,7 +424,7 @@ int dial_main_body(struct mymesh *mesh,double *slo,double *u,struct myvector *gu
 	struct mybucket *bcurrent;
 	struct mylist *lcurrent; //,*lnew;
 	double vcurrent;
-	int inew,ind,ix,iy,i,knew;
+	int inew,ind,i,knew;
 	int *iplus;
 	char ch;
 	int empty_count = 0,bucket_count,kbucket = 0;
@@ -485,17 +470,9 @@ int dial_main_body(struct mymesh *mesh,double *slo,double *u,struct myvector *gu
 	//    |     |     |
 	//   6 ----------- 0
 	//          7
-
-// 	int iplus[8] = {-(mesh->nx)+1,1,(mesh->nx)+1,(mesh->nx),(mesh->nx)-1,-1,-(mesh->nx)-1,-(mesh->nx)}; // shifts for neighbors 0...7	
 	iplus = (int *)malloc(8*sizeof(int));
-	iplus[0] = -(mesh->nx)+1;
-	iplus[1] = 1;
-	iplus[2] = (mesh->nx)+1;
-	iplus[3] = (mesh->nx);
-	iplus[4] = (mesh->nx)-1;
-	iplus[5] = -1;
-	iplus[6] = -(mesh->nx)-1;
-	iplus[7] = -(mesh->nx);
+	set_index_shifts_for_nearest_neighbors(iplus,mesh);
+
 
 	par1 = (double *)malloc(npar1*sizeof(double));
 	par2 = (double *)malloc(npar2*sizeof(double));
@@ -525,26 +502,20 @@ int dial_main_body(struct mymesh *mesh,double *slo,double *u,struct myvector *gu
 			inew = lcurrent -> ind; // index of the new accepted point
 			status[inew] = VALID;
 			xnew = getpoint(inew,mesh);
-			ix = inew%(mesh->nx);
-			iy = inew/(mesh->nx);
 			Nfinal++;
 			
 			
 // 			printf("Nfinal = %i, inew = %i (%i,%i), u = %.4e, err = %.4e, gu = (%.4e,%.4e)\n",
-// 					Nfinal,inew,ix,iy,u[inew],u[inew]-exact_solution(slo_fun,xnew,slo[inew]),gu[inew].x,gu[inew].y);
+// 					Nfinal,inew,inew%(mesh->nx),inew/(mesh->nx),u[inew],u[inew]-exact_solution(slo_fun,xnew,slo[inew]),gu[inew].x,gu[inew].y);
 
 			
 			// scan the nearest neighborhood for possible updates
 			for( i = 0; i < 8; i++ ) {
 				// take care of the boundaries of the computational domain
-				ch = 'y';
-				if( ix == (mesh->nx1) && ( i == 0 || i == 1 || i == 2 )) ch = 'n';
-				else if( ix == 0 && ( i == 4 || i == 5 || i == 6 )) ch = 'n';
-				if( iy == (mesh->ny1) && ( i == 2 || i == 3 || i == 4 )) ch = 'n';
-				else if( iy == 0 && ( i == 6 || i == 7 || i == 0 )) ch = 'n';
+				ch = inmesh_test(inew,i,mesh);
 				ind = inew + iplus[i];
 				if( ch == 'y' && status[ind] != VALID ) {
-					sol = do_update(ind,i,inew,ix,iy,xnew,mesh,slo,u,gu,status,iplus,par1,par2,cpar,
+					sol = do_update(ind,i,inew,xnew,mesh,slo,u,gu,status,iplus,par1,par2,cpar,
 							NWTarg,NWTres,NWTllim,NWTulim,NWTJac,NWTdir,N1ptu,N2ptu);
 					// if the value is reduced, do adjustments
 					if( sol.ch  == 'y' ) {
@@ -580,7 +551,7 @@ int dial_main_body(struct mymesh *mesh,double *slo,double *u,struct myvector *gu
 
 //---------------------------------------------------------------
 //---------------------------------------------------------------
-struct mysol do_update(int ind,int i,int inew,int ix,int iy,struct myvector xnew,
+struct mysol do_update(int ind,int i,int inew,struct myvector xnew,
 				struct mymesh *mesh,double *slo,double *u,struct myvector *gu,state_e *status,
 				int *iplus,double *par1,double *par2,char *cpar,
 				double *NWTarg,double *NWTres,double *NWTllim,double *NWTulim,double *NWTJac,double *NWTdir,
@@ -593,19 +564,10 @@ struct mysol do_update(int ind,int i,int inew,int ix,int iy,struct myvector xnew
 	//    |     |     |
 	//   6 ----------- 0
 	//          7
-	int imap[8] = {4,5,6,7,0,1,2,3}; 
-	// if neighbor j of inew has index inew + iplus[j]
-	// then inew is neighbor imap[j] of j
-	int imap1[8][2] = {{7,1},{0,2},
-					   {1,3},{4,2},
-					   {5,3},{6,4},
-	 				   {5,7},{6,0}};
-	// if inew is j neighbor of ind, then the other neighbors for 2-pt-update are
-	// imap1[j][0] and imap1[j][1] 				   
+	int ix = inew%(mesh->nx),iy = inew/(mesh->nx);      
 	// directions of unit vector zhat for one-point update
 	double cosx = (mesh->hx)/(mesh->hxy);
 	double cosy = (mesh->hy)/(mesh->hxy);
-
 	struct myvector zhat1ptu[] = {{cosx,-cosy},
 								  {1.0,0.0},
 								  {cosx,cosy},
@@ -615,12 +577,13 @@ struct mysol do_update(int ind,int i,int inew,int ix,int iy,struct myvector xnew
 								  {-cosx,-cosy},
 								  {0.0,-1.0}};
 	double h1ptu[] = {(mesh->hxy),(mesh->hx),(mesh->hxy),(mesh->hy),(mesh->hxy),(mesh->hx),(mesh->hxy),(mesh->hy)}; // h for one-point update
-	char ch,ch1ptu;
+	char ch1ptu;
 	struct mysol sol,update_sol; 
-	int ind0,ind1,j,j0,j1,jtemp;
+	int ind0,ind1,j;
 	struct myvector xhat,x0,x1,xm,dx;
 	struct myvector gtemp;
 	double utemp;
+	struct i2ptu ut;
 	FUNC_perp getperp;
 
 	update_sol.u = INFTY;
@@ -632,31 +595,14 @@ struct mysol do_update(int ind,int i,int inew,int ix,int iy,struct myvector xnew
 	utemp = INFTY;
 	ch1ptu = 'y';
 	// first do 2-pt-updates
-	for( j = 0; j < 2; j++ ) {
-		ch = 'y';
-		j0 = imap[i]; // neighbor index of inew with respect to ind -- the point up for an update
-		j1 = imap1[j0][j];
-		// take care of boundaries of the computational domain
-		// if j0 is even, there will be no problem
-		// if j0 is odd, care should be taken
-		if( j0%2 == 1 ) { 
-			if( iy == (mesh->ny1) && ( j0 == 5 || j0 == 1 ) && j == 1 ) ch = 'n'; // (5,4) and (1,2) are rejected
-			else if( iy == 0 && ( j0 == 5 || j0 == 1 ) && j == 0 ) ch = 'n'; // eliminate (5,6) and (1,0)
-			if( ix == (mesh->nx1) && ( j0 == 3 || j0 == 7 ) && j == 1 ) ch = 'n'; // eliminate (3,2) and (7,0)
-			else if( ix == 0 && (j0 == 3 || j0 == 7 ) && j == 0 ) ch = 'n'; // eliminate (3,4) and (7,6)
-			if( ch == 'y' ) { // swap j0 and j1 so that j0 is at distance hxy from xhat
-				jtemp = j0;
-				j0 = j1;
-				j1 = jtemp;								
-			}
-		}
-		// now j0 is at some corner, and j1 is in the midpoint of 
-		// some side of the square depicting 8-pt-neighborhood of ind
-		if( ch == 'y' ) { // perform 2-pt-update
-			ind0 = ind + iplus[j0];
-			ind1 = ind + iplus[j1];
+	for( j = 0; j < 2; j++ ) { // two possible update triangles with inew at the base  and ind being updated
+		ut = set_update_triangle(ix,iy,i,j,mesh);
+		if( ut.ch == 'y' ) { // perform 2-pt-update
+			// ind0, ind1 form the base of update triangle
+			ind0 = ind + iplus[ut.j0]; // hx or hy distance from xhat
+			ind1 = ind + iplus[ut.j1]; // hxy distance from xhat
 			if( status[ind0] == status[ind1]) { // we know that one of these points is inew
-			// do 2-pt-update if both of them are Accepted, i.e., status == VALID
+			// do 2-pt-update if both of them are VALID
 				(*N2ptu)++;									
 				x0 = getpoint(ind0,mesh);
 				x1 = getpoint(ind1,mesh);
@@ -669,7 +615,6 @@ struct mysol do_update(int ind,int i,int inew,int ix,int iy,struct myvector xnew
 					getperp = getperp_plus;
 					cpar[1] = 'p';
 				}								
-				if( j1%2 == 0 ) {printf("j1 = %i\n",j1); exit(1);}									
 				
 				sol = two_pt_update(NWTarg,NWTres,NWTllim,NWTulim,NWTJac,NWTdir,
 							dx,x0,xhat,u[ind0],u[ind1],
