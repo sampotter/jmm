@@ -334,16 +334,13 @@ struct bucket_sort_stuff *dial_init(struct mymesh *mesh,struct myvector *xstart,
 
 int dial_main_body(struct mymesh *mesh,double *slo,double *u,struct myvector *gu,
 		state_e *status,struct bucket_sort_stuff *BB,int *N1ptu,int *N2ptu) {
-// 	struct mybucket *bcurrent;
-// 	struct mylist *lcurrent; //,*lnew;
-// 	double vcurrent;
-	int inew,ind,i,knew;
+	int inew,ind,i,knew,ix,iy,ind0,ind1,j;
 	int *iplus;
 	char ch;
 	int *empty_count;
 	int kbucket = 0;
 	int Nfinal = 0;
-	struct myvector xnew;
+// 	struct myvector xnew;
 	
 	double *par1,*par2; // # of parameters for nonlinear equation for 1ptu and 2ptu
   	int npar1 = 17, npar2 = 41, ncpar = 3; // # of parameters for nonlinear equation for 1ptu and 2ptu
@@ -359,10 +356,24 @@ int dial_main_body(struct mymesh *mesh,double *slo,double *u,struct myvector *gu
 	int Nbuckets,Nb1; // Nb1 = Nbuckets - 1
 	int ibcurrent; // index of the current bucket
 	//--- variables for boundary conditions for Dial-like solvers
-	double Bmax;
 	int *bdry,jbdry,bcount;
 	double *blist;
 	int *newlist,Nlist,m;
+	int N1list,N2list,*list2ptu,*list1ptu;
+	struct i2ptu ut;
+	double cosx = (mesh->hx)/(mesh->hxy);
+	double cosy = (mesh->hy)/(mesh->hxy);
+	struct myvector zhat1ptu[] = {{cosx,-cosy},
+								  {1.0,0.0},
+								  {cosx,cosy},
+								  {0.0,1.0},
+								  {-cosx,cosy},
+								  {-1.0,0.0},
+								  {-cosx,-cosy},
+								  {0.0,-1.0}};
+	double h1ptu[] = {(mesh->hxy),(mesh->hx),(mesh->hxy),(mesh->hy),(mesh->hxy),(mesh->hx),(mesh->hxy),(mesh->hy)}; // h for one-point update
+	struct myvector xhat,x0,x1,dx,xm;
+	FUNC_perp getperp;
 	
 	bucket = BB->bucket;
 	list = BB->list;
@@ -410,38 +421,120 @@ int dial_main_body(struct mymesh *mesh,double *slo,double *u,struct myvector *gu
 		Nlist = (bucket + ibcurrent) -> count;
 		newlist = (int *)malloc(Nlist*sizeof(int));
 	    form_list_of_new_valid_points(bucket+ibcurrent,newlist,empty_count);
+	    // accept points from the carrent bucket
 		for( m = 0; m < Nlist; m++) { 
 			inew = newlist[m]; // index of the new accepted point
+// 			ix = inew%(mesh->nx);
+// 			iy = inew/(mesh->nx);
 			status[inew] = VALID;
-			xnew = getpoint(inew,mesh);
 			Nfinal++;
-			
-			
+// 			printf("Nfinal = %i, inew = %i (%i,%i), u = %.4e, err = %.4e\n",
+// 					Nfinal,inew,ix,iy,u[inew],u[inew]-exact_solution(slo_fun,getpoint(inew,mesh),slo[inew]));
+		}
+	    // form lists for 2ptu and 1ptu
+	    list2ptu = (int *)malloc(24*Nlist*sizeof(int)); // 2ptu list
+	    N2list = 0;
+	    list1ptu = (int *)malloc(16*Nlist*sizeof(int)); //1ptu list
+	    N1list = 0;
+		for( m = 0; m < Nlist; m++) {
+			inew = newlist[m]; // index of the new accepted point
+			ix = inew%(mesh->nx);
+			iy = inew/(mesh->nx);
+// 			xnew = getpoint(inew,mesh);
 // 			printf("Nfinal = %i, inew = %i (%i,%i), u = %.4e, err = %.4e, gu = (%.4e,%.4e)\n",
-// 					Nfinal,inew,inew%(mesh->nx),inew/(mesh->nx),u[inew],u[inew]-exact_solution(slo_fun,xnew,slo[inew]),gu[inew].x,gu[inew].y);
-
-			
-			// scan the nearest neighborhood for possible updates
+// 					Nfinal,inew,ix,iy,u[inew],u[inew]-exact_solution(slo_fun,xnew,slo[inew]),gu[inew].x,gu[inew].y);
 			for( i = 0; i < 8; i++ ) {
-				// take care of the boundaries of the computational domain
 				ch = inmesh_test(inew,i,mesh);
 				ind = inew + iplus[i];
+// 				printf("inew = %i, i = %i, ind = %i, status[%i] = %d\n",inew,i,ind,ind,status[ind]);
+// 
 				if( ch == 'y' && status[ind] != VALID ) {
-					sol = do_update(ind,i,inew,xnew,mesh,slo,u,gu,status,iplus,par1,par2,cpar,
-							NWTarg,NWTres,NWTllim,NWTulim,NWTJac,NWTdir,N1ptu,N2ptu);
-					// if the value is reduced, do adjustments
-					if( sol.ch  == 'y' ) {
-						u[ind] = sol.u;
-						gu[ind] = sol.gu;
-						if(sol.gap < gap) {
-							printf("ind = %i, inew = %i, actual gap = %.14e < gap = %.14e\n",ind,inew,sol.gap,gap);
-							exit(1);
+					for( j = 0; j < 2; j++ ) { // two possible update triangles with inew at the base  and ind being updated
+						ut = set_update_triangle(ix,iy,i,j,mesh);
+						if( ut.ch == 'y' ) { 
+							// ind0, ind1 form the base of update triangle
+							ind0 = ind + iplus[ut.j0]; // hxy distance from xhat
+							ind1 = ind + iplus[ut.j1]; // hx or hy distance from xhat 
+// 							if( ind0 != inew ) {
+// 								printf("inew = %i, ind0 = %i,ind1 = %i, ind = %i\n",inew,ind0,ind1,ind);
+// 								exit(1);
+// 							}	
+							if( status[ind1] == VALID ) { // note: status[ind0] = VALID
+								list2ptu[N2list] = ind;
+								list2ptu[++N2list] = ind0;
+								list2ptu[++N2list] = ind1;
+								N2list++;
+								list1ptu[N1list] = ind;
+								list1ptu[++N1list] = inew;
+								N1list++;
+							}
+// 							else {
+// 								list1ptu[N1list] = ind1;
+// 								list1ptu[++N1list] = inew;
+// 								N1list++;
+// 							}
 						}
-						knew = adjust_bucket(ind,u[ind],gap,Nbuckets,bucket,list);
-					} // end if( utemp < u[ind] )
-				} // end if( ch == 'y' && status[i] != VALID ) {
-			} // end for( i = 0; i < 8; i++ )
-		} // end while( lcurrent != NULL )
+					}	
+				}			
+			}
+		} //end for( m = 0; m < Nlist; m++)
+		// do two-point updates
+		N2list /= 3;
+		for( i = 0; i < N2list; i++ ) {
+			(*N2ptu)++;	
+			j = i*3;	
+			ind = list2ptu[j];
+			ind0 = list2ptu[++j];
+			ind1 = list2ptu[++j];
+			xhat = getpoint(ind,mesh);							
+			x0 = getpoint(ind0,mesh);
+			x1 = getpoint(ind1,mesh);
+			dx = vec_difference(x1,x0);	
+			if( dot_product(vec_difference(xhat,x1),getperp_plus(dx)) > 0 ) {
+				getperp = getperp_minus;	
+				cpar[1] = 'm';
+			}
+			else {
+				getperp = getperp_plus;
+				cpar[1] = 'p';
+			}								
+			sol = two_pt_update(NWTarg,NWTres,NWTllim,NWTulim,NWTJac,NWTdir,
+						dx,x0,xhat,u[ind0],u[ind1],
+							gu[ind0],gu[ind1],slo[ind],par2,cpar);
+// 		    printf("ind = %i, ind0 = %i, ind1 = %i: sol.ch = %c, sol.u = %.6e, err = %.4e\n",
+// 		    	ind,ind0,ind1,sol.ch,sol.u,sol.u - exact_solution(slo_fun,x0,slo[ind]));					
+			if( sol.ch == 'y' && sol.u < u[ind] ){
+				u[ind] = sol.u;
+				gu[ind] = sol.gu;
+				sol.gap = min(sol.u - u[ind0],sol.u - u[ind1]);
+				knew = adjust_bucket(ind,u[ind],gap,Nbuckets,bucket,list);
+			}		
+		}
+		// do one-point updates
+		N1list /= 2;
+		for( i = 0; i < N1list; i++ ) {
+			(*N1ptu)++;	
+			j = i*2;	
+			ind = list1ptu[j];
+			ind0 = list1ptu[++j];
+			xhat = getpoint(ind,mesh);							
+			x0 = getpoint(ind0,mesh);
+			xm = a_times_vec(vec_sum(x0,xhat),0.5);
+// 			printf("ind = %i, ind0 = %i, idiff = %i\n",ind,ind0,ind-ind0);
+			m = ineighbor(ind-ind0,mesh);
+			sol = one_pt_update(NWTarg,NWTres,NWTllim,NWTulim,NWTJac,NWTdir,
+				u[ind0],h1ptu[m],xm,slo[ind0],slo[ind],
+			    zhat1ptu[m],getperp_plus(zhat1ptu[m]),par1,cpar);
+			if( sol.ch == 'y' && sol.u < u[ind] ) {
+				u[ind] = sol.u;
+				gu[ind] = sol.gu;
+				sol.gap = sol.u - u[ind0];
+				knew = adjust_bucket(ind,u[ind],gap,Nbuckets,bucket,list);
+			}
+		}
+// 		printf("N1list = %i, N2list = %i\n",N1list,N2list);
+		free(list2ptu);
+		free(list1ptu);
 		free(newlist);
 		// add points to buckets to the boundary
 		if( jbdry < bcount ) {
@@ -510,8 +603,8 @@ struct mysol do_update(int ind,int i,int inew,struct myvector xnew,
 		ut = set_update_triangle(ix,iy,i,j,mesh);
 		if( ut.ch == 'y' ) { // perform 2-pt-update
 			// ind0, ind1 form the base of update triangle
-			ind0 = ind + iplus[ut.j0]; // hx or hy distance from xhat
-			ind1 = ind + iplus[ut.j1]; // hxy distance from xhat
+			ind0 = ind + iplus[ut.j0]; // hxy distance from xhat
+			ind1 = ind + iplus[ut.j1]; // hx or hy distance from xhat
 			if( status[ind0] == status[ind1]) { // we know that one of these points is inew
 			// do 2-pt-update if both of them are VALID
 				(*N2ptu)++;									

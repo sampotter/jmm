@@ -20,7 +20,7 @@ void set_index_shifts_for_nearest_neighbors(int *iplus,struct mymesh *mesh);
 struct i2ptu set_update_triangle(int ix,int iy,int i,int j,struct mymesh *mesh);
 void set_ibox(double RAD,int ind,int *ibox,struct mymesh *mesh);
 struct myvector find_gap(struct mymesh *,double *,int *);
-
+int ineighbor(int idiff,struct mymesh *mesh);
 //---------------------------------------------------------------
 
 struct myvector getpoint(int ind,struct mymesh *mesh) {
@@ -164,3 +164,32 @@ struct myvector find_gap(struct mymesh *mesh,double *slo,int *ibox) {
 
 	return gg;
 }
+
+//--------------------------------------------------------------
+
+int ineighbor(int idiff,struct mymesh *mesh) {
+	int m = -1;
+// 	iplus[0] = -(mesh->nx)+1;
+// 	iplus[1] = 1;
+// 	iplus[2] = (mesh->nx)+1;
+// 	iplus[3] = (mesh->nx);
+// 	iplus[4] = (mesh->nx)-1;
+// 	iplus[5] = -1;
+// 	iplus[6] = -(mesh->nx)-1;
+// 	iplus[7] = -(mesh->nx);
+	if( idiff == -(mesh->nx)+1 ) m = 0;
+	else if( idiff == 1 ) m = 1;
+	else if( idiff == (mesh->nx)+1) m = 2;
+	else if( idiff == (mesh->nx)) m = 3;
+	else if( idiff == (mesh->nx)-1) m = 4;
+	else if( idiff == -1 ) m = 5;
+	else if( idiff == -(mesh->nx)-1) m = 6;
+	else if( idiff == -(mesh->nx)) m = 7;
+	else {
+		printf("ineighbor: idiff = %i\n",idiff);
+		exit(1);							
+	}
+	return m;
+}
+
+
