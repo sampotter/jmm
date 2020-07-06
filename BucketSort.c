@@ -20,6 +20,7 @@ void myfree(struct bucket_sort_stuff  *BB);
 void start_filling_buckets(struct bucket_sort_stuff  *BB,int Nbuckets,struct mybucket *bucket,
 		struct mylist *list,double gap,int *bdry,double *blist,int bcount);
 int find_number_of_buckets(double gap,double maxgap);
+void form_list_of_new_valid_points(struct mybucket *bucket,int *newlist,int *empty_count);
 //---------------------------------------------------------------
 
 void dial_list_init(struct mylist *list,int ind) {
@@ -142,7 +143,6 @@ void start_filling_buckets(struct bucket_sort_stuff  *BB,int Nbuckets,struct myb
 	BB->bdry = bdry;
 	BB->blist = blist;
 	BB->jbdry = jbdry;
-	BB->Bmax = Bmax;
 	BB->ibcurrent = ibcurrent;
 }
 
@@ -162,18 +162,20 @@ int find_number_of_buckets(double gap,double maxgap) {
 
 //---------------------------------------------------------------
 
-// double form_list_of_new_valid_points(struct mybucket *bucket,int ibcurrent,int *newlist) {
-// 		bcurrent = bucket + ibcurrent; // pointer to the current bucket
-// 		lcurrent = bcurrent -> list;
-// 		vcurrent = bcurrent -> minval;
-// 		if( lcurrent == NULL ) empty_count++;
-// 		else empty_count = 0;
-// 		(bucket + ibcurrent) -> list = NULL; // empty the current bucket
-// 		bucket_count = 0;
-// 		while( lcurrent != NULL) { 
-// 			inew = lcurrent -> ind; // index of the new accepted point
-// 			status[inew] = VALID;
-// 			xnew = getpoint(inew,mesh);
-// 			Nfinal++;
-// }
+void form_list_of_new_valid_points(struct mybucket *bucket,int *newlist,int *empty_count) {
+	int Nlist = bucket -> count;
+	struct mylist *lcurrent; 
+	int i;
+	
+	if( Nlist == 0 ) (*empty_count)++;
+	else (*empty_count) = 0;
+	lcurrent =  bucket -> list; // extract bucket's list
+	 // empty the current bucket
+	bucket -> list = NULL;
+	bucket -> count = 0;
+	for( i = 0; i < Nlist; i++ ) { 
+		newlist[i] = lcurrent -> ind; // index of the new accepted point
+		lcurrent = lcurrent -> next;
+	}	
+}
 

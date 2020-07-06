@@ -20,7 +20,6 @@ struct bucket_sort_stuff {
 	int *bdry; // indices of boundary points
 	double *blist; // list of values of boundary points
 	int jbdry; // the first index of  boundary point with no assigned bucket
-	double Bmax; // boundary points with values less than Bmax should be assigned to buckets 
 	int ibcurrent; // the index of the current bucket
 };
 
@@ -34,3 +33,4 @@ void myfree(struct bucket_sort_stuff  *BB);
 void start_filling_buckets(struct bucket_sort_stuff  *BB,int Nbuckets,struct mybucket *bucket,
 		struct mylist *list,double gap,int *bdry,double *blist,int bcount);
 int find_number_of_buckets(double gap,double maxgap);		
+void form_list_of_new_valid_points(struct mybucket *bucket,int *newlist,int *empty_count);

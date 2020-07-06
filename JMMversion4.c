@@ -3,7 +3,7 @@
 // 8-point nearest neighborhood
 // segments of rays are approximated with quadratic curves
 
-// Compile command: gcc -Wall mesh.c BucketSort.c HeapSort.c QuickSort.c JMMupdates.c linear_algebra.c slowness_and_uexact.c Newton.c JMMversion4.c -lm -O3
+// Compile command: gcc -Wall mesh.c BucketSort.c HeapSort.c QuickSort.c JMMupdates.c linear_algebra.c slowness_and_uexact.c Newton.c JMMversion3.c -lm -O3
 
 // Copyright: Maria Cameron, June 14, 2020
 
@@ -334,13 +334,14 @@ struct bucket_sort_stuff *dial_init(struct mymesh *mesh,struct myvector *xstart,
 
 int dial_main_body(struct mymesh *mesh,double *slo,double *u,struct myvector *gu,
 		state_e *status,struct bucket_sort_stuff *BB,int *N1ptu,int *N2ptu) {
-	struct mybucket *bcurrent;
-	struct mylist *lcurrent; //,*lnew;
-	double vcurrent;
+// 	struct mybucket *bcurrent;
+// 	struct mylist *lcurrent; //,*lnew;
+// 	double vcurrent;
 	int inew,ind,i,knew;
 	int *iplus;
 	char ch;
-	int empty_count = 0,bucket_count,kbucket = 0;
+	int *empty_count;
+	int kbucket = 0;
 	int Nfinal = 0;
 	struct myvector xnew;
 	
@@ -361,6 +362,7 @@ int dial_main_body(struct mymesh *mesh,double *slo,double *u,struct myvector *gu
 	double Bmax;
 	int *bdry,jbdry,bcount;
 	double *blist;
+	int *newlist,Nlist,m;
 	
 	bucket = BB->bucket;
 	list = BB->list;
@@ -368,7 +370,6 @@ int dial_main_body(struct mymesh *mesh,double *slo,double *u,struct myvector *gu
 	Nbuckets = BB->Nbuckets;
 	Nb1 = Nbuckets-1;
 	ibcurrent = BB->ibcurrent;
-	Bmax = BB->Bmax;
 	bdry = BB->bdry;
 	jbdry = BB->jbdry;
 	blist = BB->blist;
@@ -399,20 +400,18 @@ int dial_main_body(struct mymesh *mesh,double *slo,double *u,struct myvector *gu
 	NWTulim = (double *)malloc(3*sizeof(double));
 	NWTJac = (double *)malloc(9*sizeof(double));
 
+	empty_count = (int *)malloc(sizeof(int));
+	*empty_count = 0;
 
 	cpar[0] = slo_fun;
 	cpar[2] = method_update; 
 	
-	while( empty_count < Nbuckets ) { 
-		bcurrent = bucket + ibcurrent; // pointer to the current bucket
-		lcurrent = bcurrent -> list;
-		vcurrent = bcurrent -> minval;
-		if( lcurrent == NULL ) empty_count++;
-		else empty_count = 0;
-		(bucket + ibcurrent) -> list = NULL; // empty the current bucket
-		bucket_count = 0;
-		while( lcurrent != NULL) { 
-			inew = lcurrent -> ind; // index of the new accepted point
+	while( *empty_count < Nbuckets ) { // && Nfinal < NFMAX 
+		Nlist = (bucket + ibcurrent) -> count;
+		newlist = (int *)malloc(Nlist*sizeof(int));
+	    form_list_of_new_valid_points(bucket+ibcurrent,newlist,empty_count);
+		for( m = 0; m < Nlist; m++) { 
+			inew = newlist[m]; // index of the new accepted point
 			status[inew] = VALID;
 			xnew = getpoint(inew,mesh);
 			Nfinal++;
@@ -442,22 +441,21 @@ int dial_main_body(struct mymesh *mesh,double *slo,double *u,struct myvector *gu
 					} // end if( utemp < u[ind] )
 				} // end if( ch == 'y' && status[i] != VALID ) {
 			} // end for( i = 0; i < 8; i++ )
-			lcurrent = lcurrent -> next;
-			bucket_count++;
 		} // end while( lcurrent != NULL )
-		kbucket++;
-		// move on to the next bucket
-		ibcurrent++;
-		ibcurrent = ibcurrent%Nbuckets;
+		free(newlist);
 		// add points to buckets to the boundary
 		if( jbdry < bcount ) {
-			Bmax = vcurrent + gap*Nb1;
-			while( jbdry < bcount && blist[jbdry] < Bmax ) {
+// 			Bmax = vcurrent + gap*Nb1;
+			while( jbdry < bcount && blist[jbdry] < (bucket+ibcurrent)->minval + gap*Nb1 ) {
 				ind = bdry[jbdry];
 				knew = adjust_bucket(ind,u[ind],gap,Nbuckets,bucket,list);
 				jbdry++;
 			}		
 		}		
+		kbucket++;
+		// move on to the next bucket
+		ibcurrent++;
+		ibcurrent = ibcurrent%Nbuckets;
 	} // while( empty_count < Nbucket )
 	return kbucket;
 } 
