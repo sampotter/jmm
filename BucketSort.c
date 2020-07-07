@@ -3,6 +3,7 @@
 #include <math.h>
 #include "BucketSort.h"
 #include "QuickSort.h"
+#include "def.h"
 
 #define INFTY 1.0e+6
 #define TOL 1.0e-14
@@ -11,23 +12,13 @@
 #define max(a,b) ((a) >= (b) ? (a) : (b))
 #define min(a,b) ((a) <= (b) ? (a) : (b))
 
-void dial_list_init(struct mylist *list,int ind);
-void dial_bucket_init(struct mybucket *bucket,int iskip,double gap);
-void print_buckets(int Nbuckets,struct mybucket *bucket);
-int adjust_bucket(int ind,double newval,double g,int Nbuckets,struct mybucket *bucket,struct mylist *list);
-int find_bucket(double utemp,double g);
-void myfree(struct bucket_sort_stuff  *BB);
-void start_filling_buckets(struct bucket_sort_stuff  *BB,int Nbuckets,struct mybucket *bucket,
-		struct mylist *list,double gap,int *bdry,double *blist,int bcount);
-int find_number_of_buckets(double gap,double maxgap);
-void form_list_of_new_valid_points(struct mybucket *bucket,int *newlist,int *empty_count);
 //---------------------------------------------------------------
 
-void dial_list_init(struct mylist *list,int ind) {
+void dial_list_init(struct backptr_list *list,int ind) {
 	list -> ind = ind;
 	list -> previous = NULL;
 	list -> next = NULL;
-	list -> ibucket = -1; // no bucket is assigned
+	list -> ibucket = NO_INDEX; // no bucket is assigned
 }
 //---------------------------------------------------------------
 
@@ -40,7 +31,7 @@ void dial_bucket_init(struct mybucket *bucket,int i,double gap) {
 //---------------------------------------------------------------
 void print_buckets(int Nbuckets,struct mybucket *bucket) {
 	int k;
-	struct mylist *lnew;
+	struct backptr_list *lnew;
 		for( k = 0; k < Nbuckets; k++ ) {
 			printf("Bucket %i:\n",k);
 			lnew = bucket[k].list;
@@ -53,7 +44,7 @@ void print_buckets(int Nbuckets,struct mybucket *bucket) {
 }
 //---------------------------------------------------------------
 
-int adjust_bucket(int ind,double newval,double g,int Nbuckets,struct mybucket *bucket,struct mylist *list) {
+int adjust_bucket(int ind,double newval,double g,int Nbuckets,struct mybucket *bucket,struct backptr_list *list) {
 	int k,knew;
 	// find index of new bucket
 	k = find_bucket(newval,g);
@@ -103,7 +94,7 @@ int find_bucket(double utemp,double g) {
 }
 
 //---------------------------------------------------------------
-void myfree(struct bucket_sort_stuff  *BB) {
+void myfree(struct bucket_sort_handle  *BB) {
 	free(BB->list); // list is associated with every mesh point
 	free(BB->bucket);
 	free(BB->bdry); // indices of boundary points
@@ -112,8 +103,8 @@ void myfree(struct bucket_sort_stuff  *BB) {
 }
 
 //---------------------------------------------------------------
-void start_filling_buckets(struct bucket_sort_stuff  *BB,int Nbuckets,struct mybucket *bucket,
-		struct mylist *list,double gap,int *bdry,double *blist,int bcount){	
+void start_filling_buckets(struct bucket_sort_handle  *BB,int Nbuckets,struct mybucket *bucket,
+		struct backptr_list *list,double gap,int *bdry,double *blist,int bcount){	
 	int iskip = 0,i,ibcurrent,jbdry;
 	double Bmax;
 	// sort boundary points in increasing order
@@ -134,7 +125,7 @@ void start_filling_buckets(struct bucket_sort_stuff  *BB,int Nbuckets,struct myb
 		i = adjust_bucket(bdry[jbdry],blist[jbdry],gap,Nbuckets,bucket,list);
 		jbdry++;
 	}
-	// setup struct bucket_sort_stuff 
+	// setup struct bucket_sort_handle 
 	BB->gap = gap;
 	BB->list = list;
 	BB->Nbuckets = Nbuckets;
@@ -164,7 +155,7 @@ int find_number_of_buckets(double gap,double maxgap) {
 
 void form_list_of_new_valid_points(struct mybucket *bucket,int *newlist,int *empty_count) {
 	int Nlist = bucket -> count;
-	struct mylist *lcurrent; 
+	struct backptr_list *lcurrent; 
 	int i;
 	
 	if( Nlist == 0 ) (*empty_count)++;

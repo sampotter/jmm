@@ -50,15 +50,15 @@ typedef enum state {FAR, TRIAL, VALID, BOUNDARY} state_e;
 //-------- FUNCTIONS ---------
 int main(void);
 void param(int nx,int ny,int nxy,struct myvector *xstart,struct mymesh *mesh,double *slo);
-struct bucket_sort_stuff *dial_init(struct mymesh *mesh,struct myvector *xstart,double *slo,
+struct bucket_sort_handle *dial_init(struct mymesh *mesh,struct myvector *xstart,double *slo,
 		double *u,struct myvector *gu,state_e *status);
-struct binary_tree_stuff  *dijkstra_init(struct mymesh *mesh,struct myvector *xstart,
+struct binary_tree_handle  *dijkstra_init(struct mymesh *mesh,struct myvector *xstart,
 		double *slo,double *u,struct myvector *gu,state_e *status);
 //
 int dial_main_body(struct mymesh *mesh,double *slo,double *u,struct myvector *gu,state_e *status,
-		struct bucket_sort_stuff *BB,int *N1ptu,int *N2ptu);
+		struct bucket_sort_handle *BB,int *N1ptu,int *N2ptu);
 int dijkstra_main_body(struct mymesh *mesh,double *slo,double *u,struct myvector *gu,state_e *status,
-		struct binary_tree_stuff *Btree,int *N1ptu,int *N2ptu);
+		struct binary_tree_handle *Btree,int *N1ptu,int *N2ptu);
 
 
 //---- U P D A T E S
@@ -128,18 +128,18 @@ void param(int nx,int ny,int nxy,struct myvector *xstart,struct mymesh *mesh,dou
 
 /************************************/
 
-struct binary_tree_stuff *dijkstra_init(struct mymesh *mesh,struct myvector *xstart,
+struct binary_tree_handle *dijkstra_init(struct mymesh *mesh,struct myvector *xstart,
 		double *slo,double *u,struct myvector *gu,state_e *status) {
 	int i,j,ind;
 	int *ibox;
 	struct myvector z;
 	//--- variables for heap sort
 	int *pos,*tree,*count;
-	struct binary_tree_stuff *Btree;
+	struct binary_tree_handle *Btree;
 
 
 // "Allocate memory for count, pos and tree
-	Btree = (struct binary_tree_stuff *)malloc(sizeof(struct binary_tree_stuff));
+	Btree = (struct binary_tree_handle *)malloc(sizeof(struct binary_tree_handle));
 	count = (int *)malloc(sizeof(int));
 	tree = (int *)malloc((mesh->nxy)*sizeof(int));
 	pos = (int *)malloc((mesh->nxy)*sizeof(int));
@@ -178,7 +178,7 @@ struct binary_tree_stuff *dijkstra_init(struct mymesh *mesh,struct myvector *xst
 //--- DIJKSTRA-LIKE HERMITE MARCHER
 
 int dijkstra_main_body(struct mymesh *mesh,double *slo,
-		double *u,struct myvector *gu,state_e *status,struct binary_tree_stuff *Btree,
+		double *u,struct myvector *gu,state_e *status,struct binary_tree_handle *Btree,
 		int *N1ptu,int *N2ptu) {
 	int *iplus;
 	int Nfinal = 0;
@@ -261,24 +261,24 @@ int dijkstra_main_body(struct mymesh *mesh,double *slo,
 
 //---------------------------------------------------------------
 
-struct bucket_sort_stuff *dial_init(struct mymesh *mesh,struct myvector *xstart,
+struct bucket_sort_handle *dial_init(struct mymesh *mesh,struct myvector *xstart,
 		double *slo,double *u,struct myvector *gu,state_e *status) {
 	int i,j,ind,k; 
 	int *ibox;
 	struct myvector z;
 	//--- variables for bucket sort ---
 	struct mybucket *bucket;
-	struct mylist *list;
+	struct backptr_list *list;
 	double gap,maxgap; // update gap = min_{ind}(u[ind] - max(u0,u1)); maxgap = max_{ind}(u[ind] - u)
 	int Nbuckets; 
 	//--- variables for boundary conditions for Dial-like solvers
 	int *bdry,bcount;
 	double *blist;
-	struct bucket_sort_stuff *BB;
+	struct bucket_sort_handle *BB;
 
-	BB = (struct bucket_sort_stuff *)malloc(sizeof(struct bucket_sort_stuff));
+	BB = (struct bucket_sort_handle *)malloc(sizeof(struct bucket_sort_handle));
 
-	list = (struct mylist*)malloc((mesh->nxy)*sizeof(struct mylist));
+	list = (struct backptr_list*)malloc((mesh->nxy)*sizeof(struct backptr_list));
 	// initialize all mesh points
 	for ( ind = 0; ind < (mesh->nxy); ind++ ) {
 		u[ind] = INFTY;
@@ -333,7 +333,7 @@ struct bucket_sort_stuff *dial_init(struct mymesh *mesh,struct myvector *xstart,
 //--- DIAL-BASED HERMITE MARCHER
 
 int dial_main_body(struct mymesh *mesh,double *slo,double *u,struct myvector *gu,
-		state_e *status,struct bucket_sort_stuff *BB,int *N1ptu,int *N2ptu) {
+		state_e *status,struct bucket_sort_handle *BB,int *N1ptu,int *N2ptu) {
 	int inew,ind,i,knew,ix,iy,ind0,ind1,j;
 	int *iplus;
 	char ch;
@@ -351,7 +351,7 @@ int dial_main_body(struct mymesh *mesh,double *slo,double *u,struct myvector *gu
 	
 	// variables for bucket sort
 	struct mybucket *bucket;
-	struct mylist *list;
+	struct backptr_list *list;
 	double gap; 
 	int Nbuckets,Nb1; // Nb1 = Nbuckets - 1
 	int ibcurrent; // index of the current bucket
@@ -662,7 +662,7 @@ struct mysol do_update(int ind,int i,int inew,struct myvector xnew,
 //---------------------------------------------------------------
 
 int main() {
-    int p, pmin = 4, pmax = 12; // mesh sizes along single dimension run from 2^pmin + 1 to 2^pmax + 1
+    int p, pmin = 4, pmax = 10; // mesh sizes along single dimension run from 2^pmin + 1 to 2^pmax + 1
 	int nx,ny,nxy; // mesh size
     int i,j,k,ind,kg; 
     double dd,errmax = 0.0,erms = 0.0;
@@ -692,8 +692,8 @@ int main() {
 	struct mymesh *mesh;
 	
 	//--- variables for heap sort
-	struct binary_tree_stuff *Btree;
-	struct bucket_sort_stuff *BB;
+	struct binary_tree_handle *Btree;
+	struct bucket_sort_handle *BB;
 	
 	xstart = (struct myvector *)malloc(sizeof(struct myvector));
 	mesh = (struct mymesh *)malloc(sizeof(struct mymesh));

@@ -1,4 +1,4 @@
-struct binary_tree_stuff {
+struct binary_tree_handle {
 	int *count;
 	int *pos;
 	int *tree;

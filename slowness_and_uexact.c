@@ -17,12 +17,6 @@
 #define min(a,b) ((a) <= (b) ? (a) : (b))
 
 
-double slowness(char slo_fun,struct myvector x);
-struct myvector gradslo(char slo_fun,struct myvector x,double s);
-struct mymatrix Hslo(char slo_fun,struct myvector x,struct myvector gs,double s);
-double exact_solution(char slo_fun,struct myvector x,double s);
-struct myvector exact_gradient(char slo_fun,struct myvector x,double s);
-void set_params( char slo_fun,struct myvector *xstart );
 
 // Parameters for slowness field from Qi + Vladimirsky
 double QVf0,QVs0,QVvv,QVvnorm; // QVf0 = 1/QVs0, QVvv = ||QVv||^2

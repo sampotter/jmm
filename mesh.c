@@ -12,15 +12,6 @@
 
 #define SAFETY_FAC 0.9 // safety factor for finding gap
 
-struct myvector getpoint(int ind,struct mymesh *mesh); 
-int get_lower_left_index(struct myvector *z,struct mymesh *mesh);
-void setup_mesh(int nx,int ny,int nxy,double xmin,double xmax,double ymin,double ymax,struct mymesh *mesh);
-char inmesh_test(int inew,int i,struct mymesh *mesh);
-void set_index_shifts_for_nearest_neighbors(int *iplus,struct mymesh *mesh);
-struct i2ptu set_update_triangle(int ix,int iy,int i,int j,struct mymesh *mesh);
-void set_ibox(double RAD,int ind,int *ibox,struct mymesh *mesh);
-struct myvector find_gap(struct mymesh *,double *,int *);
-int ineighbor(int idiff,struct mymesh *mesh);
 //---------------------------------------------------------------
 
 struct myvector getpoint(int ind,struct mymesh *mesh) {
