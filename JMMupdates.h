@@ -1,12 +1,13 @@
 struct mysol {
   double u;
   struct myvector gu;
+  double gap; 
   char ch;
 };  
 
 //---------- TWO-PT-UPDATE ---------------
 struct mysol two_pt_update(double *NWTarg,double *NWTres,double *NWTllim,double *NWTulim,double *NWTJac,double *NWTdir,
-			double h,struct myvector dx,struct myvector x0,struct myvector xhat,
+			struct myvector dx,struct myvector x0,struct myvector xhat,
 			double u0,double u1,struct myvector gu0,struct myvector gu1,double shat,
 			double *par,char *cpar);
 void JMM1fun2ptu(double *arg,double *F,double *par,char *cpar);
