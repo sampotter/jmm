@@ -14,7 +14,7 @@
 
 //---------------------------------------------------------------
 
-struct myvector getpoint(int ind,struct mymesh *mesh) {
+struct myvector getpoint(int ind,mesh_s *mesh) {
 	struct myvector z;
 	
 	z.x = (mesh->xmin) + (mesh->hx)*(ind%(mesh->nx));
@@ -24,7 +24,7 @@ struct myvector getpoint(int ind,struct mymesh *mesh) {
 
 //---------------------------------------------------------------
 
-int get_lower_left_index(struct myvector *z,struct mymesh *mesh) {
+int get_lower_left_index(struct myvector *z,mesh_s *mesh) {
 	int i,j,ind;
 	
 	i = floor((z->x - (mesh->xmin))/(mesh->hx));
@@ -35,7 +35,7 @@ int get_lower_left_index(struct myvector *z,struct mymesh *mesh) {
 
 //---------------------------------------------------------------
 
-void setup_mesh(int nx,int ny,int nxy,double xmin,double xmax,double ymin,double ymax,struct mymesh *mesh) {
+void setup_mesh(int nx,int ny,int nxy,double xmin,double xmax,double ymin,double ymax,mesh_s *mesh) {
 	mesh -> nx = nx;
 	mesh -> ny = ny;
 	mesh -> nxy = nxy;
@@ -53,7 +53,7 @@ void setup_mesh(int nx,int ny,int nxy,double xmin,double xmax,double ymin,double
 
 //---------------------------------------------------------------
 
-char inmesh_test(int inew,int i,struct mymesh *mesh) {
+char inmesh_test(int inew,int i,mesh_s *mesh) {
 	// checks if the nearest neighbor i of inew is in mesh
 		// indices of 8 nearest neighbors of X
 	//          3
@@ -74,7 +74,7 @@ char inmesh_test(int inew,int i,struct mymesh *mesh) {
 }	
 
 //---------------------------------------------------------------
-void set_index_shifts_for_nearest_neighbors(int *iplus,struct mymesh *mesh) {
+void set_index_shifts_for_nearest_neighbors(int *iplus,mesh_s *mesh) {
 	iplus[0] = -(mesh->nx)+1;
 	iplus[1] = 1;
 	iplus[2] = (mesh->nx)+1;
@@ -86,7 +86,7 @@ void set_index_shifts_for_nearest_neighbors(int *iplus,struct mymesh *mesh) {
 }
 
 //---------------------------------------------------------------
-struct i2ptu set_update_triangle(int ix,int iy,int i,int j,struct mymesh *mesh) {
+struct i2ptu set_update_triangle(int ix,int iy,int i,int j,mesh_s *mesh) {
 	char ch;
 	int j0,j1,jtemp;
 	int imap[8] = {4,5,6,7,0,1,2,3}; 
@@ -120,7 +120,7 @@ struct i2ptu set_update_triangle(int ix,int iy,int i,int j,struct mymesh *mesh) 
 }
 
 //----------------------------------------------------------------
-void set_ibox(double RAD,int ind,int *ibox,struct mymesh *mesh) {
+void set_ibox(double RAD,int ind,int *ibox,mesh_s *mesh) {
     int kx,ky;
  	kx = round(RAD/(mesh->hx));
 	ky = round(RAD/(mesh->hy));
@@ -132,7 +132,7 @@ void set_ibox(double RAD,int ind,int *ibox,struct mymesh *mesh) {
 
 //---------------------------------------------------------------
 
-struct myvector find_gap(struct mymesh *mesh,double *slo,int *ibox) {
+struct myvector find_gap(mesh_s *mesh,double *slo,int *ibox) {
 	double slo_min = INFTY,slo_max = 0.0;
 	int i,j,ind;
 	double hx2,hy2;
@@ -158,7 +158,7 @@ struct myvector find_gap(struct mymesh *mesh,double *slo,int *ibox) {
 
 //--------------------------------------------------------------
 
-int ineighbor(int idiff,struct mymesh *mesh) {
+int ineighbor(int idiff,mesh_s *mesh) {
 	int m = -1;
 // 	iplus[0] = -(mesh->nx)+1;
 // 	iplus[1] = 1;

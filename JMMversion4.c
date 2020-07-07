@@ -49,21 +49,21 @@ typedef enum state {FAR, TRIAL, VALID, BOUNDARY} state_e;
 
 //-------- FUNCTIONS ---------
 int main(void);
-void param(int nx,int ny,int nxy,struct myvector *xstart,struct mymesh *mesh,double *slo);
-struct bucket_sort_handle *dial_init(struct mymesh *mesh,struct myvector *xstart,double *slo,
+void param(int nx,int ny,int nxy,struct myvector *xstart,mesh_s *mesh,double *slo);
+struct bucket_sort_handle *dial_init(mesh_s *mesh,struct myvector *xstart,double *slo,
 		double *u,struct myvector *gu,state_e *status);
-struct binary_tree_handle  *dijkstra_init(struct mymesh *mesh,struct myvector *xstart,
+struct binary_tree_handle  *dijkstra_init(mesh_s *mesh,struct myvector *xstart,
 		double *slo,double *u,struct myvector *gu,state_e *status);
 //
-int dial_main_body(struct mymesh *mesh,double *slo,double *u,struct myvector *gu,state_e *status,
+int dial_main_body(mesh_s *mesh,double *slo,double *u,struct myvector *gu,state_e *status,
 		struct bucket_sort_handle *BB,int *N1ptu,int *N2ptu);
-int dijkstra_main_body(struct mymesh *mesh,double *slo,double *u,struct myvector *gu,state_e *status,
+int dijkstra_main_body(mesh_s *mesh,double *slo,double *u,struct myvector *gu,state_e *status,
 		struct binary_tree_handle *Btree,int *N1ptu,int *N2ptu);
 
 
 //---- U P D A T E S
 struct mysol do_update(int ind,int i,int inew,struct myvector xnew,
-				struct mymesh *mesh,double *slo,double *u,struct myvector *gu,state_e *status,
+				mesh_s *mesh,double *slo,double *u,struct myvector *gu,state_e *status,
 				int *iplus,double *par1,double *par2,char *cpar,
 				double *NWTarg,double *NWTres,double *NWTllim,double *NWTulim,double *NWTJac,double *NWTdir,
 				int *N1ptu,int *N2ptu);
@@ -81,7 +81,7 @@ char method_update = JMM3;
 //--------------------------------------------
 //---------------------------------------------------------------
 
-void param(int nx,int ny,int nxy,struct myvector *xstart,struct mymesh *mesh,double *slo) {
+void param(int nx,int ny,int nxy,struct myvector *xstart,mesh_s *mesh,double *slo) {
 	int ind;
 	double XMIN,XMAX,YMIN,YMAX;	
 	
@@ -128,7 +128,7 @@ void param(int nx,int ny,int nxy,struct myvector *xstart,struct mymesh *mesh,dou
 
 /************************************/
 
-struct binary_tree_handle *dijkstra_init(struct mymesh *mesh,struct myvector *xstart,
+struct binary_tree_handle *dijkstra_init(mesh_s *mesh,struct myvector *xstart,
 		double *slo,double *u,struct myvector *gu,state_e *status) {
 	int i,j,ind;
 	int *ibox;
@@ -177,7 +177,7 @@ struct binary_tree_handle *dijkstra_init(struct mymesh *mesh,struct myvector *xs
 //---------------------------------------------------------------
 //--- DIJKSTRA-LIKE HERMITE MARCHER
 
-int dijkstra_main_body(struct mymesh *mesh,double *slo,
+int dijkstra_main_body(mesh_s *mesh,double *slo,
 		double *u,struct myvector *gu,state_e *status,struct binary_tree_handle *Btree,
 		int *N1ptu,int *N2ptu) {
 	int *iplus;
@@ -261,13 +261,13 @@ int dijkstra_main_body(struct mymesh *mesh,double *slo,
 
 //---------------------------------------------------------------
 
-struct bucket_sort_handle *dial_init(struct mymesh *mesh,struct myvector *xstart,
+struct bucket_sort_handle *dial_init(mesh_s *mesh,struct myvector *xstart,
 		double *slo,double *u,struct myvector *gu,state_e *status) {
 	int i,j,ind,k; 
 	int *ibox;
 	struct myvector z;
 	//--- variables for bucket sort ---
-	struct mybucket *bucket;
+	bucket_s *bucket;
 	struct backptr_list *list;
 	double gap,maxgap; // update gap = min_{ind}(u[ind] - max(u0,u1)); maxgap = max_{ind}(u[ind] - u)
 	int Nbuckets; 
@@ -321,7 +321,7 @@ struct bucket_sort_handle *dial_init(struct mymesh *mesh,struct myvector *xstart
 	Nbuckets = find_number_of_buckets(gap,maxgap);
 	// the number of buckets of chosen one more than necessary to exclude roundoff effects
 	printf("Nbuckets = %i\n",Nbuckets);
-	bucket = (struct mybucket*)malloc(Nbuckets*sizeof(struct mybucket));
+	bucket = (bucket_s*)malloc(Nbuckets*sizeof(bucket_s));
 	
 	// setup buckets and put some initial number of boundary points to buckets
 	start_filling_buckets(BB,Nbuckets,bucket,list,gap,bdry,blist,bcount);
@@ -332,7 +332,7 @@ struct bucket_sort_handle *dial_init(struct mymesh *mesh,struct myvector *xstart
 //---------------------------------------------------------------
 //--- DIAL-BASED HERMITE MARCHER
 
-int dial_main_body(struct mymesh *mesh,double *slo,double *u,struct myvector *gu,
+int dial_main_body(mesh_s *mesh,double *slo,double *u,struct myvector *gu,
 		state_e *status,struct bucket_sort_handle *BB,int *N1ptu,int *N2ptu) {
 	int inew,ind,i,knew,ix,iy,ind0,ind1,j;
 	int *iplus;
@@ -350,7 +350,7 @@ int dial_main_body(struct mymesh *mesh,double *slo,double *u,struct myvector *gu
 	char *cpar;
 	
 	// variables for bucket sort
-	struct mybucket *bucket;
+	bucket_s *bucket;
 	struct backptr_list *list;
 	double gap; 
 	int Nbuckets,Nb1; // Nb1 = Nbuckets - 1
@@ -556,7 +556,7 @@ int dial_main_body(struct mymesh *mesh,double *slo,double *u,struct myvector *gu
 //---------------------------------------------------------------
 //---------------------------------------------------------------
 struct mysol do_update(int ind,int i,int inew,struct myvector xnew,
-				struct mymesh *mesh,double *slo,double *u,struct myvector *gu,state_e *status,
+				mesh_s *mesh,double *slo,double *u,struct myvector *gu,state_e *status,
 				int *iplus,double *par1,double *par2,char *cpar,
 				double *NWTarg,double *NWTres,double *NWTllim,double *NWTulim,double *NWTJac,double *NWTdir,
 				int *N1ptu,int *N2ptu) {
@@ -689,14 +689,14 @@ int main() {
 	struct myvector *xstart;
 	int *N1ptu,*N2ptu;
 	
-	struct mymesh *mesh;
+	mesh_s *mesh;
 	
 	//--- variables for heap sort
 	struct binary_tree_handle *Btree;
 	struct bucket_sort_handle *BB;
 	
 	xstart = (struct myvector *)malloc(sizeof(struct myvector));
-	mesh = (struct mymesh *)malloc(sizeof(struct mymesh));
+	mesh = (mesh_s *)malloc(sizeof(mesh_s));
 	N1ptu = (int *)malloc(sizeof(ind));
 	N2ptu = (int *)malloc(sizeof(int));
 			
