@@ -419,16 +419,6 @@ int dial_main_body(mesh_s *mesh,double *slo,double *u,struct myvector *gu,
 		Nlist = (bucket + ibcurrent) -> count;
 		newlist = (int *)malloc(Nlist*sizeof(int));
 	    form_list_of_new_valid_points(bucket+ibcurrent,newlist,empty_count,status);
-	    // accept points from the carrent bucket
-// 		for( m = 0; m < Nlist; m++) { 
-// 			inew = newlist[m]; // index of the new accepted point
-// // 			ix = inew%(mesh->nx);
-// // 			iy = inew/(mesh->nx);
-// 			status[inew] = VALID;
-// 			Nfinal++;
-// // 			printf("Nfinal = %i, inew = %i (%i,%i), u = %.4e, err = %.4e\n",
-// // 					Nfinal,inew,ix,iy,u[inew],u[inew]-exact_solution(slo_fun,getpoint(inew,mesh),slo[inew]));
-// 		}
 		Nfinal += Nlist;
 	    // form lists for 2ptu and 1ptu
 	    list2ptu = (int *)malloc(24*Nlist*sizeof(int)); // 2ptu list
@@ -448,6 +438,9 @@ int dial_main_body(mesh_s *mesh,double *slo,double *u,struct myvector *gu,
 // 				printf("inew = %i, i = %i, ind = %i, status[%i] = %d\n",inew,i,ind,ind,status[ind]);
 // 
 				if( ch == 'y' && status[ind] != VALID ) {
+					list1ptu[N1list] = ind;
+					list1ptu[++N1list] = inew;
+					N1list++;
 					for( j = 0; j < 2; j++ ) { // two possible update triangles with inew at the base  and ind being updated
 						ut = set_update_triangle(ix,iy,i,j,mesh);
 						if( ut.ch == 'y' ) { 
@@ -463,15 +456,7 @@ int dial_main_body(mesh_s *mesh,double *slo,double *u,struct myvector *gu,
 								list2ptu[++N2list] = ind0;
 								list2ptu[++N2list] = ind1;
 								N2list++;
-								list1ptu[N1list] = ind;
-								list1ptu[++N1list] = inew;
-								N1list++;
 							}
-// 							else {
-// 								list1ptu[N1list] = ind1;
-// 								list1ptu[++N1list] = inew;
-// 								N1list++;
-// 							}
 						}
 					}	
 				}			
