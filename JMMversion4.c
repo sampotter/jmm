@@ -20,6 +20,7 @@
 #include "HeapSort.h"
 #include "BucketSort.h"
 #include "mesh.h"
+#include "def.h"
 
 // type of method's template
 #define DIJKSTRA 0
@@ -43,9 +44,6 @@
 #define TOL 1.0e-14
 #define RAD 0.1 // the initial box is [-RAD,RAD]^2
 
-
-
-typedef enum state {FAR, TRIAL, VALID, BOUNDARY} state_e;
 
 //-------- FUNCTIONS ---------
 int main(void);
@@ -420,17 +418,18 @@ int dial_main_body(mesh_s *mesh,double *slo,double *u,struct myvector *gu,
 	while( *empty_count < Nbuckets ) { // && Nfinal < NFMAX 
 		Nlist = (bucket + ibcurrent) -> count;
 		newlist = (int *)malloc(Nlist*sizeof(int));
-	    form_list_of_new_valid_points(bucket+ibcurrent,newlist,empty_count);
+	    form_list_of_new_valid_points(bucket+ibcurrent,newlist,empty_count,status);
 	    // accept points from the carrent bucket
-		for( m = 0; m < Nlist; m++) { 
-			inew = newlist[m]; // index of the new accepted point
-// 			ix = inew%(mesh->nx);
-// 			iy = inew/(mesh->nx);
-			status[inew] = VALID;
-			Nfinal++;
-// 			printf("Nfinal = %i, inew = %i (%i,%i), u = %.4e, err = %.4e\n",
-// 					Nfinal,inew,ix,iy,u[inew],u[inew]-exact_solution(slo_fun,getpoint(inew,mesh),slo[inew]));
-		}
+// 		for( m = 0; m < Nlist; m++) { 
+// 			inew = newlist[m]; // index of the new accepted point
+// // 			ix = inew%(mesh->nx);
+// // 			iy = inew/(mesh->nx);
+// 			status[inew] = VALID;
+// 			Nfinal++;
+// // 			printf("Nfinal = %i, inew = %i (%i,%i), u = %.4e, err = %.4e\n",
+// // 					Nfinal,inew,ix,iy,u[inew],u[inew]-exact_solution(slo_fun,getpoint(inew,mesh),slo[inew]));
+// 		}
+		Nfinal += Nlist;
 	    // form lists for 2ptu and 1ptu
 	    list2ptu = (int *)malloc(24*Nlist*sizeof(int)); // 2ptu list
 	    N2list = 0;

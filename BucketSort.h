@@ -1,3 +1,6 @@
+#pragma once
+#include "def.h"
+
 struct backptr_list {
 	struct backptr_list *next; // pointer to the next node in the list
 	struct backptr_list *previous; // pointer to the previous node in the list
@@ -33,4 +36,4 @@ void myfree(struct bucket_sort_handle  *BB);
 void start_filling_buckets(struct bucket_sort_handle  *BB,int Nbuckets,bucket_s *bucket,
 		struct backptr_list *list,double gap,int *bdry,double *blist,int bcount);
 int find_number_of_buckets(double gap,double maxgap);		
-void form_list_of_new_valid_points(bucket_s *bucket,int *newlist,int *empty_count);
+void form_list_of_new_valid_points(bucket_s *bucket,int *newlist,int *empty_count,state_e *status);

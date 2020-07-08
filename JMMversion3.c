@@ -20,6 +20,7 @@
 #include "HeapSort.h"
 #include "BucketSort.h"
 #include "mesh.h"
+#include "def.h"
 
 // type of method's template
 #define DIJKSTRA 0
@@ -43,9 +44,6 @@
 #define TOL 1.0e-14
 #define RAD 0.1 // the initial box is [-RAD,RAD]^2
 
-
-
-typedef enum state {FAR, TRIAL, VALID, BOUNDARY} state_e;
 
 //-------- FUNCTIONS ---------
 int main(void);
