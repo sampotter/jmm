@@ -420,6 +420,9 @@ int dial_main_body(mesh_s *mesh,double *slo,double *u,struct myvector *gu,
 		newlist = (int *)malloc(Nlist*sizeof(int));
 	    form_list_of_new_valid_points(bucket+ibcurrent,newlist,empty_count,status);
 		Nfinal += Nlist;
+		
+// 		for( m=0; m<Nlist; m++) printf("newlist[%i] = %i\n",m,newlist[m]);
+		
 	    // form lists for 2ptu and 1ptu
 	    list2ptu = (int *)malloc(24*Nlist*sizeof(int)); // 2ptu list
 	    N2list = 0;
@@ -437,7 +440,7 @@ int dial_main_body(mesh_s *mesh,double *slo,double *u,struct myvector *gu,
 				ind = inew + iplus[i];
 // 				printf("inew = %i, i = %i, ind = %i, status[%i] = %d\n",inew,i,ind,ind,status[ind]);
 // 
-				if( ch == 'y' && status[ind] != VALID ) {
+				if( ch == 'y' && status[ind] == TRIAL  ) {
 					list1ptu[N1list] = ind;
 					list1ptu[++N1list] = inew;
 					N1list++;
@@ -479,6 +482,9 @@ int dial_main_body(mesh_s *mesh,double *slo,double *u,struct myvector *gu,
 			x0 = getpoint(ind0,mesh);
 			x1 = getpoint(ind1,mesh);
 			dx = vec_difference(x1,x0);	
+			
+// 			printf("i = %i, ind = %i, ind0 = %i, ind1 = %i\n",i,ind,ind0,ind1 );
+			
 			if( dot_product(vec_difference(xhat,x1),getperp_plus(dx)) > 0 ) {
 				getperp = getperp_minus;	
 				cpar[1] = 'm';
@@ -509,7 +515,7 @@ int dial_main_body(mesh_s *mesh,double *slo,double *u,struct myvector *gu,
 			xhat = getpoint(ind,mesh);							
 			x0 = getpoint(ind0,mesh);
 			xm = a_times_vec(vec_sum(x0,xhat),0.5);
-// 			printf("ind = %i, ind0 = %i, idiff = %i\n",ind,ind0,ind-ind0);
+// 			printf("i = %i, ind = %i, ind0 = %i\n",i,ind,ind0);
 			m = ineighbor(ind-ind0,mesh);
 			sol = one_pt_update(NWTarg,NWTres,NWTllim,NWTulim,NWTJac,NWTdir,
 				u[ind0],h1ptu[m],xm,slo[ind0],slo[ind],
