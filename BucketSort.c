@@ -3,7 +3,6 @@
 #include <math.h>
 #include "BucketSort.h"
 #include "QuickSort.h"
-// #include "def.h"
 
 #define INFTY 1.0e+6
 #define TOL 1.0e-14
@@ -166,7 +165,7 @@ void form_list_of_new_valid_points(bucket_s *bucket,int *newlist,int *empty_coun
 	bucket -> count = 0;
 	for( i = 0; i < Nlist; i++ ) { 
 		newlist[i] = lcurrent -> ind; // index of the new accepted point
-		status[lcurrent -> ind] = VALID;
+		status[lcurrent -> ind] = NEW_VALID;
 		lcurrent = lcurrent -> next;
 	}	
 }

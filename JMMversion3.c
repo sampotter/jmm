@@ -575,7 +575,7 @@ struct mysol do_update(int ind,int i,int inew,struct myvector xnew,
 //---------------------------------------------------------------
 
 int main() {
-    int p, pmin = 4, pmax = 10; // mesh sizes along single dimension run from 2^pmin + 1 to 2^pmax + 1
+    int p, pmin = 4, pmax = 12; // mesh sizes along single dimension run from 2^pmin + 1 to 2^pmax + 1
 	int nx,ny,nxy; // mesh size
     int i,j,k,ind,kg; 
     double dd,errmax = 0.0,erms = 0.0;

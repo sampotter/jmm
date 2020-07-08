@@ -451,7 +451,9 @@ int dial_main_body(mesh_s *mesh,double *slo,double *u,struct myvector *gu,
 // 								printf("inew = %i, ind0 = %i,ind1 = %i, ind = %i\n",inew,ind0,ind1,ind);
 // 								exit(1);
 // 							}	
-							if( status[ind1] == VALID ) { // note: status[ind0] = VALID
+							if( (status[ind0] == NEW_VALID && status[ind1] == VALID) ||
+								(status[ind0] == VALID && status[ind1] == NEW_VALID) ||
+								(ind0 == inew && status[ind0] == status[ind1]) ) { 
 								list2ptu[N2list] = ind;
 								list2ptu[++N2list] = ind0;
 								list2ptu[++N2list] = ind1;
@@ -462,6 +464,9 @@ int dial_main_body(mesh_s *mesh,double *slo,double *u,struct myvector *gu,
 				}			
 			}
 		} //end for( m = 0; m < Nlist; m++)
+		for( m = 0; m < Nlist; m++ ) status[newlist[m]] = VALID;
+		//
+		
 		// do two-point updates
 		N2list /= 3;
 		for( i = 0; i < N2list; i++ ) {
@@ -646,7 +651,7 @@ struct mysol do_update(int ind,int i,int inew,struct myvector xnew,
 //---------------------------------------------------------------
 
 int main() {
-    int p, pmin = 4, pmax = 10; // mesh sizes along single dimension run from 2^pmin + 1 to 2^pmax + 1
+    int p, pmin = 4, pmax = 12; // mesh sizes along single dimension run from 2^pmin + 1 to 2^pmax + 1
 	int nx,ny,nxy; // mesh size
     int i,j,k,ind,kg; 
     double dd,errmax = 0.0,erms = 0.0;
