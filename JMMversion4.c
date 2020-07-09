@@ -20,6 +20,7 @@
 #include "HeapSort.h"
 #include "BucketSort.h"
 #include "mesh.h"
+#include "def.h"
 
 // type of method's template
 #define DIJKSTRA 0
@@ -44,26 +45,23 @@
 #define RAD 0.1 // the initial box is [-RAD,RAD]^2
 
 
-
-typedef enum state {FAR, TRIAL, VALID, BOUNDARY} state_e;
-
 //-------- FUNCTIONS ---------
 int main(void);
-void param(int nx,int ny,int nxy,struct myvector *xstart,struct mymesh *mesh,double *slo);
-struct bucket_sort_handle *dial_init(struct mymesh *mesh,struct myvector *xstart,double *slo,
+void param(int nx,int ny,int nxy,struct myvector *xstart,mesh_s *mesh,double *slo);
+struct bucket_sort_handle *dial_init(mesh_s *mesh,struct myvector *xstart,double *slo,
 		double *u,struct myvector *gu,state_e *status);
-struct binary_tree_handle  *dijkstra_init(struct mymesh *mesh,struct myvector *xstart,
+struct binary_tree_handle  *dijkstra_init(mesh_s *mesh,struct myvector *xstart,
 		double *slo,double *u,struct myvector *gu,state_e *status);
 //
-int dial_main_body(struct mymesh *mesh,double *slo,double *u,struct myvector *gu,state_e *status,
+int dial_main_body(mesh_s *mesh,double *slo,double *u,struct myvector *gu,state_e *status,
 		struct bucket_sort_handle *BB,int *N1ptu,int *N2ptu);
-int dijkstra_main_body(struct mymesh *mesh,double *slo,double *u,struct myvector *gu,state_e *status,
+int dijkstra_main_body(mesh_s *mesh,double *slo,double *u,struct myvector *gu,state_e *status,
 		struct binary_tree_handle *Btree,int *N1ptu,int *N2ptu);
 
 
 //---- U P D A T E S
 struct mysol do_update(int ind,int i,int inew,struct myvector xnew,
-				struct mymesh *mesh,double *slo,double *u,struct myvector *gu,state_e *status,
+				mesh_s *mesh,double *slo,double *u,struct myvector *gu,state_e *status,
 				int *iplus,double *par1,double *par2,char *cpar,
 				double *NWTarg,double *NWTres,double *NWTllim,double *NWTulim,double *NWTJac,double *NWTdir,
 				int *N1ptu,int *N2ptu);
@@ -81,7 +79,7 @@ char method_update = JMM3;
 //--------------------------------------------
 //---------------------------------------------------------------
 
-void param(int nx,int ny,int nxy,struct myvector *xstart,struct mymesh *mesh,double *slo) {
+void param(int nx,int ny,int nxy,struct myvector *xstart,mesh_s *mesh,double *slo) {
 	int ind;
 	double XMIN,XMAX,YMIN,YMAX;	
 	
@@ -128,7 +126,7 @@ void param(int nx,int ny,int nxy,struct myvector *xstart,struct mymesh *mesh,dou
 
 /************************************/
 
-struct binary_tree_handle *dijkstra_init(struct mymesh *mesh,struct myvector *xstart,
+struct binary_tree_handle *dijkstra_init(mesh_s *mesh,struct myvector *xstart,
 		double *slo,double *u,struct myvector *gu,state_e *status) {
 	int i,j,ind;
 	int *ibox;
@@ -177,7 +175,7 @@ struct binary_tree_handle *dijkstra_init(struct mymesh *mesh,struct myvector *xs
 //---------------------------------------------------------------
 //--- DIJKSTRA-LIKE HERMITE MARCHER
 
-int dijkstra_main_body(struct mymesh *mesh,double *slo,
+int dijkstra_main_body(mesh_s *mesh,double *slo,
 		double *u,struct myvector *gu,state_e *status,struct binary_tree_handle *Btree,
 		int *N1ptu,int *N2ptu) {
 	int *iplus;
@@ -261,13 +259,13 @@ int dijkstra_main_body(struct mymesh *mesh,double *slo,
 
 //---------------------------------------------------------------
 
-struct bucket_sort_handle *dial_init(struct mymesh *mesh,struct myvector *xstart,
+struct bucket_sort_handle *dial_init(mesh_s *mesh,struct myvector *xstart,
 		double *slo,double *u,struct myvector *gu,state_e *status) {
 	int i,j,ind,k; 
 	int *ibox;
 	struct myvector z;
 	//--- variables for bucket sort ---
-	struct mybucket *bucket;
+	bucket_s *bucket;
 	struct backptr_list *list;
 	double gap,maxgap; // update gap = min_{ind}(u[ind] - max(u0,u1)); maxgap = max_{ind}(u[ind] - u)
 	int Nbuckets; 
@@ -321,7 +319,7 @@ struct bucket_sort_handle *dial_init(struct mymesh *mesh,struct myvector *xstart
 	Nbuckets = find_number_of_buckets(gap,maxgap);
 	// the number of buckets of chosen one more than necessary to exclude roundoff effects
 	printf("Nbuckets = %i\n",Nbuckets);
-	bucket = (struct mybucket*)malloc(Nbuckets*sizeof(struct mybucket));
+	bucket = (bucket_s*)malloc(Nbuckets*sizeof(bucket_s));
 	
 	// setup buckets and put some initial number of boundary points to buckets
 	start_filling_buckets(BB,Nbuckets,bucket,list,gap,bdry,blist,bcount);
@@ -332,7 +330,7 @@ struct bucket_sort_handle *dial_init(struct mymesh *mesh,struct myvector *xstart
 //---------------------------------------------------------------
 //--- DIAL-BASED HERMITE MARCHER
 
-int dial_main_body(struct mymesh *mesh,double *slo,double *u,struct myvector *gu,
+int dial_main_body(mesh_s *mesh,double *slo,double *u,struct myvector *gu,
 		state_e *status,struct bucket_sort_handle *BB,int *N1ptu,int *N2ptu) {
 	int inew,ind,i,knew,ix,iy,ind0,ind1,j;
 	int *iplus;
@@ -350,7 +348,7 @@ int dial_main_body(struct mymesh *mesh,double *slo,double *u,struct myvector *gu
 	char *cpar;
 	
 	// variables for bucket sort
-	struct mybucket *bucket;
+	bucket_s *bucket;
 	struct backptr_list *list;
 	double gap; 
 	int Nbuckets,Nb1; // Nb1 = Nbuckets - 1
@@ -420,17 +418,8 @@ int dial_main_body(struct mymesh *mesh,double *slo,double *u,struct myvector *gu
 	while( *empty_count < Nbuckets ) { // && Nfinal < NFMAX 
 		Nlist = (bucket + ibcurrent) -> count;
 		newlist = (int *)malloc(Nlist*sizeof(int));
-	    form_list_of_new_valid_points(bucket+ibcurrent,newlist,empty_count);
-	    // accept points from the carrent bucket
-		for( m = 0; m < Nlist; m++) { 
-			inew = newlist[m]; // index of the new accepted point
-// 			ix = inew%(mesh->nx);
-// 			iy = inew/(mesh->nx);
-			status[inew] = VALID;
-			Nfinal++;
-// 			printf("Nfinal = %i, inew = %i (%i,%i), u = %.4e, err = %.4e\n",
-// 					Nfinal,inew,ix,iy,u[inew],u[inew]-exact_solution(slo_fun,getpoint(inew,mesh),slo[inew]));
-		}
+	    form_list_of_new_valid_points(bucket+ibcurrent,newlist,empty_count,status);
+		Nfinal += Nlist;
 	    // form lists for 2ptu and 1ptu
 	    list2ptu = (int *)malloc(24*Nlist*sizeof(int)); // 2ptu list
 	    N2list = 0;
@@ -440,44 +429,33 @@ int dial_main_body(struct mymesh *mesh,double *slo,double *u,struct myvector *gu
 			inew = newlist[m]; // index of the new accepted point
 			ix = inew%(mesh->nx);
 			iy = inew/(mesh->nx);
-// 			xnew = getpoint(inew,mesh);
-// 			printf("Nfinal = %i, inew = %i (%i,%i), u = %.4e, err = %.4e, gu = (%.4e,%.4e)\n",
-// 					Nfinal,inew,ix,iy,u[inew],u[inew]-exact_solution(slo_fun,xnew,slo[inew]),gu[inew].x,gu[inew].y);
 			for( i = 0; i < 8; i++ ) {
 				ch = inmesh_test(inew,i,mesh);
 				ind = inew + iplus[i];
-// 				printf("inew = %i, i = %i, ind = %i, status[%i] = %d\n",inew,i,ind,ind,status[ind]);
-// 
-				if( ch == 'y' && status[ind] != VALID ) {
+				if( ch == 'y' && status[ind] == TRIAL  ) {
+					list1ptu[N1list] = ind;
+					list1ptu[++N1list] = inew;
+					N1list++;
 					for( j = 0; j < 2; j++ ) { // two possible update triangles with inew at the base  and ind being updated
 						ut = set_update_triangle(ix,iy,i,j,mesh);
 						if( ut.ch == 'y' ) { 
 							// ind0, ind1 form the base of update triangle
 							ind0 = ind + iplus[ut.j0]; // hxy distance from xhat
 							ind1 = ind + iplus[ut.j1]; // hx or hy distance from xhat 
-// 							if( ind0 != inew ) {
-// 								printf("inew = %i, ind0 = %i,ind1 = %i, ind = %i\n",inew,ind0,ind1,ind);
-// 								exit(1);
-// 							}	
-							if( status[ind1] == VALID ) { // note: status[ind0] = VALID
+							if( (status[ind0] == NEW_VALID && status[ind1] == VALID) ||
+								(status[ind0] == VALID && status[ind1] == NEW_VALID) ||
+								(ind0 == inew && status[ind0] == status[ind1]) ) { 
 								list2ptu[N2list] = ind;
 								list2ptu[++N2list] = ind0;
 								list2ptu[++N2list] = ind1;
 								N2list++;
-								list1ptu[N1list] = ind;
-								list1ptu[++N1list] = inew;
-								N1list++;
 							}
-// 							else {
-// 								list1ptu[N1list] = ind1;
-// 								list1ptu[++N1list] = inew;
-// 								N1list++;
-// 							}
 						}
 					}	
 				}			
 			}
 		} //end for( m = 0; m < Nlist; m++)
+		for( m = 0; m < Nlist; m++ ) status[newlist[m]] = VALID;
 		// do two-point updates
 		N2list /= 3;
 		for( i = 0; i < N2list; i++ ) {
@@ -501,8 +479,6 @@ int dial_main_body(struct mymesh *mesh,double *slo,double *u,struct myvector *gu
 			sol = two_pt_update(NWTarg,NWTres,NWTllim,NWTulim,NWTJac,NWTdir,
 						dx,x0,xhat,u[ind0],u[ind1],
 							gu[ind0],gu[ind1],slo[ind],par2,cpar);
-// 		    printf("ind = %i, ind0 = %i, ind1 = %i: sol.ch = %c, sol.u = %.6e, err = %.4e\n",
-// 		    	ind,ind0,ind1,sol.ch,sol.u,sol.u - exact_solution(slo_fun,x0,slo[ind]));					
 			if( sol.ch == 'y' && sol.u < u[ind] ){
 				u[ind] = sol.u;
 				gu[ind] = sol.gu;
@@ -519,8 +495,7 @@ int dial_main_body(struct mymesh *mesh,double *slo,double *u,struct myvector *gu
 			ind0 = list1ptu[++j];
 			xhat = getpoint(ind,mesh);							
 			x0 = getpoint(ind0,mesh);
-			xm = a_times_vec(vec_sum(x0,xhat),0.5);
-// 			printf("ind = %i, ind0 = %i, idiff = %i\n",ind,ind0,ind-ind0);
+			xm = a_times_vec(vec_sum(x0,xhat),0.5);// 			printf("i = %i, ind = %i, ind0 = %i\n",i,ind,ind0);
 			m = ineighbor(ind-ind0,mesh);
 			sol = one_pt_update(NWTarg,NWTres,NWTllim,NWTulim,NWTJac,NWTdir,
 				u[ind0],h1ptu[m],xm,slo[ind0],slo[ind],
@@ -531,8 +506,7 @@ int dial_main_body(struct mymesh *mesh,double *slo,double *u,struct myvector *gu
 				sol.gap = sol.u - u[ind0];
 				knew = adjust_bucket(ind,u[ind],gap,Nbuckets,bucket,list);
 			}
-		}
-// 		printf("N1list = %i, N2list = %i\n",N1list,N2list);
+		}// 		printf("N1list = %i, N2list = %i\n",N1list,N2list);
 		free(list2ptu);
 		free(list1ptu);
 		free(newlist);
@@ -556,7 +530,7 @@ int dial_main_body(struct mymesh *mesh,double *slo,double *u,struct myvector *gu
 //---------------------------------------------------------------
 //---------------------------------------------------------------
 struct mysol do_update(int ind,int i,int inew,struct myvector xnew,
-				struct mymesh *mesh,double *slo,double *u,struct myvector *gu,state_e *status,
+				mesh_s *mesh,double *slo,double *u,struct myvector *gu,state_e *status,
 				int *iplus,double *par1,double *par2,char *cpar,
 				double *NWTarg,double *NWTres,double *NWTllim,double *NWTulim,double *NWTJac,double *NWTdir,
 				int *N1ptu,int *N2ptu) {
@@ -662,7 +636,7 @@ struct mysol do_update(int ind,int i,int inew,struct myvector xnew,
 //---------------------------------------------------------------
 
 int main() {
-    int p, pmin = 4, pmax = 10; // mesh sizes along single dimension run from 2^pmin + 1 to 2^pmax + 1
+    int p, pmin = 4, pmax = 12; // mesh sizes along single dimension run from 2^pmin + 1 to 2^pmax + 1
 	int nx,ny,nxy; // mesh size
     int i,j,k,ind,kg; 
     double dd,errmax = 0.0,erms = 0.0;
@@ -689,14 +663,14 @@ int main() {
 	struct myvector *xstart;
 	int *N1ptu,*N2ptu;
 	
-	struct mymesh *mesh;
+	mesh_s *mesh;
 	
 	//--- variables for heap sort
 	struct binary_tree_handle *Btree;
 	struct bucket_sort_handle *BB;
 	
 	xstart = (struct myvector *)malloc(sizeof(struct myvector));
-	mesh = (struct mymesh *)malloc(sizeof(struct mymesh));
+	mesh = (mesh_s *)malloc(sizeof(mesh_s));
 	N1ptu = (int *)malloc(sizeof(ind));
 	N2ptu = (int *)malloc(sizeof(int));
 			
@@ -707,7 +681,7 @@ int main() {
 		Atb[k].y = 0.0;
 	}	
 
-	sprintf(fname,"Data/%s%s_ibox_slo%c.txt",str1[(int)method_update-1],str2[(int)method_template],slo_fun);
+	sprintf(fname,"Data/%s%s_V4_slo%c.txt",str1[(int)method_update-1],str2[(int)method_template],slo_fun);
 	fg = fopen(fname,"w");
 	if( fg == NULL ) {
 		printf("Cannot open file %d %s\n",errno,fname);

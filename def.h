@@ -19,7 +19,7 @@ extern "C" {
 #define SQRT2 1.414213562373095
 #define UNFACTORED -1
 
-typedef enum state {FAR, TRIAL, VALID, BOUNDARY} state_e;
+typedef enum state {FAR, TRIAL, VALID, BOUNDARY, NEW_VALID} state_e;
 
 /**
  * Change this to float to use single precision instead.

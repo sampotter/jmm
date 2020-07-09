@@ -3,7 +3,6 @@
 #include <math.h>
 #include "BucketSort.h"
 #include "QuickSort.h"
-#include "def.h"
 
 #define INFTY 1.0e+6
 #define TOL 1.0e-14
@@ -22,14 +21,14 @@ void dial_list_init(struct backptr_list *list,int ind) {
 }
 //---------------------------------------------------------------
 
-void dial_bucket_init(struct mybucket *bucket,int i,double gap) {
+void dial_bucket_init(bucket_s *bucket,int i,double gap) {
 	bucket -> list = NULL;
 	bucket -> minval = i*gap;
 	bucket -> count = 0;
 }
 
 //---------------------------------------------------------------
-void print_buckets(int Nbuckets,struct mybucket *bucket) {
+void print_buckets(int Nbuckets,bucket_s *bucket) {
 	int k;
 	struct backptr_list *lnew;
 		for( k = 0; k < Nbuckets; k++ ) {
@@ -44,7 +43,7 @@ void print_buckets(int Nbuckets,struct mybucket *bucket) {
 }
 //---------------------------------------------------------------
 
-int adjust_bucket(int ind,double newval,double g,int Nbuckets,struct mybucket *bucket,struct backptr_list *list) {
+int adjust_bucket(int ind,double newval,double g,int Nbuckets,bucket_s *bucket,struct backptr_list *list) {
 	int k,knew;
 	// find index of new bucket
 	k = find_bucket(newval,g);
@@ -103,7 +102,7 @@ void myfree(struct bucket_sort_handle  *BB) {
 }
 
 //---------------------------------------------------------------
-void start_filling_buckets(struct bucket_sort_handle  *BB,int Nbuckets,struct mybucket *bucket,
+void start_filling_buckets(struct bucket_sort_handle  *BB,int Nbuckets,bucket_s *bucket,
 		struct backptr_list *list,double gap,int *bdry,double *blist,int bcount){	
 	int iskip = 0,i,ibcurrent,jbdry;
 	double Bmax;
@@ -153,7 +152,7 @@ int find_number_of_buckets(double gap,double maxgap) {
 
 //---------------------------------------------------------------
 
-void form_list_of_new_valid_points(struct mybucket *bucket,int *newlist,int *empty_count) {
+void form_list_of_new_valid_points(bucket_s *bucket,int *newlist,int *empty_count,state_e *status) {
 	int Nlist = bucket -> count;
 	struct backptr_list *lcurrent; 
 	int i;
@@ -166,6 +165,7 @@ void form_list_of_new_valid_points(struct mybucket *bucket,int *newlist,int *emp
 	bucket -> count = 0;
 	for( i = 0; i < Nlist; i++ ) { 
 		newlist[i] = lcurrent -> ind; // index of the new accepted point
+		status[lcurrent -> ind] = NEW_VALID;
 		lcurrent = lcurrent -> next;
 	}	
 }
