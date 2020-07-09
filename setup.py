@@ -59,18 +59,18 @@ class CMakeBuild(build_ext):
         subprocess.check_call(['cmake', '--build', '.'] + build_args, cwd=self.build_temp)
 
 ext_modules=[
-    CMakeExtension('_sjs')
+    CMakeExtension('_jmm')
 ]
 
 setup(
-    name='sjs',
+    name='jmm',
     version=__version__,
     author='Samuel F. Potter',
     author_email='sfp@umiacs.umd.edu',
     description='Prototypes of different static jet schemes',
     long_description='',
     ext_modules=ext_modules,
-    py_modules=['sjs'],
+    py_modules=['jmm'],
     install_requires=['pybind11>=2.4'],
     setup_requires=['pybind11>=2.4'],
     cmdclass={'build_ext': CMakeBuild},

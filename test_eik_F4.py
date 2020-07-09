@@ -1,6 +1,6 @@
 import autograd
 import autograd.numpy as np
-import sjs
+import jmm
 import unittest
 
 from scipy.optimize import brentq
@@ -98,7 +98,7 @@ class TestF4(unittest.TestCase):
         for _ in range(10):
             vx, vy = np.random.uniform(-0.05, 0.05, (2,))
             s_gt = get_linear_speed_s(vx, vy)
-            slow = sjs.get_linear_speed_field2(vx, vy)
+            slow = jmm.get_linear_speed_field2(vx, vy)
 
             data = np.random.randn(4, 4)
             h = np.random.random()
@@ -109,10 +109,10 @@ class TestF4(unittest.TestCase):
             p0 = p + h*np.random.randn(2)
             p1 = p + h*np.random.randn(2)
 
-            bicubic = sjs.Bicubic(data)
-            T = bicubic.get_f_on_edge(sjs.BicubicVariable.Lambda, 0)
-            Tx = bicubic.get_fx_on_edge(sjs.BicubicVariable.Lambda, 0)
-            Ty = bicubic.get_fy_on_edge(sjs.BicubicVariable.Lambda, 0)
+            bicubic = jmm.Bicubic(data)
+            T = bicubic.get_f_on_edge(jmm.BicubicVariable.Lambda, 0)
+            Tx = bicubic.get_fx_on_edge(jmm.BicubicVariable.Lambda, 0)
+            Ty = bicubic.get_fy_on_edge(jmm.BicubicVariable.Lambda, 0)
 
             a_T = np.array([T.a[i] for i in range(4)])
             a_Tx = np.array([Tx.a[i] for i in range(4)])
@@ -120,11 +120,11 @@ class TestF4(unittest.TestCase):
 
             context_gt = F4(s_gt, a_T, a_Tx, a_Ty, p, p0, p1)
 
-            xy = sjs.Dvec2(*p)
-            xy0 = sjs.Dvec2(*p0)
-            xy1 = sjs.Dvec2(*p1)
+            xy = jmm.Dvec2(*p)
+            xy0 = jmm.Dvec2(*p0)
+            xy1 = jmm.Dvec2(*p1)
 
-            context = sjs.F4Context(T, Tx, Ty, xy, xy0, xy1, slow)
+            context = jmm.F4Context(T, Tx, Ty, xy, xy0, xy1, slow)
 
             for _ in range(10):
                 args = np.random.random(2)
@@ -149,7 +149,7 @@ class TestF4(unittest.TestCase):
 
             vx, vy = np.random.uniform(-0.05, 0.05, (2,))
             s_gt = get_linear_speed_s(vx, vy)
-            slow = sjs.get_linear_speed_field2(vx, vy)
+            slow = jmm.get_linear_speed_field2(vx, vy)
 
             tau_Omega = get_linear_speed_tau(vx, vy)
             tau = lambda lam, mu: tau_Omega(
@@ -168,10 +168,10 @@ class TestF4(unittest.TestCase):
                 [tau_x(0., 0.),  tau_x(0., 1.), tau_xy(0., 0.), tau_xy(0., 1.)],
                 [tau_x(1., 0.),  tau_x(1., 1.), tau_xy(1., 0.), tau_xy(1., 1.)],
             ])
-            bicubic = sjs.Bicubic(data)
-            T = bicubic.get_f_on_edge(sjs.BicubicVariable.Lambda, 0)
-            Tx = bicubic.get_fx_on_edge(sjs.BicubicVariable.Lambda, 0)
-            Ty = bicubic.get_fy_on_edge(sjs.BicubicVariable.Lambda, 0)
+            bicubic = jmm.Bicubic(data)
+            T = bicubic.get_f_on_edge(jmm.BicubicVariable.Lambda, 0)
+            Tx = bicubic.get_fx_on_edge(jmm.BicubicVariable.Lambda, 0)
+            Ty = bicubic.get_fy_on_edge(jmm.BicubicVariable.Lambda, 0)
 
             a_T = np.array([T.a[i] for i in range(4)])
             a_Tx = np.array([Tx.a[i] for i in range(4)])
@@ -180,13 +180,13 @@ class TestF4(unittest.TestCase):
             p, p0, p1 = np.array([x, y]), np.array([x0, y0]), np.array([x0, y1])
             context_gt = F4(s_gt, a_T, a_Tx, a_Ty, p, p0, p1)
 
-            xy = sjs.Dvec2(*p)
-            xy0 = sjs.Dvec2(*p0)
-            xy1 = sjs.Dvec2(*p1)
+            xy = jmm.Dvec2(*p)
+            xy0 = jmm.Dvec2(*p0)
+            xy1 = jmm.Dvec2(*p1)
 
-            context = sjs.F4Context(T, Tx, Ty, xy, xy0, xy1, slow)
+            context = jmm.F4Context(T, Tx, Ty, xy, xy0, xy1, slow)
 
-            context3 = sjs.F3Context(T, xy, xy0, xy1, slow)
+            context3 = jmm.F3Context(T, xy, xy0, xy1, slow)
             def F3(eta):
                 context3.compute(eta)
                 return context3.F3

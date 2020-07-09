@@ -2,19 +2,19 @@
 TODO: add some documentation
 '''
 
-from _sjs import *
+from _jmm import *
 
-from _sjs import _ind2l
-from _sjs import _ind2lc
-from _sjs import _indc2l
-from _sjs import _indc2lc
-from _sjs import _l2ind
-from _sjs import _l2indc
-from _sjs import _lc2ind
-from _sjs import _lc2indc
-from _sjs import _l2lc
-from _sjs import _lc2l
-from _sjs import _xy_to_lc_and_cc
+from _jmm import _ind2l
+from _jmm import _ind2lc
+from _jmm import _indc2l
+from _jmm import _indc2lc
+from _jmm import _l2ind
+from _jmm import _l2indc
+from _jmm import _lc2ind
+from _jmm import _lc2indc
+from _jmm import _l2lc
+from _jmm import _lc2l
+from _jmm import _xy_to_lc_and_cc
 
 def get_constant_slowness_field2():
     '''Get a Field2 instance corresponding to a the slowness function $s

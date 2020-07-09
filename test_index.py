@@ -1,6 +1,6 @@
 import itertools as it
 import numpy as np
-import sjs
+import jmm
 import unittest
 
 class TestIndex(unittest.TestCase):
@@ -9,7 +9,7 @@ class TestIndex(unittest.TestCase):
         for _ in range(10):
             shape = np.random.randint((2, 1), 1000)
             ind = (np.random.randint(shape[0]), np.random.randint(shape[1]))
-            l = sjs._ind2l(shape, ind)
+            l = jmm._ind2l(shape, ind)
             l_gt = np.ravel_multi_index(ind, shape, order='C')
             self.assertEqual(l, l_gt)
 
@@ -20,7 +20,7 @@ class TestIndex(unittest.TestCase):
                 np.random.randint(shape[0] - 1),
                 np.random.randint(shape[1] - 1)
             )
-            l = sjs._ind2lc(shape, ind)
+            l = jmm._ind2lc(shape, ind)
             l_gt = np.ravel_multi_index(ind, shape - 1, order='C')
             self.assertEqual(l, l_gt)
 
@@ -31,7 +31,7 @@ class TestIndex(unittest.TestCase):
                 np.random.randint(shape[0] - 1),
                 np.random.randint(shape[1] - 1)
             )
-            l = sjs._ind2l(shape, indc)
+            l = jmm._ind2l(shape, indc)
             l_gt = np.ravel_multi_index(indc, shape, order='C')
             self.assertEqual(l, l_gt)
 
@@ -42,7 +42,7 @@ class TestIndex(unittest.TestCase):
                 np.random.randint(shape[0] - 1),
                 np.random.randint(shape[1] - 1)
             )
-            lc = sjs._indc2lc(shape, indc)
+            lc = jmm._indc2lc(shape, indc)
             lc_gt = np.ravel_multi_index(indc, shape - 1, order='C')
             self.assertEqual(lc, lc_gt)
 
@@ -50,7 +50,7 @@ class TestIndex(unittest.TestCase):
         for _ in range(10):
             shape = np.random.randint((2, 1), 1000)
             l = np.random.randint(np.product(shape))
-            ind = sjs._l2ind(shape, l)
+            ind = jmm._l2ind(shape, l)
             ind_gt = np.unravel_index(l, shape)
             self.assertEqual(ind.i, ind_gt[0])
             self.assertEqual(ind.j, ind_gt[1])
@@ -59,7 +59,7 @@ class TestIndex(unittest.TestCase):
         for _ in range(10):
             shape = np.random.randint((2, 1), 1000)
             l = np.random.randint(np.product(shape))
-            indc = sjs._l2indc(shape, l)
+            indc = jmm._l2indc(shape, l)
             indc_gt = np.unravel_index(l, shape)
             self.assertEqual(indc.i, indc_gt[0])
             self.assertEqual(indc.j, indc_gt[1])
@@ -68,7 +68,7 @@ class TestIndex(unittest.TestCase):
         for _ in range(10):
             shape = np.random.randint((2, 1), 1000)
             lc = np.random.randint((shape[0] - 1)*(shape[1] - 1))
-            ind = sjs._lc2ind(shape, lc)
+            ind = jmm._lc2ind(shape, lc)
             ind_gt = np.unravel_index(lc, (shape[0] - 1, shape[1] - 1))
             self.assertEqual(ind.i, ind_gt[0])
             self.assertEqual(ind.j, ind_gt[1])
@@ -77,7 +77,7 @@ class TestIndex(unittest.TestCase):
         for _ in range(10):
             shape = np.random.randint((2, 1), 1000)
             lc = np.random.randint((shape[0] - 1)*(shape[1] - 1))
-            indc = sjs._lc2indc(shape, lc)
+            indc = jmm._lc2indc(shape, lc)
             indc_gt = np.unravel_index(lc, (shape[0] - 1, shape[1] - 1))
             self.assertEqual(indc.i, indc_gt[0])
             self.assertEqual(indc.j, indc_gt[1])
@@ -86,9 +86,9 @@ class TestIndex(unittest.TestCase):
         for _ in range(10):
             shape = np.random.randint((2, 1), 1000)
             l = np.random.randint(np.product(shape))
-            lc = sjs._l2lc(shape, l)
-            ind_gt = sjs._l2ind(shape, l)
-            lc_gt = sjs._ind2lc(shape, (ind_gt.i, ind_gt.j))
+            lc = jmm._l2lc(shape, l)
+            ind_gt = jmm._l2ind(shape, l)
+            lc_gt = jmm._ind2lc(shape, (ind_gt.i, ind_gt.j))
             self.assertEqual(lc, lc_gt)
 
     def test_lc2l(self):
@@ -97,9 +97,9 @@ class TestIndex(unittest.TestCase):
             # TODO: this fails sometimes! I wonder if it has to do
             # with the bleeding at the edge of the domain?
             lc = np.random.randint((shape[0] - 1)*(shape[1] - 1))
-            l = sjs._lc2l(shape, lc)
-            indc_gt = sjs._lc2indc(shape, lc)
-            l_gt = sjs._indc2l(shape, (indc_gt.i, indc_gt.j))
+            l = jmm._lc2l(shape, lc)
+            indc_gt = jmm._lc2indc(shape, lc)
+            l_gt = jmm._indc2l(shape, (indc_gt.i, indc_gt.j))
             self.assertEqual(l, l_gt)
 
     def test_xy_to_lc_and_cc(self):
@@ -108,14 +108,14 @@ class TestIndex(unittest.TestCase):
         h = 1
 
         for x, y in it.product(range(2), repeat=2):
-            lc, cc = sjs._xy_to_lc_and_cc(shape, xymin, h, (x, y))
+            lc, cc = jmm._xy_to_lc_and_cc(shape, xymin, h, (x, y))
             self.assertEqual(lc, 0)
             self.assertEqual(x, cc.x)
             self.assertEqual(y, cc.y)
 
         for _ in range(10):
             x, y = np.random.rand(2)
-            lc, cc = sjs._xy_to_lc_and_cc(shape, xymin, h, (x, y))
+            lc, cc = jmm._xy_to_lc_and_cc(shape, xymin, h, (x, y))
             self.assertEqual(lc, 0)
             self.assertEqual(x, cc.x)
             self.assertEqual(y, cc.y)
@@ -141,7 +141,7 @@ class TestIndex(unittest.TestCase):
                     cc_gt[i] = 1.0
             lc_gt = np.ravel_multi_index(ind_gt, shape - 1, order='C')
 
-            lc, cc = sjs._xy_to_lc_and_cc(shape, xymin, h, xy)
+            lc, cc = jmm._xy_to_lc_and_cc(shape, xymin, h, xy)
 
             self.assertEqual(lc, lc_gt)
             self.assertEqual(cc.x, cc_gt[0])

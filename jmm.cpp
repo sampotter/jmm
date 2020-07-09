@@ -126,9 +126,9 @@ struct eik_wrapper {
   }
 };
 
-PYBIND11_MODULE (_sjs, m) {
+PYBIND11_MODULE (_jmm, m) {
   m.doc() = R"pbdoc(
-_sjs
+_jmm
 ----
 
 TODO!

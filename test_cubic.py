@@ -1,5 +1,5 @@
 import numpy as np
-import sjs
+import jmm
 import unittest
 
 class TestCubic(unittest.TestCase):
@@ -7,7 +7,7 @@ class TestCubic(unittest.TestCase):
     def test_ctor(self):
         for _ in range(10):
             data = np.random.randn(4)
-            cubic = sjs.Cubic(data)
+            cubic = jmm.Cubic(data)
             self.assertAlmostEqual(cubic.f(0), data[0])
             self.assertAlmostEqual(cubic.f(1), data[1])
             self.assertAlmostEqual(cubic.df(0), data[2])
@@ -16,8 +16,8 @@ class TestCubic(unittest.TestCase):
     def test_reverse_on_unit_interval(self):
         for _ in range(10):
             data = np.random.randn(4)
-            cubic = sjs.Cubic(data)
-            reversed_cubic = sjs.Cubic(data)
+            cubic = jmm.Cubic(data)
+            reversed_cubic = jmm.Cubic(data)
             reversed_cubic.reverse_on_unit_interval()
             for _ in range(10):
                 lam = np.random.rand()

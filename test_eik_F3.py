@@ -1,6 +1,6 @@
 import autograd
 import autograd.numpy as np
-import sjs
+import jmm
 import unittest
 
 from scipy.optimize import brentq
@@ -46,13 +46,13 @@ class F3:
 class TestF3(unittest.TestCase):
 
     def test_evaluate_constant_slowness(self):
-        cubic = sjs.Cubic([0, 0, 0, 0])
-        xy0 = sjs.Dvec2(1, 0)
-        xy1 = sjs.Dvec2(0, 1)
-        xy = sjs.Dvec2(0, 0)
+        cubic = jmm.Cubic([0, 0, 0, 0])
+        xy0 = jmm.Dvec2(1, 0)
+        xy1 = jmm.Dvec2(0, 1)
+        xy = jmm.Dvec2(0, 0)
         h = 1
-        slow = sjs.get_constant_slowness_field2()
-        context = sjs.F3Context(cubic, xy, xy0, xy1, slow)
+        slow = jmm.get_constant_slowness_field2()
+        context = jmm.F3Context(cubic, xy, xy0, xy1, slow)
 
         context.compute(0)
         self.assertAlmostEqual(context.F3, 1.0)
@@ -73,9 +73,9 @@ class TestF3(unittest.TestCase):
             x1, y1 = x0 + h, y0 + h
             x, y = x0 - h, y0
 
-            xy = sjs.Dvec2(x, y)
-            xy0 = sjs.Dvec2(x0, y0)
-            xy1 = sjs.Dvec2(x0, y1)
+            xy = jmm.Dvec2(x, y)
+            xy0 = jmm.Dvec2(x0, y0)
+            xy1 = jmm.Dvec2(x0, y1)
 
             vx, vy = np.random.uniform(-0.05, 0.05, (2,))
 
@@ -84,11 +84,11 @@ class TestF3(unittest.TestCase):
             tau_eta = autograd.grad(tau)
 
             s_gt = get_linear_speed_s(vx, vy)
-            slow = sjs.get_linear_speed_field2(vx, vy)
+            slow = jmm.get_linear_speed_field2(vx, vy)
 
-            cubic = sjs.Cubic([tau(0.0), tau(1.0), tau_eta(0.0), tau_eta(1.0)])
+            cubic = jmm.Cubic([tau(0.0), tau(1.0), tau_eta(0.0), tau_eta(1.0)])
 
-            context = sjs.F3Context(cubic, xy, xy0, xy1, slow)
+            context = jmm.F3Context(cubic, xy, xy0, xy1, slow)
 
             a_T = np.array([cubic.a[0], cubic.a[1], cubic.a[2], cubic.a[3]])
             p, p0, p1 = np.array([x, y]), np.array([x0, y0]), np.array([x0, y1])
@@ -112,38 +112,38 @@ class TestF3(unittest.TestCase):
                 self.assertAlmostEqual(f3_eta, f3_eta_gt)
 
     def test_hybrid_constant_slowness(self):
-        cubic = sjs.Cubic([0, 0, 0, 0])
+        cubic = jmm.Cubic([0, 0, 0, 0])
 
-        xy0 = sjs.Dvec2(1, 0)
-        xy1 = sjs.Dvec2(0, 1)
-        xy = sjs.Dvec2(0, 0)
+        xy0 = jmm.Dvec2(1, 0)
+        xy1 = jmm.Dvec2(0, 1)
+        xy = jmm.Dvec2(0, 0)
         h = 1
-        slow = sjs.get_constant_slowness_field2()
-        context = sjs.F3Context(cubic, xy, xy0, xy1, slow)
+        slow = jmm.get_constant_slowness_field2()
+        context = jmm.F3Context(cubic, xy, xy0, xy1, slow)
 
         def func(lam):
             context.compute(lam)
             return context.F3_eta
 
-        lam = sjs.hybrid(func, 0, 1)
+        lam = jmm.hybrid(func, 0, 1)
         self.assertAlmostEqual(lam, 0.5)
         self.assertAlmostEqual(context.F3, 1.0/np.sqrt(2))
         self.assertAlmostEqual(context.F3_eta, 0.0)
 
-        context.T_cubic = sjs.Cubic([0, 1, 1, 1])
-        lam = sjs.hybrid(func, 0, 1)
+        context.T_cubic = jmm.Cubic([0, 1, 1, 1])
+        lam = jmm.hybrid(func, 0, 1)
         self.assertAlmostEqual(lam, 0.0)
         self.assertAlmostEqual(context.F3, 1.0)
         self.assertAlmostEqual(context.F3_eta, 0.0)
 
-        context.T_cubic = sjs.Cubic([1, 0, -1, -1])
-        lam = sjs.hybrid(func, 0, 1)
+        context.T_cubic = jmm.Cubic([1, 0, -1, -1])
+        lam = jmm.hybrid(func, 0, 1)
         self.assertAlmostEqual(lam, 1.0)
         self.assertAlmostEqual(context.F3, 1.0)
         self.assertAlmostEqual(context.F3_eta, 0.0)
 
-        context.T_cubic = sjs.Cubic([1, 1, -1, 1])
-        lam = sjs.hybrid(func, 0, 1)
+        context.T_cubic = jmm.Cubic([1, 1, -1, 1])
+        lam = jmm.hybrid(func, 0, 1)
         self.assertAlmostEqual(lam, 0.5)
         self.assertAlmostEqual(context.F3_eta, 0.0)
 

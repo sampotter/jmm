@@ -1,9 +1,11 @@
-* sjs
+* libjmm
 
-  This is a C library implementing a static jet scheme (SJS) for
-  solving the eikonal equation in 2D on a regular grid. Ideally, other
-  SJSs will be added as they're developed to reuse some of the
-  functionality common to them.
+  This is a C library implementing a variety of *jet marching methods*
+  (JMMs) for solving the eikonal equation in 2D on a regular
+  grid. Other JMMs for solving the eikonal equation on unstructured
+  grids (triangle and tetrahedron meshes) and on structured grids in
+  3D will be added later, as well as JMMs for solving other related
+  equations.
 
   The library comes with a Python interface written using pybind11 and
   which is a straightforward mapping of the "object-oriented" C
@@ -16,7 +18,7 @@
 #+BEGIN_SRC sh
 $ python setup.py install
 #+END_SRC
-   This will install a Python module named ~sjs~ which contains
+   This will install a Python module named ~jmm~ which contains
    everything in a flat namespace.
 
 ** Tests

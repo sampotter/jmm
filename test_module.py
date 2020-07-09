@@ -1,6 +1,6 @@
 import autograd
 import autograd.numpy as np
-import sjs
+import jmm
 import unittest
 
 from test_util import get_linear_speed_s
@@ -12,7 +12,7 @@ class TestLinearSpeed(unittest.TestCase):
         s_gt = get_linear_speed_s(vx, vy)
         grad_s_gt = autograd.grad(lambda args: s_gt(args[0], args[1]))
 
-        slow = sjs.get_linear_speed_field2(vx, vy)
+        slow = jmm.get_linear_speed_field2(vx, vy)
 
         for _ in range(10):
             x, y = np.random.uniform(-1, 1, (2,))

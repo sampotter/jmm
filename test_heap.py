@@ -1,4 +1,4 @@
-import sjs
+import jmm
 import unittest
 
 class TestCubic(unittest.TestCase):
@@ -12,7 +12,7 @@ class TestCubic(unittest.TestCase):
         def setpos(i, pos):
             heap_pos[i] = pos
 
-        heap = sjs.Heap(4, value, setpos)
+        heap = jmm.Heap(4, value, setpos)
 
         self.assertTrue(heap.size == 0)
         self.assertIsNone(heap.front)
