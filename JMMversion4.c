@@ -420,9 +420,6 @@ int dial_main_body(mesh_s *mesh,double *slo,double *u,struct myvector *gu,
 		newlist = (int *)malloc(Nlist*sizeof(int));
 	    form_list_of_new_valid_points(bucket+ibcurrent,newlist,empty_count,status);
 		Nfinal += Nlist;
-		
-// 		for( m=0; m<Nlist; m++) printf("newlist[%i] = %i\n",m,newlist[m]);
-		
 	    // form lists for 2ptu and 1ptu
 	    list2ptu = (int *)malloc(24*Nlist*sizeof(int)); // 2ptu list
 	    N2list = 0;
@@ -432,14 +429,9 @@ int dial_main_body(mesh_s *mesh,double *slo,double *u,struct myvector *gu,
 			inew = newlist[m]; // index of the new accepted point
 			ix = inew%(mesh->nx);
 			iy = inew/(mesh->nx);
-// 			xnew = getpoint(inew,mesh);
-// 			printf("Nfinal = %i, inew = %i (%i,%i), u = %.4e, err = %.4e, gu = (%.4e,%.4e)\n",
-// 					Nfinal,inew,ix,iy,u[inew],u[inew]-exact_solution(slo_fun,xnew,slo[inew]),gu[inew].x,gu[inew].y);
 			for( i = 0; i < 8; i++ ) {
 				ch = inmesh_test(inew,i,mesh);
 				ind = inew + iplus[i];
-// 				printf("inew = %i, i = %i, ind = %i, status[%i] = %d\n",inew,i,ind,ind,status[ind]);
-// 
 				if( ch == 'y' && status[ind] == TRIAL  ) {
 					list1ptu[N1list] = ind;
 					list1ptu[++N1list] = inew;
@@ -450,10 +442,6 @@ int dial_main_body(mesh_s *mesh,double *slo,double *u,struct myvector *gu,
 							// ind0, ind1 form the base of update triangle
 							ind0 = ind + iplus[ut.j0]; // hxy distance from xhat
 							ind1 = ind + iplus[ut.j1]; // hx or hy distance from xhat 
-// 							if( ind0 != inew ) {
-// 								printf("inew = %i, ind0 = %i,ind1 = %i, ind = %i\n",inew,ind0,ind1,ind);
-// 								exit(1);
-// 							}	
 							if( (status[ind0] == NEW_VALID && status[ind1] == VALID) ||
 								(status[ind0] == VALID && status[ind1] == NEW_VALID) ||
 								(ind0 == inew && status[ind0] == status[ind1]) ) { 
@@ -468,8 +456,6 @@ int dial_main_body(mesh_s *mesh,double *slo,double *u,struct myvector *gu,
 			}
 		} //end for( m = 0; m < Nlist; m++)
 		for( m = 0; m < Nlist; m++ ) status[newlist[m]] = VALID;
-		//
-		
 		// do two-point updates
 		N2list /= 3;
 		for( i = 0; i < N2list; i++ ) {
@@ -482,9 +468,6 @@ int dial_main_body(mesh_s *mesh,double *slo,double *u,struct myvector *gu,
 			x0 = getpoint(ind0,mesh);
 			x1 = getpoint(ind1,mesh);
 			dx = vec_difference(x1,x0);	
-			
-// 			printf("i = %i, ind = %i, ind0 = %i, ind1 = %i\n",i,ind,ind0,ind1 );
-			
 			if( dot_product(vec_difference(xhat,x1),getperp_plus(dx)) > 0 ) {
 				getperp = getperp_minus;	
 				cpar[1] = 'm';
@@ -496,8 +479,6 @@ int dial_main_body(mesh_s *mesh,double *slo,double *u,struct myvector *gu,
 			sol = two_pt_update(NWTarg,NWTres,NWTllim,NWTulim,NWTJac,NWTdir,
 						dx,x0,xhat,u[ind0],u[ind1],
 							gu[ind0],gu[ind1],slo[ind],par2,cpar);
-// 		    printf("ind = %i, ind0 = %i, ind1 = %i: sol.ch = %c, sol.u = %.6e, err = %.4e\n",
-// 		    	ind,ind0,ind1,sol.ch,sol.u,sol.u - exact_solution(slo_fun,x0,slo[ind]));					
 			if( sol.ch == 'y' && sol.u < u[ind] ){
 				u[ind] = sol.u;
 				gu[ind] = sol.gu;
@@ -514,8 +495,7 @@ int dial_main_body(mesh_s *mesh,double *slo,double *u,struct myvector *gu,
 			ind0 = list1ptu[++j];
 			xhat = getpoint(ind,mesh);							
 			x0 = getpoint(ind0,mesh);
-			xm = a_times_vec(vec_sum(x0,xhat),0.5);
-// 			printf("i = %i, ind = %i, ind0 = %i\n",i,ind,ind0);
+			xm = a_times_vec(vec_sum(x0,xhat),0.5);// 			printf("i = %i, ind = %i, ind0 = %i\n",i,ind,ind0);
 			m = ineighbor(ind-ind0,mesh);
 			sol = one_pt_update(NWTarg,NWTres,NWTllim,NWTulim,NWTJac,NWTdir,
 				u[ind0],h1ptu[m],xm,slo[ind0],slo[ind],
@@ -526,8 +506,7 @@ int dial_main_body(mesh_s *mesh,double *slo,double *u,struct myvector *gu,
 				sol.gap = sol.u - u[ind0];
 				knew = adjust_bucket(ind,u[ind],gap,Nbuckets,bucket,list);
 			}
-		}
-// 		printf("N1list = %i, N2list = %i\n",N1list,N2list);
+		}// 		printf("N1list = %i, N2list = %i\n",N1list,N2list);
 		free(list2ptu);
 		free(list1ptu);
 		free(newlist);
@@ -702,7 +681,7 @@ int main() {
 		Atb[k].y = 0.0;
 	}	
 
-	sprintf(fname,"Data/%s%s_ibox_slo%c.txt",str1[(int)method_update-1],str2[(int)method_template],slo_fun);
+	sprintf(fname,"Data/%s%s_V4_slo%c.txt",str1[(int)method_update-1],str2[(int)method_template],slo_fun);
 	fg = fopen(fname,"w");
 	if( fg == NULL ) {
 		printf("Cannot open file %d %s\n",errno,fname);

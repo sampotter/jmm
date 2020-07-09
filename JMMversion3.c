@@ -620,7 +620,7 @@ int main() {
 		Atb[k].y = 0.0;
 	}	
 
-	sprintf(fname,"Data/%s%s_ibox_slo%c.txt",str1[(int)method_update-1],str2[(int)method_template],slo_fun);
+	sprintf(fname,"Data/%s%s_V3_slo%c.txt",str1[(int)method_update-1],str2[(int)method_template],slo_fun);
 	fg = fopen(fname,"w");
 	if( fg == NULL ) {
 		printf("Cannot open file %d %s\n",errno,fname);
