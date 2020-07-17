@@ -60,3 +60,11 @@ add_executable (JMMversion3 ${MASHA_LIB_SRCS})
 if (IPO_SUPPORTED)
   set_property (TARGET JMMversion3 PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
 endif ()
+
+# Dial test
+
+add_executable (dial dial.c)
+target_link_libraries (dial PRIVATE jmm)
+if (IPO_SUPPORTED)
+  set_property (TARGET dial PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
+endif ()
