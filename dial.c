@@ -42,12 +42,60 @@ struct dial3 {
   size_t size;
   dbl h;
   dbl gap;
+
   dbl *T;
   dvec3 *grad_T;
+
+  /**
+   * The state of each node.
+   *
+   * TODO: eventually, we should be able to just use a boolean for
+   * this---or, better yet, delete this array of values entirely.
+   */
   state_e *state;
+
+  /**
+   * The (l)inear (b)ucket index of each node. Either NO_INDEX, or a
+   * bucket index, as computed by `dial3_bucket_T`.
+   *
+   * TODO: what invariants are enjoyed by this array?
+   * - if node `l` is in bucket `lb`, then `nb[l] == lb`
+   * - if it isn't in a bucket, we don't care?
+   *
+   * This is the Dial version of the "heap back-pointer" required by
+   * Dijkstra-like algorithms.
+   */
   int *lb;
+
+  /**
+   * The (l)inear (b)ucket index of the first bucket (pointed to by
+   * `first`). The buckets form a linked list. This means that if a
+   * node has index `lb` (where `lb >= lb0`), then we can retrieve the
+   * corresponding bucket by traversing `lb - lb0` buckets starting
+   * from `first`.
+   *
+   * After calling `dial3_init` and before adding any boundary data,
+   * `lb0 == NO_INDEX` holds.
+   */
+  int lb0;
+
+  /**
+   * Linear offsets of six nearest neighbors in 3D.
+   *
+   * If `li` is `l`'s `i`th cardinal neighbor (with the ordering of
+   * these neighbors left unspecified), then `l + nb_dl[i] = li`.
+   */
   int nb_dl[6];
+
+  /**
+   * The first bucket to be processed. This is the bucket with
+   * (l)inear (b)ucket index `lb0`.
+   *
+   * After calling `dial3_init` and before adding boundary data,
+   * `first == NULL`.
+   */
   bucket_s *first;
+
   update_f update;
 };
 
