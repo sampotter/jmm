@@ -1,4 +1,5 @@
 #include <math.h>
+#include <stdio.h>
 #include <stdlib.h>
 
 #include "def.h"
@@ -249,9 +250,9 @@ void dial3_solve(dial3_s *dial) {
 
 int main() {
   stype_e stype = CONSTANT;
-  int nx = 129;
-  int ny = 129;
-  int nz = 129;
+  int nx = 5;
+  int ny = 5;
+  int nz = 5;
   dbl h = 2.0/(nx - 1);
   ivec3 shape = {.i = nx, .j = ny, .k = nz};
 
@@ -259,4 +260,26 @@ int main() {
   dial3_init(&dial, stype, shape, h);
   dial3_add_trial(&dial, ivec3_int_div(shape, 2), 0);
   dial3_solve(&dial);
+
+  dbl T;
+  ivec3 ind;
+  for (ind.i = 0; ind.i < nx; ++ind.i) {
+    for (ind.j = 0; ind.j < ny; ++ind.j) {
+      for (ind.k = 0; ind.k < nz - 1; ++ind.k) {
+        T = dial.T[ind2l3(shape, ind)];
+        if (isinf(T)) {
+          printf("   inf ");
+        } else {
+          printf("%0.4f ", T);
+        }
+      }
+      T = dial.T[ind2l3(shape, ind)];
+      if (isinf(T)) {
+        printf("   inf\n");
+      } else {
+        printf("%0.4f\n", T);
+      }
+    }
+    puts("");
+  }
 }
