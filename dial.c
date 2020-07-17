@@ -150,15 +150,20 @@ void dial3_init(dial3_s *dial, stype_e stype, ivec3 shape, dbl h) {
     dial->T[i] = INFINITY;
   }
 
-  dial->state = malloc(sizeof(bool)*dial->size);
+  // grad_T is initialized with garbage
+  dial->grad_T = malloc(sizeof(dvec3)*dial->size);
+
+  dial->state = malloc(sizeof(state_e)*dial->size);
   for (size_t i = 0; i < dial->size; ++i) {
-    dial->state[i] = false;
+    dial->state[i] = FAR;
   }
 
   dial->lb = malloc(sizeof(int)*dial->size);
   for (size_t i = 0; i < dial->size; ++i) {
     dial->lb[i] = NO_INDEX;
   }
+
+  dial->lb0 = NO_INDEX;
 
   // TODO: want to make sure `nb_dl` is in sorted order? (for cache
   // friendliness?)
@@ -173,7 +178,7 @@ void dial3_init(dial3_s *dial, stype_e stype, ivec3 shape, dbl h) {
 #  error not implemented yet
 #endif
 
-  dial->first = malloc(sizeof(bucket_s));
+  dial->first = NULL;
 
   dial->update = update_functions[dial->stype];
 }
