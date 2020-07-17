@@ -141,10 +141,9 @@ update_f update_functions[NUM_STYPE] = {
 void dial3_init(dial3_s *dial, stype_e stype, ivec3 shape, dbl h) {
   dial->stype = stype;
   dial->shape = shape;
+  dial->size = ivec3_prod(shape);
   dial->h = h;
   dial->gap = h*sqrt(3);
-
-  dial->size = ivec3_prod(shape);
 
   dial->T = malloc(sizeof(dbl)*dial->size);
   for (size_t i = 0; i < dial->size; ++i) {
