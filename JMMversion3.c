@@ -70,9 +70,9 @@ struct mysol do_update(int ind,int i,int inew,struct myvector xnew,
 
 				
 //-------- VARIABLES ---------
-char slo_fun = SLOTH;
+char slo_fun = S1;
 char method_template = DIAL;
-char method_update = JMM3;
+char method_update = JMM1;
 //
 // 
 
@@ -708,7 +708,7 @@ int main() {
 				  (mesh->nx),errmax,erms,errmax/umax,erms/urms,cpu);
 		printf("N1ptu per point = %.4e, N2ptu per point = %.4e\n",a1ptu,a2ptu);			
 		fprintf(fg,"%i\t %.4e\t %.4e\t %.4e\t%.4e\t%.4e\t%.4e\t%g\t%.3f\t%.3f\n",
-				  (mesh->nx),errmax,erms,errmax/umax,erms/urms,gerrmax,germs,cpu,a1ptu,a2ptu);
+				(mesh->nx),errmax,erms,errmax/umax,erms/urms,gerrmax,germs,cpu,a1ptu,a2ptu);
 		// free memory
 		free(u);
 		free(slo);

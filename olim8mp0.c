@@ -5,7 +5,7 @@
 // the Eikonal equation in 2D.
 // 8-point nearest neighborhood
 
-// Compile command: gcc -Wall slowness_and_uexact.c olim8mp0.c -lm -O3
+// Compile command: gcc -Wall slowness_and_uexact.c linear_algebra.c olim8mp0.c -lm -O3
 
 // Copyright: Maria Cameron, June 14, 2020
 
@@ -14,7 +14,6 @@
 #include <stdlib.h>
 #include <math.h>
 #include <time.h>
-#include "Newton.h"
 #include "linear_algebra.h"
 #include "slowness_and_uexact.h"
 
@@ -35,6 +34,7 @@
 #define NY 4097
 #define E3 0.333333333333333
 #define RAD 0.1 // Radius for local factoring
+
 
 struct mysol {
   double u;
@@ -63,7 +63,6 @@ void updatetree(int ind); /* updates the binary tree */
 void deltree(void); /* deletes the root of the binary tree */
 
 
-
 //-------- VARIABLES ---------
 int nx, ny, nxy, nx1, ny1;
 double hx,hy,hxy,hx2,hy2,rxy,ryx; // hx2 = hx^2, hy2 = hy^2, hxy = sqrt(hx^2 + hy^2), rxy = hx/hy, ryx = hy/hx;
@@ -71,10 +70,10 @@ double u[NX*NY],slo[NX*NY]; // u = value function, slo = slowness
 char status[NX*NY]; // status of the mesh point: 1 = finalized, 0 = not finalized
 double hx,hy,XMIN,XMAX,YMIN,YMAX;
 double uexact[NX*NY];
-struct myvector  gu[NX*NY], xstart;
+struct myvector  gu[NX*NY], *xstart;
 int pos[NX*NY],tree[NX*NY],count;
 int istart;
-char slo_fun = 'g';
+char slo_fun;
 //--- variables for bucket sort ---
 int N1ptu,N2ptu;
 double RAD2 = RAD*RAD;
@@ -82,49 +81,38 @@ double cosx,cosy;
 int utype[NX*NY];
 
 
-//--------------------------------------------
-
 //---------------------------------------------------------------
 
 void param() {
 
 	int ind;
 	struct myvector z;
-	
+
+	set_params(slo_fun,xstart);	
 	switch( slo_fun ) {
 	  case '1': case 'm':
 		XMIN = -1.0;
 		XMAX = 1.0;
 		YMIN = -1.0;
 		YMAX = 1.0;
-		xstart.x = 0.0;
-		xstart.y = 0.0;
 		break;
 	case 'v':
 		XMIN = 0.0;
 		XMAX = 1.0;
 		YMIN = 0.0;
 		YMAX = 1.0;
-		xstart.x = 0.0;
-		xstart.y = 0.0;
-		set_params(slo_fun);
 		break;
 	case 'p':
 		XMIN = -1.0;
 		XMAX = 1.0;
 		YMIN = -1.0;
 		YMAX = 1.0;
-		xstart.x = 0.0;
-		xstart.y = 0.0;
-		set_params(slo_fun);
 		break;
 	case 'g':
 		XMIN = 0.0;
 		XMAX = 0.5;
 		YMIN = 0.0;
 		YMAX = 0.5;
-		xstart.x = 0.0;
-		xstart.y = 0.0;
 		break;
 	default:
 		printf("Set an appropriate slo_fun\n");  
@@ -141,21 +129,11 @@ void param() {
 	cosx = hx/hxy;
 	cosy = hy/hxy;
 	
-	ind = get_lower_left_index(xstart);
-	printf("ind = get_lower_left_index(xstart) = %i, (%i,%i)\n",ind,ind%nx,ind/nx);
-	z = getpoint(ind); 
-	if( fabs(norm(vec_difference(z,xstart))) < TOL ) { // ipoint is a mesh point
-		istart = ind;
-	}
-	else {
-		printf("Point source is not a mesh point\n");
-		exit(1);
-	}	
 	for( ind = 0; ind < nxy; ind++ ) {
 		z = getpoint(ind);
-		slo[ind] = slowness(slo_fun,xstart,z);
+		slo[ind] = slowness(slo_fun,z);
 		if( slo_fun == '1' ||  slo_fun == 'v' || slo_fun == 'm' || slo_fun == 'p' || slo_fun == 'g' ) {
-			uexact[ind] = exact_solution(slo_fun,xstart,z,slo[ind]);	
+			uexact[ind] = exact_solution(slo_fun,z,slo[ind]);	
 		}
 	}
 	// gap for the bucket sort
@@ -174,18 +152,11 @@ void ibox() {
 		status[ind] = 0;
 	}
     // initialize the point source
-	ind0 = get_lower_left_index(xstart);
-	z = getpoint(ind0); 
-	printf("z = getpoint(ind) = (%.4e,%.4e)\n",z.x,z.y);		
-	if( fabs(norm(vec_difference(z,xstart))) < TOL ) { // ipoint is a mesh point
-		u[ind0] = 0.0;
-		printf("ipoint is a mesh point, u[%i] = %.4e\n",ind0,u[ind0]);
-	}
-	else exit(1);
+	ind0 = get_lower_left_index(*xstart);
 	count = 0; // the binary tree is empty
 	// initialize the nearest neighbors of the point source  
-    i0 = floor(((xstart.x) - XMIN)/hx);
-    j0 = floor(((xstart.y) - YMIN)/hy);
+    i0 = floor(((xstart->x) - XMIN)/hx);
+    j0 = floor(((xstart->y) - YMIN)/hy);
     printf("(%i,%i)\n",i0,j0);
     
     KX = round(RAD/hx);
@@ -195,42 +166,19 @@ void ibox() {
     jmin = max(0,j0 - KY);
     jmax = min(ny1,j0 + KY);
     
-    for( i = imin; i <= imax; i++ ) {
-    	for( j = jmin; j <= jmax; j++ ) {
+	for( i = imin; i <= imax; i++ ) {
+		for( j = jmin; j <= jmax; j++ ) {
     		ind = i + nx*j;
     		status[ind] = 2;
-    		z = getpoint(ind);
-    		u[ind] = uexact[ind];
-    		gu[ind] = exact_gradient(slo_fun,xstart,z,slo[ind]);
+    		z = vec_difference(getpoint(ind),*xstart);
+    		u[ind] = exact_solution(slo_fun,z,slo[ind]);
+    		gu[ind] = exact_gradient(slo_fun,z,slo[ind]);
+			if( i == imin || i == imax || j == jmin || j == jmax ) {
+    			status[ind] = 1;
+    			addtree(ind);
+    		}
     	}
-    }
-    
-    count = 0;
-    
-    i = imin;
-    for( j = jmin; j < jmax; j++ ) {
-    	ind = i + nx*j;
-    	status[ind] = 1;
-    	addtree(ind);    
-    }
-     i = imax;
-    for( j = jmin; j < jmax; j++ ) {
-    	ind = i + nx*j;
-    	status[ind] = 1;
-    	addtree(ind);    
-    }
-    j = jmin;
-    for( i = imin + 1; i < imax; i++ ) {
-    	ind = i + nx*j;
-    	status[ind] = 1;
-    	addtree(ind);    
-    }
-    j = jmax;
-    for( i = imin; i <= imax; i++ ) {
-    	ind = i + nx*j;
-    	status[ind] = 1;
-    	addtree(ind);    
-    }   
+    } 
     
 }
 
@@ -325,7 +273,7 @@ int main_body() {
 							dx = vec_difference(x1,x0);
 							xm = vec_lin_comb(vec_sum(xhat,x0),dx,0.5,0.25); // 0.5*(xhat + x0 + 0.5*dx)
 																					
-							sol = two_pt_update(x0,dx,xhat,u[ind0],u[ind1],slowness(slo_fun,xstart,xm),slo[ind]);
+							sol = two_pt_update(x0,dx,xhat,u[ind0],u[ind1],slowness(slo_fun,xm),slo[ind]);
 	
 							if( sol.ch == 'y' && sol.u < u[ind] ){
 								u[ind] = sol.u;
@@ -339,7 +287,7 @@ int main_body() {
 				} // end for( j = 0; j < 2; j++ ) {
 				if( ch_1ptu == 'y' ) {
 					xm = a_times_vec(vec_sum(xnew,xhat),0.5);
-					utemp = u[inew] + h1ptu[i]*slowness(slo_fun,xstart,xm);
+					utemp = u[inew] + h1ptu[i]*slowness(slo_fun,xm);
 					if( utemp < u[ind] ) {
 						u[ind] = utemp;
 						gu[ind] = a_times_vec(vec_difference(xhat,xnew),slo[ind]/h1ptu[i]);
@@ -404,30 +352,13 @@ struct mysol two_pt_update(struct myvector x0,struct myvector dx,struct myvector
 		lam = sin(theta-al)/(sin(theta)*coa);
 		hlam = hxy*sin(al)/sin(theta);
 		xmlam = vec_lin_comb(vec_sum(xhat,x0),dx,0.5,lam*0.5); // 0.5*(xhat + x0 + lam*dx);
-		sol.u = u0 + lam*du + slowness(slo_fun,xstart,xmlam)*hlam;
+		sol.u = u0 + lam*du + slowness(slo_fun,xmlam)*hlam;
 		sol.g = a_times_vec(vec_difference(xhat,vec_sum(x0,a_times_vec(dx,lam))),shat/hlam);
 		sol.ch = 'y';
 	}
 	else sol.ch = 'n';
 
 	return sol;
-}
-
-//**************************************************
-
-
-struct myvector getperp_plus(struct myvector v) {
-	struct myvector u = {v.y,-v.x};
-
-	return u;
-
-}
-
-struct myvector getperp_minus(struct myvector v) {
-	struct myvector u = {-v.y,v.x};
-
-	return u;
-
 }
 
 //-------------------------------------------
@@ -460,126 +391,6 @@ double polyval(char ch,double x) {
 	}
 	return p;
 }
-
-//----------------------------------------------------
-// LINEAR ALGEBRA
-
-double norm(struct myvector x) {
-
-  return sqrt(x.x*x.x + x.y*x.y);
-}
-//--------------------
-
-double normsquared(struct myvector x) {
-
-  return x.x*x.x + x.y*x.y;
-}
-
-//--------------------
-
-struct myvector a_times_vec(struct myvector v,double a) {
-	struct myvector av;
-	
-	av.x = a*v.x;
-	av.y = a*v.y;
-	
-	return av;
-}
-//--------------------
-
-		
-struct myvector vec_sum(struct myvector v1,struct myvector v2) {
-	struct myvector v;
-	
-	v.x = v1.x + v2.x;
-	v.y = v1.y + v2.y;
-	
-	return v;
-}
-
-//--------------------
-			
-struct myvector vec_difference(struct myvector v1,struct myvector v2) {
-	struct myvector v;
-	
-	v.x = v1.x - v2.x;
-	v.y = v1.y - v2.y;
-	
-	return v;
-}
-
-//---------------------
-
-struct myvector solve_Axisb(struct mymatrix A,struct myvector b) {
-	double det;
-	struct myvector v;
-	
-	det = A.a11*A.a22 - A.a12*A.a21;
-	if( fabs(det) > 1e-14) {
-		v.x = (b.x*A.a22 - b.y*A.a12)/det;
-		v.y = (A.a11*b.y - A.a21*b.x)/det;
-	}
-	else v = b;
-	
-	return v;
-}
-
-//---------------------
-
-struct myvector matrix_vec(struct mymatrix A,struct myvector v) {
-	struct myvector w;
-	
-	w.x = A.a11*v.x + A.a12*v.y;
-	w.y = A.a21*v.x + A.a22*v.y;
-	
-	return w;
-}
-
-//---------------------
-
-struct mymatrix tensor_product(struct myvector v1,struct myvector v2) {
-	struct mymatrix A;
-	
-	A.a11 = v1.x*v2.x; A.a12 = v1.x*v2.y;
-	A.a21 = v1.y*v2.x; A.a22 = v1.y*v2.y;
-	
-	return A;	
-}
-
-//---------------------
-	
-struct mymatrix matrix_sum(struct mymatrix A,struct mymatrix B){
-	struct mymatrix C;
-	
-	C.a11 = A.a11 + B.a11; C.a12 = A.a12 + B.a12;
-	C.a21 = A.a21 + B.a21; C.a22 = A.a22 + B.a22;
-	
-	return C;
-}
-//---------------------
-
-struct mymatrix a_times_matrix(struct mymatrix A,double a){
-	A.a11*=a;A.a12*=a;A.a21*=a;A.a22*=a;
-	return A;
-}
-
-//---------------------
-
-struct myvector vec_lin_comb(struct myvector v1,struct myvector v2,double a1,double a2) {
-	struct myvector v;
-	
-	v.x = a1*v1.x + a2*v2.x;
-	v.y = a1*v1.y + a2*v2.y;
-	
-	return v;
-}
-
-//---------------------
-double dot_product(struct myvector v1,struct myvector v2){
-
-	return v1.x*v2.x + v1.y*v2.y;
-}
-
 
 /****************************************/
 /**************************************************************/
@@ -736,113 +547,117 @@ int main() {
     int p, pmin = 4, pmax = 12;
     double a1ptu,a2ptu;
     char print_errors = 'n';
-
+    char slochar[5] = {'1','p','v','m','g'};
+	int jslo;
 	double aux,aux1;
 	struct mymatrix AtA;
 	struct myvector Atb,Atb1,Atb2,pc;
 
+	xstart = (struct myvector *)malloc(sizeof(struct myvector));
 
-	// for least squares fit
-	AtA.a11 = 0.0; AtA.a12 = 0.0; AtA.a21 = 0.0;AtA.a22 = 0.0;
-	Atb.x = 0.0; Atb.y = 0.0;
-	Atb1.x = 0.0; Atb1.y = 0.0;
-	Atb2.x = 0.0; Atb2.y = 0.0;
+	for( jslo = 0; jslo < 5; jslo++ ) {
+		slo_fun = slochar[jslo];
+		// for least squares fit
+		AtA.a11 = 0.0; AtA.a12 = 0.0; AtA.a21 = 0.0;AtA.a22 = 0.0;
+		Atb.x = 0.0; Atb.y = 0.0;
+		Atb1.x = 0.0; Atb1.y = 0.0;
+		Atb2.x = 0.0; Atb2.y = 0.0;
 
-	sprintf(fname,"Data/olim8mp0_ibox_slo%c.txt",slo_fun);
-	fg = fopen(fname,"w");
+		sprintf(fname,"Data/olim8mp0_slo%c.txt",slo_fun);
+		fg = fopen(fname,"w");
 	
 	
-	for( p = pmin; p <= pmax; p++ ) {
-		nx = pow(2,p) + 1;
-		ny = nx;
-		nx1 = nx - 1;
-		ny1 = ny - 1;
-		nxy = nx*ny;
-		errmax = 0.0;
-		erms = 0.0;
-		umax = 0.0;
-		urms = 0.0;
-		gerrmax = 0.0;
-		germs = 0.0;
-		N2ptu = 0;
-		N1ptu = 0;
-		param();
-		ibox();
-		printf("slo_fun = %c\n",slo_fun);
-		CPUbegin=clock();
-		k = main_body();
-		cpu = (clock()-CPUbegin)/((double)CLOCKS_PER_SEC);
-		printf("CPU time  = %g\n",cpu);  
-		ind=0;
-		k = 0;
-		kg = 0;
-		if( print_errors == 'y' ) {
-			ferr = fopen("err.txt","w");
-			ftype = fopen("utype.txt","w");
-		}
-		for( j=0; j<ny; j++ ) {
-		  for( i=0; i<nx; i++ ) {
-		  	  ind = i + nx*j;
-			  umax = max(u[ind],umax);
-			  urms += u[ind]*u[ind];
-			  dd = fabs(u[ind] - uexact[ind]);			  
-			  errmax = max(errmax,dd);
-			  erms += dd*dd;
-			  gg = norm(vec_difference(gu[ind],exact_gradient(slo_fun,xstart,getpoint(ind),slo[ind])));
-			  if( isfinite(gg) ) {
-			  	gerrmax = max(gg,gerrmax);			  
-			  	germs += gg*gg;
-			  	kg++;
-			  }	
-			  k++;
-			  if( print_errors == 'y' ) {
-			  	  fprintf(ferr,"%.4e\t",u[ind] - uexact[ind]);
-			  	  fprintf(ftype,"%i\t",utype[ind]);
+		for( p = pmin; p <= pmax; p++ ) {
+			nx = pow(2,p) + 1;
+			ny = nx;
+			nx1 = nx - 1;
+			ny1 = ny - 1;
+			nxy = nx*ny;
+			errmax = 0.0;
+			erms = 0.0;
+			umax = 0.0;
+			urms = 0.0;
+			gerrmax = 0.0;
+			germs = 0.0;
+			N2ptu = 0;
+			N1ptu = 0;
+			param();
+			ibox();
+			printf("slo_fun = %c\n",slo_fun);
+			CPUbegin=clock();
+			k = main_body();
+			cpu = (clock()-CPUbegin)/((double)CLOCKS_PER_SEC);
+			printf("CPU time  = %g\n",cpu);  
+			ind=0;
+			k = 0;
+			kg = 0;
+			if( print_errors == 'y' ) {
+				ferr = fopen("err.txt","w");
+				ftype = fopen("utype.txt","w");
+			}
+			for( j=0; j<ny; j++ ) {
+			  for( i=0; i<nx; i++ ) {
+				  ind = i + nx*j;
+				  umax = max(u[ind],umax);
+				  urms += u[ind]*u[ind];
+				  dd = fabs(u[ind] - uexact[ind]);			  
+				  errmax = max(errmax,dd);
+				  erms += dd*dd;
+				  gg = norm(vec_difference(gu[ind],exact_gradient(slo_fun,getpoint(ind),slo[ind])));
+				  if( isfinite(gg) ) {
+					gerrmax = max(gg,gerrmax);			  
+					germs += gg*gg;
+					kg++;
+				  }	
+				  k++;
+				  if( print_errors == 'y' ) {
+					  fprintf(ferr,"%.4e\t",u[ind] - uexact[ind]);
+					  fprintf(ftype,"%i\t",utype[ind]);
+				  }
 			  }
-		  }
-		  if( print_errors == 'y' ) {
-		  	  fprintf(ferr,"\n");
-		  	  fprintf(ftype,"\n");
-		  }	  
-		}
-		if( print_errors == 'y' ) {
-			fclose(ferr);
-			fclose(ftype);
-		}	
-		urms = sqrt(urms/k);
-		erms = sqrt(erms/k);
-		germs = sqrt(germs/kg);
-		a1ptu = (double)N1ptu/k;
-		a2ptu = (double)N2ptu/k;
-		printf("umax = %.4e, urms = %.4e\n",umax,urms);
-		printf("NX = %i, NY = %i, errmax = %.4e, erms = %.4e, n_errmax = %.4e, n_erms = %.4e, gerrmax = %.4e\tgerms = %.4e\tCPU time = %g\n",
-				  nx,ny,errmax,erms,errmax/umax,erms/urms,gerrmax,germs,cpu);
-		printf("%i\t %.4e\t %.4e\t %.4e\t%.4e\t%g\n",
-				  nx,errmax,erms,errmax/umax,erms/urms,cpu);
-		printf("N1ptu per point = %.4e, N2ptu per point = %.4e\n",a1ptu,a2ptu);			
-		fprintf(fg,"%i\t %.4e\t %.4e\t %.4e\t%.4e\t%.4e\t%.4e\t%g\t%.3f\t%.3f\n",
-				  nx,errmax,erms,errmax/umax,erms/urms,gerrmax,germs,cpu,a1ptu,a2ptu);
+			  if( print_errors == 'y' ) {
+				  fprintf(ferr,"\n");
+				  fprintf(ftype,"\n");
+			  }	  
+			}
+			if( print_errors == 'y' ) {
+				fclose(ferr);
+				fclose(ftype);
+			}	
+			urms = sqrt(urms/k);
+			erms = sqrt(erms/k);
+			germs = sqrt(germs/kg);
+			a1ptu = (double)N1ptu/k;
+			a2ptu = (double)N2ptu/k;
+			printf("umax = %.4e, urms = %.4e\n",umax,urms);
+			printf("NX = %i, NY = %i, errmax = %.4e, erms = %.4e, n_errmax = %.4e, n_erms = %.4e, gerrmax = %.4e\tgerms = %.4e\tCPU time = %g\n",
+					  nx,ny,errmax,erms,errmax/umax,erms/urms,gerrmax,germs,cpu);
+			printf("%i\t %.4e\t %.4e\t %.4e\t%.4e\t%g\n",
+					  nx,errmax,erms,errmax/umax,erms/urms,cpu);
+			printf("N1ptu per point = %.4e, N2ptu per point = %.4e\n",a1ptu,a2ptu);			
+			fprintf(fg,"%i\t %.4e\t %.4e\t %.4e\t%.4e\t%.4e\t%.4e\t%g\t%.3f\t%.3f\n",
+					  nx,errmax,erms,errmax/umax,erms/urms,gerrmax,germs,cpu,a1ptu,a2ptu);
 				
 	  
-		// for least squares fit for errors
-		  aux = -log(nx1);
-		  aux1 = log(erms);
-		  AtA.a11 += aux*aux;
-		  AtA.a12 += aux;
-		  AtA.a22 += 1.0;
-		  Atb.x += aux*aux1;		
-		  Atb.y += aux1;
+			// for least squares fit for errors
+			  aux = -log(nx1);
+			  aux1 = log(erms);
+			  AtA.a11 += aux*aux;
+			  AtA.a12 += aux;
+			  AtA.a22 += 1.0;
+			  Atb.x += aux*aux1;		
+			  Atb.y += aux1;
 
 	  
 		
-	 }
-	 fclose(fg);
+		 }
+		 fclose(fg);
    
-	AtA.a21 = AtA.a12;
+		AtA.a21 = AtA.a12;
   
-	pc = solve_Axisb(AtA,Atb);
-	printf("ERMS = Ch^p: p = %.4e, C = %.4e\n",pc.x,exp(pc.y));
-
+		pc = solve_Axisb(AtA,Atb);
+		printf("ERMS = Ch^p: p = %.4e, C = %.4e\n",pc.x,exp(pc.y));
+	}
     return 0;
 
 }

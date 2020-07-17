@@ -3,7 +3,7 @@
 // 8-point nearest neighborhood
 // segments of rays are approximated with quadratic curves
 
-// Compile command: gcc -Wall mesh.c BucketSort.c HeapSort.c QuickSort.c JMMupdates.c linear_algebra.c slowness_and_uexact.c Newton.c JMMversion3.c -lm -O3
+// Compile command: gcc -Wall mesh.c BucketSort.c HeapSort.c QuickSort.c JMMupdates.c linear_algebra.c slowness_and_uexact.c Newton.c JMMversion4.c -lm -O3
 
 // Copyright: Maria Cameron, June 14, 2020
 
