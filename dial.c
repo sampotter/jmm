@@ -47,7 +47,6 @@ struct dial3 {
   state_e *state;
   int *lb;
   int nb_dl[6];
-  int *next;
   bucket_s *first;
   update_f update;
 };
@@ -123,11 +122,6 @@ void dial3_init(dial3_s *dial, stype_e stype, ivec3 shape, dbl h) {
 
   // TODO: want to make sure `nb_dl` is in sorted order? (for cache
   // friendliness?)
-
-  dial->next = malloc(sizeof(int)*dial->size);
-  for (size_t i = 0; i < dial->size; ++i) {
-    dial->next[i] = NO_INDEX;
-  }
 
   dial->first = malloc(sizeof(bucket_s));
 
