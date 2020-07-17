@@ -4,6 +4,8 @@
 extern "C" {
 #endif
 
+#include <stdbool.h>
+
 #ifndef NDEBUG
 #define SJS_DEBUG 1
 #endif
