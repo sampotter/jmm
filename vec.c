@@ -82,6 +82,39 @@ dvec2 dvec2_avg(dvec2 u, dvec2 v) {
   return (dvec2) {(u.x + v.x)/2, (u.y + v.y)/2};
 }
 
+dbl dvec3_dot(dvec3 u, dvec3 v) {
+  return u.x*v.x + u.y*v.y + u.z*v.z;
+}
+
+dbl dvec3_maxnorm(dvec3 u) {
+  return fmax(fabs(u.x), fmax(fabs(u.y), fabs(u.z)));
+}
+
+dbl dvec3_norm(dvec3 u) {
+  return sqrt(u.x*u.x + u.y*u.y + u.z*u.z);
+}
+
+dvec3 dvec3_normalized(dvec3 u) {
+  dbl r = dvec3_norm(u);
+  return (dvec3) {.x = u.x/r, .y = u.y/r, .z = u.z/r};
+}
+
+dvec3 dvec3_saxpy(dbl a, dvec3 x, dvec3 y) {
+  return (dvec3) {
+    .x = a*x.x + y.x,
+    .y = a*x.y + y.y,
+    .z = a*x.z + y.z
+  };
+}
+
+dvec3 dvec3_sub(dvec3 u, dvec3 v) {
+  return (dvec3) {
+    .x = u.x - v.x,
+    .y = u.y - v.y,
+    .z = u.z - v.z
+  };
+}
+
 dbl dvec4_dot(dvec4 v0, dvec4 v1) {
   dbl tmp = 0;
   for (int i = 0; i < 4; ++i) {
@@ -174,6 +207,14 @@ dvec4 dvec4_iota() {
 
 ivec2 ivec2_add(ivec2 p, ivec2 q) {
   return (ivec2) {p.i + q.i, p.j + q.j};
+}
+
+int ivec3_prod(ivec3 p) {
+  return p.i*p.j*p.k;
+}
+
+ivec3 ivec3_int_div(ivec3 p, int q) {
+  return (ivec3) {.i = p.i/q, .j = p.j/q, .k = p.k/q};
 }
 
 ivec2 dvec2_to_ivec2(dvec2 v) {

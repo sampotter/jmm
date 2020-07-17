@@ -33,6 +33,19 @@ dvec2 dvec2_cproj(dvec2 u, dvec2 v);
 dvec2 dvec2_avg(dvec2 u, dvec2 v);
 
 typedef struct {
+  dbl x;
+  dbl y;
+  dbl z;
+} dvec3;
+
+dbl dvec3_dot(dvec3 u, dvec3 v);
+dbl dvec3_maxnorm(dvec3 u);
+dbl dvec3_norm(dvec3 u);
+dvec3 dvec3_normalized(dvec3 u);
+dvec3 dvec3_saxpy(dbl a, dvec3 x, dvec3 y);
+dvec3 dvec3_sub(dvec3 u, dvec3 v);
+
+typedef struct {
   union {
     dbl data[4];
     struct {
@@ -61,6 +74,15 @@ typedef struct {
 } ivec2;
 
 ivec2 ivec2_add(ivec2 p, ivec2 q);
+
+typedef struct {
+  int i;
+  int j;
+  int k;
+} ivec3;
+
+int ivec3_prod(ivec3 p);
+ivec3 ivec3_int_div(ivec3 p, int q);
 
 ivec2 dvec2_to_ivec2(dvec2 v);
 
