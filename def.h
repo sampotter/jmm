@@ -22,6 +22,18 @@ extern "C" {
 typedef enum state {FAR, TRIAL, VALID, BOUNDARY, NEW_VALID} state_e;
 
 /**
+ * An enum encoding the "type" of slowness function to be
+ * used. Specifically, this encodes the manner in which slowness data
+ * is made available to a solver (e.g., whether the exact slowness
+ * function is available, whether the gradient is available, whether
+ * just the function values are provided on a grid, etc.).
+ */
+typedef enum stype {
+  CONSTANT,
+  NUM_STYPE
+} stype_e;
+
+/**
  * Change this to float to use single precision instead.
  */
 typedef double dbl;
