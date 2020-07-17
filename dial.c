@@ -230,6 +230,9 @@ void dial3_update_bucket_nodes(dial3_s *dial, int l0) {
 
 bool dial3_step(dial3_s *dial) {
   bucket_s *bucket = dial->first;
+  if (bucket == NULL) {
+    return false;
+  }
   for (size_t i = 0; i < bucket->size; ++i) {
     dial3_update_bucket_nodes(dial, bucket->l[i]);
   }
