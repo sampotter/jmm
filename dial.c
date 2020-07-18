@@ -179,12 +179,12 @@ void dial3_init(dial3_s *dial, stype_e stype, ivec3 shape, dbl h) {
   // TODO: want to make sure `nb_dl` is in sorted order? (for cache
   // friendliness?)
 #if ORDERING == ROW_MAJOR
-  dial->nb_dl[0] = ind2l3((ivec3) {.i = -1,  0,  0}, dial->shape);
-  dial->nb_dl[1] = ind2l3((ivec3) {.i =  0, -1,  0}, dial->shape);
-  dial->nb_dl[2] = ind2l3((ivec3) {.i =  0,  0, -1}, dial->shape);
-  dial->nb_dl[3] = ind2l3((ivec3) {.i =  0,  0,  1}, dial->shape);
-  dial->nb_dl[4] = ind2l3((ivec3) {.i =  0,  1,  0}, dial->shape);
-  dial->nb_dl[5] = ind2l3((ivec3) {.i =  1,  0,  0}, dial->shape);
+  dial->nb_dl[0] = ind2l3(dial->shape, (ivec3) {.i = -1, .j =  0, .k =  0});
+  dial->nb_dl[1] = ind2l3(dial->shape, (ivec3) {.i =  0, .j = -1, .k =  0});
+  dial->nb_dl[2] = ind2l3(dial->shape, (ivec3) {.i =  0, .j =  0, .k = -1});
+  dial->nb_dl[3] = ind2l3(dial->shape, (ivec3) {.i =  0, .j =  0, .k =  1});
+  dial->nb_dl[4] = ind2l3(dial->shape, (ivec3) {.i =  0, .j =  1, .k =  0});
+  dial->nb_dl[5] = ind2l3(dial->shape, (ivec3) {.i =  1, .j =  0, .k =  0});
 #else
 #  error not implemented yet
 #endif
