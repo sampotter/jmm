@@ -199,14 +199,11 @@ void dial3_init(dial3_s *dial, stype_e stype, ivec3 shape, dbl h) {
  * account for different buckets, but for a point source this should
  * be fine
  */
-void dial3_add_trial(dial3_s *dial, ivec3 ind, dbl T) {
+void dial3_add_trial(dial3_s *dial, ivec3 ind, dbl T, dvec3 grad_T) {
   int l = ind2l3(dial->shape, ind);
-  dial->T[l] = T;
-  // TODO: add to bucket
-}
-
-int dial3_bucket_T(dial3_s const *dial, dbl T) {
-  return T/dial->gap;
+  dial3_set_T(dial, l, T);
+  dial->grad_T[l] = grad_T;
+  dial3_insert(dial, l, T);
 }
 
 void dial3_update_nb(dial3_s *dial, int l0, int l) {
@@ -224,6 +221,7 @@ void dial3_update_nbs(dial3_s *dial, int l0) {
   for (int b = 0; b < 6; ++b) {
     int l = l0 + dial->nb_dl[b];
     if (l < 0 || dial->size <= (size_t)l) continue;
+    if (dial->state[l] == VALID) continue;
     dial3_update_nb(dial, l0, l);
   }
 }
@@ -258,6 +256,48 @@ void dial3_solve(dial3_s *dial) {
   while (dial3_step(dial)) {}
 }
 
+void print_T(dial3_s const *dial) {
+  dbl T;
+  ivec3 ind, shape = dial->shape;
+  for (ind.i = 0; ind.i < shape.i; ++ind.i) {
+    for (ind.j = 0; ind.j < shape.j; ++ind.j) {
+      for (ind.k = 0; ind.k < shape.k - 1; ++ind.k) {
+        T = dial->T[ind2l3(shape, ind)];
+        if (isinf(T)) {
+          printf("   inf ");
+        } else {
+          printf("%0.4f ", T);
+        }
+      }
+      T = dial->T[ind2l3(shape, ind)];
+      if (isinf(T)) {
+        printf("   inf\n");
+      } else {
+        printf("%0.4f\n", T);
+      }
+    }
+    puts("");
+  }
+}
+
+void print_bucket(bucket_s const *bucket) {
+  printf("{");
+  size_t i, j;
+  for (i = 0, j = bucket->start; i < bucket->size - 1; ++i) {
+    printf("%d, ", bucket->l[j]);
+    j = (j + 1) % bucket->capacity;
+  }
+  printf("%d}\n", bucket->l[j]);
+}
+
+void print_buckets(dial3_s const *dial) {
+  bucket_s *bucket = dial->first;
+  while (bucket) {
+    print_bucket(bucket);
+    bucket = bucket->next;
+  }
+}
+
 int main() {
   stype_e stype = CONSTANT;
   int nx = 5;
@@ -268,28 +308,36 @@ int main() {
 
   dial3_s dial;
   dial3_init(&dial, stype, shape, h);
-  dial3_add_trial(&dial, ivec3_int_div(shape, 2), 0);
-  dial3_solve(&dial);
 
-  dbl T;
+  ivec3 ind0 = ivec3_int_div(shape, 2);
+  int i0 = ind0.i - 1, i1 = ind0.i + 1;
+  int j0 = ind0.j - 1, j1 = ind0.j + 1;
+  int k0 = ind0.k - 1, k1 = ind0.k + 1;
   ivec3 ind;
-  for (ind.i = 0; ind.i < nx; ++ind.i) {
-    for (ind.j = 0; ind.j < ny; ++ind.j) {
-      for (ind.k = 0; ind.k < nz - 1; ++ind.k) {
-        T = dial.T[ind2l3(shape, ind)];
-        if (isinf(T)) {
-          printf("   inf ");
-        } else {
-          printf("%0.4f ", T);
+  dvec3 x0 = dial3_x(&dial, ind2l3(shape, ind0));
+  for (ind.i = i0; ind.i <= i1; ++ind.i) {
+    for (ind.j = j0; ind.j <= j1; ++ind.j) {
+      for (ind.k = k0; ind.k <= k1; ++ind.k) {
+        if (ivec3_equal(ind, ind0)) {
+          continue;
         }
-      }
-      T = dial.T[ind2l3(shape, ind)];
-      if (isinf(T)) {
-        printf("   inf\n");
-      } else {
-        printf("%0.4f\n", T);
+        dvec3 x = dial3_x(&dial, ind2l3(shape, ind));
+        dvec3 grad_T = dvec3_sub(x, x0);
+        dbl T = dvec3_norm(grad_T);
+        grad_T = dvec3_dbl_div(grad_T, T);
+        dial3_add_trial(&dial, ind, T, grad_T);
       }
     }
-    puts("");
   }
+
+  int l0 = ind2l3(shape, ind0);
+  dial.T[l0] = 0;
+  dial.grad_T[l0] = dvec3_nan();
+  dial.state[l0] = VALID;
+
+  print_T(&dial);
+
+  dial3_solve(&dial);
+
+  print_T(&dial);
 }
