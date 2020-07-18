@@ -357,6 +357,8 @@ void dial3_add_trial(dial3_s *dial, ivec3 ind, dbl T, dvec3 grad_T) {
 
 void dial3_update_nb(dial3_s *dial, int l0, int l) {
   dbl T = dial->update(dial, l0, l);
+  // TODO: may want to add a little tolerance here to ensure we don't
+  // mess with grad_T too much?
   if (T < dial->T[l]) {
     dial3_set_T(dial, l, T);
     int lb = dial3_bucket_T(dial, T);
