@@ -115,6 +115,15 @@ struct dial3 {
    * - if node `l` is in bucket `lb`, then `nb[l] == lb`
    * - if it isn't in a bucket, we don't care?
    *
+   * TODO: one issue here is that the semantics aren't 100%
+   * well-defined, since a node can appear in multiple buckets. Is it
+   * a problem that we only have one lb per node? Can we get away with
+   * this, or will it be necessary to keep a list?
+   *
+   * TODO: a more provocative question than the previous TODO---is
+   * this array of back-pointers necessary at all, in light of the
+   * fact that we just re-add nodes to buckets?
+   *
    * This is the Dial version of the "heap back-pointer" required by
    * Dijkstra-like algorithms.
    */
