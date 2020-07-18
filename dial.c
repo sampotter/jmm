@@ -7,6 +7,8 @@
 #include "def.h"
 #include "vec.h"
 
+#define INIT_BUCKET_SIZE 16
+
 int ind2l3(ivec3 shape, ivec3 ind) {
 #if ORDERING == ROW_MAJOR_ORDERING
   return ind.k + shape.k*(ind.j + shape.j*ind.i);
@@ -35,10 +37,53 @@ typedef struct bucket bucket_s;
  * a node in a linked list of buckets.
  */
 struct bucket {
-  int *l;
   size_t size;
+  size_t start;
+  size_t stop;
+  size_t capacity;
+  int *l;
   bucket_s *next;
 };
+
+void bucket_init(bucket_s *bucket) {
+  bucket->size = 0;
+  bucket->start = 0;
+  bucket->stop = 0;
+  bucket->capacity = INIT_BUCKET_SIZE;
+  bucket->l = malloc(sizeof(int)*INIT_BUCKET_SIZE);
+  bucket->next = NULL;
+}
+
+void bucket_grow(bucket_s *bucket) {
+  int *new_l = malloc(2*sizeof(int)*bucket->capacity);
+  for (size_t i = 0, j = 0; i < bucket->size; ++i) {
+    new_l[i] = bucket->l[j];
+    j = (j + 1) % bucket->size;
+  }
+  free(bucket->l);
+  bucket->l = new_l;
+
+  // Update old parameters
+  bucket->start = 0;
+  bucket->stop = bucket->size;
+  bucket->capacity *= 2;
+}
+
+void bucket_push(bucket_s *bucket, int l) {
+  if (bucket->size == bucket->capacity) {
+    bucket_grow(bucket);
+  }
+  bucket->l[bucket->stop] = l;
+  bucket->stop = (bucket->stop + 1) % bucket->capacity;
+  ++bucket->size;
+}
+
+int bucket_pop(bucket_s *bucket) {
+  int l = bucket->l[bucket->start];
+  bucket->start = (bucket->start + 1) % bucket->capacity;
+  --bucket->size;
+  return l;
+}
 
 typedef struct dial3 dial3_s;
 
@@ -194,6 +239,59 @@ void dial3_init(dial3_s *dial, stype_e stype, ivec3 shape, dbl h) {
   dial->update = update_functions[dial->stype];
 }
 
+int dial3_bucket_T(dial3_s const *dial, dbl T) {
+  return T/dial->gap;
+}
+
+void dial3_prepend_buckets(dial3_s *dial, int lb) {
+  while (lb < dial->lb0) {
+    bucket_s *bucket = malloc(sizeof(bucket_s));
+    bucket_init(bucket);
+    bucket->next = dial->first;
+    dial->first = bucket;
+    --dial->lb0;
+  }
+}
+
+bucket_s *dial3_find_bucket(dial3_s *dial, int lb) {
+  if (lb < dial->lb0) {
+    dial3_prepend_buckets(dial, lb);
+  }
+  bucket_s *bucket = dial->first;
+  while (lb > dial->lb0) {
+    if (bucket->next == NULL) {
+      bucket->next = malloc(sizeof(bucket_s));
+      bucket_init(bucket);
+    }
+    bucket = bucket->next;
+    --lb;
+  }
+  return bucket;
+}
+
+void dial3_insert(dial3_s *dial, int l, dbl T) {
+  if (dial->first == NULL) {
+    dial->lb0 = dial3_bucket_T(dial, T);
+    dial->first = malloc(sizeof(bucket_s));
+    bucket_init(dial->first);
+    bucket_push(dial->first, l);
+  } else {
+    int lb = dial3_bucket_T(dial, T);
+    bucket_s *bucket = dial3_find_bucket(dial, lb);
+    bucket_push(bucket, l);
+  }
+}
+
+void dial3_set_T(dial3_s *dial, int l, dbl T) {
+  // TODO: for now, we just assume that T >= 0. In the future, we can
+  // be more sophisticated about this, and introduce a `Tmin`
+  // parameter. But then we'll need to adjust `dial3_bucket_T` to
+  // ensure that the [Tmin, Tmin + gap) bucket corresponds corresponds
+  // to `lb == 0` (so that `NO_INDEX == -1` still works).
+  assert(T >= 0);
+  dial->T[l] = T;
+}
+
 /**
  * TODO: this is very simple-minded for now... Later, we'll need to
  * account for different buckets, but for a point source this should
@@ -209,10 +307,14 @@ void dial3_add_trial(dial3_s *dial, ivec3 ind, dbl T, dvec3 grad_T) {
 void dial3_update_nb(dial3_s *dial, int l0, int l) {
   dbl T = dial->update(dial, l0, l);
   if (T < dial->T[l]) {
-    dial->T[l] = T;
+    dial3_set_T(dial, l, T);
     int lb = dial3_bucket_T(dial, T);
     if (lb != dial->lb[l]) {
-      // TODO: update bucket index and move node...
+      assert(dial->lb[l] == NO_INDEX || (dial->lb0 <= lb && lb < dial->lb[l]));
+      bucket_s *bucket = dial3_find_bucket(dial, lb);
+      bucket_push(bucket, l);
+      // TODO: should I actually do this?
+      dial->lb[l] = lb;
     }
   }
 }
@@ -226,30 +328,22 @@ void dial3_update_nbs(dial3_s *dial, int l0) {
   }
 }
 
-void dial3_update_bucket_nodes(dial3_s *dial, int l0) {
-  dial->state[l0] = VALID;
-  // TODO: remove from bucket
-  dial3_update_nbs(dial, l0);
-}
-
-// TODO: quick observations here:
-// - after we set state(l0) to VALID, we want to evict it
-// - when we update nodes, we may move them to a new bucket if their value changes enough
-// - doing this in parallel will be tricky
-
 bool dial3_step(dial3_s *dial) {
   bucket_s *bucket = dial->first;
   if (bucket == NULL) {
     return false;
   }
-  for (size_t i = 0; i < bucket->size; ++i) {
-    dial3_update_bucket_nodes(dial, bucket->l[i]);
+  int l0;
+  while (bucket->size > 0) {
+    l0 = bucket_pop(bucket);
+    // NOTE: a node can exist in multiple buckets
+    if (dial->state[l0] == VALID) {
+      continue;
+    }
+    dial->state[l0] = VALID;
+    dial3_update_nbs(dial, l0);
   }
-  // TODO: or "while dial->first is empty { ... }"
-  if (bucket->size == 0) {
-    dial->first = bucket->next;
-  }
-  return dial->first != NULL;
+  return (dial->first = bucket->next) != NULL;
 }
 
 void dial3_solve(dial3_s *dial) {
