@@ -108,9 +108,7 @@ struct dial3 {
 };
 
 dvec3 dial3_x(dial3_s const *dial, int l) {
-  dbl h = dial->h;
-  ivec3 ind = l2ind3(dial->shape, l);
-  return (dvec3) {.x = ind.i/h, .y = ind.j/h, .z = ind.k/h};
+  return ivec3_dbl_mul(l2ind3(dial->shape, l), dial->h);
 }
 
 dbl dial3_update_constant(dial3_s const *dial, int l0, int l) {
