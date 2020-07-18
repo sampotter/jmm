@@ -122,3 +122,23 @@ int xy_to_lc_and_cc(ivec2 shape, dvec2 xymin, dbl h, dvec2 xy, dvec2 *cc) {
 
   return ind2lc(shape, ind);
 }
+
+int ind2l3(ivec3 shape, ivec3 ind) {
+#if ORDERING == ROW_MAJOR_ORDERING
+  return ind.k + shape.k*(ind.j + shape.j*ind.i);
+#else
+#  error not implemented yet
+#endif
+}
+
+ivec3 l2ind3(ivec3 shape, int l) {
+#if ORDERING == ROW_MAJOR_ORDERING
+  return (ivec3) {
+    .i = l/(shape.k*shape.j),
+    .j = l/shape.k % shape.j,
+    .k = l % shape.k
+  };
+#else
+#  error not implemented yet
+#endif
+}

@@ -18,6 +18,9 @@ int l2lc(ivec2 shape, int l);
 int lc2l(ivec2 shape, int lc);
 int xy_to_lc_and_cc(ivec2 shape, dvec2 xymin, dbl h, dvec2 xy, dvec2 *cc);
 
+int ind2l3(ivec3 shape, ivec3 ind);
+ivec3 l2ind3(ivec3 shape, int l);
+
 #ifdef __cplusplus
 }
 #endif
