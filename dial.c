@@ -311,11 +311,12 @@ bucket_s *dial3_find_bucket(dial3_s *dial, int lb) {
   while (lb > dial->lb0) {
     if (bucket->next == NULL) {
       bucket->next = malloc(sizeof(bucket_s));
-      bucket_init(bucket);
+      bucket_init(bucket->next);
     }
     bucket = bucket->next;
     --lb;
   }
+  assert(bucket != NULL);
   return bucket;
 }
 
