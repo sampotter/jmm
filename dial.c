@@ -281,7 +281,7 @@ void prepend_buckets(dial3_s *dial, int lb) {
   }
 }
 
-bucket_s *dial3_find_bucket(dial3_s *dial, int lb) {
+bucket_s *find_bucket(dial3_s *dial, int lb) {
   if (lb < dial->lb0) {
     prepend_buckets(dial, lb);
   }
@@ -306,7 +306,7 @@ void dial3_insert(dial3_s *dial, int l, dbl T) {
     bucket_push(dial->first, l);
   } else {
     int lb = bucket_T(dial, T);
-    bucket_s *bucket = dial3_find_bucket(dial, lb);
+    bucket_s *bucket = find_bucket(dial, lb);
     bucket_push(bucket, l);
   }
 }
@@ -342,7 +342,7 @@ void dial3_update_nb(dial3_s *dial, int l0, int l) {
     int lb = bucket_T(dial, T);
     if (lb != dial->lb[l]) {
       assert(dial->lb[l] == NO_INDEX || (dial->lb0 <= lb && lb < dial->lb[l]));
-      bucket_s *bucket = dial3_find_bucket(dial, lb);
+      bucket_s *bucket = find_bucket(dial, lb);
       bucket_push(bucket, l);
       // TODO: should I actually do this?
       dial->lb[l] = lb;
