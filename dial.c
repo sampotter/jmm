@@ -4,8 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "def.h"
-#include "vec.h"
+#include "dial.h"
 
 #define INIT_BUCKET_SIZE 16
 
@@ -84,8 +83,6 @@ int bucket_pop(bucket_s *bucket) {
   --bucket->size;
   return l;
 }
-
-typedef struct dial3 dial3_s;
 
 typedef dbl (*update_f)(dial3_s const *, int /* l0 */, int /* l */);
 
