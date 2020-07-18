@@ -118,7 +118,7 @@ dbl dial3_update_constant(dial3_s const *dial, int l0, int l) {
   // passing through l0
 
   dvec3 x0 = dial3_x(dial, l0);
-  dvec3 t0 = dvec3_normalized(dial->grad_T[l0]);
+  dvec3 t0 = dvec3_normalized(dial->grad_T[l0]); // TODO: for s = 1, this will already be normalized! nice!
   dbl T0 = dial->T[l0];
 
   dvec3 xsrc = dvec3_saxpy(-T0, t0, x0);
