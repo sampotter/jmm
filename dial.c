@@ -165,20 +165,61 @@ dvec3 dial3_x(dial3_s const *dial, int l) {
   return ivec3_dbl_mul(l2ind3(dial->shape, l), dial->h);
 }
 
+/**
+ * Compute a new value for the node at `l` from parent node `l0`.
+ * This function modifies `dial->grad_T[l]`!
+ *
+ * Right now, the way this works is as follows:
+ *
+ * - a (possibly "virtual") point source, `xsrc` is located based on
+ *   `dial->T[l0]`, `dial->grad_T[l0]`, and the location of node `l0`
+ *
+ * - the node `l0` is projected along the straight line connecting
+ *   `l0` and `xsrc` onto the plane centered at `x0` and with normal
+ *   vector `(x - x0)/h`, yielding `xs`
+ *
+ * - if the max norm distance between `x0` and `xs` is no more than `h`,
+ *   new values of `dial->T[l]` and `dial->grad_T[l0]` are computed
+ *
+ * The idea here is to project the point along the characteristic onto
+ * the "update box" surrounding `x`.
+ *
+ * Some caveats:
+ *
+ * 1. this does not take boundaries into consideration!
+ * 2. we do *not* check if `xs` is incident on a set of `VALID` nodes!
+ * 3. this only works for the "s = 1" case!
+ *
+ * for this experiment, we will definitely address point #1, and
+ * *possibly* point #2 if proves to be necessary.
+ *
+ * We will not address #3 in this experiment, although this idea
+ * should be able to be extended to more general slowness
+ * functions. In that case, we would need to use e.g. RK integration
+ * to track the characteristic back and find where it crosses the
+ * plane, check what set of nodes it falls on, and compute a new value
+ * of T from those nodes. There may also be some minimization
+ * involved, since we no longer have a good initial guess for the
+ * tangent vector... The goal would be to avoid this, too!
+ *
+ * TODO: looks like the l0 parameter could be replaced by x0 and xsrc
+ */
 dbl dial3_update_constant(dial3_s const *dial, int l0, int l) {
   // use gradient to compute spherical approximation to wavefront
   // passing through l0
 
+  // TODO: these lines are being done for each neighborhod when they
+  // should just be done once for all neighbors!
   dvec3 x0 = dial3_x(dial, l0);
-  dvec3 t0 = dvec3_normalized(dial->grad_T[l0]); // TODO: for s = 1, this will already be normalized! nice!
+
+// TODO: for s = 1, this will already be normalized! nice!
+  dvec3 t0 = dvec3_normalized(dial->grad_T[l0]);
+
   dbl T0 = dial->T[l0];
 
   dvec3 xsrc = dvec3_saxpy(-T0, t0, x0);
 
-  // project l onto the box of radius h surrounding x0
-
-  // xsrc*dx/((xsrc - dx)*dx)
-
+  // do the projection
   dvec3 x = dial3_x(dial, l);
   dvec3 dx = dvec3_sub(x, x0);
   dvec3 t = dvec3_sub(x, xsrc);
