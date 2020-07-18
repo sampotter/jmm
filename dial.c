@@ -182,7 +182,7 @@ dvec3 get_x(dial3_s const *dial, int l) {
  *
  * TODO: looks like the l0 parameter could be replaced by x0 and xsrc
  */
-dbl dial3_update_constant(dial3_s const *dial, int l0, int l) {
+dbl update_constant(dial3_s const *dial, int l0, int l) {
   // use gradient to compute spherical approximation to wavefront
   // passing through l0
 
@@ -219,7 +219,7 @@ dbl dial3_update_constant(dial3_s const *dial, int l0, int l) {
 }
 
 update_f update_functions[NUM_STYPE] = {
-  dial3_update_constant // CONSTANT
+  update_constant // CONSTANT
 };
 
 void dial3_init(dial3_s *dial, stype_e stype, ivec3 shape, dbl h) {
