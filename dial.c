@@ -139,7 +139,7 @@ struct dial3 {
   update_f update;
 };
 
-dvec3 dial3_x(dial3_s const *dial, int l) {
+dvec3 get_x(dial3_s const *dial, int l) {
   return ivec3_dbl_mul(l2ind3(dial->shape, l), dial->h);
 }
 
@@ -188,7 +188,7 @@ dbl dial3_update_constant(dial3_s const *dial, int l0, int l) {
 
   // TODO: these lines are being done for each neighborhod when they
   // should just be done once for all neighbors!
-  dvec3 x0 = dial3_x(dial, l0);
+  dvec3 x0 = get_x(dial, l0);
 
 // TODO: for s = 1, this will already be normalized! nice!
   dvec3 t0 = dvec3_normalized(dial->grad_T[l0]);
@@ -198,7 +198,7 @@ dbl dial3_update_constant(dial3_s const *dial, int l0, int l) {
   dvec3 xsrc = dvec3_saxpy(-T0, t0, x0);
 
   // do the projection
-  dvec3 x = dial3_x(dial, l);
+  dvec3 x = get_x(dial, l);
   dvec3 dx = dvec3_sub(x, x0);
   dvec3 t = dvec3_sub(x, xsrc);
   dbl s = dvec3_dot(dx, dvec3_sub(x0, xsrc))/dvec3_dot(dx, t);
@@ -439,14 +439,14 @@ int main() {
   int j0 = ind0.j - 1, j1 = ind0.j + 1;
   int k0 = ind0.k - 1, k1 = ind0.k + 1;
   ivec3 ind;
-  dvec3 x0 = dial3_x(&dial, ind2l3(shape, ind0));
+  dvec3 x0 = get_x(&dial, ind2l3(shape, ind0));
   for (ind.i = i0; ind.i <= i1; ++ind.i) {
     for (ind.j = j0; ind.j <= j1; ++ind.j) {
       for (ind.k = k0; ind.k <= k1; ++ind.k) {
         if (ivec3_equal(ind, ind0)) {
           continue;
         }
-        dvec3 x = dial3_x(&dial, ind2l3(shape, ind));
+        dvec3 x = get_x(&dial, ind2l3(shape, ind));
         dvec3 grad_T = dvec3_sub(x, x0);
         dbl T = dvec3_norm(grad_T);
         grad_T = dvec3_dbl_div(grad_T, T);
