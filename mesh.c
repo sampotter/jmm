@@ -10,7 +10,7 @@
 #define INFTY 1.0e+6
 #define TOL 1.0e-14
 
-#define SAFETY_FAC 0.9 // safety factor for finding gap
+#define SAFETY_FAC 0.7 // safety factor for finding gap
 
 //---------------------------------------------------------------
 
