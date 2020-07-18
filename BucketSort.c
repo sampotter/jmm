@@ -28,14 +28,14 @@ void dial_bucket_init(bucket_s *bucket,int i,double gap) {
 }
 
 //---------------------------------------------------------------
-void print_buckets(int Nbuckets,bucket_s *bucket) {
+void print_buckets(int Nbuckets,bucket_s *bucket,double *u) {
 	int k;
 	struct backptr_list *lnew;
 		for( k = 0; k < Nbuckets; k++ ) {
-			printf("Bucket %i:\n",k);
+			printf("Bucket %i, count = %i, minval = %.4e:\n",k,bucket[k].count,bucket[k].minval);
 			lnew = bucket[k].list;
 			while( lnew != NULL ) {
-				printf("%i\t",lnew -> ind);
+				printf("(%i, u = %.4e)\t",lnew -> ind,u[lnew -> ind]);
 				lnew = lnew -> next;
 			}
 			printf("\n");
@@ -105,15 +105,17 @@ void myfree(struct bucket_sort_handle  *BB) {
 void start_filling_buckets(struct bucket_sort_handle  *BB,int Nbuckets,bucket_s *bucket,
 		struct backptr_list *list,double gap,int *bdry,double *blist,int bcount){	
 	int iskip = 0,i,ibcurrent,jbdry;
-	double Bmax;
+	double Bmax,range = Nbuckets*gap;
 	// sort boundary points in increasing order
 	quicksort(blist,bdry,0,bcount-1);	
 
-	Bmax = Nbuckets*gap;
+	Bmax = range;
+// 	printf("Bmax = %.4e, gap = %.4e, Nbuckets = %i\n",Bmax,gap, Nbuckets);
 	while( Bmax < blist[0] ) {
-		Bmax +=Bmax;	
+		Bmax +=range;	
 		iskip+=Nbuckets;
 	}		 
+// 	printf("iskip = %i, Bmax = %.4e, gap = %.4e, Nbuckets = %i\n",iskip,Bmax,gap, Nbuckets);
 	// 		set up buckets
 	for( i = 0; i < Nbuckets; i++ ) {
 		dial_bucket_init(bucket + i,iskip + i,gap);
@@ -134,6 +136,7 @@ void start_filling_buckets(struct bucket_sort_handle  *BB,int Nbuckets,bucket_s 
 	BB->blist = blist;
 	BB->jbdry = jbdry;
 	BB->ibcurrent = ibcurrent;
+// 	printf("Bmax = %.4e\ngap = %.4e\nNbuckets = %i\nbcount = %i\njbdry = %i\nibcurrent = %i\n",Bmax,BB->gap,BB->Nbuckets,BB->bcount,BB->jbdry,BB->ibcurrent);
 }
 
 //----------------------------------------------------------------

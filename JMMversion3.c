@@ -76,6 +76,9 @@ char method_update = JMM1;
 //
 // 
 
+
+int IND = 35608;
+
 //--------------------------------------------
 //---------------------------------------------------------------
 
@@ -303,6 +306,7 @@ struct bucket_sort_handle *dial_init(mesh_s *mesh,struct myvector *xstart,
 				blist[bcount] = u[ind];
 				status[ind] = TRIAL;
 				bcount++;
+// 				printf("boundary: %i = (%i,%i), u = %.4e\n",ind,i,j,u[ind]);
 			}
 			else {
 				status[ind] = VALID;
@@ -323,6 +327,7 @@ struct bucket_sort_handle *dial_init(mesh_s *mesh,struct myvector *xstart,
 	
 	// setup buckets and put some initial number of boundary points to buckets
 	start_filling_buckets(BB,Nbuckets,bucket,list,gap,bdry,blist,bcount);
+// 	for( i = 0; i < bcount; i++ ) printf("boundary: %i = (%i,%i), u = %.4e\n",bdry[i],bdry[i]%(mesh->nx),bdry[i]/(mesh->nx),blist[i]);
 	
 	return BB;
 }
@@ -371,7 +376,8 @@ int dial_main_body(mesh_s *mesh,double *slo,double *u,struct myvector *gu,
 	jbdry = BB->jbdry;
 	blist = BB->blist;
 	bcount = BB->bcount;
-
+// 	printf("gap = %.4e\nNbuckets = %i\nbcount = %i\njbdry = %i\nibcurrent = %i\n",BB->gap,BB->Nbuckets,BB->bcount,BB->jbdry,BB->ibcurrent);
+// 	print_buckets(Nbuckets,bucket,u);
 
 	// indices of 8 nearest neighbors of X
 	//          3
@@ -411,12 +417,17 @@ int dial_main_body(mesh_s *mesh,double *slo,double *u,struct myvector *gu,
 		testcount = (bucket + ibcurrent) -> count;
 		(bucket + ibcurrent) -> count = 0;
 		bucket_count = 0;
+// 		printf("\nNEW BUCKET:ibcurrent = %i, count = %i, vcurrent = %.4e, vcurrent + gap = %.4e\n",ibcurrent,bcurrent->count,vcurrent,vcurrent + gap);
 		while( lcurrent != NULL) { 
 			inew = lcurrent -> ind; // index of the new accepted point
 			status[inew] = VALID;
 			xnew = getpoint(inew,mesh);
 			Nfinal++;
 			
+// 			if( inew == IND  || inew == 35350) {
+// 				printf("Nfinal = %i, inew = %i (%i,%i), u = %.4e, err = %.4e, gu = (%.4e,%.4e)\n",
+// 						Nfinal,inew,inew%(mesh->nx),inew/(mesh->nx),u[inew],u[inew]-exact_solution(slo_fun,xnew,slo[inew]),gu[inew].x,gu[inew].y);
+// 				}
 			
 // 			printf("Nfinal = %i, inew = %i (%i,%i), u = %.4e, err = %.4e, gu = (%.4e,%.4e)\n",
 // 					Nfinal,inew,inew%(mesh->nx),inew/(mesh->nx),u[inew],u[inew]-exact_solution(slo_fun,xnew,slo[inew]),gu[inew].x,gu[inew].y);
@@ -430,6 +441,11 @@ int dial_main_body(mesh_s *mesh,double *slo,double *u,struct myvector *gu,
 				if( ch == 'y' && status[ind] != VALID ) {
 					sol = do_update(ind,i,inew,xnew,mesh,slo,u,gu,status,iplus,par1,par2,cpar,
 							NWTarg,NWTres,NWTllim,NWTulim,NWTJac,NWTdir,N1ptu,N2ptu);
+
+// 					if( ind == IND ) {
+// 						printf("inew = %i, unew = %.4e, ind = %i, sol.u = %.4e, sol.ch = %c\n",inew,u[inew],ind,sol.u,sol.ch);
+// 					}		
+
 					// if the value is reduced, do adjustments
 					if( sol.ch  == 'y' ) {
 						u[ind] = sol.u;
@@ -454,9 +470,12 @@ int dial_main_body(mesh_s *mesh,double *slo,double *u,struct myvector *gu,
 		ibcurrent++;
 		ibcurrent = ibcurrent%Nbuckets;
 		// add points to buckets to the boundary
+// 		printf("jbdry = %i,bcount = %i\n",jbdry,bcount);
 		if( jbdry < bcount ) {
 			Bmax = vcurrent + gap*Nb1;
+// 			printf("vcurrent = %.4e, Bmax = %.4e\n",vcurrent,Bmax);
 			while( jbdry < bcount && blist[jbdry] < Bmax ) {
+// 				printf("add from the boundary: ind = %i, u = %.4e, blist = %.4e\n",ind,u[ind],blist[jbdry]);
 				ind = bdry[jbdry];
 				knew = adjust_bucket(ind,u[ind],gap,Nbuckets,bucket,list);
 				jbdry++;
@@ -536,6 +555,10 @@ struct mysol do_update(int ind,int i,int inew,struct myvector xnew,
 				sol = two_pt_update(NWTarg,NWTres,NWTllim,NWTulim,NWTJac,NWTdir,
 							dx,x0,xhat,u[ind0],u[ind1],
 								gu[ind0],gu[ind1],slo[ind],par2,cpar);	
+// 					if( ind == IND ) {
+// 						printf("inew = %i, unew = %.4e, ind0 = %i, u0 = %.4e, ind1 = %i, u1 = %.4e, ind = %i, sol.u = %.4e, sol.ch = %c\n",
+// 						inew,u[inew],ind0,u[ind0],ind1,u[ind1],ind,sol.u,sol.ch);
+// 					}		
 				if( sol.ch == 'y' && sol.u < utemp && sol.u < u[ind] ){
 					utemp = sol.u;
 					gtemp = sol.gu;
@@ -620,7 +643,7 @@ int main() {
 		Atb[k].y = 0.0;
 	}	
 
-	sprintf(fname,"Data/%s%s_V3_slo%c.txt",str1[(int)method_update-1],str2[(int)method_template],slo_fun);
+	sprintf(fname,"OldData/%s%s_V3_slo%c.txt",str1[(int)method_update-1],str2[(int)method_template],slo_fun);
 	fg = fopen(fname,"w");
 	if( fg == NULL ) {
 		printf("Cannot open file %d %s\n",errno,fname);
