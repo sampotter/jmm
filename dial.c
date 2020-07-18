@@ -29,6 +29,11 @@ ivec3 l2ind3(ivec3 shape, int l) {
 
 typedef struct bucket bucket_s;
 
+/**
+ * A bucket is a one-directional queue, implemented as a ring buffer,
+ * storing (l)inear indices of nodes in a Dial-like solver. It's also
+ * a node in a linked list of buckets.
+ */
 struct bucket {
   int *l;
   size_t size;
