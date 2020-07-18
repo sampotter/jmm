@@ -82,12 +82,28 @@ dvec2 dvec2_avg(dvec2 u, dvec2 v) {
   return (dvec2) {(u.x + v.x)/2, (u.y + v.y)/2};
 }
 
+dvec3 dvec3_dbl_div(dvec3 u, dbl a) {
+  return (dvec3) {.x = u.x/a, .y = u.y/a, .z = u.z/a};
+}
+
+dbl dvec3_dist(dvec3 u, dvec3 v) {
+  return dvec3_norm(dvec3_sub(u, v));
+}
+
 dbl dvec3_dot(dvec3 u, dvec3 v) {
   return u.x*v.x + u.y*v.y + u.z*v.z;
 }
 
+dbl dvec3_maxdist(dvec3 u, dvec3 v) {
+  return dvec3_maxnorm(dvec3_sub(u, v));
+}
+
 dbl dvec3_maxnorm(dvec3 u) {
   return fmax(fabs(u.x), fmax(fabs(u.y), fabs(u.z)));
+}
+
+dvec3 dvec3_nan() {
+  return (dvec3) {.x = NAN, .y = NAN, .z = NAN};
 }
 
 dbl dvec3_norm(dvec3 u) {
@@ -211,6 +227,14 @@ ivec2 ivec2_add(ivec2 p, ivec2 q) {
 
 int ivec3_prod(ivec3 p) {
   return p.i*p.j*p.k;
+}
+
+dvec3 ivec3_dbl_mul(ivec3 p, dbl a) {
+  return (dvec3) {.x = a*p.i, .y = a*p.j, .z = a*p.k};
+}
+
+bool ivec3_equal(ivec3 p, ivec3 q) {
+  return p.i == q.i && p.j == q.j && p.k == q.k;
 }
 
 ivec3 ivec3_int_div(ivec3 p, int q) {

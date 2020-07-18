@@ -38,8 +38,12 @@ typedef struct {
   dbl z;
 } dvec3;
 
+dvec3 dvec3_dbl_div(dvec3 u, dbl a);
+dbl dvec3_dist(dvec3 u, dvec3 v);
 dbl dvec3_dot(dvec3 u, dvec3 v);
+dbl dvec3_maxdist(dvec3 u, dvec3 v);
 dbl dvec3_maxnorm(dvec3 u);
+dvec3 dvec3_nan();
 dbl dvec3_norm(dvec3 u);
 dvec3 dvec3_normalized(dvec3 u);
 dvec3 dvec3_saxpy(dbl a, dvec3 x, dvec3 y);
@@ -82,6 +86,8 @@ typedef struct {
 } ivec3;
 
 int ivec3_prod(ivec3 p);
+dvec3 ivec3_dbl_mul(ivec3 p, dbl a);
+bool ivec3_equal(ivec3 p, ivec3 q);
 ivec3 ivec3_int_div(ivec3 p, int q);
 
 ivec2 dvec2_to_ivec2(dvec2 v);
