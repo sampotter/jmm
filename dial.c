@@ -271,7 +271,7 @@ int bucket_T(dial3_s const *dial, dbl T) {
   return T/dial->gap;
 }
 
-void dial3_prepend_buckets(dial3_s *dial, int lb) {
+void prepend_buckets(dial3_s *dial, int lb) {
   while (lb < dial->lb0) {
     bucket_s *bucket = malloc(sizeof(bucket_s));
     bucket_init(bucket);
@@ -283,7 +283,7 @@ void dial3_prepend_buckets(dial3_s *dial, int lb) {
 
 bucket_s *dial3_find_bucket(dial3_s *dial, int lb) {
   if (lb < dial->lb0) {
-    dial3_prepend_buckets(dial, lb);
+    prepend_buckets(dial, lb);
   }
   bucket_s *bucket = dial->first;
   while (lb > dial->lb0) {
