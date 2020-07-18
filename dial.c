@@ -231,7 +231,7 @@ dbl dial3_update_constant(dial3_s const *dial, int l0, int l) {
   // it does, compute a new value and return it.
 
   dbl h = dial->h;
-  if (dvec3_maxdist(xs, x0) > h) {
+  if (dvec3_maxdist(xs, x0) > h + EPS) {
     return INFINITY;
   } else {
     dbl T = dvec3_norm(t);
