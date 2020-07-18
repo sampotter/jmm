@@ -350,7 +350,7 @@ void update_nb(dial3_s *dial, int l0, int l) {
   }
 }
 
-void dial3_update_nbs(dial3_s *dial, int l0) {
+void update_nbs(dial3_s *dial, int l0) {
   for (int b = 0; b < 6; ++b) {
     int l = l0 + dial->nb_dl[b];
     if (l < 0 || dial->size <= (size_t)l) continue;
@@ -372,7 +372,7 @@ bool dial3_step(dial3_s *dial) {
       continue;
     }
     dial->state[l0] = VALID;
-    dial3_update_nbs(dial, l0);
+    update_nbs(dial, l0);
   }
   return (dial->first = bucket->next) != NULL;
 }
