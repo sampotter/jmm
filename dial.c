@@ -129,17 +129,22 @@ dbl dial3_update_constant(dial3_s const *dial, int l0, int l) {
 
   dvec3 x = dial3_x(dial, l);
   dvec3 dx = dvec3_sub(x, x0);
-  dbl s = dvec3_dot(xsrc, dx)/dvec3_dot(dvec3_sub(xsrc, dx), dx);
-  dvec3 x_minus_xsrc = dvec3_sub(x, xsrc);
-  dvec3 xs_minus_x0 = dvec3_saxpy(s, x_minus_xsrc, xsrc);
+  dvec3 t = dvec3_sub(x, xsrc);
+  dbl s = dvec3_dot(dx, dvec3_sub(x0, xsrc))/dvec3_dot(dx, t);
+  dvec3 xs = dvec3_saxpy(s, t, xsrc);
 
   // TODO: Right now we'll just try something really dumb---don't
   // check *where* xs lands, just check if it lands inside the box. If
   // it does, compute a new value and return it.
 
   dbl h = dial->h;
-
-  return dvec3_maxnorm(xs_minus_x0) > h ? INFINITY : dvec3_norm(x_minus_xsrc);
+  if (dvec3_maxdist(xs, x0) > h) {
+    return INFINITY;
+  } else {
+    dbl T = dvec3_norm(t);
+    dial->grad_T[l] = dvec3_dbl_div(t, T);
+    return T;
+  }
 }
 
 update_f update_functions[NUM_STYPE] = {
