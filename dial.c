@@ -381,48 +381,6 @@ void dial3_solve(dial3_s *dial) {
   while (dial3_step(dial)) {}
 }
 
-void print_T(dial3_s const *dial) {
-  dbl T;
-  ivec3 ind, shape = dial->shape;
-  for (ind.i = 0; ind.i < shape.i; ++ind.i) {
-    for (ind.j = 0; ind.j < shape.j; ++ind.j) {
-      for (ind.k = 0; ind.k < shape.k - 1; ++ind.k) {
-        T = dial->T[ind2l3(shape, ind)];
-        if (isinf(T)) {
-          printf("   inf ");
-        } else {
-          printf("%0.4f ", T);
-        }
-      }
-      T = dial->T[ind2l3(shape, ind)];
-      if (isinf(T)) {
-        printf("   inf\n");
-      } else {
-        printf("%0.4f\n", T);
-      }
-    }
-    puts("");
-  }
-}
-
-void print_bucket(bucket_s const *bucket) {
-  printf("{");
-  size_t i, j;
-  for (i = 0, j = bucket->start; i < bucket->size - 1; ++i) {
-    printf("%d, ", bucket->l[j]);
-    j = (j + 1) % bucket->capacity;
-  }
-  printf("%d}\n", bucket->l[j]);
-}
-
-void print_buckets(dial3_s const *dial) {
-  bucket_s *bucket = dial->first;
-  while (bucket) {
-    print_bucket(bucket);
-    bucket = bucket->next;
-  }
-}
-
 int main() {
   stype_e stype = CONSTANT;
   int nx = 5;
@@ -460,9 +418,5 @@ int main() {
   dial.grad_T[l0] = dvec3_nan();
   dial.state[l0] = VALID;
 
-  print_T(&dial);
-
   dial3_solve(&dial);
-
-  print_T(&dial);
 }
