@@ -375,6 +375,14 @@ bool dial3_step(dial3_s *dial) {
     update_nbs(dial, l0);
   }
   return (dial->first = bucket->next) != NULL;
+  assert(dial->first == bucket);
+  do {
+    dial->first = bucket->next;
+    free(bucket);
+    bucket = dial->first;
+    ++dial->lb0;
+  } while (bucket != NULL && bucket->size == 0);
+  return bucket != NULL;
 }
 
 void dial3_solve(dial3_s *dial) {
