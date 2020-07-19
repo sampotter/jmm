@@ -321,18 +321,6 @@ void dial3_set_T(dial3_s *dial, int l, dbl T) {
   dial->T[l] = T;
 }
 
-/**
- * TODO: this is very simple-minded for now... Later, we'll need to
- * account for different buckets, but for a point source this should
- * be fine
- */
-void dial3_add_trial(dial3_s *dial, ivec3 ind, dbl T, dvec3 grad_T) {
-  int l = ind2l3(dial->shape, ind);
-  dial3_set_T(dial, l, T);
-  dial->grad_T[l] = grad_T;
-  dial3_insert(dial, l, T);
-}
-
 void update_nb(dial3_s *dial, int l0, int l) {
   dbl T = dial->update(dial, l0, l);
   // TODO: may want to add a little tolerance here to ensure we don't
@@ -357,6 +345,18 @@ void update_nbs(dial3_s *dial, int l0) {
     if (dial->state[l] == VALID) continue;
     update_nb(dial, l0, l);
   }
+}
+
+/**
+ * TODO: this is very simple-minded for now... Later, we'll need to
+ * account for different buckets, but for a point source this should
+ * be fine
+ */
+void dial3_add_trial(dial3_s *dial, ivec3 ind, dbl T, dvec3 grad_T) {
+  int l = ind2l3(dial->shape, ind);
+  dial3_set_T(dial, l, T);
+  dial->grad_T[l] = grad_T;
+  dial3_insert(dial, l, T);
 }
 
 bool dial3_step(dial3_s *dial) {
