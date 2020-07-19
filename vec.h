@@ -7,6 +7,7 @@ extern "C" {
 #include "def.h"
 #include "vec.h"
 
+#include <immintrin.h>
 #include <math.h>
 
 typedef struct {
@@ -33,9 +34,10 @@ dvec2 dvec2_cproj(dvec2 u, dvec2 v);
 dvec2 dvec2_avg(dvec2 u, dvec2 v);
 
 typedef struct {
-  dbl x;
-  dbl y;
-  dbl z;
+  union __attribute__((aligned(16))) {
+    dbl data[4];
+    __m256d packed;
+  };
 } dvec3;
 
 dvec3 dvec3_dbl_div(dvec3 u, dbl a);

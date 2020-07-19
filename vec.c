@@ -83,7 +83,10 @@ dvec2 dvec2_avg(dvec2 u, dvec2 v) {
 }
 
 dvec3 dvec3_dbl_div(dvec3 u, dbl a) {
-  return (dvec3) {.x = u.x/a, .y = u.y/a, .z = u.z/a};
+  dvec3 v;
+  v.packed = _mm256_broadcast_sd(&a);
+  v.packed = _mm256_div_pd(u.packed, v.packed);
+  return v;
 }
 
 dbl dvec3_dist(dvec3 u, dvec3 v) {
@@ -91,7 +94,8 @@ dbl dvec3_dist(dvec3 u, dvec3 v) {
 }
 
 dbl dvec3_dot(dvec3 u, dvec3 v) {
-  return u.x*v.x + u.y*v.y + u.z*v.z;
+  u.packed = _mm256_mul_pd(u.packed, v.packed);
+  return u.data[0]*v.data[0] + u.data[1]*v.data[1] + u.data[2]*v.data[2];
 }
 
 dbl dvec3_maxdist(dvec3 u, dvec3 v) {
@@ -99,36 +103,34 @@ dbl dvec3_maxdist(dvec3 u, dvec3 v) {
 }
 
 dbl dvec3_maxnorm(dvec3 u) {
-  return fmax(fabs(u.x), fmax(fabs(u.y), fabs(u.z)));
+  return fmax(fabs(u.data[0]), fmax(fabs(u.data[1]), fabs(u.data[2])));
 }
 
 dvec3 dvec3_nan() {
-  return (dvec3) {.x = NAN, .y = NAN, .z = NAN};
+  return (dvec3) {
+    .data = {NAN, NAN, NAN}
+  };
 }
 
 dbl dvec3_norm(dvec3 u) {
-  return sqrt(u.x*u.x + u.y*u.y + u.z*u.z);
+  u.packed = _mm256_mul_pd(u.packed, u.packed);
+  return sqrt(u.data[0] + u.data[1] + u.data[2]);
 }
 
 dvec3 dvec3_normalized(dvec3 u) {
-  dbl r = dvec3_norm(u);
-  return (dvec3) {.x = u.x/r, .y = u.y/r, .z = u.z/r};
+  return dvec3_dbl_div(u, dvec3_norm(u));
 }
 
-dvec3 dvec3_saxpy(dbl a, dvec3 x, dvec3 y) {
-  return (dvec3) {
-    .x = a*x.x + y.x,
-    .y = a*x.y + y.y,
-    .z = a*x.z + y.z
-  };
+dvec3 dvec3_saxpy(dbl a, dvec3 u, dvec3 v) {
+  dvec3 w;
+  w.packed = _mm256_broadcast_sd(&a);
+  w.packed = _mm256_mul_pd(w.packed, u.packed);
+  w.packed = _mm256_add_pd(w.packed, v.packed);
+  return w;
 }
 
 dvec3 dvec3_sub(dvec3 u, dvec3 v) {
-  return (dvec3) {
-    .x = u.x - v.x,
-    .y = u.y - v.y,
-    .z = u.z - v.z
-  };
+  return (dvec3) {.packed = _mm256_sub_pd(u.packed, v.packed)};
 }
 
 dbl dvec4_dot(dvec4 v0, dvec4 v1) {
@@ -230,7 +232,9 @@ int ivec3_prod(ivec3 p) {
 }
 
 dvec3 ivec3_dbl_mul(ivec3 p, dbl a) {
-  return (dvec3) {.x = a*p.i, .y = a*p.j, .z = a*p.k};
+  return (dvec3) {
+    .data = {a*p.i, a*p.j, a*p.k}
+  };
 }
 
 bool ivec3_equal(ivec3 p, ivec3 q) {
