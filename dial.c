@@ -374,7 +374,6 @@ bool dial3_step(dial3_s *dial) {
     dial->state[l0] = VALID;
     update_nbs(dial, l0);
   }
-  return (dial->first = bucket->next) != NULL;
   assert(dial->first == bucket);
   do {
     dial->first = bucket->next;
