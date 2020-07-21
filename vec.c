@@ -95,7 +95,7 @@ dbl dvec3_dist(dvec3 u, dvec3 v) {
 
 dbl dvec3_dot(dvec3 u, dvec3 v) {
   u.packed = _mm256_mul_pd(u.packed, v.packed);
-  return u.data[0]*v.data[0] + u.data[1]*v.data[1] + u.data[2]*v.data[2];
+  return u.data[0] + u.data[1] + u.data[2];
 }
 
 dbl dvec3_maxdist(dvec3 u, dvec3 v) {
