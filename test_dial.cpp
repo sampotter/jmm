@@ -29,9 +29,9 @@ TEST_CASE ("Small s = 1 point source problem computes |x|", "[dial3]") {
           continue;
         }
         int l = ind2l3(shape, ind);
-        dvec3 grad_T = dvec3_sub(ivec3_to_dvec3(ind0), ivec3_to_dvec3(ind));
+        dvec3 grad_T = dvec3_sub(ivec3_to_dvec3(ind), ivec3_to_dvec3(ind0));
         dbl T = h*dvec3_norm(grad_T);
-        grad_T = dvec3_dbl_div(grad_T, T);
+        grad_T = dvec3_dbl_div(grad_T, T/h);
         REQUIRE(dial3_get_T(dial, l) == Approx(T));
         dvec3 grad_T_gt = dial3_get_grad_T(dial, l);
         REQUIRE(grad_T.data[0] == Approx(grad_T_gt.data[0]));
