@@ -40,6 +40,11 @@ typedef enum stype {
  */
 typedef double dbl;
 
+typedef enum error {
+  SUCCESS,
+  BAD_ARGUMENT
+} error_e;
+
 #ifdef __cplusplus
 }
 #endif

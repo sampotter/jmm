@@ -13,6 +13,7 @@ find_package (pybind11)
 set (JMM_SRCS
   bicubic.c
   cubic.c
+  dial.c
   eik.c
   eik_F3.c
   eik_F4.c

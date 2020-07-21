@@ -1,6 +1,5 @@
 #include <assert.h>
 #include <math.h>
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -222,7 +221,15 @@ update_f update_functions[NUM_STYPE] = {
   update_constant // CONSTANT
 };
 
-void dial3_init(dial3_s *dial, stype_e stype, ivec3 shape, dbl h) {
+void dial3_alloc(dial3_s **dial) {
+  *dial = malloc(sizeof(dial3_s));
+}
+
+error_e dial3_init(dial3_s *dial, stype_e stype, ivec3 shape, dbl h) {
+  if (stype != CONSTANT) {
+    return BAD_ARGUMENT;
+  }
+
   dial->stype = stype;
   dial->shape = shape;
   dial->size = ivec3_prod(shape);
@@ -265,6 +272,20 @@ void dial3_init(dial3_s *dial, stype_e stype, ivec3 shape, dbl h) {
   dial->first = NULL;
 
   dial->update = update_functions[dial->stype];
+
+  return SUCCESS;
+}
+
+void dial3_deinit(dial3_s *dial) {
+  free(dial->T);
+  free(dial->grad_T);
+  free(dial->state);
+  free(dial->lb);
+}
+
+void dial3_dealloc(dial3_s **dial) {
+  free(*dial);
+  *dial = NULL;
 }
 
 int bucket_T(dial3_s const *dial, dbl T) {
@@ -359,6 +380,36 @@ void dial3_add_trial(dial3_s *dial, ivec3 ind, dbl T, dvec3 grad_T) {
   dial3_insert(dial, l, T);
 }
 
+/**
+ * TODO: check for nodes that are already VALID in the neighborhood of
+ * the point source
+ */
+void dial3_add_point_source_with_trial_nbs(dial3_s *dial, ivec3 ind0, dbl T0) {
+  int i0 = ind0.i - 1, i1 = ind0.i + 1;
+  int j0 = ind0.j - 1, j1 = ind0.j + 1;
+  int k0 = ind0.k - 1, k1 = ind0.k + 1;
+  ivec3 ind;
+  int l0 = ind2l3(dial->shape, ind0);
+  dvec3 x0 = get_x(dial, l0);
+  for (ind.i = i0; ind.i <= i1; ++ind.i) {
+    for (ind.j = j0; ind.j <= j1; ++ind.j) {
+      for (ind.k = k0; ind.k <= k1; ++ind.k) {
+        if (ivec3_equal(ind, ind0)) {
+          continue;
+        }
+        dvec3 x = get_x(dial, ind2l3(dial->shape, ind));
+        dvec3 grad_T = dvec3_sub(x, x0);
+        dbl T = dvec3_norm(grad_T);
+        grad_T = dvec3_dbl_div(grad_T, T);
+        dial3_add_trial(dial, ind, T, grad_T);
+      }
+    }
+  }
+  dial->T[l0] = T0;
+  dial->grad_T[l0] = dvec3_nan();
+  dial->state[l0] = VALID;
+}
+
 bool dial3_step(dial3_s *dial) {
   bucket_s *bucket = dial->first;
   if (bucket == NULL) {
@@ -388,42 +439,14 @@ void dial3_solve(dial3_s *dial) {
   while (dial3_step(dial)) {}
 }
 
-int main() {
-  stype_e stype = CONSTANT;
-  int nx = 5;
-  int ny = 5;
-  int nz = 5;
-  dbl h = 2.0/(nx - 1);
-  ivec3 shape = {.i = nx, .j = ny, .k = nz};
+dbl dial3_get_T(dial3_s const *dial, int l) {
+  return dial->T[l];
+}
 
-  dial3_s dial;
-  dial3_init(&dial, stype, shape, h);
+dbl *dial3_get_T_ptr(dial3_s const *dial) {
+  return dial->T;
+}
 
-  ivec3 ind0 = ivec3_int_div(shape, 2);
-  int i0 = ind0.i - 1, i1 = ind0.i + 1;
-  int j0 = ind0.j - 1, j1 = ind0.j + 1;
-  int k0 = ind0.k - 1, k1 = ind0.k + 1;
-  ivec3 ind;
-  dvec3 x0 = get_x(&dial, ind2l3(shape, ind0));
-  for (ind.i = i0; ind.i <= i1; ++ind.i) {
-    for (ind.j = j0; ind.j <= j1; ++ind.j) {
-      for (ind.k = k0; ind.k <= k1; ++ind.k) {
-        if (ivec3_equal(ind, ind0)) {
-          continue;
-        }
-        dvec3 x = get_x(&dial, ind2l3(shape, ind));
-        dvec3 grad_T = dvec3_sub(x, x0);
-        dbl T = dvec3_norm(grad_T);
-        grad_T = dvec3_dbl_div(grad_T, T);
-        dial3_add_trial(&dial, ind, T, grad_T);
-      }
-    }
-  }
-
-  int l0 = ind2l3(shape, ind0);
-  dial.T[l0] = 0;
-  dial.grad_T[l0] = dvec3_nan();
-  dial.state[l0] = VALID;
-
-  dial3_solve(&dial);
+dvec3 dial3_get_grad_T(dial3_s const *dial, int l) {
+  return dial->grad_T[l];
 }
