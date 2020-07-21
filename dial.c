@@ -77,10 +77,8 @@ struct dial3 {
   dvec3 *grad_T;
 
   /**
-   * The state of each node.
-   *
-   * TODO: eventually, we should be able to just use a boolean for
-   * this---or, better yet, delete this array of values entirely.
+   * The state of each node. For a Dial-like solver, `state` will
+   * never be `TRIAL`.
    */
   state_e *state;
 
