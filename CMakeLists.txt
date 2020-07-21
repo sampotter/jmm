@@ -62,10 +62,23 @@ if (IPO_SUPPORTED)
   set_property (TARGET JMMversion3 PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
 endif ()
 
-# Dial test
+# Unit tests
 
-add_executable (dial dial.c)
-target_link_libraries (dial PRIVATE jmm)
+find_package (Catch2 REQUIRED)
+add_executable (tests
+  test_main.cpp
+  test_dial.cpp
+  test_vec.cpp
+  )
+target_link_libraries (tests Catch2::Catch2)
+target_link_libraries (tests jmm)
+if (IPO_SUPPORTED)
+  set_property (TARGET tests PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
+endif ()
+
+include (CTest)
+include (Catch)
+catch_discover_tests (tests)
 if (IPO_SUPPORTED)
   set_property (TARGET dial PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
 endif ()
