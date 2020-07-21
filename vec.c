@@ -249,3 +249,7 @@ ivec2 dvec2_to_ivec2(dvec2 v) {
   ivec2 ij = {.i = (int)v.x, .j = (int)v.y};
   return ij;
 }
+
+dvec3 ivec3_to_dvec3(ivec3 p) {
+  return (dvec3) {.data = {p.i, p.j, p.k}};
+}

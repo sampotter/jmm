@@ -93,6 +93,7 @@ bool ivec3_equal(ivec3 p, ivec3 q);
 ivec3 ivec3_int_div(ivec3 p, int q);
 
 ivec2 dvec2_to_ivec2(dvec2 v);
+dvec3 ivec3_to_dvec3(ivec3 p);
 
 #ifdef __cplusplus
 }
