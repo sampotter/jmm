@@ -64,7 +64,7 @@ int bucket_pop(bucket_s *bucket) {
   return l;
 }
 
-typedef dbl (*update_f)(dial3_s const *, int /* l0 */, int /* l */);
+typedef dbl (*update_f)(dial3_s const *, int /* l */, void * /* ptr */);
 
 struct dial3 {
   stype_e stype;
@@ -140,6 +140,12 @@ dvec3 get_x(dial3_s const *dial, int l) {
   return ivec3_dbl_mul(l2ind3(dial->shape, l), dial->h);
 }
 
+typedef struct update_constant_data {
+  dvec3 x0;
+  dvec3 xsrc;
+  dvec3 x0_minus_xsrc;
+} update_constant_data_s;
+
 /**
  * Compute a new value for the node at `l` from parent node `l0`.
  * This function modifies `dial->grad_T[l]`!
@@ -179,34 +185,22 @@ dvec3 get_x(dial3_s const *dial, int l) {
  *
  * TODO: looks like the l0 parameter could be replaced by x0 and xsrc
  */
-dbl update_constant(dial3_s const *dial, int l0, int l) {
-  // use gradient to compute spherical approximation to wavefront
-  // passing through l0
-
-  // TODO: these lines are being done for each neighborhod when they
-  // should just be done once for all neighbors!
-  dvec3 x0 = get_x(dial, l0);
-
-// TODO: for s = 1, this will already be normalized! nice!
-  dvec3 t0 = dvec3_normalized(dial->grad_T[l0]);
-
-  dbl T0 = dial->T[l0];
-
-  dvec3 xsrc = dvec3_saxpy(-T0, t0, x0);
+dbl update_constant(dial3_s const *dial, int l, void *ptr) {
+  update_constant_data_s *data = (update_constant_data_s *)ptr;
 
   // do the projection
   dvec3 x = get_x(dial, l);
-  dvec3 dx = dvec3_sub(x, x0);
-  dvec3 t = dvec3_sub(x, xsrc);
-  dbl s = dvec3_dot(dx, dvec3_sub(x0, xsrc))/dvec3_dot(dx, t);
-  dvec3 xs = dvec3_saxpy(s, t, xsrc);
+  dvec3 dx = dvec3_sub(x, data->x0);
+  dvec3 t = dvec3_sub(x, data->xsrc);
+  dbl s = dvec3_dot(dx, data->x0_minus_xsrc)/dvec3_dot(dx, t);
+  dvec3 xs = dvec3_saxpy(s, t, data->xsrc);
 
   // TODO: Right now we'll just try something really dumb---don't
   // check *where* xs lands, just check if it lands inside the box. If
   // it does, compute a new value and return it.
 
   dbl h = dial->h;
-  if (dvec3_maxdist(xs, x0) > h + EPS) {
+  if (dvec3_maxdist(xs, data->x0) > h + EPS) {
     return INFINITY;
   } else {
     dbl T = dvec3_norm(t);
@@ -340,8 +334,9 @@ void dial3_set_T(dial3_s *dial, int l, dbl T) {
   dial->T[l] = T;
 }
 
-void update_nb(dial3_s *dial, int l0, int l) {
-  dbl T = dial->update(dial, l0, l);
+void update_nb(dial3_s *dial, int l, void *ptr) {
+  dbl T = dial->update(dial, l, ptr);
+
   // TODO: may want to add a little tolerance here to ensure we don't
   // mess with grad_T too much?
   if (T < dial->T[l]) {
@@ -358,11 +353,19 @@ void update_nb(dial3_s *dial, int l0, int l) {
 }
 
 void update_nbs(dial3_s *dial, int l0) {
+  dbl T0 = dial->T[l0];
+  dvec3 t0 = dvec3_normalized(dial->grad_T[l0]);
+
+  update_constant_data_s data;
+  data.x0 = get_x(dial, l0);
+  data.xsrc = dvec3_saxpy(-T0, t0, data.x0);
+  data.x0_minus_xsrc = dvec3_sub(data.x0, data.xsrc);
+
   for (int b = 0; b < 6; ++b) {
     int l = l0 + dial->nb_dl[b];
     if (l < 0 || dial->size <= (size_t)l) continue;
     if (dial->state[l] == VALID) continue;
-    update_nb(dial, l0, l);
+    update_nb(dial, l, (void *)&data);
   }
 }
 
