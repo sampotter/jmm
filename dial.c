@@ -353,12 +353,18 @@ void update_nb(dial3_s *dial, int l, void *ptr) {
 }
 
 void update_nbs(dial3_s *dial, int l0) {
-  dbl T0 = dial->T[l0];
-  dvec3 t0 = dvec3_normalized(dial->grad_T[l0]);
+  /**
+   * Compute the local characteristic direction (tangent vector of the
+   * ray) at the node l0. It is always the case that the gradient of T
+   * points in the same direction. Additionally, for s = 1, the
+   * gradient of T has unit magnitude and is already normalized
+   * correctly.
+   */
+  dvec3 t0 = dial->grad_T[l0]; // Already normalized for s = 1!
 
   update_constant_data_s data;
   data.x0 = get_x(dial, l0);
-  data.xsrc = dvec3_saxpy(-T0, t0, data.x0);
+  data.xsrc = dvec3_saxpy(-dial->T[l0], t0, data.x0);
   data.x0_minus_xsrc = dvec3_sub(data.x0, data.xsrc);
 
   for (int b = 0; b < 6; ++b) {
