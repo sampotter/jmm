@@ -153,3 +153,12 @@ TEST_CASE ("dvec3_sub works", "[dvec3]") {
   REQUIRE(w.data[1] == Approx(0.5972607767265534));
   REQUIRE(w.data[2] == Approx(-0.1995423426750611));
 }
+
+TEST_CASE ("ivec3_dbl_mul works", "[ivec3]") {
+  ivec3 p = {.data = {1, 2, 3}};
+  dbl a = {0.5};
+  dvec3 u = ivec3_dbl_mul(p, a);
+  REQUIRE(u.data[0] == Approx(0.5));
+  REQUIRE(u.data[1] == Approx(1.0));
+  REQUIRE(u.data[2] == Approx(1.5));
+}

@@ -11,7 +11,7 @@ TEST_CASE ("Small s = 1 point source problem computes |x|", "[dial3]") {
   int ny = 11;
   int nz = 11;
   dbl h = 2.0/(nx - 1);
-  ivec3 shape = {.i = nx, .j = ny, .k = nz};
+  ivec3 shape = {.data = {nx, ny, nz}};
 
   ivec3 ind0 = ivec3_int_div(shape, 2);
 
@@ -22,9 +22,9 @@ TEST_CASE ("Small s = 1 point source problem computes |x|", "[dial3]") {
   dial3_solve(dial);
 
   ivec3 ind;
-  for (ind.i = 0; ind.i < nx; ++ind.i) {
-    for (ind.j = 0; ind.j < ny; ++ind.j) {
-      for (ind.k = 0; ind.k < nz; ++ind.k) {
+  for (ind.data[0] = 0; ind.data[0] < nx; ++ind.data[0]) {
+    for (ind.data[1] = 0; ind.data[1] < ny; ++ind.data[1]) {
+      for (ind.data[2] = 0; ind.data[2] < nz; ++ind.data[2]) {
         if (ivec3_equal(ind, ind0)) {
           continue;
         }

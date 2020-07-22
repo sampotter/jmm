@@ -251,12 +251,12 @@ error_e dial3_init(dial3_s *dial, stype_e stype, ivec3 shape, dbl h) {
   // TODO: want to make sure `nb_dl` is in sorted order? (for cache
   // friendliness?)
 #if ORDERING == ROW_MAJOR
-  dial->nb_dl[0] = ind2l3(dial->shape, (ivec3) {.i = -1, .j =  0, .k =  0});
-  dial->nb_dl[1] = ind2l3(dial->shape, (ivec3) {.i =  0, .j = -1, .k =  0});
-  dial->nb_dl[2] = ind2l3(dial->shape, (ivec3) {.i =  0, .j =  0, .k = -1});
-  dial->nb_dl[3] = ind2l3(dial->shape, (ivec3) {.i =  0, .j =  0, .k =  1});
-  dial->nb_dl[4] = ind2l3(dial->shape, (ivec3) {.i =  0, .j =  1, .k =  0});
-  dial->nb_dl[5] = ind2l3(dial->shape, (ivec3) {.i =  1, .j =  0, .k =  0});
+  dial->nb_dl[0] = ind2l3(dial->shape, (ivec3) {.data = {-1,  0,  0}});
+  dial->nb_dl[1] = ind2l3(dial->shape, (ivec3) {.data = { 0, -1,  0}});
+  dial->nb_dl[2] = ind2l3(dial->shape, (ivec3) {.data = { 0,  0, -1}});
+  dial->nb_dl[3] = ind2l3(dial->shape, (ivec3) {.data = { 0,  0,  1}});
+  dial->nb_dl[4] = ind2l3(dial->shape, (ivec3) {.data = { 0,  1,  0}});
+  dial->nb_dl[5] = ind2l3(dial->shape, (ivec3) {.data = { 1,  0,  0}});
 #else
 #  error not implemented yet
 #endif
@@ -392,15 +392,15 @@ void dial3_add_trial(dial3_s *dial, ivec3 ind, dbl T, dvec3 grad_T) {
  * the point source
  */
 void dial3_add_point_source_with_trial_nbs(dial3_s *dial, ivec3 ind0, dbl T0) {
-  int i0 = ind0.i - 1, i1 = ind0.i + 1;
-  int j0 = ind0.j - 1, j1 = ind0.j + 1;
-  int k0 = ind0.k - 1, k1 = ind0.k + 1;
+  int i0 = ind0.data[0] - 1, i1 = ind0.data[0] + 1;
+  int j0 = ind0.data[1] - 1, j1 = ind0.data[1] + 1;
+  int k0 = ind0.data[2] - 1, k1 = ind0.data[2] + 1;
   ivec3 ind;
   int l0 = ind2l3(dial->shape, ind0);
   dvec3 x0 = get_x(dial, l0);
-  for (ind.i = i0; ind.i <= i1; ++ind.i) {
-    for (ind.j = j0; ind.j <= j1; ++ind.j) {
-      for (ind.k = k0; ind.k <= k1; ++ind.k) {
+  for (ind.data[0] = i0; ind.data[0] <= i1; ++ind.data[0]) {
+    for (ind.data[1] = j0; ind.data[1] <= j1; ++ind.data[1]) {
+      for (ind.data[2] = k0; ind.data[2] <= k1; ++ind.data[2]) {
         if (ivec3_equal(ind, ind0)) {
           continue;
         }

@@ -82,9 +82,10 @@ typedef struct {
 ivec2 ivec2_add(ivec2 p, ivec2 q);
 
 typedef struct {
-  int i;
-  int j;
-  int k;
+  union __attribute__((aligned(16))) {
+    int data[4];
+    __m128i packed;
+  };
 } ivec3;
 
 int ivec3_prod(ivec3 p);

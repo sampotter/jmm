@@ -228,21 +228,21 @@ ivec2 ivec2_add(ivec2 p, ivec2 q) {
 }
 
 int ivec3_prod(ivec3 p) {
-  return p.i*p.j*p.k;
+  return p.data[0]*p.data[1]*p.data[2];
 }
 
 dvec3 ivec3_dbl_mul(ivec3 p, dbl a) {
   return (dvec3) {
-    .data = {a*p.i, a*p.j, a*p.k}
+    .packed = _mm256_mul_pd(ivec3_to_dvec3(p).packed, _mm256_broadcast_sd(&a))
   };
 }
 
 bool ivec3_equal(ivec3 p, ivec3 q) {
-  return p.i == q.i && p.j == q.j && p.k == q.k;
+  return p.data[0] == q.data[0] && p.data[1] == q.data[1] && p.data[2] == q.data[2];
 }
 
 ivec3 ivec3_int_div(ivec3 p, int q) {
-  return (ivec3) {.i = p.i/q, .j = p.j/q, .k = p.k/q};
+  return (ivec3) {.data = {p.data[0]/q, p.data[1]/q, p.data[2]/q}};
 }
 
 ivec2 dvec2_to_ivec2(dvec2 v) {
@@ -251,5 +251,12 @@ ivec2 dvec2_to_ivec2(dvec2 v) {
 }
 
 dvec3 ivec3_to_dvec3(ivec3 p) {
-  return (dvec3) {.data = {p.i, p.j, p.k}};
+  return (dvec3) {
+    .data = {
+      (dbl) p.data[0],
+      (dbl) p.data[1],
+      (dbl) p.data[2],
+      (dbl) p.data[3]
+    }
+  };
 }
