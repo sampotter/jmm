@@ -381,7 +381,7 @@ void update_nbs(dial3_s *dial, int l0) {
   for (int b = 0; b < 6; ++b) {
     int l = l0 + dial->nb_dl[b];
     if (l < 0 || dial->size <= (size_t)l) continue;
-    if (dial->state[l] == VALID) continue;
+    if (dial->state[l] != FAR) continue;
     update_nb(dial, l, (void *)&data);
   }
 }
