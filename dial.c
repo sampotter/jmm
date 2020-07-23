@@ -137,7 +137,18 @@ struct dial3 {
 };
 
 dvec3 get_x(dial3_s const *dial, int l) {
-  return ivec3_dbl_mul(l2ind3(dial->shape, l), dial->h);
+  ivec3 shape = dial->shape;
+#if ORDERING == ROW_MAJOR_ORDERING
+  return (dvec3) {
+    .data = {
+      dial->h*(l/(shape.data[2]*shape.data[1])),
+      dial->h*(l/shape.data[2] % shape.data[1]),
+      dial->h*(l % shape.data[2])
+    }
+  };
+#else
+#  error not implemented yet
+#endif
 }
 
 typedef struct update_constant_data {
