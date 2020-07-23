@@ -89,6 +89,13 @@ dvec3 dvec3_dbl_div(dvec3 u, dbl a) {
   return v;
 }
 
+dvec3 dvec3_dbl_mul(dvec3 u, dbl a) {
+  dvec3 v;
+  v.packed = _mm256_broadcast_sd(&a);
+  v.packed = _mm256_mul_pd(u.packed, v.packed);
+  return v;
+}
+
 dbl dvec3_dist(dvec3 u, dvec3 v) {
   return dvec3_norm(dvec3_sub(u, v));
 }
@@ -96,6 +103,16 @@ dbl dvec3_dist(dvec3 u, dvec3 v) {
 dbl dvec3_dot(dvec3 u, dvec3 v) {
   u.packed = _mm256_mul_pd(u.packed, v.packed);
   return u.data[0] + u.data[1] + u.data[2];
+}
+
+dvec3 dvec3_infinity() {
+  return (dvec3) {
+    .data = {
+      INFINITY,
+      INFINITY,
+      INFINITY
+    }
+  };
 }
 
 dbl dvec3_maxdist(dvec3 u, dvec3 v) {
@@ -117,6 +134,11 @@ dbl dvec3_norm(dvec3 u) {
   return sqrt(u.data[0] + u.data[1] + u.data[2]);
 }
 
+dbl dvec3_norm_sq(dvec3 u) {
+  u.packed = _mm256_mul_pd(u.packed, u.packed);
+  return u.data[0] + u.data[1] + u.data[2];
+}
+
 dvec3 dvec3_normalized(dvec3 u) {
   return dvec3_dbl_div(u, dvec3_norm(u));
 }
@@ -131,6 +153,10 @@ dvec3 dvec3_saxpy(dbl a, dvec3 u, dvec3 v) {
 
 dvec3 dvec3_sub(dvec3 u, dvec3 v) {
   return (dvec3) {.packed = _mm256_sub_pd(u.packed, v.packed)};
+}
+
+dvec3 dvec3_zero() {
+  return (dvec3) {.data = {0, 0, 0}};
 }
 
 dbl dvec4_dot(dvec4 v0, dvec4 v1) {
