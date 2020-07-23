@@ -291,7 +291,7 @@ void dial3_dealloc(dial3_s **dial) {
   *dial = NULL;
 }
 
-int bucket_T(dial3_s const *dial, dbl T) {
+int get_lb(dial3_s const *dial, dbl T) {
   return T/dial->gap;
 }
 
@@ -324,12 +324,12 @@ bucket_s *find_bucket(dial3_s *dial, int lb) {
 
 void dial3_insert(dial3_s *dial, int l, dbl T) {
   if (dial->first == NULL) {
-    dial->lb0 = bucket_T(dial, T);
+    dial->lb0 = get_lb(dial, T);
     dial->first = malloc(sizeof(bucket_s));
     bucket_init(dial->first);
     bucket_push(dial->first, l);
   } else {
-    int lb = bucket_T(dial, T);
+    int lb = get_lb(dial, T);
     bucket_s *bucket = find_bucket(dial, lb);
     bucket_push(bucket, l);
   }
@@ -352,7 +352,7 @@ void update_nb(dial3_s *dial, int l, void *ptr) {
   // mess with grad_T too much?
   if (T < dial->T[l]) {
     dial3_set_T(dial, l, T);
-    int lb = bucket_T(dial, T);
+    int lb = get_lb(dial, T);
     if (lb != dial->lb[l]) {
       assert(dial->lb[l] == NO_INDEX || (dial->lb0 <= lb && lb < dial->lb[l]));
       bucket_s *bucket = find_bucket(dial, lb);
