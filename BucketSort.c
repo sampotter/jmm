@@ -28,14 +28,14 @@ void dial_bucket_init(bucket_s *bucket,int i,double gap) {
 }
 
 //---------------------------------------------------------------
-void print_buckets(int Nbuckets,bucket_s *bucket) {
+void print_buckets(int Nbuckets,bucket_s *bucket,double *u) {
 	int k;
 	struct backptr_list *lnew;
 		for( k = 0; k < Nbuckets; k++ ) {
-			printf("Bucket %i:\n",k);
+			printf("Bucket %i, count = %i, minval = %.4e:\n",k,bucket[k].count,bucket[k].minval);
 			lnew = bucket[k].list;
 			while( lnew != NULL ) {
-				printf("%i\t",lnew -> ind);
+				printf("(%i, u = %.4e)\t",lnew -> ind,u[lnew -> ind]);
 				lnew = lnew -> next;
 			}
 			printf("\n");
@@ -55,7 +55,7 @@ int adjust_bucket(int ind,double newval,double g,int Nbuckets,bucket_s *bucket,s
 			}
 			else { // if it is the first index, make the next index if any the first one
 				(bucket + list[ind].ibucket) -> list = list[ind].next;
-			}	
+			}
 			if( list[ind].next != NULL ) {// attach the next indices to the previous ones
 				((list + ind) -> next) -> previous = (list + ind) -> previous;
 			}
@@ -84,7 +84,7 @@ int adjust_bucket(int ind,double newval,double g,int Nbuckets,bucket_s *bucket,s
 int find_bucket(double utemp,double g) {
 	int k;
 	double rat,rr;
-	
+
 	rat = utemp/g;
 	rr = round(rat);
 	if( fabs(rat - rr) < TOL ) k = max(trunc(rr) - 1,0);
@@ -103,17 +103,19 @@ void myfree(struct bucket_sort_handle  *BB) {
 
 //---------------------------------------------------------------
 void start_filling_buckets(struct bucket_sort_handle  *BB,int Nbuckets,bucket_s *bucket,
-		struct backptr_list *list,double gap,int *bdry,double *blist,int bcount){	
+		struct backptr_list *list,double gap,int *bdry,double *blist,int bcount){
 	int iskip = 0,i,ibcurrent,jbdry;
-	double Bmax;
+	double Bmax,range = Nbuckets*gap;
 	// sort boundary points in increasing order
-	quicksort(blist,bdry,0,bcount-1);	
+	quicksort(blist,bdry,0,bcount-1);
 
-	Bmax = Nbuckets*gap;
+	Bmax = range;
+// 	printf("Bmax = %.4e, gap = %.4e, Nbuckets = %i\n",Bmax,gap, Nbuckets);
 	while( Bmax < blist[0] ) {
-		Bmax +=Bmax;	
+		Bmax +=range;
 		iskip+=Nbuckets;
-	}		 
+	}
+// 	printf("iskip = %i, Bmax = %.4e, gap = %.4e, Nbuckets = %i\n",iskip,Bmax,gap, Nbuckets);
 	// 		set up buckets
 	for( i = 0; i < Nbuckets; i++ ) {
 		dial_bucket_init(bucket + i,iskip + i,gap);
@@ -124,7 +126,7 @@ void start_filling_buckets(struct bucket_sort_handle  *BB,int Nbuckets,bucket_s 
 		i = adjust_bucket(bdry[jbdry],blist[jbdry],gap,Nbuckets,bucket,list);
 		jbdry++;
 	}
-	// setup struct bucket_sort_handle 
+	// setup struct bucket_sort_handle
 	BB->gap = gap;
 	BB->list = list;
 	BB->Nbuckets = Nbuckets;
@@ -134,6 +136,7 @@ void start_filling_buckets(struct bucket_sort_handle  *BB,int Nbuckets,bucket_s 
 	BB->blist = blist;
 	BB->jbdry = jbdry;
 	BB->ibcurrent = ibcurrent;
+// 	printf("Bmax = %.4e\ngap = %.4e\nNbuckets = %i\nbcount = %i\njbdry = %i\nibcurrent = %i\n",Bmax,BB->gap,BB->Nbuckets,BB->bcount,BB->jbdry,BB->ibcurrent);
 }
 
 //----------------------------------------------------------------
@@ -141,7 +144,7 @@ void start_filling_buckets(struct bucket_sort_handle  *BB,int Nbuckets,bucket_s 
 int find_number_of_buckets(double gap,double maxgap) {
 	double rat,rr;
 	int Nbuckets;
-	// the number of buckets of chosen one more than necessary to exclude roundoff effects	
+	// the number of buckets of chosen one more than necessary to exclude roundoff effects
 	rat = maxgap/gap;
 	rr = round(rat);
 	if( fabs(rat - rr) < TOL ) Nbuckets = trunc(rr) + 2;
@@ -154,19 +157,18 @@ int find_number_of_buckets(double gap,double maxgap) {
 
 void form_list_of_new_valid_points(bucket_s *bucket,int *newlist,int *empty_count,state_e *status) {
 	int Nlist = bucket -> count;
-	struct backptr_list *lcurrent; 
+	struct backptr_list *lcurrent;
 	int i;
-	
+
 	if( Nlist == 0 ) (*empty_count)++;
 	else (*empty_count) = 0;
 	lcurrent =  bucket -> list; // extract bucket's list
 	 // empty the current bucket
 	bucket -> list = NULL;
 	bucket -> count = 0;
-	for( i = 0; i < Nlist; i++ ) { 
+	for( i = 0; i < Nlist; i++ ) {
 		newlist[i] = lcurrent -> ind; // index of the new accepted point
 		status[lcurrent -> ind] = NEW_VALID;
 		lcurrent = lcurrent -> next;
-	}	
+	}
 }
-
