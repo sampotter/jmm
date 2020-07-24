@@ -15,7 +15,7 @@ typedef struct bucket {
 } bucket_s;
 
 struct bucket_sort_handle {
-	double gap; // the minimal difference between the value at child and the value at parent 
+	double gap; // the minimal difference between the value at child and the value at parent
 	struct backptr_list *list; // list is associated with every mesh point
 	int Nbuckets; // the number of buckets
 	bucket_s *bucket;
@@ -29,11 +29,11 @@ struct bucket_sort_handle {
 
 void dial_list_init(struct backptr_list *list,int ind);
 void dial_bucket_init(bucket_s *bucket,int iskip,double gap);
-void print_buckets(int Nbuckets,bucket_s *bucket);
+void print_buckets(int Nbuckets,bucket_s *bucket,double *u);
 int adjust_bucket(int ind,double newval,double g,int Nbuckets,bucket_s *bucket,struct backptr_list *list);
 int find_bucket(double utemp,double g);
 void myfree(struct bucket_sort_handle  *BB);
 void start_filling_buckets(struct bucket_sort_handle  *BB,int Nbuckets,bucket_s *bucket,
 		struct backptr_list *list,double gap,int *bdry,double *blist,int bcount);
-int find_number_of_buckets(double gap,double maxgap);		
+int find_number_of_buckets(double gap,double maxgap);
 void form_list_of_new_valid_points(bucket_s *bucket,int *newlist,int *empty_count,state_e *status);

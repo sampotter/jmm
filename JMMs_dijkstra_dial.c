@@ -3,7 +3,7 @@
 // 8-point nearest neighborhood
 // segments of rays are approximated with quadratic curves
 
-// Compile command: gcc -Wall mesh.c BucketSort.c HeapSort.c QuickSort.c JMMupdates.c linear_algebra.c slowness_and_uexact.c Newton.c JMMversion4.c -lm -O3
+// Compile command: gcc -Wall mesh.c BucketSort.c HeapSort.c QuickSort.c JMMupdates.c linear_algebra.c slowness_and_uexact.c Newton.c JMMs_dijkstra_dial.c -lm -O3
 
 // Copyright: Maria Cameron, June 14, 2020
 
@@ -58,14 +58,12 @@ int dial_main_body(mesh_s *mesh,double *slo,double *u,struct myvector *gu,state_
 int dijkstra_main_body(mesh_s *mesh,double *slo,double *u,struct myvector *gu,state_e *status,
 		struct binary_tree_handle *Btree,int *N1ptu,int *N2ptu);
 
-
 //---- U P D A T E S
 struct mysol do_update(int ind,int i,int inew,struct myvector xnew,
 				mesh_s *mesh,double *slo,double *u,struct myvector *gu,state_e *status,
 				int *iplus,double *par1,double *par2,char *cpar,
 				double *NWTarg,double *NWTres,double *NWTllim,double *NWTulim,double *NWTJac,double *NWTdir,
 				int *N1ptu,int *N2ptu);
-				
 
 
 				
@@ -254,9 +252,6 @@ int dijkstra_main_body(mesh_s *mesh,double *slo,
 } 
 
 //---------------------------------------------------------------
-
-// --------------- D I A L -----------------------
-
 //---------------------------------------------------------------
 
 struct bucket_sort_handle *dial_init(mesh_s *mesh,struct myvector *xstart,
@@ -528,6 +523,7 @@ int dial_main_body(mesh_s *mesh,double *slo,double *u,struct myvector *gu,
 } 
 
 //---------------------------------------------------------------
+
 //---------------------------------------------------------------
 struct mysol do_update(int ind,int i,int inew,struct myvector xnew,
 				mesh_s *mesh,double *slo,double *u,struct myvector *gu,state_e *status,
@@ -649,6 +645,7 @@ int main() {
     char fname[100];
     char str1[3][10] = {"JMM1","JMM2","JMM3"};
     char str2[2][10] = {"dijkstra","dial"};
+    char slochar[5] = {'1','p','v','m','g'};
     double a1ptu,a2ptu;
     char print_errors = 'n';
 
@@ -662,10 +659,11 @@ int main() {
 	state_e *status; // status of the mesh point: 1 = finalized, 0 = not finalized
 	struct myvector *xstart;
 	int *N1ptu,*N2ptu;
+	int jtemp, jjmm, jslo;
 	
 	mesh_s *mesh;
 	
-	//--- variables for heap sort
+	//--- variables for heap sort and bucket sort
 	struct binary_tree_handle *Btree;
 	struct bucket_sort_handle *BB;
 	
@@ -673,148 +671,158 @@ int main() {
 	mesh = (mesh_s *)malloc(sizeof(mesh_s));
 	N1ptu = (int *)malloc(sizeof(ind));
 	N2ptu = (int *)malloc(sizeof(int));
-			
-	// for least squares fit
-	AtA.a11 = 0.0; AtA.a12 = 0.0; AtA.a21 = 0.0;AtA.a22 = 0.0;
-	for( k = 0; k < 4; k++ ) {
-		Atb[k].x = 0.0; 
-		Atb[k].y = 0.0;
-	}	
+	
+	for( jtemp = 0; jtemp <= 1; jtemp++ ) {
+		method_template = jtemp;
+		for( jjmm = 1; jjmm <= 3; jjmm++ ) {
+			method_update = jjmm;
+			for( jslo = 0; jslo < 5; jslo++ ) {
+				slo_fun = slochar[jslo];
+	  
+				// for least squares fit
+				AtA.a11 = 0.0; AtA.a12 = 0.0; AtA.a21 = 0.0;AtA.a22 = 0.0;
+				for( k = 0; k < 4; k++ ) {
+					Atb[k].x = 0.0; 
+					Atb[k].y = 0.0;
+				}	
 
-	sprintf(fname,"Data/%s%s_V4_slo%c.txt",str1[(int)method_update-1],str2[(int)method_template],slo_fun);
-	fg = fopen(fname,"w");
-	if( fg == NULL ) {
-		printf("Cannot open file %d %s\n",errno,fname);
-		exit(1);
-	}
-		
-	for( p = pmin; p <= pmax; p++ ) {
-		nx = pow(2,p) + 1;
-		ny = nx;
-		nxy = nx*ny;
-		// set main variables
-		u = (double *)malloc(nxy*sizeof(double));
-		slo = (double *)malloc(nxy*sizeof(double));
-		status = (state_e *)malloc(nxy*sizeof(state_e));
-		gu = (struct myvector *)malloc(nxy*sizeof(struct myvector));
-		// set stats trackers to zero
-		errmax = 0.0;
-		erms = 0.0;
-		umax = 0.0;
-		urms = 0.0;
-		gerrmax = 0.0;
-		germs = 0.0;
-		*N2ptu = 0;
-		*N1ptu = 0;
-		// start
-		printf("slo_fun = %c, method_update = %s, method_template = %s\n",slo_fun,str1[(int)method_update-1],str2[(int)method_template]);
-		param(nx,ny,nxy,xstart,mesh,slo);
-		CPUbegin=clock();
-		switch( method_template ) {
-			case DIAL:
-				BB = dial_init(mesh,xstart,slo,u,gu,status);
-				k = dial_main_body(mesh,slo,u,gu,status,BB,N1ptu,N2ptu);
-				break;
-			case DIJKSTRA:
-				Btree = dijkstra_init(mesh,xstart,slo,u,gu,status);
-				k = dijkstra_main_body(mesh,slo,u,gu,status,Btree,N1ptu,N2ptu);
-				break;
-			default:
-				printf("method_template = %c while must be 0 (DIAL), or 1 (DIJKSTRA)\n",method_template);
-				exit(1);
-				break;	
-		}
-		cpu = (clock()-CPUbegin)/((double)CLOCKS_PER_SEC);
-		printf("CPU time = %g seconds\n",cpu);  
-		ind = 0;
-		kg = 0;
-		if( print_errors == 'y' ) {
-			ferr = fopen("err2.txt","w");
-		}
-		for( j=0; j<(mesh->ny); j++ ) {
-		  for( i=0; i<(mesh->nx); i++ ) {
-		  	  ind = i + (mesh->nx)*j;
-		  	  z = vec_difference(getpoint(ind,mesh),*xstart);
-			  umax = max(u[ind],umax);
-			  urms += u[ind]*u[ind];
-			  dd = fabs(u[ind] - exact_solution(slo_fun,z,slo[ind]));
-			  errmax = max(errmax,dd);
-			  erms += dd*dd;
-			  gg = norm(vec_difference(gu[ind],exact_gradient(slo_fun,z,slo[ind])));
-			  if( isfinite(gg) ) {
-			  	gerrmax = max(gg,gerrmax);			  
-			  	germs += gg*gg;
-			  	kg++;
-			  }	
-			  if( print_errors == 'y' ) {
-			  	  fprintf(ferr,"%.4e\t",u[ind] - exact_solution(slo_fun,z,slo[ind]));
-			  }
-		  }
-		  if( print_errors == 'y' ) {
-		  	  fprintf(ferr,"\n");
-		  }	  
-		}
-		if( print_errors == 'y' ) {
-			fclose(ferr);
-		}	
-		urms = sqrt(urms/nxy);
-		erms = sqrt(erms/nxy);
-		germs = sqrt(germs/kg);
-		a1ptu = (double)(*N1ptu)/nxy;
-		a2ptu = (double)(*N2ptu)/nxy;
+				sprintf(fname,"Data/%s%s_slo%c.txt",str1[(int)method_update-1],str2[(int)method_template],slo_fun);
+				fg = fopen(fname,"w");
+				if( fg == NULL ) {
+					printf("Cannot open file %d %s\n",errno,fname);
+					exit(1);
+				}
+  
+				for( p = pmin; p <= pmax; p++ ) {
+					nx = pow(2,p) + 1;
+					ny = nx;
+					nxy = nx*ny;
+					// set main variables
+					u = (double *)malloc(nxy*sizeof(double));
+					slo = (double *)malloc(nxy*sizeof(double));
+					status = (state_e *)malloc(nxy*sizeof(state_e));
+					gu = (struct myvector *)malloc(nxy*sizeof(struct myvector));
+					// set stats trackers to zero
+					errmax = 0.0;
+					erms = 0.0;
+					umax = 0.0;
+					urms = 0.0;
+					gerrmax = 0.0;
+					germs = 0.0;
+					*N2ptu = 0;
+					*N1ptu = 0;
+					// start
+					printf("slo_fun = %c, method_update = %s, method_template = %s\n",slo_fun,str1[(int)method_update-1],str2[(int)method_template]);
+					param(nx,ny,nxy,xstart,mesh,slo);
+					CPUbegin=clock();
+					switch( method_template ) {
+						case DIAL:
+							BB = dial_init(mesh,xstart,slo,u,gu,status);
+							k = dial_main_body(mesh,slo,u,gu,status,BB,N1ptu,N2ptu);
+							break;
+						case DIJKSTRA:
+							Btree = dijkstra_init(mesh,xstart,slo,u,gu,status);
+							k = dijkstra_main_body(mesh,slo,u,gu,status,Btree,N1ptu,N2ptu);
+							break;
+						default:
+							printf("method_template = %c while must be 0 (DIAL), or 1 (DIJKSTRA)\n",method_template);
+							exit(1);
+							break;	
+					}
+					cpu = (clock()-CPUbegin)/((double)CLOCKS_PER_SEC);
+					printf("CPU time = %g seconds\n",cpu);  
+					ind = 0;
+					kg = 0;
+					if( print_errors == 'y' ) {
+						ferr = fopen("err2.txt","w");
+					}
+					for( j=0; j<(mesh->ny); j++ ) {
+					  for( i=0; i<(mesh->nx); i++ ) {
+						  ind = i + (mesh->nx)*j;
+						  z = vec_difference(getpoint(ind,mesh),*xstart);
+						  umax = max(u[ind],umax);
+						  urms += u[ind]*u[ind];
+						  dd = fabs(u[ind] - exact_solution(slo_fun,z,slo[ind]));
+						  errmax = max(errmax,dd);
+						  erms += dd*dd;
+						  gg = norm(vec_difference(gu[ind],exact_gradient(slo_fun,z,slo[ind])));
+						  if( isfinite(gg) ) {
+							gerrmax = max(gg,gerrmax);			  
+							germs += gg*gg;
+							kg++;
+						  }	
+						  if( print_errors == 'y' ) {
+							  fprintf(ferr,"%.4e\t",u[ind] - exact_solution(slo_fun,z,slo[ind]));
+						  }
+					  }
+					  if( print_errors == 'y' ) {
+						  fprintf(ferr,"\n");
+					  }	  
+					}
+					if( print_errors == 'y' ) {
+						fclose(ferr);
+					}	
+					urms = sqrt(urms/nxy);
+					erms = sqrt(erms/nxy);
+					germs = sqrt(germs/kg);
+					a1ptu = (double)(*N1ptu)/nxy;
+					a2ptu = (double)(*N2ptu)/nxy;
 
-		printf("NX = %i, NY = %i, errmax = %.4e, erms = %.4e, n_errmax = %.4e, n_erms = %.4e, gerrmax = %.4e\tgerms = %.4e\tCPU time = %g\n",
-				  (mesh->nx),(mesh->ny),errmax,erms,errmax/umax,erms/urms,gerrmax,germs,cpu);
-		printf("%i\t %.4e\t %.4e\t %.4e\t%.4e\t%g\n",
-				  (mesh->nx),errmax,erms,errmax/umax,erms/urms,cpu);
-		printf("N1ptu per point = %.4e, N2ptu per point = %.4e\n",a1ptu,a2ptu);			
-		fprintf(fg,"%i\t %.4e\t %.4e\t %.4e\t%.4e\t%.4e\t%.4e\t%g\t%.3f\t%.3f\n",
-				  (mesh->nx),errmax,erms,errmax/umax,erms/urms,gerrmax,germs,cpu,a1ptu,a2ptu);
-		// free memory
-		free(u);
-		free(slo);
-		free(gu);
-		free(status);
-		switch ( method_template ) {
-			case DIAL:
-			     myfree(BB);
-			     break;
-			case DIJKSTRA:
-				free(Btree->pos);
-				free(Btree->tree);
-				free(Btree->count);
-				free(Btree);
-				break;
-			default:
-				break;	
-	  	}
-		// for least squares fit for errors
-		  aux = -log((mesh->nx1));
-		  aux0 = log(errmax);
-		  aux1 = log(erms);
-		  aux2 = log(gerrmax);
-		  aux3 = log(germs);
-		  AtA.a11 += aux*aux;
-		  AtA.a12 += aux;
-		  AtA.a22 += 1.0;
-		  Atb[0].x += aux*aux0;		
-		  Atb[0].y += aux0;
-		  Atb[1].x += aux*aux1;		
-		  Atb[1].y += aux1;
-		  Atb[2].x += aux*aux2;		
-		  Atb[2].y += aux2;
-		  Atb[3].x += aux*aux3;		
-		  Atb[3].y += aux3;
-		
-	 }
-	 fclose(fg);
-   
-	AtA.a21 = AtA.a12;
-	if( pmax - pmin > 0 ) {
-		printf("\nSTATS:\n");
-		for( k = 0; k < 4; k++ ) {
-			pc = solve_Axisb(AtA,Atb[k]);
-			printf("%s = Ch^p: p = %.4e, C = %.4e\n",str3[k],pc.x,exp(pc.y));
+					printf("NX = %i, NY = %i, errmax = %.4e, erms = %.4e, n_errmax = %.4e, n_erms = %.4e, gerrmax = %.4e\tgerms = %.4e\tCPU time = %g\n",
+							  (mesh->nx),(mesh->ny),errmax,erms,errmax/umax,erms/urms,gerrmax,germs,cpu);
+					printf("%i\t %.4e\t %.4e\t %.4e\t%.4e\t%g\n",
+							  (mesh->nx),errmax,erms,errmax/umax,erms/urms,cpu);
+					printf("N1ptu per point = %.4e, N2ptu per point = %.4e\n",a1ptu,a2ptu);			
+					fprintf(fg,"%i\t %.4e\t %.4e\t %.4e\t%.4e\t%.4e\t%.4e\t%g\t%.3f\t%.3f\n",
+							  (mesh->nx),errmax,erms,errmax/umax,erms/urms,gerrmax,germs,cpu,a1ptu,a2ptu);
+					// free memory
+					free(u);
+					free(slo);
+					free(gu);
+					free(status);
+					switch ( method_template ) {
+						case DIAL:
+							 myfree(BB);
+							 break;
+						case DIJKSTRA:
+							free(Btree->pos);
+							free(Btree->tree);
+							free(Btree->count);
+							free(Btree);
+							break;
+						default:
+							break;	
+					}
+					// for least squares fit for errors
+					  aux = -log((mesh->nx1));
+					  aux0 = log(errmax);
+					  aux1 = log(erms);
+					  aux2 = log(gerrmax);
+					  aux3 = log(germs);
+					  AtA.a11 += aux*aux;
+					  AtA.a12 += aux;
+					  AtA.a22 += 1.0;
+					  Atb[0].x += aux*aux0;		
+					  Atb[0].y += aux0;
+					  Atb[1].x += aux*aux1;		
+					  Atb[1].y += aux1;
+					  Atb[2].x += aux*aux2;		
+					  Atb[2].y += aux2;
+					  Atb[3].x += aux*aux3;		
+					  Atb[3].y += aux3;
+  
+				 }
+				 fclose(fg);
+
+				AtA.a21 = AtA.a12;
+				if( pmax - pmin > 0 ) {
+					printf("\nSTATS:\n");
+					for( k = 0; k < 4; k++ ) {
+						pc = solve_Axisb(AtA,Atb[k]);
+						printf("%s = Ch^p: p = %.4e, C = %.4e\n",str3[k],pc.x,exp(pc.y));
+					}
+				}
+			}
 		}
 	}
     return 0;
