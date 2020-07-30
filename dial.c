@@ -79,14 +79,13 @@ struct dial3 {
   update_f update;
 };
 
-dvec3 get_x(dial3_s const *dial, int l) {
-  ivec3 shape = dial->shape;
+dvec3 get_x(ivec3 shape, dbl h, int l) {
 #if ORDERING == ROW_MAJOR_ORDERING
   return (dvec3) {
     .data = {
-      dial->h*(l/(shape.data[2]*shape.data[1])),
-      dial->h*(l/shape.data[2] % shape.data[1]),
-      dial->h*(l % shape.data[2])
+      h*(l/(shape.data[2]*shape.data[1])),
+      h*(l/shape.data[2] % shape.data[1]),
+      h*(l % shape.data[2])
     }
   };
 #else
@@ -143,7 +142,7 @@ dbl update_constant(dial3_s const *dial, int l, void *ptr) {
   update_constant_data_s *data = (update_constant_data_s *)ptr;
 
   // do the projection
-  dvec3 x = get_x(dial, l);
+  dvec3 x = get_x(dial->shape, dial->h, l);
   dvec3 dx = dvec3_sub(x, data->x0);
   dvec3 t = dvec3_sub(x, data->xsrc);
   dbl s = dvec3_dot(dx, data->x0_minus_xsrc)/dvec3_dot(dx, t);
@@ -320,7 +319,7 @@ void update_nbs(dial3_s *dial, int l0) {
   dvec3 t0 = dial->grad_T[l0]; // Already normalized for s = 1!
 
   update_constant_data_s data;
-  data.x0 = get_x(dial, l0);
+  data.x0 = get_x(dial->shape, dial->h, l0);
   data.xsrc = dvec3_saxpy(-dial->T[l0], t0, data.x0);
   data.x0_minus_xsrc = dvec3_sub(data.x0, data.xsrc);
 
@@ -354,14 +353,14 @@ void dial3_add_point_source_with_trial_nbs(dial3_s *dial, ivec3 ind0, dbl T0) {
   int k0 = ind0.data[2] - 1, k1 = ind0.data[2] + 1;
   ivec3 ind;
   int l0 = ind2l3(dial->shape, ind0);
-  dvec3 x0 = get_x(dial, l0);
+  dvec3 x0 = get_x(dial->shape, dial->h, l0);
   for (ind.data[0] = i0; ind.data[0] <= i1; ++ind.data[0]) {
     for (ind.data[1] = j0; ind.data[1] <= j1; ++ind.data[1]) {
       for (ind.data[2] = k0; ind.data[2] <= k1; ++ind.data[2]) {
         if (ivec3_equal(ind, ind0)) {
           continue;
         }
-        dvec3 x = get_x(dial, ind2l3(dial->shape, ind));
+        dvec3 x = get_x(dial->shape, dial->h, ind2l3(dial->shape, ind));
         dvec3 grad_T = dvec3_sub(x, x0);
         dbl T = dvec3_norm(grad_T);
         grad_T = dvec3_dbl_div(grad_T, T);
