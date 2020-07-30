@@ -3,66 +3,9 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "bucket.h"
 #include "dial.h"
 #include "index.h"
-
-#define INIT_BUCKET_SIZE 16
-
-typedef struct bucket bucket_s;
-
-/**
- * A bucket is a one-directional queue, implemented as a ring buffer,
- * storing (l)inear indices of nodes in a Dial-like solver. It's also
- * a node in a linked list of buckets.
- */
-struct bucket {
-  size_t size;
-  size_t start;
-  size_t stop;
-  size_t capacity;
-  int *l;
-  bucket_s *next;
-};
-
-void bucket_init(bucket_s *bucket) {
-  bucket->size = 0;
-  bucket->start = 0;
-  bucket->stop = 0;
-  bucket->capacity = INIT_BUCKET_SIZE;
-  bucket->l = malloc(sizeof(int)*INIT_BUCKET_SIZE);
-  bucket->next = NULL;
-}
-
-void bucket_grow(bucket_s *bucket) {
-  int *new_l = malloc(2*sizeof(int)*bucket->capacity);
-  for (size_t i = 0, j = 0; i < bucket->size; ++i) {
-    new_l[i] = bucket->l[j];
-    j = (j + 1) % bucket->size;
-  }
-  free(bucket->l);
-  bucket->l = new_l;
-
-  // Update old parameters
-  bucket->start = 0;
-  bucket->stop = bucket->size;
-  bucket->capacity *= 2;
-}
-
-void bucket_push(bucket_s *bucket, int l) {
-  if (bucket->size == bucket->capacity) {
-    bucket_grow(bucket);
-  }
-  bucket->l[bucket->stop] = l;
-  bucket->stop = (bucket->stop + 1) % bucket->capacity;
-  ++bucket->size;
-}
-
-int bucket_pop(bucket_s *bucket) {
-  int l = bucket->l[bucket->start];
-  bucket->start = (bucket->start + 1) % bucket->capacity;
-  --bucket->size;
-  return l;
-}
 
 typedef dbl (*update_f)(dial3_s const *, int /* l */, void * /* ptr */);
 
@@ -297,9 +240,10 @@ int get_lb(dial3_s const *dial, dbl T) {
 
 void prepend_buckets(dial3_s *dial, int lb) {
   while (lb < dial->lb0) {
-    bucket_s *bucket = malloc(sizeof(bucket_s));
+    bucket_s *bucket;
+    bucket_alloc(&bucket);
     bucket_init(bucket);
-    bucket->next = dial->first;
+    bucket_set_next(bucket, dial->first);
     dial->first = bucket;
     --dial->lb0;
   }
@@ -311,11 +255,13 @@ bucket_s *find_bucket(dial3_s *dial, int lb) {
   }
   bucket_s *bucket = dial->first;
   while (lb > dial->lb0) {
-    if (bucket->next == NULL) {
-      bucket->next = malloc(sizeof(bucket_s));
-      bucket_init(bucket->next);
+    bucket_s *next = bucket_get_next(bucket);
+    if (next == NULL) {
+      bucket_alloc(&next);
+      bucket_init(next);
+      bucket_set_next(bucket, next);
     }
-    bucket = bucket->next;
+    bucket = next;
     --lb;
   }
   assert(bucket != NULL);
@@ -325,7 +271,7 @@ bucket_s *find_bucket(dial3_s *dial, int lb) {
 void dial3_insert(dial3_s *dial, int l, dbl T) {
   if (dial->first == NULL) {
     dial->lb0 = get_lb(dial, T);
-    dial->first = malloc(sizeof(bucket_s));
+    bucket_alloc(&dial->first);
     bucket_init(dial->first);
     bucket_push(dial->first, l);
   } else {
@@ -434,7 +380,7 @@ bool dial3_step(dial3_s *dial) {
     return false;
   }
   int l0;
-  while (bucket->size > 0) {
+  while (bucket_get_size(bucket) > 0) {
     l0 = bucket_pop(bucket);
     // NOTE: a node can exist in multiple buckets
     if (dial->state[l0] == VALID) {
@@ -445,11 +391,12 @@ bool dial3_step(dial3_s *dial) {
   }
   assert(dial->first == bucket);
   do {
-    dial->first = bucket->next;
-    free(bucket);
+    dial->first = bucket_get_next(bucket);
+    bucket_deinit(bucket);
+    bucket_dealloc(&bucket);
     bucket = dial->first;
     ++dial->lb0;
-  } while (bucket != NULL && bucket->size == 0);
+  } while (bucket != NULL && bucket_is_empty(bucket));
   return bucket != NULL;
 }
 
