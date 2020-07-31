@@ -7,36 +7,46 @@
   3D will be added later, as well as JMMs for solving other related
   equations.
 
-  The library comes with a Python interface written using pybind11 and
-  which is a straightforward mapping of the "object-oriented" C
-  interface to an object-oriented Python library. All of the "classes"
-  in the C library are exposed to make things transparent and simple.
+  At the moment, a mixture of serial Dijkstra-like and Dial-like
+  solvers included.
+
+  The library comes with a Python interface which is a straightforward
+  mapping of the "object-oriented" C interface. Similar wrappers for
+  other high-level scientific computing languages (MATLAB and Julia,
+  namely) are planned.
 
 ** Compilation
 
-   To compile, just run:
+*** Compiling the C library
+
+ #+BEGIN_SRC sh
+$ mkdir build
+$ cd build
+$ cmake -DCMAKE_BUILD_TYPE=Release
+$ make
+#+END_SRC
+
+*** Compiling the Python wrapper library
+
+    First, follow the instructions in [[*Compiling the C library][compiling the C library]]. Make
+    sure to do an out-of-source build in the ~build~ directory (or pass
+    ~-L~ below). Then, from the root directory of the repository, run:
 #+BEGIN_SRC sh
 $ python setup.py install
 #+END_SRC
-   This will install a Python module named ~jmm~ which contains
-   everything in a flat namespace.
+   Alternatively, run:
+#+BEGIN_SRC sh
+$ pip install .
+#+END_SRC
+   This will install a Python module named ~jmm~.
 
 ** Tests
 
-   To run the included unit tests, first install the module as
-   described above, and then run:
-#+BEGIN_SRC sh
-$ python -m unittest
+   After following the steps under [[*Compiling the C library][compiling the C library]], run:
+#+BEGIN_SRC
+$ ctest
 #+END_SRC
-   This will in turn run the
-   tests contained in each of the ~test_*.py~ files.
-
-   Since the Python interface exposes exactly the same interface as
-   the C library, we opt to just implement the tests using Python's
-   unit testing facilities for simplicity and flexibility. These tests
-   do double duty and make sure that the Python bindings are
-   implemented correctly, and also that the library's implementation
-   itself is correct.
+   from ~build~.
 
 ** Tagged versions
 
