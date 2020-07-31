@@ -426,3 +426,7 @@ void dial3_get_grad_T(dial3_s const *dial, int l, dbl *grad_T) {
   grad_T[1] = dial->grad_T[l].data[1];
   grad_T[2] = dial->grad_T[l].data[2];
 }
+
+state_e *dial3_get_state_ptr(dial3_s const *dial) {
+  return dial->state;
+}

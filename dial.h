@@ -19,6 +19,7 @@ void dial3_solve(dial3_s *dial);
 dbl dial3_get_T(dial3_s const *dial, int l);
 dbl *dial3_get_T_ptr(dial3_s const *dial);
 void dial3_get_grad_T(dial3_s const *dial, int l, dbl *grad_T);
+state_e *dial3_get_state_ptr(dial3_s const *dial);
 
 #ifdef __cplusplus
 }
