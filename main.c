@@ -8,9 +8,8 @@ int main() {
   int ny = 111;
   int nz = 111;
   dbl h = 2.0/(nx - 1);
-  ivec3 shape = {.data = {nx, ny, nz}};
-
-  ivec3 ind0 = ivec3_int_div(shape, 2);
+  int shape[3] = {nx, ny, nz};
+  int ind0[3] = {nx/2, ny/2, nz/2};
 
   dial3_s *dial;
   dial3_alloc(&dial);

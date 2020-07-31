@@ -170,14 +170,16 @@ void dial3_alloc(dial3_s **dial) {
   *dial = malloc(sizeof(dial3_s));
 }
 
-error_e dial3_init(dial3_s *dial, stype_e stype, ivec3 shape, dbl h) {
+error_e dial3_init(dial3_s *dial, stype_e stype, int const *shape, dbl h) {
   if (stype != CONSTANT) {
     return BAD_ARGUMENT;
   }
 
   dial->stype = stype;
-  dial->shape = shape;
-  dial->size = ivec3_prod(shape);
+  dial->shape.data[0] = shape[0];
+  dial->shape.data[1] = shape[1];
+  dial->shape.data[2] = shape[2];
+  dial->size = ivec3_prod(dial->shape);
   dial->h = h;
   dial->gap = h*sqrt(3);
 
@@ -336,10 +338,15 @@ void update_nbs(dial3_s *dial, int l0) {
  * account for different buckets, but for a point source this should
  * be fine
  */
-void dial3_add_trial(dial3_s *dial, ivec3 ind, dbl T, dvec3 grad_T) {
-  int l = ind2l3(dial->shape, ind);
+void dial3_add_trial(dial3_s *dial, int const *ind, dbl T, dbl const *grad_T) {
+  ivec3 ind_ = {
+    .data = {ind[0], ind[1], ind[2]}
+  };
+  int l = ind2l3(dial->shape, ind_);
   dial3_set_T(dial, l, T);
-  dial->grad_T[l] = grad_T;
+  dial->grad_T[l].data[0] = grad_T[0];
+  dial->grad_T[l].data[1] = grad_T[1];
+  dial->grad_T[l].data[2] = grad_T[2];
   dial3_insert(dial, l, T);
 }
 
@@ -347,24 +354,27 @@ void dial3_add_trial(dial3_s *dial, ivec3 ind, dbl T, dvec3 grad_T) {
  * TODO: check for nodes that are already VALID in the neighborhood of
  * the point source
  */
-void dial3_add_point_source_with_trial_nbs(dial3_s *dial, ivec3 ind0, dbl T0) {
-  int i0 = ind0.data[0] - 1, i1 = ind0.data[0] + 1;
-  int j0 = ind0.data[1] - 1, j1 = ind0.data[1] + 1;
-  int k0 = ind0.data[2] - 1, k1 = ind0.data[2] + 1;
+void dial3_add_point_source_with_trial_nbs(dial3_s *dial, int const *ind0, dbl T0) {
+  int i0 = ind0[0] - 1, i1 = ind0[0] + 1;
+  int j0 = ind0[1] - 1, j1 = ind0[1] + 1;
+  int k0 = ind0[2] - 1, k1 = ind0[2] + 1;
   ivec3 ind;
-  int l0 = ind2l3(dial->shape, ind0);
+  ivec3 ind0_ = {
+    .data = {ind0[0], ind0[1], ind0[2]}
+  };
+  int l0 = ind2l3(dial->shape, ind0_);
   dvec3 x0 = get_x(dial->shape, dial->h, l0);
   for (ind.data[0] = i0; ind.data[0] <= i1; ++ind.data[0]) {
     for (ind.data[1] = j0; ind.data[1] <= j1; ++ind.data[1]) {
       for (ind.data[2] = k0; ind.data[2] <= k1; ++ind.data[2]) {
-        if (ivec3_equal(ind, ind0)) {
+        if (ivec3_equal(ind, ind0_)) {
           continue;
         }
         dvec3 x = get_x(dial->shape, dial->h, ind2l3(dial->shape, ind));
         dvec3 grad_T = dvec3_sub(x, x0);
         dbl T = dvec3_norm(grad_T);
         grad_T = dvec3_dbl_div(grad_T, T);
-        dial3_add_trial(dial, ind, T, grad_T);
+        dial3_add_trial(dial, ind.data, T, grad_T.data);
       }
     }
   }
@@ -411,6 +421,8 @@ dbl *dial3_get_T_ptr(dial3_s const *dial) {
   return dial->T;
 }
 
-dvec3 dial3_get_grad_T(dial3_s const *dial, int l) {
-  return dial->grad_T[l];
+void dial3_get_grad_T(dial3_s const *dial, int l, dbl *grad_T) {
+  grad_T[0] = dial->grad_T[l].data[0];
+  grad_T[1] = dial->grad_T[l].data[1];
+  grad_T[2] = dial->grad_T[l].data[2];
 }

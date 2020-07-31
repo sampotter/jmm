@@ -17,8 +17,8 @@ TEST_CASE ("Small s = 1 point source problem computes |x|", "[dial3]") {
 
   dial3_s *dial;
   dial3_alloc(&dial);
-  dial3_init(dial, stype, shape, h);
-  dial3_add_point_source_with_trial_nbs(dial, ind0, 0);
+  dial3_init(dial, stype, shape.data, h);
+  dial3_add_point_source_with_trial_nbs(dial, ind0.data, 0);
   dial3_solve(dial);
 
   ivec3 ind;
@@ -33,7 +33,8 @@ TEST_CASE ("Small s = 1 point source problem computes |x|", "[dial3]") {
         dbl T = h*dvec3_norm(grad_T);
         grad_T = dvec3_dbl_div(grad_T, T/h);
         REQUIRE(dial3_get_T(dial, l) == Approx(T));
-        dvec3 grad_T_gt = dial3_get_grad_T(dial, l);
+        dvec3 grad_T_gt;
+        dial3_get_grad_T(dial, l, grad_T_gt.data);
         REQUIRE(grad_T.data[0] == Approx(grad_T_gt.data[0]));
         REQUIRE(grad_T.data[1] == Approx(grad_T_gt.data[1]));
         REQUIRE(grad_T.data[2] == Approx(grad_T_gt.data[2]));
