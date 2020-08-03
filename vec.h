@@ -40,9 +40,11 @@ typedef struct {
   };
 } dvec3;
 
+dvec3 dvec3_add(dvec3 u, dvec3 v);
 dvec3 dvec3_dbl_div(dvec3 u, dbl a);
 dvec3 dvec3_dbl_mul(dvec3 u, dbl a);
 dbl dvec3_dist(dvec3 u, dvec3 v);
+dbl dvec3_dist_sq(dvec3 u, dvec3 v);
 dbl dvec3_dot(dvec3 u, dvec3 v);
 dvec3 dvec3_infinity();
 dbl dvec3_maxdist(dvec3 u, dvec3 v);
@@ -51,6 +53,7 @@ dvec3 dvec3_nan();
 dbl dvec3_norm(dvec3 u);
 dbl dvec3_norm_sq(dvec3 u);
 dvec3 dvec3_normalized(dvec3 u);
+dvec3 dvec3_one();
 dvec3 dvec3_saxpy(dbl a, dvec3 x, dvec3 y);
 dvec3 dvec3_sub(dvec3 u, dvec3 v);
 dvec3 dvec3_zero();

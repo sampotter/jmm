@@ -82,6 +82,10 @@ dvec2 dvec2_avg(dvec2 u, dvec2 v) {
   return (dvec2) {(u.x + v.x)/2, (u.y + v.y)/2};
 }
 
+dvec3 dvec3_add(dvec3 u, dvec3 v) {
+  return (dvec3) {.packed = _mm256_add_pd(u.packed, v.packed)};
+}
+
 dvec3 dvec3_dbl_div(dvec3 u, dbl a) {
   dvec3 v;
   v.packed = _mm256_broadcast_sd(&a);
@@ -98,6 +102,10 @@ dvec3 dvec3_dbl_mul(dvec3 u, dbl a) {
 
 dbl dvec3_dist(dvec3 u, dvec3 v) {
   return dvec3_norm(dvec3_sub(u, v));
+}
+
+dbl dvec3_dist_sq(dvec3 u, dvec3 v) {
+  return dvec3_norm_sq(dvec3_sub(u, v));
 }
 
 dbl dvec3_dot(dvec3 u, dvec3 v) {
@@ -141,6 +149,10 @@ dbl dvec3_norm_sq(dvec3 u) {
 
 dvec3 dvec3_normalized(dvec3 u) {
   return dvec3_dbl_div(u, dvec3_norm(u));
+}
+
+dvec3 dvec3_one() {
+  return (dvec3) {.data = {1, 1, 1}};
 }
 
 dvec3 dvec3_saxpy(dbl a, dvec3 u, dvec3 v) {
