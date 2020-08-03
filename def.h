@@ -21,7 +21,20 @@ extern "C" {
 #define SQRT2 1.414213562373095
 #define UNFACTORED -1
 
+// TODO: replace state_e with the commented out section of code
+// below. Apart from saving a significant amount of memory, this will
+// allow us to view the states as characters from Python by setting
+// the memory view type appropriately (hopefully...)
+
 typedef enum state {FAR, TRIAL, VALID, BOUNDARY, NEW_VALID} state_e;
+
+// #define FAR 'f'
+// #define TRIAL 't'
+// #define VALID 'v'
+// #define BOUNDARY 'b'
+// #define NEW_VALID 'n'
+
+// typedef char state;
 
 /**
  * An enum encoding the "type" of slowness function to be
