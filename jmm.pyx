@@ -132,9 +132,6 @@ cdef class _Dial3:
         self.state_view.format = 'i'
         self.state_view.itemsize = sizeof(state)
 
-        print(self.state_view.itemsize)
-
-
     def __dealloc__(self):
         dial3_deinit(self.dial)
         dial3_dealloc(&self.dial)
