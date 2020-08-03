@@ -7,7 +7,13 @@
 #include "dial.h"
 #include "index.h"
 
-typedef dbl (*update_f)(dial3_s const *, int /* l */, void * /* ptr */);
+typedef enum update_status {
+  CAUSAL,
+  NONCAUSAL
+} update_status_e;
+
+typedef update_status_e (*update_f)(dial3_s const *, int /* l */, void * /* ptr */,
+                                    dbl * /* T */, dvec3 * /* grad_T */);
 
 struct dial3 {
   stype_e stype;
@@ -138,7 +144,8 @@ typedef struct update_constant_data {
  *
  * TODO: looks like the l0 parameter could be replaced by x0 and xsrc
  */
-dbl update_constant(dial3_s const *dial, int l, void *ptr) {
+update_status_e
+update_constant(dial3_s const *dial, int l, void *ptr, dbl *T, dvec3 *grad_T) {
   update_constant_data_s *data = (update_constant_data_s *)ptr;
 
   // do the projection
@@ -154,12 +161,13 @@ dbl update_constant(dial3_s const *dial, int l, void *ptr) {
 
   dbl h = dial->h;
   if (dvec3_maxdist(xs, data->x0) > h + EPS) {
-    return INFINITY;
+    return NONCAUSAL;
   } else {
-    dbl T = dvec3_norm(t);
-    dial->grad_T[l] = dvec3_dbl_div(t, T);
-    return T;
+    *T = dvec3_norm(t);
+    *grad_T = dvec3_dbl_div(t, *T);
   }
+
+  return CAUSAL;
 }
 
 update_f update_functions[NUM_STYPE] = {
@@ -293,12 +301,15 @@ void dial3_set_T(dial3_s *dial, int l, dbl T) {
 }
 
 void update_nb(dial3_s *dial, int l, void *ptr) {
-  dbl T = dial->update(dial, l, ptr);
+  dbl T;
+  dvec3 grad_T;
+  update_status_e status = dial->update(dial, l, ptr, &T, &grad_T);
 
   // TODO: may want to add a little tolerance here to ensure we don't
   // mess with grad_T too much?
-  if (T < dial->T[l]) {
+  if (status == CAUSAL && T < dial->T[l]) {
     dial3_set_T(dial, l, T);
+    dial->grad_T[l] = grad_T;
     int lb = get_lb(dial, T);
     if (lb != dial->lb[l]) {
       assert(dial->lb[l] == NO_INDEX || (dial->lb0 <= lb && lb < dial->lb[l]));
