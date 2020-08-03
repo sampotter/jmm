@@ -5,6 +5,7 @@
 
 #include "bucket.h"
 #include "dial.h"
+#include "hybrid.h"
 #include "index.h"
 
 typedef enum update_status {
@@ -99,6 +100,31 @@ dvec3 get_x(ivec3 shape, dbl h, int l) {
 #endif
 }
 
+typedef struct {
+  dvec3 x1;
+  dvec3 x;
+  dvec3 xsrc;
+  dvec3 d;
+  dbl T;
+  dvec3 grad_T;
+} f_update_constant_context_s;
+
+dbl f_update_constant(dbl q, void *context) {
+  f_update_constant_context_s *ptr = (f_update_constant_context_s *)context;
+
+  dvec3 xopt = dvec3_saxpy(q, ptr->d, ptr->x1);
+  dvec3 D = dvec3_sub(ptr->x, xopt);
+  dvec3 Dsrc = dvec3_sub(ptr->xsrc, xopt);
+
+  dbl r = dvec3_norm(D);
+  dbl rsrc = dvec3_norm(Dsrc);
+
+  ptr->T = r + rsrc;
+  ptr->grad_T = dvec3_dbl_div(Dsrc, rsrc);
+
+  return dvec3_dot(ptr->d, dvec3_add(dvec3_dbl_div(D, r), ptr->grad_T));
+}
+
 typedef struct update_constant_data {
   dvec3 x0;
   dvec3 xsrc;
@@ -169,9 +195,69 @@ update_constant(dial3_s const *dial, int l, void *ptr, dbl *T, dvec3 *grad_T) {
   // check *where* xs lands, just check if it lands inside the box. If
   // it does, compute a new value and return it.
 
+  static dvec3 X1[3][4] = {
+    {{.data = { 0,  1,  0}},
+     {.data = { 0,  0,  1}},
+     {.data = { 0, -1,  0}},
+     {.data = { 0,  0, -1}}},
+    {{.data = { 1,  0,  0}},
+     {.data = { 0,  0,  1}},
+     {.data = {-1,  0,  0}},
+     {.data = { 0,  0, -1}}},
+    {{.data = { 1,  0,  0}},
+     {.data = { 0,  1,  0}},
+     {.data = {-1,  0,  0}},
+     {.data = { 0, -1,  0}}}
+  };
+
   dbl h = dial->h;
   if (dvec3_maxdist(xs, data->x0) > h + EPS) {
-    return NONCAUSAL;
+    // Find x1
+    dvec3 x1;
+
+    // Find the coordinate spanned by x - x0
+    int i1;
+    {
+      dbl dx1 = x.data[1] - data->x0.data[1];
+      dbl dx2 = x.data[2] - data->x0.data[2];
+      // TODO: probably *do* need to use fabs for this one?
+      i1 = (fabs(dx1) > EPS) + 2*(fabs(dx2) > EPS);
+    }
+
+    // Find x1 itself
+    dbl dist_sq = INFINITY;
+    for (int j = 0; j < 4; ++j) {
+      dvec3 new_x1 = dvec3_add(data->x0, dvec3_dbl_mul(X1[i1][j], dial->h));
+      dbl new_dist_sq = dvec3_dist_sq(new_x1, data->xsrc);
+      if (new_dist_sq < dist_sq) {
+        x1 = new_x1;
+        dist_sq = new_dist_sq;
+      }
+    }
+
+    int i2;
+    { // TODO: should be able to just recover index when finding x1
+      dbl dx1 = x1.data[1] - data->x0.data[1];
+      dbl dx2 = x1.data[2] - data->x0.data[2];
+      // TODO: probably don't need to use fabs for this one
+      i2 = (fabs(dx1) > EPS) + 2*(fabs(dx2) > EPS);
+    }
+
+    // Find d
+    dvec3 d = dvec3_one();
+    d.data[i1] = 0;
+    d.data[i2] = 0;
+
+    f_update_constant_context_s context = {
+      .x1 = x1,
+      .x = x,
+      .xsrc = data->xsrc,
+      .d = d
+    };
+    hybrid(f_update_constant, -1, 1, (void *)&context);
+
+    *T = context.T;
+    *grad_T = context.grad_T;
   } else {
     *T = dvec3_norm(t);
     *grad_T = dvec3_dbl_div(t, *T);
