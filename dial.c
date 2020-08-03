@@ -152,7 +152,17 @@ update_constant(dial3_s const *dial, int l, void *ptr, dbl *T, dvec3 *grad_T) {
   dvec3 x = get_x(dial->shape, dial->h, l);
   dvec3 dx = dvec3_sub(x, data->x0);
   dvec3 t = dvec3_sub(x, data->xsrc);
-  dbl s = dvec3_dot(dx, data->x0_minus_xsrc)/dvec3_dot(dx, t);
+
+  // Compute xs. While we're at it, checking xsrc is ahead of any
+  // possible wavefront passing through x0. If it is, return INFINITY here.
+  // This involves checking the angle between x - x0 and xsrc - x0.
+  // Note that if we pass this check, then the denominator up ahead
+  // involving the dot product between x - x0 and x - xsrc can't be zero.
+  dbl s = dvec3_dot(dx, data->x0_minus_xsrc);
+  if (s <= 0) {
+    return NONCAUSAL;
+  }
+  s /= dvec3_dot(dx, t);
   dvec3 xs = dvec3_saxpy(s, t, data->xsrc);
 
   // TODO: Right now we'll just try something really dumb---don't
