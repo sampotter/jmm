@@ -28,7 +28,8 @@ struct dial3 {
 
   /**
    * The state of each node. For a Dial-like solver, `state` will
-   * never be `TRIAL`.
+   * never be `TRIAL`. The only permissible states are `VALID`,
+   * `FAR`, `BOUNDARY`, and `ADJACENT_TO_BOUNDARY`.
    */
   state_e *state;
 
@@ -211,7 +212,14 @@ update_constant(dial3_s const *dial, int l, void *ptr, dbl *T, dvec3 *grad_T) {
   };
 
   dbl h = dial->h;
-  if (dvec3_maxdist(xs, data->x0) > h + EPS) {
+
+  dvec3 xs_minus_x0 = dvec3_sub(xs, data->x0);
+  dbl xs_minus_x0_maxnorm = dvec3_maxnorm(xs_minus_x0);
+  if (xs_minus_x0_maxnorm > h + EPS) {
+    if (dial->state[l] != ADJACENT_TO_BOUNDARY) {
+      return NONCAUSAL;
+    }
+
     // Find x1
     dvec3 x1;
 
@@ -417,6 +425,10 @@ void update_nb(dial3_s *dial, int l, void *ptr) {
   }
 }
 
+bool dial3_can_update(dial3_s const *dial, int l) {
+  return dial->state[l] == FAR || dial->state[l] == ADJACENT_TO_BOUNDARY;
+}
+
 void update_nbs(dial3_s *dial, int l0) {
   /**
    * Compute the local characteristic direction (tangent vector of the
@@ -435,7 +447,7 @@ void update_nbs(dial3_s *dial, int l0) {
   for (int b = 0; b < 6; ++b) {
     int l = l0 + dial->nb_dl[b];
     if (l < 0 || dial->size <= (size_t)l) continue;
-    if (dial->state[l] != FAR) continue;
+    if (!dial3_can_update(dial, l)) continue;
     update_nb(dial, l, (void *)&data);
   }
 }
@@ -488,6 +500,26 @@ void dial3_add_point_source_with_trial_nbs(dial3_s *dial, int const *ind0, dbl T
   dial->T[l0] = T0;
   dial->grad_T[l0] = dvec3_nan();
   dial->state[l0] = VALID;
+}
+
+void dial3_add_boundary_points(dial3_s *dial, int const *inds, size_t n) {
+  ivec3 shape = dial->shape;
+  size_t size = dial->size;
+  int *l = malloc(sizeof(int)*n);
+  for (size_t i = 0; i < n; ++i) {
+    ivec3 ind = {.data = {inds[3*n], inds[3*n + 1], inds[3*n + 2]}};
+    l[i] = ind2l3(shape, ind);
+    for (size_t j = 0; j < 6; ++j) {
+      int l_ = l[i] + dial->nb_dl[j];
+      if (0 <= l_ && (size_t)l_ < size) {
+        dial->state[l_] = ADJACENT_TO_BOUNDARY;
+      }
+    }
+  }
+  for (size_t i = 0; i < n; ++i) {
+    dial->state[l[i]] = BOUNDARY;
+  }
+  free(l);
 }
 
 bool dial3_step(dial3_s *dial) {

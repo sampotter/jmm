@@ -26,7 +26,14 @@ extern "C" {
 // allow us to view the states as characters from Python by setting
 // the memory view type appropriately (hopefully...)
 
-typedef enum state {FAR, TRIAL, VALID, BOUNDARY, NEW_VALID} state_e;
+typedef enum state {
+  FAR,
+  TRIAL,
+  VALID,
+  BOUNDARY,
+  ADJACENT_TO_BOUNDARY,
+  NEW_VALID,
+} state_e;
 
 // #define FAR 'f'
 // #define TRIAL 't'

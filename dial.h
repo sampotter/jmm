@@ -14,6 +14,7 @@ void dial3_deinit(dial3_s *dial);
 void dial3_dealloc(dial3_s **dial);
 void dial3_add_trial(dial3_s *dial, int const *ind, dbl T, dbl const *grad_T);
 void dial3_add_point_source_with_trial_nbs(dial3_s *dial, int const *ind0, dbl T0);
+void dial3_add_boundary_points(dial3_s *dial, int const *inds, size_t n);
 bool dial3_step(dial3_s *dial);
 void dial3_solve(dial3_s *dial);
 dbl dial3_get_T(dial3_s const *dial, int l);

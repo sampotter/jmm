@@ -37,6 +37,7 @@ cdef extern from "dial.h":
     void dial3_dealloc(dial3 **dial)
     void dial3_add_trial(dial3 *dial, const int *ind, dbl T, const dbl *grad_T)
     void dial3_add_point_source_with_trial_nbs(dial3 *dial, const int *ind0, dbl T0)
+    void dial3_add_boundary_points(dial3 *dial, const int *inds, size_t n)
     bool dial3_step(dial3 *dial)
     void dial3_solve(dial3 *dial)
     dbl dial3_get_T(const dial3 *dial, int l)
@@ -142,6 +143,12 @@ cdef class _Dial3:
     def add_point_source_with_trial_nbs(self, int[:] ind0, dbl T0):
         dial3_add_point_source_with_trial_nbs(self.dial, &ind0[0], T0)
 
+    def add_boundary_points(self, int[:, :] inds):
+        # TODO: handle the case where inds is in a weird format
+        if inds.shape[1] != 3:
+            raise Exception('inds must be an N x 3 array')
+        dial3_add_boundary_points(self.dial, &inds[0, 0], inds.shape[0])
+
     def step(self):
         dial3_step(self.dial)
 
@@ -164,7 +171,8 @@ class State(Enum):
     Trial = 1
     Valid = 2
     Boundary = 3
-    NewValid = 4
+    AdjacentToBoundary = 4
+    NewValid = 5
 
 class Dial:
 
@@ -174,6 +182,9 @@ class Dial:
 
     def add_point_source_with_trial_nbs(self, ind0, T0):
         self._dial.add_point_source_with_trial_nbs(array.array('i', [*ind0]), T0)
+
+    def add_boundary_points(self, inds):
+        self._dial.add_boundary_points(inds)
 
     def step(self):
         self._dial.step()
