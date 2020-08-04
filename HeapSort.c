@@ -37,14 +37,14 @@ void addtree(int ind,int *count,int *tree,int* pos,double *u){
       }
       else ch='n';
     }
-  }  
+  }
 }
 
 /*------------------------------------------------------------------*/
 
 void updatetree(int ind,int *count,int *tree,int* pos,double *u) {
   int loc, lcc;
-  double g0,g1,g2;
+  double g0;
 
 //  printf("updatetree(%li.%li)\n",ind%NX,ind/NX);
 
@@ -56,30 +56,26 @@ void updatetree(int ind,int *count,int *tree,int* pos,double *u) {
     loc=loc/2;
     tree[loc]=ind;
     pos[tree[loc]]=loc;
-  }  
-  g1=u[tree[loc*2]];
-  g2=u[tree[loc*2+1]];
+  }
   lcc=*count;
   while( (loc*2 <= *count && g0 > u[tree[loc*2]]) || (loc*2+1 <= *count && g0 > u[tree[loc*2+1]]) )  {
     lcc=( loc*2+1 <=*count && u[tree[loc*2+1]] < u[tree[loc*2]] ) ? loc*2+1 : loc*2;
     tree[loc]=tree[lcc];
     pos[tree[loc]]=loc;
     loc=lcc;
-    tree[loc]=ind; 
+    tree[loc]=ind;
     pos[tree[loc]]=loc;
   }
 }
 
 /*---------------------------------------------------------------------*/
-
 /* deletes root of the binary tree */
 void deltree(int *count,int *tree,int* pos,double *u) {
-  int loc, ptemp, ind, lcc, ic, ic1, ic2, mind;
+  int loc, ptemp, ind, lcc, ic, ic1, ic2;
   char chd, ch='n';;
 
 //  printf("deltree(%li.%li)\n",tree[1]%NX,tree[1]/NX);
 
-  mind=tree[1];
   pos[tree[1]]=0;
   tree[1]=tree[*count];
   pos[tree[1]]=1;
@@ -109,7 +105,7 @@ void deltree(int *count,int *tree,int* pos,double *u) {
     else chd='n';
   }
   else chd='n';
-  while( chd != 'n' ) {    
+  while( chd != 'n' ) {
     ptemp=pos[ind];
     pos[ind]=pos[ic];
     tree[loc]=ic;
@@ -142,6 +138,3 @@ void deltree(int *count,int *tree,int* pos,double *u) {
     else chd='n';
   } /* end while( chd != 'n' ) */
 }
-
-
-

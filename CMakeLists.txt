@@ -23,13 +23,15 @@ set (JMM_SRCS
   index.c
   mat.c
   math.c
-  npy.c
   vec.c
   )
 
 add_library (jmm STATIC ${JMM_SRCS})
 if (IPO_SUPPORTED)
   set_property (TARGET jmm PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
+endif ()
+if (UNIX)
+  target_link_libraries (jmm m)
 endif ()
 
 # Masha's library
@@ -49,6 +51,9 @@ set (MASHA_LIB_SRCS
 add_executable (JMMversion3 ${MASHA_LIB_SRCS})
 if (IPO_SUPPORTED)
   set_property (TARGET JMMversion3 PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
+endif ()
+if (UNIX)
+  target_link_libraries (JMMversion3 m)
 endif ()
 
 # Unit tests
