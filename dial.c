@@ -507,7 +507,7 @@ void dial3_add_boundary_points(dial3_s *dial, int const *inds, size_t n) {
   size_t size = dial->size;
   int *l = malloc(sizeof(int)*n);
   for (size_t i = 0; i < n; ++i) {
-    ivec3 ind = {.data = {inds[3*n], inds[3*n + 1], inds[3*n + 2]}};
+    ivec3 ind = {.data = {inds[3*i], inds[3*i + 1], inds[3*i + 2]}};
     l[i] = ind2l3(shape, ind);
     for (size_t j = 0; j < 6; ++j) {
       int l_ = l[i] + dial->nb_dl[j];
