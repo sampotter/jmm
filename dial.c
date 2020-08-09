@@ -3,6 +3,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include <stdio.h>
+
 #include "bucket.h"
 #include "dial.h"
 #include "hybrid.h"
@@ -382,6 +384,7 @@ bucket_s *find_bucket(dial3_s *dial, int lb) {
 }
 
 void dial3_insert(dial3_s *dial, int l, dbl T) {
+  assert(dial->state[l] != BOUNDARY);
   if (dial->first == NULL) {
     dial->lb0 = get_lb(dial, T);
     bucket_alloc(&dial->first);
@@ -453,50 +456,45 @@ void update_nbs(dial3_s *dial, int l0) {
 }
 
 /**
- * TODO: this is very simple-minded for now... Later, we'll need to
- * account for different buckets, but for a point source this should
- * be fine
- */
-void dial3_add_trial(dial3_s *dial, int const *ind, dbl T, dbl const *grad_T) {
-  ivec3 ind_ = {
-    .data = {ind[0], ind[1], ind[2]}
-  };
-  int l = ind2l3(dial->shape, ind_);
-  dial3_set_T(dial, l, T);
-  dial->grad_T[l].data[0] = grad_T[0];
-  dial->grad_T[l].data[1] = grad_T[1];
-  dial->grad_T[l].data[2] = grad_T[2];
-  dial3_insert(dial, l, T);
-}
-
-/**
  * TODO: check for nodes that are already VALID in the neighborhood of
  * the point source
  */
-void dial3_add_point_source_with_trial_nbs(dial3_s *dial, int const *ind0, dbl T0) {
-  int i0 = ind0[0] - 1, i1 = ind0[0] + 1;
-  int j0 = ind0[1] - 1, j1 = ind0[1] + 1;
-  int k0 = ind0[2] - 1, k1 = ind0[2] + 1;
-  ivec3 ind;
-  ivec3 ind0_ = {
-    .data = {ind0[0], ind0[1], ind0[2]}
-  };
-  int l0 = ind2l3(dial->shape, ind0_);
-  dvec3 x0 = get_x(dial->shape, dial->h, l0);
-  for (ind.data[0] = i0; ind.data[0] <= i1; ++ind.data[0]) {
-    for (ind.data[1] = j0; ind.data[1] <= j1; ++ind.data[1]) {
-      for (ind.data[2] = k0; ind.data[2] <= k1; ++ind.data[2]) {
-        if (ivec3_equal(ind, ind0_)) {
-          continue;
-        }
-        dvec3 x = get_x(dial->shape, dial->h, ind2l3(dial->shape, ind));
-        dvec3 grad_T = dvec3_sub(x, x0);
-        dbl T = dvec3_norm(grad_T);
-        grad_T = dvec3_dbl_div(grad_T, T);
-        dial3_add_trial(dial, ind.data, T, grad_T.data);
-      }
-    }
+void dial3_add_point_source(dial3_s *dial, int const *ind0_data, dbl T0) {
+  ivec3 shape = dial->shape;
+
+  ivec3 ind0 = {.data = {ind0_data[0], ind0_data[1], ind0_data[2]}};
+  int l0 = ind2l3(shape, ind0);
+  if (dial->state[l0] != FAR && dial->state[l0] != ADJACENT_TO_BOUNDARY) {
+    fprintf(stderr, "ERROR: tried to create a point source at a node "
+            "that didn't have FAR or ADJACENT_TO_BOUNDARY state\n");
+    exit(EXIT_FAILURE);
   }
+  dvec3 x0 = ivec3_dbl_mul(ind0, dial->h);
+
+  for (int i = 0; i < 26; ++i) {
+    ivec3 ind = ivec3_add(ind0, NB_IND_OFFSET_26[i]);
+    if (!inbounds(shape, ind)) {
+      continue;
+    }
+
+    // TODO: want to think a little more carefully about what states
+    // to skip on here...
+    int l = ind2l3(dial->shape, ind);
+    if (dial->state[l] == BOUNDARY) {
+      continue;
+    }
+
+    dvec3 x = ivec3_dbl_mul(ind, dial->h);
+    dvec3 grad_T = dvec3_sub(x, x0);
+    dbl T = dvec3_norm(grad_T);
+    grad_T = dvec3_dbl_div(grad_T, T);
+
+    dial->T[l] = T;
+    dial->grad_T[l] = grad_T;
+
+    dial3_insert(dial, l, T);
+  }
+
   dial->T[l0] = T0;
   dial->grad_T[l0] = dvec3_nan();
   dial->state[l0] = VALID;
@@ -504,20 +502,27 @@ void dial3_add_point_source_with_trial_nbs(dial3_s *dial, int const *ind0, dbl T
 
 void dial3_add_boundary_points(dial3_s *dial, int const *inds, size_t n) {
   ivec3 shape = dial->shape;
-  size_t size = dial->size;
+
   int *l = malloc(sizeof(int)*n);
   for (size_t i = 0; i < n; ++i) {
     ivec3 ind = {.data = {inds[3*i], inds[3*i + 1], inds[3*i + 2]}};
+    printf("%d %d %d\n", ind.data[0], ind.data[1], ind.data[2]);
     l[i] = ind2l3(shape, ind);
     for (size_t j = 0; j < 6; ++j) {
-      int l_ = l[i] + dial->nb_dl[j];
-      if (0 <= l_ && (size_t)l_ < size) {
-        dial->state[l_] = ADJACENT_TO_BOUNDARY;
+      ivec3 ind_ = ivec3_add(ind, NB_IND_OFFSET_6[j]);
+      if (inbounds(shape, ind_)) {
+        int l_ = ind2l3(shape, ind_);
+        if (dial->state[l_] != BOUNDARY) {
+          dial->state[l_] = ADJACENT_TO_BOUNDARY;
+        }
       }
     }
   }
   for (size_t i = 0; i < n; ++i) {
-    dial->state[l[i]] = BOUNDARY;
+    int l_ = l[i];
+    dial->state[l_] = BOUNDARY;
+    dial->T[l_] = NAN;
+    dial->grad_T[l_] = dvec3_nan();
   }
   free(l);
 }
@@ -530,6 +535,7 @@ bool dial3_step(dial3_s *dial) {
   int l0;
   while (bucket_get_size(bucket) > 0) {
     l0 = bucket_pop(bucket);
+    assert(dial->state[l0] != BOUNDARY);
     // NOTE: a node can exist in multiple buckets
     if (dial->state[l0] == VALID) {
       continue;
@@ -564,6 +570,10 @@ void dial3_get_grad_T(dial3_s const *dial, int l, dbl *grad_T) {
   grad_T[0] = dial->grad_T[l].data[0];
   grad_T[1] = dial->grad_T[l].data[1];
   grad_T[2] = dial->grad_T[l].data[2];
+}
+
+dbl *dial3_get_grad_T_ptr(dial3_s const *dial) {
+  return &dial->grad_T[0].data[0];
 }
 
 state_e *dial3_get_state_ptr(dial3_s const *dial) {
