@@ -19,6 +19,9 @@ extern "C" {
 #define NO_PARENT -1
 #define PI_OVER_FOUR 0.7853981633974483
 #define SQRT2 1.414213562373095
+#define SQRT5 2.236067977499789
+#define SQRT10 3.1622776601683795
+#define SQRT17 4.123105625617661
 #define UNFACTORED -1
 
 // TODO: replace state_e with the commented out section of code
