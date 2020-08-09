@@ -63,8 +63,8 @@ struct dial3 {
   dbl h;
   dbl gap;
 
-  dbl *T;
-  dvec3 *grad_T;
+  dbl *Toff;
+  dvec3 *xsrc;
 
   /**
    * The state of each node. For a Dial-like solver, `state` will
@@ -136,32 +136,43 @@ dvec3 get_x(ivec3 shape, dbl h, int l) {
 typedef struct {
   dvec3 x1;
   dvec3 x;
-  dvec3 xsrc;
+  dvec3 xsrc0;
   dvec3 d;
-  dbl T;
-  dvec3 grad_T;
+  dvec3 xsrc;
+  dbl T0;
 } f_update_constant_context_s;
 
 dbl f_update_constant(dbl q, void *context) {
   f_update_constant_context_s *ptr = (f_update_constant_context_s *)context;
-
-  dvec3 xopt = dvec3_saxpy(q, ptr->d, ptr->x1);
-  dvec3 D = dvec3_sub(ptr->x, xopt);
-  dvec3 Dsrc = dvec3_sub(ptr->xsrc, xopt);
-
-  dbl r = dvec3_norm(D);
-  dbl rsrc = dvec3_norm(Dsrc);
-
-  ptr->T = r + rsrc;
-  ptr->grad_T = dvec3_dbl_div(D, r);
-
-  return dvec3_dot(ptr->d, dvec3_add(dvec3_dbl_div(D, r), ptr->grad_T));
+  ptr->xsrc = dvec3_saxpy(q, ptr->d, ptr->x1);
+  dvec3 t = dvec3_sub(ptr->x, ptr->xsrc);
+  ptr->T0 = dvec3_norm(t);
+  t = dvec3_dbl_div(t, ptr->T0);
+  dvec3 t0 = dvec3_normalized(dvec3_sub(ptr->xsrc, ptr->xsrc0));
+  return dvec3_dot(ptr->d, dvec3_sub(t, t0));
 }
+
+//dbl f_update_constant(dbl q, void *context) {
+//  f_update_constant_context_s *ptr = (f_update_constant_context_s *)context;
+//
+//  dvec3 xopt = dvec3_saxpy(q, ptr->d, ptr->x1);
+//  dvec3 D = dvec3_sub(ptr->x, xopt);
+//  dvec3 Dsrc = dvec3_sub(ptr->xsrc0, xopt);
+//
+//  dbl r = dvec3_norm(D);
+//  dbl rsrc = dvec3_norm(Dsrc);
+//
+//  ptr->T = r + rsrc;
+//  ptr->grad_T = dvec3_dbl_div(D, r);
+//
+//  return dvec3_dot(ptr->d, dvec3_add(dvec3_dbl_div(Dsrc, rsrc), ptr->grad_T));
+//}
 
 typedef struct update_constant_data {
   dvec3 x0;
-  dvec3 xsrc;
-  dvec3 x0_minus_xsrc;
+  dvec3 xsrc0;
+  dvec3 x0_minus_xsrc0;
+  dbl Toff0;
 } update_constant_data_s;
 
 /**
@@ -204,26 +215,26 @@ typedef struct update_constant_data {
  * TODO: looks like the l0 parameter could be replaced by x0 and xsrc
  */
 update_status_e
-update_constant(dial3_s const *dial, int l, void *ptr, dbl *T, dvec3 *grad_T) {
+update_constant(dial3_s const *dial, int l, void *ptr, dbl *Toff, dvec3 *xsrc) {
   update_constant_data_s *data = (update_constant_data_s *)ptr;
 
   // do the projection
   dvec3 x = get_x(dial->shape, dial->h, l);
   dvec3 dx = dvec3_sub(x, data->x0);
-  dvec3 t = dvec3_sub(x, data->xsrc);
+  dvec3 t = dvec3_sub(x, data->xsrc0);
 
   // Compute xs. While we're at it, checking xsrc is ahead of any
   // possible wavefront passing through x0. If it is, return INFINITY here.
   // This involves checking the angle between x - x0 and xsrc - x0.
   // Note that if we pass this check, then the denominator up ahead
   // involving the dot product between x - x0 and x - xsrc can't be zero.
-  dbl s = dvec3_dot(dx, data->x0_minus_xsrc);
+  dbl s = dvec3_dot(dx, data->x0_minus_xsrc0);
   // TODO: should we instead check "s > EPS"?
 //  if (s <= 0) {
 //    return NONCAUSAL;
 //  }
   s /= dvec3_dot(dx, t);
-  dvec3 xs = dvec3_saxpy(s, t, data->xsrc);
+  dvec3 xs = dvec3_saxpy(s, t, data->xsrc0);
 
   // TODO: Right now we'll just try something really dumb---don't
   // check *where* xs lands, just check if it lands inside the box. If
@@ -252,8 +263,8 @@ update_constant(dial3_s const *dial, int l, void *ptr, dbl *T, dvec3 *grad_T) {
 
   if (dial->state[l] != ADJACENT_TO_BOUNDARY) {
     if (in_hit_box) {
-      *T = dvec3_norm(t);
-      *grad_T = dvec3_dbl_div(t, *T);
+      *Toff = data->Toff0;
+      *xsrc = data->xsrc0;
       return CAUSAL;
     } else {
       return NONCAUSAL;
@@ -276,7 +287,7 @@ update_constant(dial3_s const *dial, int l, void *ptr, dbl *T, dvec3 *grad_T) {
   dbl dist_sq = INFINITY;
   for (int j = 0; j < 4; ++j) {
     dvec3 new_x1 = dvec3_add(data->x0, dvec3_dbl_mul(X1[i1][j], dial->h));
-    dbl new_dist_sq = dvec3_dist_sq(new_x1, data->xsrc);
+    dbl new_dist_sq = dvec3_dist_sq(new_x1, data->xsrc0);
     if (new_dist_sq < dist_sq) {
       x1 = new_x1;
       dist_sq = new_dist_sq;
@@ -304,21 +315,21 @@ update_constant(dial3_s const *dial, int l, void *ptr, dbl *T, dvec3 *grad_T) {
   if (dial->state[l1] == BOUNDARY) {
     x1 = data->x0;
   } else if (in_hit_box) {
-    *T = dvec3_norm(t);
-    *grad_T = dvec3_dbl_div(t, *T);
+    *Toff = data->Toff0;
+    *xsrc = data->xsrc0;
     return CAUSAL;
   }
 
   f_update_constant_context_s context = {
     .x1 = x1,
     .x = x,
-    .xsrc = data->xsrc,
+    .xsrc0 = data->xsrc0,
     .d = d
   };
   hybrid(f_update_constant, -1, 1, (void *)&context);
 
-  *T = context.T;
-  *grad_T = context.grad_T;
+  *Toff = dvec3_dist(context.xsrc, data->xsrc0);
+  *xsrc = context.xsrc;
 
   return CAUSAL;
 }
@@ -344,13 +355,13 @@ error_e dial3_init(dial3_s *dial, stype_e stype, int const *shape, dbl h) {
   dial->h = h;
   dial->gap = h*sqrt(3);
 
-  dial->T = malloc(sizeof(dbl)*dial->size);
+  dial->Toff = malloc(sizeof(dbl)*dial->size);
   for (size_t i = 0; i < dial->size; ++i) {
-    dial->T[i] = INFINITY;
+    dial->Toff[i] = INFINITY;
   }
 
-  // grad_T is initialized with garbage
-  dial->grad_T = malloc(sizeof(dvec3)*dial->size);
+  // xsrc is initialized with garbage
+  dial->xsrc = malloc(sizeof(dvec3)*dial->size);
 
   dial->state = malloc(sizeof(state_e)*dial->size);
   for (size_t i = 0; i < dial->size; ++i) {
@@ -372,8 +383,8 @@ error_e dial3_init(dial3_s *dial, stype_e stype, int const *shape, dbl h) {
 }
 
 void dial3_deinit(dial3_s *dial) {
-  free(dial->T);
-  free(dial->grad_T);
+  free(dial->Toff);
+  free(dial->xsrc);
   free(dial->state);
   free(dial->lb);
 }
@@ -431,26 +442,18 @@ void dial3_insert(dial3_s *dial, int l, dbl T) {
   }
 }
 
-void dial3_set_T(dial3_s *dial, int l, dbl T) {
-  // TODO: for now, we just assume that T >= 0. In the future, we can
-  // be more sophisticated about this, and introduce a `Tmin`
-  // parameter. But then we'll need to adjust `bucket_T` to
-  // ensure that the [Tmin, Tmin + gap) bucket corresponds corresponds
-  // to `lb == 0` (so that `NO_INDEX == -1` still works).
-  assert(T >= 0);
-  dial->T[l] = T;
-}
-
 void update_nb(dial3_s *dial, int l, void *ptr) {
-  dbl T;
-  dvec3 grad_T;
-  update_status_e status = dial->update(dial, l, ptr, &T, &grad_T);
+  dbl Toff;
+  dvec3 xsrc;
+  update_status_e status = dial->update(dial, l, ptr, &Toff, &xsrc);
 
   // TODO: may want to add a little tolerance here to ensure we don't
   // mess with grad_T too much?
-  if (status == CAUSAL && T < dial->T[l]) {
-    dial3_set_T(dial, l, T);
-    dial->grad_T[l] = grad_T;
+  if (status == CAUSAL && Toff < dial->Toff[l]) {
+    dial->Toff[l] = Toff;
+    dial->xsrc[l] = xsrc;
+    dvec3 x = get_x(dial->shape, dial->h, l);
+    dbl T = Toff + dvec3_dist(x, xsrc);
     int lb = get_lb(dial, T);
     if (lb != dial->lb[l]) {
       assert(dial->lb[l] == NO_INDEX || (dial->lb0 <= lb && lb < dial->lb[l]));
@@ -475,23 +478,15 @@ bool inbounds(ivec3 shape, ivec3 ind) {
 void update_nbs(dial3_s *dial, int l0) {
   ivec3 shape = dial->shape;
 
-  /**
-   * Compute the local characteristic direction (tangent vector of the
-   * ray) at the node l0. It is always the case that the gradient of T
-   * points in the same direction. Additionally, for s = 1, the
-   * gradient of T has unit magnitude and is already normalized
-   * correctly.
-   */
-  dvec3 t0 = dial->grad_T[l0]; // Already normalized for s = 1!
-
   // TODO: simplify get_x below now that we're computing this
   ivec3 ind0 = l2ind3(shape, l0);
 
   update_constant_data_s data;
   // data.x0 = get_x(shape, dial->h, l0);
   data.x0 = ivec3_dbl_mul(ind0, dial->h);
-  data.xsrc = dvec3_saxpy(-dial->T[l0], t0, data.x0);
-  data.x0_minus_xsrc = dvec3_sub(data.x0, data.xsrc);
+  data.xsrc0 = dial->xsrc[l0];
+  data.x0_minus_xsrc0 = dvec3_sub(data.x0, data.xsrc0);
+  data.Toff0 = dial->Toff[l0];
 
   for (int b = 0; b < 6; ++b) {
     ivec3 ind = ivec3_add(ind0, NB_IND_OFFSET_6[b]);
@@ -508,7 +503,7 @@ void update_nbs(dial3_s *dial, int l0) {
  * TODO: check for nodes that are already VALID in the neighborhood of
  * the point source
  */
-void dial3_add_point_source(dial3_s *dial, int const *ind0_data, dbl T0) {
+void dial3_add_point_source(dial3_s *dial, int const *ind0_data, dbl Toff) {
   ivec3 shape = dial->shape;
 
   ivec3 ind0 = {.data = {ind0_data[0], ind0_data[1], ind0_data[2]}};
@@ -518,7 +513,7 @@ void dial3_add_point_source(dial3_s *dial, int const *ind0_data, dbl T0) {
             "that didn't have FAR or ADJACENT_TO_BOUNDARY state\n");
     exit(EXIT_FAILURE);
   }
-  dvec3 x0 = ivec3_dbl_mul(ind0, dial->h);
+  dvec3 xsrc = ivec3_dbl_mul(ind0, dial->h);
 
   for (int i = 0; i < 26; ++i) {
     ivec3 ind = ivec3_add(ind0, NB_IND_OFFSET_26[i]);
@@ -533,19 +528,17 @@ void dial3_add_point_source(dial3_s *dial, int const *ind0_data, dbl T0) {
       continue;
     }
 
+    dial->Toff[l] = Toff;
+    dial->xsrc[l] = xsrc;
+
+    // TODO: change dial3_insert interface so that it just takes dial and l?
     dvec3 x = ivec3_dbl_mul(ind, dial->h);
-    dvec3 grad_T = dvec3_sub(x, x0);
-    dbl T = dvec3_norm(grad_T);
-    grad_T = dvec3_dbl_div(grad_T, T);
-
-    dial->T[l] = T;
-    dial->grad_T[l] = grad_T;
-
+    dbl T = dvec3_dist(x, xsrc);
     dial3_insert(dial, l, T);
   }
 
-  dial->T[l0] = T0;
-  dial->grad_T[l0] = dvec3_nan();
+  dial->Toff[l0] = Toff;
+  dial->xsrc[l0] = xsrc;
   dial->state[l0] = VALID;
 }
 
@@ -555,7 +548,6 @@ void dial3_add_boundary_points(dial3_s *dial, int const *inds, size_t n) {
   int *l = malloc(sizeof(int)*n);
   for (size_t i = 0; i < n; ++i) {
     ivec3 ind = {.data = {inds[3*i], inds[3*i + 1], inds[3*i + 2]}};
-    printf("%d %d %d\n", ind.data[0], ind.data[1], ind.data[2]);
     l[i] = ind2l3(shape, ind);
     for (size_t j = 0; j < 6; ++j) {
       ivec3 ind_ = ivec3_add(ind, NB_IND_OFFSET_6[j]);
@@ -570,8 +562,8 @@ void dial3_add_boundary_points(dial3_s *dial, int const *inds, size_t n) {
   for (size_t i = 0; i < n; ++i) {
     int l_ = l[i];
     dial->state[l_] = BOUNDARY;
-    dial->T[l_] = NAN;
-    dial->grad_T[l_] = dvec3_nan();
+    dial->Toff[l_] = NAN;
+    dial->xsrc[l_] = dvec3_nan();
   }
   free(l);
 }
@@ -608,21 +600,26 @@ void dial3_solve(dial3_s *dial) {
 }
 
 dbl dial3_get_T(dial3_s const *dial, int l) {
-  return dial->T[l];
-}
-
-dbl *dial3_get_T_ptr(dial3_s const *dial) {
-  return dial->T;
+  dvec3 x = get_x(dial->shape, dial->h, l);
+  dbl dT = dvec3_dist(x, dial->xsrc[l]);
+  return dial->Toff[l] + dT;
 }
 
 void dial3_get_grad_T(dial3_s const *dial, int l, dbl *grad_T) {
-  grad_T[0] = dial->grad_T[l].data[0];
-  grad_T[1] = dial->grad_T[l].data[1];
-  grad_T[2] = dial->grad_T[l].data[2];
+  dvec3 x = get_x(dial->shape, dial->h, l);
+  dvec3 tmp = dvec3_sub(x, dial->xsrc[l]);
+  tmp = dvec3_normalized(tmp);
+  grad_T[0] = tmp.data[0];
+  grad_T[1] = tmp.data[1];
+  grad_T[2] = tmp.data[2];
 }
 
-dbl *dial3_get_grad_T_ptr(dial3_s const *dial) {
-  return &dial->grad_T[0].data[0];
+dbl *dial3_get_Toff_ptr(dial3_s const *dial) {
+  return dial->Toff;
+}
+
+dbl *dial3_get_xsrc_ptr(dial3_s const *dial) {
+  return &dial->xsrc[0].data[0];
 }
 
 state_e *dial3_get_state_ptr(dial3_s const *dial) {

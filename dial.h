@@ -17,9 +17,9 @@ void dial3_add_boundary_points(dial3_s *dial, int const *inds, size_t n);
 bool dial3_step(dial3_s *dial);
 void dial3_solve(dial3_s *dial);
 dbl dial3_get_T(dial3_s const *dial, int l);
-dbl *dial3_get_T_ptr(dial3_s const *dial);
 void dial3_get_grad_T(dial3_s const *dial, int l, dbl *grad_T);
-dbl *dial3_get_grad_T_ptr(dial3_s const *dial);
+dbl *dial3_get_T0_ptr(dial3_s const *dial);
+dbl *dial3_get_xsrc_ptr(dial3_s const *dial);
 state_e *dial3_get_state_ptr(dial3_s const *dial);
 
 #ifdef __cplusplus

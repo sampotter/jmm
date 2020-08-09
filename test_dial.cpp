@@ -7,9 +7,9 @@ TEST_CASE ("Small s = 1 point source problem computes |x|", "[dial3]") {
   using namespace Catch::literals;
 
   stype_e stype = CONSTANT;
-  int nx = 11;
-  int ny = 11;
-  int nz = 11;
+  int nx = 5;
+  int ny = 5;
+  int nz = 5;
   dbl h = 2.0/(nx - 1);
   ivec3 shape = {.data = {nx, ny, nz}};
 
@@ -101,34 +101,37 @@ TEST_CASE ("Solving s = 1 on 1x3x3 L yields correct T and grad(T)",
   };
 
   state_e *state = dial3_get_state_ptr(dial);
-  dbl *T = dial3_get_T_ptr(dial);
-  dvec3 *grad_T = (dvec3 *)dial3_get_grad_T_ptr(dial);
 
   for (int i = 0; i < 9; ++i) {
     REQUIRE(state[i] == state_gt[i]);
 
+    dbl T = dial3_get_T(dial, i);
+
     if (isnan(T_gt[i])) {
-      REQUIRE(isnan(T[i]));
+      REQUIRE(isnan(T));
     } else {
-      REQUIRE(T[i] == Approx(T_gt[i]));
+      REQUIRE(T == Approx(T_gt[i]));
     }
 
+    dbl grad_T[3];
+    dial3_get_grad_T(dial, i, grad_T);
+
     if (isnan(Tx_gt[i])) {
-      REQUIRE(isnan(grad_T[i].data[0]));
+      REQUIRE(isnan(grad_T[i]));
     } else {
-      REQUIRE(grad_T[i].data[0] == Approx(Tx_gt[i]));
+      REQUIRE(grad_T[i] == Approx(Tx_gt[i]));
     }
 
     if (isnan(Ty_gt[i])) {
-      REQUIRE(isnan(grad_T[i].data[1]));
+      REQUIRE(isnan(grad_T[i]));
     } else {
-      REQUIRE(grad_T[i].data[1] == Approx(Ty_gt[i]));
+      REQUIRE(grad_T[i] == Approx(Ty_gt[i]));
     }
 
     if (isnan(Tz_gt[i])) {
-      REQUIRE(isnan(grad_T[i].data[2]));
+      REQUIRE(isnan(grad_T[i]));
     } else {
-      REQUIRE(grad_T[i].data[2] == Approx(Tz_gt[i]));
+      REQUIRE(grad_T[i] == Approx(Tz_gt[i]));
     }
   }
 
@@ -181,16 +184,16 @@ TEST_CASE ("Solving s = 1 on 1x5x5 L yields correct T and grad(T)",
   };
 
   state_e *state = dial3_get_state_ptr(dial);
-  dbl *T = dial3_get_T_ptr(dial);
-//  dvec3 *grad_T = (dvec3 *)dial3_get_grad_T_ptr(dial);
 
   for (int i = 0; i < 25; ++i) {
     REQUIRE(state[i] == state_gt[i]);
 
+    dbl T = dial3_get_T(dial, i);
+
     if (isnan(T_gt[i])) {
-      REQUIRE(isnan(T[i]));
+      REQUIRE(isnan(T));
     } else {
-      REQUIRE(T[i] == Approx(T_gt[i]));
+      REQUIRE(T == Approx(T_gt[i]));
     }
 
 //    if (isnan(Tx_gt[i])) {
