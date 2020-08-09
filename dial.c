@@ -18,6 +18,44 @@ typedef enum update_status {
 typedef update_status_e (*update_f)(dial3_s const *, int /* l */, void * /* ptr */,
                                     dbl * /* T */, dvec3 * /* grad_T */);
 
+ivec3 NB_IND_OFFSET_6[6] = {
+  {.data = {-1,  0,  0}},
+  {.data = { 0, -1,  0}},
+  {.data = { 0,  0, -1}},
+  {.data = { 0,  0,  1}},
+  {.data = { 0,  1,  0}},
+  {.data = { 1,  0,  0}}
+};
+
+ivec3 NB_IND_OFFSET_26[26] = {
+  {.data = {-1, -1, -1}},
+  {.data = {-1, -1,  0}},
+  {.data = {-1, -1,  1}},
+  {.data = { 0, -1, -1}},
+  {.data = { 0, -1,  0}},
+  {.data = { 0, -1,  1}},
+  {.data = { 1, -1, -1}},
+  {.data = { 1, -1,  0}},
+  {.data = { 1, -1,  1}},
+  {.data = {-1,  0, -1}},
+  {.data = {-1,  0,  0}},
+  {.data = {-1,  0,  1}},
+  {.data = { 0,  0, -1}},
+  {.data = { 0,  0,  1}},
+  {.data = { 1,  0, -1}},
+  {.data = { 1,  0,  0}},
+  {.data = { 1,  0,  1}},
+  {.data = {-1,  1, -1}},
+  {.data = {-1,  1,  0}},
+  {.data = {-1,  1,  1}},
+  {.data = { 0,  1, -1}},
+  {.data = { 0,  1,  0}},
+  {.data = { 0,  1,  1}},
+  {.data = { 1,  1, -1}},
+  {.data = { 1,  1,  0}},
+  {.data = { 1,  1,  1}}
+};
+
 struct dial3 {
   stype_e stype;
   ivec3 shape;
@@ -68,14 +106,6 @@ struct dial3 {
    * `lb0 == NO_INDEX` holds.
    */
   int lb0;
-
-  /**
-   * Linear offsets of six nearest neighbors in 3D.
-   *
-   * If `li` is `l`'s `i`th cardinal neighbor (with the ordering of
-   * these neighbors left unspecified), then `l + nb_dl[i] = li`.
-   */
-  int nb_dl[6];
 
   /**
    * The first bucket to be processed. This is the bucket with
@@ -188,9 +218,10 @@ update_constant(dial3_s const *dial, int l, void *ptr, dbl *T, dvec3 *grad_T) {
   // Note that if we pass this check, then the denominator up ahead
   // involving the dot product between x - x0 and x - xsrc can't be zero.
   dbl s = dvec3_dot(dx, data->x0_minus_xsrc);
-  if (s <= 0) {
-    return NONCAUSAL;
-  }
+  // TODO: should we instead check "s > EPS"?
+//  if (s <= 0) {
+//    return NONCAUSAL;
+//  }
   s /= dvec3_dot(dx, t);
   dvec3 xs = dvec3_saxpy(s, t, data->xsrc);
 
@@ -217,61 +248,77 @@ update_constant(dial3_s const *dial, int l, void *ptr, dbl *T, dvec3 *grad_T) {
 
   dvec3 xs_minus_x0 = dvec3_sub(xs, data->x0);
   dbl xs_minus_x0_maxnorm = dvec3_maxnorm(xs_minus_x0);
-  if (xs_minus_x0_maxnorm > h + EPS) {
-    if (dial->state[l] != ADJACENT_TO_BOUNDARY) {
+  bool in_hit_box = xs_minus_x0_maxnorm < h + EPS;
+
+  if (dial->state[l] != ADJACENT_TO_BOUNDARY) {
+    if (in_hit_box) {
+      *T = dvec3_norm(t);
+      *grad_T = dvec3_dbl_div(t, *T);
+      return CAUSAL;
+    } else {
       return NONCAUSAL;
     }
+  }
 
-    // Find x1
-    dvec3 x1;
+  // Find x1
+  dvec3 x1;
 
-    // Find the coordinate spanned by x - x0
-    int i1;
-    {
-      dbl dx1 = x.data[1] - data->x0.data[1];
-      dbl dx2 = x.data[2] - data->x0.data[2];
-      // TODO: probably *do* need to use fabs for this one?
-      i1 = (fabs(dx1) > EPS) + 2*(fabs(dx2) > EPS);
+  // Find the coordinate spanned by x - x0
+  int i1;
+  {
+    dbl dx1 = x.data[1] - data->x0.data[1];
+    dbl dx2 = x.data[2] - data->x0.data[2];
+    // TODO: probably *do* need to use fabs for this one?
+    i1 = (fabs(dx1) > EPS) + 2*(fabs(dx2) > EPS);
+  }
+
+  // Find x1 itself
+  dbl dist_sq = INFINITY;
+  for (int j = 0; j < 4; ++j) {
+    dvec3 new_x1 = dvec3_add(data->x0, dvec3_dbl_mul(X1[i1][j], dial->h));
+    dbl new_dist_sq = dvec3_dist_sq(new_x1, data->xsrc);
+    if (new_dist_sq < dist_sq) {
+      x1 = new_x1;
+      dist_sq = new_dist_sq;
     }
+  }
 
-    // Find x1 itself
-    dbl dist_sq = INFINITY;
-    for (int j = 0; j < 4; ++j) {
-      dvec3 new_x1 = dvec3_add(data->x0, dvec3_dbl_mul(X1[i1][j], dial->h));
-      dbl new_dist_sq = dvec3_dist_sq(new_x1, data->xsrc);
-      if (new_dist_sq < dist_sq) {
-        x1 = new_x1;
-        dist_sq = new_dist_sq;
-      }
-    }
+  int i2;
+  { // TODO: should be able to just recover index when finding x1
+    dbl dx1 = x1.data[1] - data->x0.data[1];
+    dbl dx2 = x1.data[2] - data->x0.data[2];
+    // TODO: probably don't need to use fabs for this one
+    i2 = (fabs(dx1) > EPS) + 2*(fabs(dx2) > EPS);
+  }
 
-    int i2;
-    { // TODO: should be able to just recover index when finding x1
-      dbl dx1 = x1.data[1] - data->x0.data[1];
-      dbl dx2 = x1.data[2] - data->x0.data[2];
-      // TODO: probably don't need to use fabs for this one
-      i2 = (fabs(dx1) > EPS) + 2*(fabs(dx2) > EPS);
-    }
+  // Find d
+  dvec3 d = dvec3_one();
+  d.data[i1] = 0;
+  d.data[i2] = 0;
 
-    // Find d
-    dvec3 d = dvec3_one();
-    d.data[i1] = 0;
-    d.data[i2] = 0;
-
-    f_update_constant_context_s context = {
-      .x1 = x1,
-      .x = x,
-      .xsrc = data->xsrc,
-      .d = d
-    };
-    hybrid(f_update_constant, -1, 1, (void *)&context);
-
-    *T = context.T;
-    *grad_T = context.grad_T;
-  } else {
+  // Get x1's state. If x1 is a BOUNDARY node, then we replace x1 with x0.
+  // We do this *after* computing d, so that it is still the tangent vector of the original edge of the hit box.
+  // TODO: document how (& why...?) this works.
+  ivec3 ind1 = dvec3_to_ivec3(dvec3_dbl_div(x1, h));
+  int l1 = ind2l3(dial->shape, ind1);
+  if (dial->state[l1] == BOUNDARY) {
+    x1 = data->x0;
+  } else if (in_hit_box) {
     *T = dvec3_norm(t);
     *grad_T = dvec3_dbl_div(t, *T);
+    return CAUSAL;
   }
+
+  f_update_constant_context_s context = {
+    .x1 = x1,
+    .x = x,
+    .xsrc = data->xsrc,
+    .d = d
+  };
+  hybrid(f_update_constant, -1, 1, (void *)&context);
+
+  *T = context.T;
+  *grad_T = context.grad_T;
 
   return CAUSAL;
 }
@@ -316,19 +363,6 @@ error_e dial3_init(dial3_s *dial, stype_e stype, int const *shape, dbl h) {
   }
 
   dial->lb0 = NO_INDEX;
-
-  // TODO: want to make sure `nb_dl` is in sorted order? (for cache
-  // friendliness?)
-#if ORDERING == ROW_MAJOR
-  dial->nb_dl[0] = ind2l3(dial->shape, (ivec3) {.data = {-1,  0,  0}});
-  dial->nb_dl[1] = ind2l3(dial->shape, (ivec3) {.data = { 0, -1,  0}});
-  dial->nb_dl[2] = ind2l3(dial->shape, (ivec3) {.data = { 0,  0, -1}});
-  dial->nb_dl[3] = ind2l3(dial->shape, (ivec3) {.data = { 0,  0,  1}});
-  dial->nb_dl[4] = ind2l3(dial->shape, (ivec3) {.data = { 0,  1,  0}});
-  dial->nb_dl[5] = ind2l3(dial->shape, (ivec3) {.data = { 1,  0,  0}});
-#else
-#  error not implemented yet
-#endif
 
   dial->first = NULL;
 
@@ -432,7 +466,15 @@ bool dial3_can_update(dial3_s const *dial, int l) {
   return dial->state[l] == FAR || dial->state[l] == ADJACENT_TO_BOUNDARY;
 }
 
+bool inbounds(ivec3 shape, ivec3 ind) {
+  return 0 <= ind.data[0] && ind.data[0] < shape.data[0]
+    && 0 <= ind.data[1] && ind.data[1] < shape.data[1]
+    && 0 <= ind.data[2] && ind.data[2] < shape.data[2];
+}
+
 void update_nbs(dial3_s *dial, int l0) {
+  ivec3 shape = dial->shape;
+
   /**
    * Compute the local characteristic direction (tangent vector of the
    * ray) at the node l0. It is always the case that the gradient of T
@@ -442,15 +484,22 @@ void update_nbs(dial3_s *dial, int l0) {
    */
   dvec3 t0 = dial->grad_T[l0]; // Already normalized for s = 1!
 
+  // TODO: simplify get_x below now that we're computing this
+  ivec3 ind0 = l2ind3(shape, l0);
+
   update_constant_data_s data;
-  data.x0 = get_x(dial->shape, dial->h, l0);
+  // data.x0 = get_x(shape, dial->h, l0);
+  data.x0 = ivec3_dbl_mul(ind0, dial->h);
   data.xsrc = dvec3_saxpy(-dial->T[l0], t0, data.x0);
   data.x0_minus_xsrc = dvec3_sub(data.x0, data.xsrc);
 
   for (int b = 0; b < 6; ++b) {
-    int l = l0 + dial->nb_dl[b];
-    if (l < 0 || dial->size <= (size_t)l) continue;
-    if (!dial3_can_update(dial, l)) continue;
+    ivec3 ind = ivec3_add(ind0, NB_IND_OFFSET_6[b]);
+    int l = ind2l3(shape, ind);
+    if (!inbounds(shape, ind) ||
+        !dial3_can_update(dial, l)) {
+      continue;
+    }
     update_nb(dial, l, (void *)&data);
   }
 }
