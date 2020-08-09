@@ -95,12 +95,14 @@ typedef struct {
   };
 } ivec3;
 
+ivec3 ivec3_add(ivec3 p, ivec3 q);
 int ivec3_prod(ivec3 p);
 dvec3 ivec3_dbl_mul(ivec3 p, dbl a);
 bool ivec3_equal(ivec3 p, ivec3 q);
 ivec3 ivec3_int_div(ivec3 p, int q);
 
 ivec2 dvec2_to_ivec2(dvec2 v);
+ivec3 dvec3_to_ivec3(dvec3 x);
 dvec3 ivec3_to_dvec3(ivec3 p);
 
 #ifdef __cplusplus

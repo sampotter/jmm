@@ -265,6 +265,16 @@ ivec2 ivec2_add(ivec2 p, ivec2 q) {
   return (ivec2) {p.i + q.i, p.j + q.j};
 }
 
+ivec3 ivec3_add(ivec3 p, ivec3 q) {
+  return (ivec3) {
+    .data = {
+      p.data[0] + q.data[0],
+      p.data[1] + q.data[1],
+      p.data[2] + q.data[2]
+    }
+  };
+}
+
 int ivec3_prod(ivec3 p) {
   return p.data[0]*p.data[1]*p.data[2];
 }
@@ -286,6 +296,12 @@ ivec3 ivec3_int_div(ivec3 p, int q) {
 ivec2 dvec2_to_ivec2(dvec2 v) {
   ivec2 ij = {.i = (int)v.x, .j = (int)v.y};
   return ij;
+}
+
+ivec3 dvec3_to_ivec3(dvec3 x) {
+  return (ivec3) {
+    .data = {(int)x.data[0], (int)x.data[1], (int)x.data[2]}
+  };
 }
 
 dvec3 ivec3_to_dvec3(ivec3 p) {
