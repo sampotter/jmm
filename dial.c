@@ -123,7 +123,7 @@ dbl f_update_constant(dbl q, void *context) {
   dbl rsrc = dvec3_norm(Dsrc);
 
   ptr->T = r + rsrc;
-  ptr->grad_T = dvec3_dbl_div(Dsrc, rsrc);
+  ptr->grad_T = dvec3_dbl_div(D, r);
 
   return dvec3_dot(ptr->d, dvec3_add(dvec3_dbl_div(D, r), ptr->grad_T));
 }
