@@ -5,6 +5,13 @@ check_ipo_supported (RESULT IPO_SUPPORTED)
 
 project (jmm)
 
+set (CMAKE_MODULE_PATH
+  "${CMAKE_SOURCE_DIR}/cmake/sanitizers-cmake/cmake"
+  ${CMAKE_MODULE_PATH}
+  )
+
+find_package (Sanitizers)
+
 set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIC -Wall -Wextra -Werror -mavx")
 set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC -Wall -Wextra -Werror -mavx")
 
@@ -33,6 +40,7 @@ endif ()
 if (UNIX)
   target_link_libraries (jmm m)
 endif ()
+add_sanitizers (jmm)
 
 # Masha's library
 
@@ -55,6 +63,7 @@ endif ()
 if (UNIX)
   target_link_libraries (JMMversion3 m)
 endif ()
+add_sanitizers (JMMversion3)
 
 # Unit tests
 
@@ -69,6 +78,7 @@ target_link_libraries (tests jmm)
 if (IPO_SUPPORTED)
   set_property (TARGET tests PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
 endif ()
+add_sanitizers (tests)
 
 include (CTest)
 include (Catch)
@@ -82,3 +92,4 @@ target_link_libraries (main jmm)
 if (IPO_SUPPORTED)
   set_property (TARGET main PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
 endif ()
+add_sanitizers (main)
