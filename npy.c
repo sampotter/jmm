@@ -1,5 +1,7 @@
 #include "npy.h"
 
+#include "def.h"
+
 #include <stdio.h>
 
 void npy_write_2d_dbl_array(char const *filename, void *data, int m, int n, int stride) {
