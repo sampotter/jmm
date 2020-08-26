@@ -223,18 +223,38 @@ update_constant(dial3_s const *dial, int l, void *ptr, dbl *Toff, dvec3 *xsrc) {
   dvec3 dx = dvec3_sub(x, data->x0);
   dvec3 t = dvec3_sub(x, data->xsrc0);
 
+  dbl h = dial->h;
+
   // Compute xs. While we're at it, checking xsrc is ahead of any
   // possible wavefront passing through x0. If it is, return INFINITY here.
   // This involves checking the angle between x - x0 and xsrc - x0.
   // Note that if we pass this check, then the denominator up ahead
   // involving the dot product between x - x0 and x - xsrc can't be zero.
-  dbl s = dvec3_dot(dx, data->x0_minus_xsrc0);
-  // TODO: should we instead check "s > EPS"?
-//  if (s <= 0) {
-//    return NONCAUSAL;
-//  }
-  s /= dvec3_dot(dx, t);
-  dvec3 xs = dvec3_saxpy(s, t, data->xsrc0);
+  dvec3 xs;
+  {
+    dbl s = dvec3_dot(dx, data->x0_minus_xsrc0);
+    if (s < -EPS) {
+      return NONCAUSAL;
+    } else if (fabs(s) <= EPS) {
+      // If the dot product between dx and x0 - xsrc0 is zero,
+      // then the projection is no longer well-defined.
+      // Instead, we shrink x0 - xsrc onto the hit box.
+      s = -h/dvec3_maxnorm(data->x0_minus_xsrc0);
+      xs = dvec3_saxpy(s, data->x0_minus_xsrc0, data->x0);
+
+      // We can compute Toff and xsrc immediately in this special case
+      //
+      // TODO: may not actually need to compute dist below... should be
+      // able to just retrieve the distance from s when projecting onto
+      // the hit box
+      *Toff = data->Toff0 + dvec3_dist(xs, data->xsrc0);
+      *xsrc = xs;
+      return CAUSAL;
+    } else {
+      s /= dvec3_dot(dx, t);
+      xs = dvec3_saxpy(s, t, data->xsrc0);
+    }
+  }
 
   // TODO: Right now we'll just try something really dumb---don't
   // check *where* xs lands, just check if it lands inside the box. If
@@ -254,8 +274,6 @@ update_constant(dial3_s const *dial, int l, void *ptr, dbl *Toff, dvec3 *xsrc) {
      {.data = {-1,  0,  0}},
      {.data = { 0, -1,  0}}}
   };
-
-  dbl h = dial->h;
 
   dvec3 xs_minus_x0 = dvec3_sub(xs, data->x0);
   dbl xs_minus_x0_maxnorm = dvec3_maxnorm(xs_minus_x0);
@@ -303,6 +321,8 @@ update_constant(dial3_s const *dial, int l, void *ptr, dbl *Toff, dvec3 *xsrc) {
   }
 
   // Find d
+  //
+  // TODO: explain what d is here
   dvec3 d = dvec3_one();
   d.data[i1] = 0;
   d.data[i2] = 0;
@@ -328,7 +348,7 @@ update_constant(dial3_s const *dial, int l, void *ptr, dbl *Toff, dvec3 *xsrc) {
   };
   hybrid(f_update_constant, -1, 1, (void *)&context);
 
-  *Toff = dvec3_dist(context.xsrc, data->xsrc0);
+  *Toff = data->Toff0 + dvec3_dist(context.xsrc, data->xsrc0);
   *xsrc = context.xsrc;
 
   return CAUSAL;
