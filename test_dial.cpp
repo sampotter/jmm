@@ -116,22 +116,26 @@ TEST_CASE ("Solving s = 1 on 1x3x3 L yields correct T and grad(T)",
     dbl grad_T[3];
     dial3_get_grad_T(dial, i, grad_T);
 
+    dbl Tx = grad_T[0];
+    dbl Ty = grad_T[1];
+    dbl Tz = grad_T[2];
+
     if (isnan(Tx_gt[i])) {
-      REQUIRE(isnan(grad_T[i]));
+      REQUIRE(isnan(Tx));
     } else {
-      REQUIRE(grad_T[i] == Approx(Tx_gt[i]));
+      REQUIRE(Tx == Approx(Tx_gt[i]));
     }
 
     if (isnan(Ty_gt[i])) {
-      REQUIRE(isnan(grad_T[i]));
+      REQUIRE(isnan(Ty));
     } else {
-      REQUIRE(grad_T[i] == Approx(Ty_gt[i]));
+      REQUIRE(Ty == Approx(Ty_gt[i]));
     }
 
     if (isnan(Tz_gt[i])) {
-      REQUIRE(isnan(grad_T[i]));
+      REQUIRE(isnan(Tz));
     } else {
-      REQUIRE(grad_T[i] == Approx(Tz_gt[i]));
+      REQUIRE(Tz == Approx(Tz_gt[i]));
     }
   }
 
@@ -196,23 +200,32 @@ TEST_CASE ("Solving s = 1 on 1x5x5 L yields correct T and grad(T)",
       REQUIRE(T == Approx(T_gt[i]));
     }
 
-//    if (isnan(Tx_gt[i])) {
-//      REQUIRE(isnan(grad_T[i].data[0]));
-//    } else {
-//      REQUIRE(grad_T[i].data[0] == Approx(Tx_gt[i]));
-//    }
-//
-//    if (isnan(Ty_gt[i])) {
-//      REQUIRE(isnan(grad_T[i].data[1]));
-//    } else {
-//      REQUIRE(grad_T[i].data[1] == Approx(Ty_gt[i]));
-//    }
-//
-//    if (isnan(Tz_gt[i])) {
-//      REQUIRE(isnan(grad_T[i].data[2]));
-//    } else {
-//      REQUIRE(grad_T[i].data[2] == Approx(Tz_gt[i]));
-//    }
+    // TODO: enable this...
+
+    // dbl grad_T[3];
+    // dial3_get_grad_T(dial, i, grad_T);
+
+    // dbl Tx = grad_T[0];
+    // dbl Ty = grad_T[1];
+    // dbl Tz = grad_T[2];
+
+    // if (isnan(Tx_gt[i])) {
+    //   REQUIRE(isnan(Tx));
+    // } else {
+    //   REQUIRE(Tx == Approx(Tx_gt[i]));
+    // }
+
+    // if (isnan(Ty_gt[i])) {
+    //   REQUIRE(isnan(Ty));
+    // } else {
+    //   REQUIRE(Ty == Approx(Ty_gt[i]));
+    // }
+
+    // if (isnan(Tz_gt[i])) {
+    //   REQUIRE(isnan(Tz));
+    // } else {
+    //   REQUIRE(Tz == Approx(Tz_gt[i]));
+    // }
   }
 
   dial3_deinit(dial);
