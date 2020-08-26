@@ -4,14 +4,16 @@
 *.idea
 *.ipynb_checkpoints
 *~
+.DS_Store
 GPATH
 GRTAGS
 GTAGS
 __pycache__
-build
+build*
 callgrind.out.*
 cmake-build-debug
 dist
 dists
+jmm.c
 scratch
 vgcore.*
