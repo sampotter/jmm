@@ -239,12 +239,6 @@ update_constant(dial3_s const *dial, int l, void *ptr, dbl *Toff, dvec3 *xsrc) {
       // If the dot product between dx and x0 - xsrc0 is zero,
       // then the projection is no longer well-defined.
       // Instead, we shrink x0 - xsrc onto the hit box.
-      //
-      // TODO: this clause isn't exactly right---it should only be done
-      // if x is ADJACENT_TO_BOUNDARY. If x isn't adjacent to the boundary,
-      // then xsrc will cling to the wall as we "pull away from it". This
-      // artifically increases the size of the solution and screws up the
-      // characteristics (the solution is completely wrong).
       s = -h/dvec3_maxnorm(data->x0_minus_xsrc0);
       xs = dvec3_saxpy(s, data->x0_minus_xsrc0, data->x0);
 
@@ -473,19 +467,14 @@ void update_nb(dial3_s *dial, int l, void *ptr) {
   dvec3 xsrc;
   update_status_e status = dial->update(dial, l, ptr, &Toff, &xsrc);
 
+  dvec3 x = get_x(dial->shape, dial->h, l);
+  dbl T = Toff + dvec3_dist(x, xsrc);
+
   // TODO: may want to add a little tolerance here to ensure we don't
   // mess with grad_T too much?
-  //
-  // TODO: we should only update if T_new < T_old --- don't compare
-  // values of Toff! If there are several "feasible" apparent
-  // source locations along the same line, this will choose the one
-  // with the *smallest* T value, which isn't what we want---we want
-  // the *largest* T value (so that is closest & hence "most apparent")
-  if (status == CAUSAL && Toff < dial->Toff[l]) {
+  if (status == CAUSAL && T < dial3_get_T(dial, l)) {
     dial->Toff[l] = Toff;
     dial->xsrc[l] = xsrc;
-    dvec3 x = get_x(dial->shape, dial->h, l);
-    dbl T = Toff + dvec3_dist(x, xsrc);
     int lb = get_lb(dial, T);
     if (lb != dial->lb[l]) {
       assert(dial->lb[l] == NO_INDEX || (dial->lb0 <= lb && lb < dial->lb[l]));
