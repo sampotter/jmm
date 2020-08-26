@@ -187,6 +187,30 @@ TEST_CASE ("Solving s = 1 on 1x5x5 L yields correct T and grad(T)",
     0,   h,       2*h,     3*h,                   4*h
   };
 
+  dbl Tx_gt[25] = {
+    NAN, NAN, NAN, 0, 0,
+    NAN, NAN, NAN, 0, 0,
+    NAN, NAN, NAN, 0, 0,
+      0,   0,   0, 0, 0,
+    NAN,   0,   0, 0, 0
+  };
+
+  dbl Ty_gt[25] = {
+    NAN,      NAN,      NAN,        -1,  -2/SQRT5,
+    NAN,      NAN,      NAN,        -1,  -SQRT2/2,
+    NAN,      NAN,      NAN,  -SQRT2/2,  -1/SQRT5,
+     -1, -SQRT2/2, -1/SQRT5, -1/SQRT10, -1/SQRT17,
+    NAN,        0,        0,         0,         0
+  };
+
+  dbl Tz_gt[25] = {
+    NAN,     NAN,     NAN,        0,  1/SQRT5,
+    NAN,     NAN,     NAN,        0,  SQRT2/2,
+    NAN,     NAN,     NAN,  SQRT2/2,  2/SQRT5,
+      0, SQRT2/2, 2/SQRT5, 3/SQRT10, 4/SQRT17,
+    NAN,       1,       1,        1,        1
+  };
+
   state_e *state = dial3_get_state_ptr(dial);
 
   for (int i = 0; i < 25; ++i) {
@@ -202,30 +226,30 @@ TEST_CASE ("Solving s = 1 on 1x5x5 L yields correct T and grad(T)",
 
     // TODO: enable this...
 
-    // dbl grad_T[3];
-    // dial3_get_grad_T(dial, i, grad_T);
+    dbl grad_T[3];
+    dial3_get_grad_T(dial, i, grad_T);
 
-    // dbl Tx = grad_T[0];
-    // dbl Ty = grad_T[1];
-    // dbl Tz = grad_T[2];
+    dbl Tx = grad_T[0];
+    dbl Ty = grad_T[1];
+    dbl Tz = grad_T[2];
 
-    // if (isnan(Tx_gt[i])) {
-    //   REQUIRE(isnan(Tx));
-    // } else {
-    //   REQUIRE(Tx == Approx(Tx_gt[i]));
-    // }
+    if (isnan(Tx_gt[i])) {
+      REQUIRE(isnan(Tx));
+    } else {
+      REQUIRE(Tx == Approx(Tx_gt[i]));
+    }
 
-    // if (isnan(Ty_gt[i])) {
-    //   REQUIRE(isnan(Ty));
-    // } else {
-    //   REQUIRE(Ty == Approx(Ty_gt[i]));
-    // }
+    if (isnan(Ty_gt[i])) {
+      REQUIRE(isnan(Ty));
+    } else {
+      REQUIRE(Ty == Approx(Ty_gt[i]));
+    }
 
-    // if (isnan(Tz_gt[i])) {
-    //   REQUIRE(isnan(Tz));
-    // } else {
-    //   REQUIRE(Tz == Approx(Tz_gt[i]));
-    // }
+    if (isnan(Tz_gt[i])) {
+      REQUIRE(isnan(Tz));
+    } else {
+      REQUIRE(Tz == Approx(Tz_gt[i]));
+    }
   }
 
   dial3_deinit(dial);
