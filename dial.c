@@ -342,6 +342,14 @@ update_constant(dial3_s const *dial, int l, void *ptr, dbl *Toff, dvec3 *xsrc) {
   ivec3 ind1 = dvec3_to_ivec3(dvec3_dbl_div(x1, h));
   int l1 = ind2l3(dial->shape, ind1);
   if (dial->state[l1] == BOUNDARY) {
+    // TODO: would it make sense to project xs along the
+    // same line in order to ensure that it also lies on
+    // an ADJACENT_TO_BOUNDARY edge? This seems promising---in
+    // a test I did where a ray diffracts around a corner,
+    // its z-component was initially correct. This might be
+    // the "recursive step" that we need to make this solver
+    // machine precision with the level set model of the domain
+    // that we're assuming.
     x1 = data->x0;
   } else if (in_hit_box) {
     *Toff = data->Toff0;
