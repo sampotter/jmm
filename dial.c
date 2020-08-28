@@ -225,6 +225,9 @@ update_constant(dial3_s const *dial, int l, void *ptr, dbl *Toff, dvec3 *xsrc) {
 
   dbl h = dial->h;
 
+  bool in_hit_box_is_set = false;
+  bool in_hit_box;
+
   // Compute xs. While we're at it, checking xsrc is ahead of any
   // possible wavefront passing through x0. If it is, return INFINITY here.
   // This involves checking the angle between x - x0 and xsrc - x0.
@@ -239,17 +242,21 @@ update_constant(dial3_s const *dial, int l, void *ptr, dbl *Toff, dvec3 *xsrc) {
       // If the dot product between dx and x0 - xsrc0 is zero,
       // then the projection is no longer well-defined.
       // Instead, we shrink x0 - xsrc onto the hit box.
-      s = -h/dvec3_maxnorm(data->x0_minus_xsrc0);
+      s = dvec3_maxnorm(data->x0_minus_xsrc0);
+      in_hit_box = s < 1 + EPS;
+      in_hit_box_is_set = true;
+      s = -h/s;
       xs = dvec3_saxpy(s, data->x0_minus_xsrc0, data->x0);
 
+      // TODO: figure out when we can uncomment this section...
       // We can compute Toff and xsrc immediately in this special case
       //
       // TODO: may not actually need to compute dist below... should be
       // able to just retrieve the distance from s when projecting onto
       // the hit box
-      *Toff = data->Toff0 + dvec3_dist(xs, data->xsrc0);
-      *xsrc = xs;
-      return CAUSAL;
+      // *Toff = data->Toff0 + dvec3_dist(xs, data->xsrc0);
+      // *xsrc = xs;
+      // return CAUSAL;
     } else {
       s /= dvec3_dot(dx, t);
       xs = dvec3_saxpy(s, t, data->xsrc0);
@@ -277,7 +284,9 @@ update_constant(dial3_s const *dial, int l, void *ptr, dbl *Toff, dvec3 *xsrc) {
 
   dvec3 xs_minus_x0 = dvec3_sub(xs, data->x0);
   dbl xs_minus_x0_maxnorm = dvec3_maxnorm(xs_minus_x0);
-  bool in_hit_box = xs_minus_x0_maxnorm < h + EPS;
+  if (!in_hit_box_is_set) {
+    in_hit_box = xs_minus_x0_maxnorm < h + EPS;
+  }
 
   if (dial->state[l] != ADJACENT_TO_BOUNDARY) { // TODO: explain this shortcut!
     if (in_hit_box) {
