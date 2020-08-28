@@ -380,8 +380,12 @@ error_e dial3_init(dial3_s *dial, stype_e stype, int const *shape, dbl h) {
     dial->Toff[i] = INFINITY;
   }
 
-  // xsrc is initialized with garbage
+  // Initialize xsrc to zero so that get_T works correctly
+  // while solving. If any component of xsrc is initialized
+  // to NaN, the check "T < get_T" will evaluate to false
+  // erroneously in some cases.
   dial->xsrc = malloc(sizeof(dvec3)*dial->size);
+  memset((void *)dial->xsrc, 0x0, sizeof(dvec3)*dial->size);
 
   dial->state = malloc(sizeof(state_e)*dial->size);
   for (size_t i = 0; i < dial->size; ++i) {
