@@ -41,7 +41,7 @@ set (JMM_SRCS
   vec.c
   )
 
-add_library (jmm STATIC ${JMM_SRCS})
+add_library (jmm SHARED ${JMM_SRCS})
 if (IPO_SUPPORTED)
   set_property (TARGET jmm PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
 endif ()
