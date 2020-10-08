@@ -619,7 +619,8 @@ bool dial3_step(dial3_s *dial) {
   while (bucket_get_size(bucket) > 0) {
     l0 = bucket_pop(bucket);
     assert(dial->state[l0] != BOUNDARY);
-    // NOTE: a node can exist in multiple buckets
+    // NOTE: logically, a node can exist in multiple buckets. Not sure
+    // if this will ever actually happen.
     if (dial->state[l0] == VALID) {
       continue;
     }

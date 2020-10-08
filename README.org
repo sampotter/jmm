@@ -17,13 +17,29 @@
 
 ** Compilation
 
-*** Compiling the C library
+*** Using the C library
 
+    To compile the C library and run the tests, do  the following:
  #+BEGIN_SRC sh
 $ mkdir build
 $ cd build
 $ cmake -DCMAKE_BUILD_TYPE=Release
 $ make
+$ ctest
+#+END_SRC
+    Afterwards, to install the library, run:
+ #+BEGIN_SRC sh
+$ sudo make install
+#+END_SRC
+    This uses the default generated Makefiles, and will install a CMake config
+    file which can be used to find libjmm from another CMake project. For example,
+    from another project's CMakeLists.txt file:
+#+BEGIN_SRC cmake
+...
+find_package (JMM REQUIRED)
+...
+target_link_libraries (my_target PRIVATE jmm)
+...
 #+END_SRC
 
 *** Compiling the Python wrapper library

@@ -35,14 +35,14 @@ cdef extern from "dial.h":
     error dial3_init(dial3 *dial, stype stype, const int *shape, dbl h)
     void dial3_deinit(dial3 *dial)
     void dial3_dealloc(dial3 **dial)
-    void dial3_add_point_source(dial3 *dial, const int *ind0, dbl T0)
+    void dial3_add_point_source(dial3 *dial, const int *ind0, dbl T)
     void dial3_add_boundary_points(dial3 *dial, const int *inds, size_t n)
     bool dial3_step(dial3 *dial)
     void dial3_solve(dial3 *dial)
     dbl dial3_get_T(const dial3 *dial, int l)
-    dbl *dial3_get_T_ptr(const dial3 *dial)
     void dial3_get_grad_T(const dial3 *dial, int l, dbl *grad_T)
-    dbl *dial3_get_grad_T_ptr(const dial3 *dial)
+    dbl *dial3_get_Toff_ptr(const dial3 *dial)
+    dbl *dial3_get_xsrc_ptr(const dial3 *dial)
     state *dial3_get_state_ptr(const dial3 *dial)
 
 cdef class ArrayView:
@@ -91,8 +91,8 @@ cdef class _Dial3:
     cdef:
         dial3 *dial
         Py_ssize_t shape[3]
-        ArrayView T_view
-        ArrayView grad_T_view
+        ArrayView Toff_view
+        ArrayView xsrc_view
         ArrayView state_view
 
     def __cinit__(self, stype stype, int[:] shape, dbl h):
@@ -110,31 +110,31 @@ cdef class _Dial3:
         base_strides[1] = self.shape[2]
         base_strides[0] = self.shape[2]*self.shape[1]
 
-        self.T_view = ArrayView(3)
-        self.T_view.readonly = False
-        self.T_view.ptr = <void *>dial3_get_T_ptr(self.dial)
-        self.T_view.shape[0] = self.shape[0]
-        self.T_view.shape[1] = self.shape[1]
-        self.T_view.shape[2] = self.shape[2]
-        self.T_view.strides[0] = sizeof(dbl)*base_strides[0]
-        self.T_view.strides[1] = sizeof(dbl)*base_strides[1]
-        self.T_view.strides[2] = sizeof(dbl)*base_strides[2]
-        self.T_view.format = 'd'
-        self.T_view.itemsize = sizeof(dbl)
+        self.Toff_view = ArrayView(3)
+        self.Toff_view.readonly = False
+        self.Toff_view.ptr = <void *>dial3_get_Toff_ptr(self.dial)
+        self.Toff_view.shape[0] = self.shape[0]
+        self.Toff_view.shape[1] = self.shape[1]
+        self.Toff_view.shape[2] = self.shape[2]
+        self.Toff_view.strides[0] = sizeof(dbl)*base_strides[0]
+        self.Toff_view.strides[1] = sizeof(dbl)*base_strides[1]
+        self.Toff_view.strides[2] = sizeof(dbl)*base_strides[2]
+        self.Toff_view.format = 'd'
+        self.Toff_view.itemsize = sizeof(dbl)
 
-        self.grad_T_view = ArrayView(4)
-        self.grad_T_view.readonly = False
-        self.grad_T_view.ptr = <void *>dial3_get_grad_T_ptr(self.dial)
-        self.grad_T_view.shape[0] = self.shape[0]
-        self.grad_T_view.shape[1] = self.shape[1]
-        self.grad_T_view.shape[2] = self.shape[2]
-        self.grad_T_view.shape[3] = 3
-        self.grad_T_view.strides[0] = 4*sizeof(dbl)*base_strides[0]
-        self.grad_T_view.strides[1] = 4*sizeof(dbl)*base_strides[1]
-        self.grad_T_view.strides[2] = 4*sizeof(dbl)*base_strides[2]
-        self.grad_T_view.strides[3] = sizeof(dbl)
-        self.grad_T_view.format = 'd'
-        self.grad_T_view.itemsize = sizeof(dbl)
+        self.xsrc_view = ArrayView(4)
+        self.xsrc_view.readonly = False
+        self.xsrc_view.ptr = <void *>dial3_get_xsrc_ptr(self.dial)
+        self.xsrc_view.shape[0] = self.shape[0]
+        self.xsrc_view.shape[1] = self.shape[1]
+        self.xsrc_view.shape[2] = self.shape[2]
+        self.xsrc_view.shape[3] = 3
+        self.xsrc_view.strides[0] = 4*sizeof(dbl)*base_strides[0]
+        self.xsrc_view.strides[1] = 4*sizeof(dbl)*base_strides[1]
+        self.xsrc_view.strides[2] = 4*sizeof(dbl)*base_strides[2]
+        self.xsrc_view.strides[3] = sizeof(dbl)
+        self.xsrc_view.format = 'd'
+        self.xsrc_view.itemsize = sizeof(dbl)
 
         self.state_view = ArrayView(3)
         self.state_view.readonly = False
@@ -152,8 +152,8 @@ cdef class _Dial3:
         dial3_deinit(self.dial)
         dial3_dealloc(&self.dial)
 
-    def add_point_source(self, int[:] ind0, dbl T0):
-        dial3_add_point_source(self.dial, &ind0[0], T0)
+    def add_point_source(self, int[:] ind0, dbl Toff):
+        dial3_add_point_source(self.dial, &ind0[0], Toff)
 
     def add_boundary_points(self, int[::1, :] inds):
         # TODO: handle the case where inds is in a weird format
@@ -168,12 +168,12 @@ cdef class _Dial3:
         dial3_solve(self.dial)
 
     @property
-    def T(self):
-        return self.T_view
+    def Toff(self):
+        return self.Toff_view
 
     @property
-    def grad_T(self):
-        return self.grad_T_view
+    def xsrc(self):
+        return self.xsrc_view
 
     @property
     def state(self):
@@ -194,10 +194,14 @@ class Dial:
 
     def __init__(self, stype, shape, h):
         self.shape = shape
-        self._dial = _Dial3(stype.value, array.array('i', [*shape]), h)
+        self.h = h
+        if len(self.shape) == 3:
+            self._dial = _Dial3(stype.value, array.array('i', [*shape]), h)
+        else:
+            raise Exception('len(shape) == %d not supported yet' % len(shape))
 
-    def add_point_source(self, ind0, T0):
-        self._dial.add_point_source(array.array('i', [*ind0]), T0)
+    def add_point_source(self, ind0, Toff):
+        self._dial.add_point_source(array.array('i', [*ind0]), Toff)
 
     def add_boundary_points(self, inds):
         self._dial.add_boundary_points(inds)
@@ -209,24 +213,34 @@ class Dial:
         self._dial.solve()
 
     @property
+    def _x(self):
+        x = np.linspace(0, self.h*self.shape[0], self.shape[0])
+        return x.reshape(self.shape[0], 1, 1)
+
+    @property
+    def _y(self):
+        y = np.linspace(0, self.h*self.shape[1], self.shape[1])
+        return y.reshape(1, self.shape[1], 1)
+
+    @property
+    def _z(self):
+        z = np.linspace(0, self.h*self.shape[2], self.shape[2])
+        return z.reshape(1, 1, self.shape[2])
+
+    @property
     def T(self):
-        return np.asarray(self._dial.T)
+        dx = self._x - self.xsrc[:, :, :, 0]
+        dy = self._y - self.xsrc[:, :, :, 1]
+        dz = self._z - self.xsrc[:, :, :, 2]
+        return self.Toff + np.sqrt(dx**2 + dy**2 + dz**2)
 
     @property
-    def grad_T(self):
-        return np.asarray(self._dial.grad_T)
+    def Toff(self):
+        return np.asarray(self._dial.Toff)
 
     @property
-    def Tx(self):
-        return self.grad_T[:, :, :, 0]
-
-    @property
-    def Ty(self):
-        return self.grad_T[:, :, :, 1]
-
-    @property
-    def Tz(self):
-        return self.grad_T[:, :, :, 2]
+    def xsrc(self):
+        return np.asarray(self._dial.xsrc)
 
     @property
     def state(self):

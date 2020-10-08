@@ -367,3 +367,63 @@ TEST_CASE ("Solving s = 1 on 3x3x3 L yields correct T and grad(T)",
   dial3_deinit(dial);
   dial3_dealloc(&dial);
 }
+
+TEST_CASE ("Solving s = 1 on 1x4x6 L yields correct T and grad(T)",
+           "[dial3]") {
+  using namespace Catch::literals;
+
+  stype_e stype = CONSTANT;
+  dbl h = 0.5;
+  int shape[3] = {1, 4, 6};
+  int ind0[3] = {0, 3, 0};
+
+  int inds[27] = {
+    0, 0, 0,
+    0, 0, 1,
+    0, 0, 2,
+    0, 1, 0,
+    0, 1, 1,
+    0, 1, 2,
+    0, 2, 0,
+    0, 2, 1,
+    0, 2, 2
+  };
+
+  dial3_s *dial;
+  dial3_alloc(&dial);
+  dial3_init(dial, stype, shape, h);
+  dial3_add_boundary_points(dial, inds, 9);
+  dial3_add_point_source(dial, ind0, 0);
+  dial3_solve(dial);
+
+  state_e state_gt[24] = {
+    BOUNDARY, BOUNDARY, BOUNDARY, VALID, VALID, VALID,
+    BOUNDARY, BOUNDARY, BOUNDARY, VALID, VALID, VALID,
+    BOUNDARY, BOUNDARY, BOUNDARY, VALID, VALID, VALID,
+    VALID,    VALID,    VALID,    VALID, VALID, VALID
+  };
+
+  dbl T_gt[24] = {
+    NAN, NAN, NAN, (4 + SQRT2)*h, (2 + SQRT2 + SQRT5)*h, (2 + 3*SQRT2)*h,
+    NAN, NAN, NAN, (3 + SQRT2)*h, (2 + 2*SQRT2)*h,       (2 + SQRT13)*h,
+    NAN, NAN, NAN, (2 + SQRT2)*h, (2 + SQRT5)*h,         (2 + SQRT10)*h,
+    0,   h,   2*h, 3*h,           4*h,                   5*h
+  };
+
+  state_e *state = dial3_get_state_ptr(dial);
+
+  for (int i = 0; i < 24; ++i) {
+    REQUIRE(state[i] == state_gt[i]);
+
+    dbl T = dial3_get_T(dial, i);
+
+    if (isnan(T_gt[i])) {
+      REQUIRE(isnan(T));
+    } else {
+      REQUIRE(T == Approx(T_gt[i]));
+    }
+  }
+
+  dial3_deinit(dial);
+  dial3_dealloc(&dial);
+}
