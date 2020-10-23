@@ -1,9 +1,9 @@
-cmake_minimum_required (VERSION 3.18.2)
+cmake_minimum_required (VERSION 3.16.3)
 
 include (CheckIPOSupported)
 check_ipo_supported (RESULT IPO_SUPPORTED)
 
-project (jmm VERSION 0.1.1)
+project (jmm LANGUAGES C CXX VERSION 0.1.1)
 
 set (INSTALL_INCLUDE_DIR include)
 set (INSTALL_LIB_DIR lib)
@@ -86,8 +86,8 @@ add_executable (tests
   test_dial.cpp
   test_vec.cpp
   )
-target_link_libraries (tests Catch2::Catch2)
-target_link_libraries (tests jmm)
+target_link_libraries (tests PRIVATE Catch2::Catch2)
+target_link_libraries (tests PRIVATE jmm)
 if (IPO_SUPPORTED)
   set_property (TARGET tests PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
 endif ()
@@ -146,7 +146,7 @@ install (FILES
   )
 
 include (InstallRequiredSystemLibraries)
-set (CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/License.txt")
+set (CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE.txt")
 set (CPACK_PACKAGE_VERSION_MAJOR "${jmm_VERSION_MAJOR}")
 set (CPACK_PACKAGE_VERSION_MINOR "${jmm_VERSION_MINOR}")
 include (CPack)

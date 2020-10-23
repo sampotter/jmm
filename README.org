@@ -17,6 +17,12 @@
 
 ** Compilation
 
+*** Requirements
+
+    The unit tests depend on the [[https://github.com/catchorg/Catch2/][Catch2]] library. Make sure to install
+    the ~v2.x~ branch. The Catch2 ~master~ branch is now version 3 and
+    includes breaking changes.
+
 *** Using the C library
 
     To compile the C library and run the tests, do  the following:
