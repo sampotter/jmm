@@ -15,6 +15,15 @@ typedef struct field2 {
 dbl field2_f(field2_s const *field, dvec2 xy);
 dvec2 field2_grad_f(field2_s const *field, dvec2 xy);
 
+typedef struct field3 {
+  dbl(*f)(dvec3, void*);
+  dvec3(*grad_f)(dvec3, void*);
+  void *context;
+} field3_s;
+
+dbl field3_f(field3_s const *field, dvec3 p);
+dvec3 field3_grad_f(field3_s const *field, dvec3 p);
+
 #ifdef __cplusplus
 }
 #endif
