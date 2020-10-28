@@ -15,6 +15,11 @@ set (CMAKE_MODULE_PATH
 
 find_package (Sanitizers)
 
+find_package (OpenMP)
+if (NOT OpenMP_C_FOUND)
+  message (WARNING "Failed to find OpenMP!")
+endif ()
+
 set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIC -Wall -Wextra -Werror -mavx")
 set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC -Wall -Wextra -Werror -mavx")
 
@@ -32,21 +37,26 @@ set (JMM_SRCS
   eik_F3.c
   eik_F4.c
   eik_S4.c
+  eik3.c
   field.c
   heap.c
   hybrid.c
   index.c
   mat.c
   math.c
+  mesh3.c
   vec.c
   )
 
-add_library (jmm SHARED ${JMM_SRCS})
+add_library (jmm STATIC ${JMM_SRCS})
 if (IPO_SUPPORTED)
   set_property (TARGET jmm PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
 endif ()
 if (UNIX)
-  target_link_libraries (jmm m)
+  target_link_libraries (jmm PRIVATE m)
+endif ()
+if (OpenMP_C_FOUND)
+  target_link_libraries (jmm PRIVATE OpenMP::OpenMP_C)
 endif ()
 add_sanitizers (jmm)
 target_include_directories (
