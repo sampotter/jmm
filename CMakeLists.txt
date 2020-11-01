@@ -5,6 +5,8 @@ check_ipo_supported (RESULT IPO_SUPPORTED)
 
 project (jmm LANGUAGES C CXX VERSION 0.1.1)
 
+option (BUILD_TESTS "Build Catch2 unit tests")
+
 set (INSTALL_INCLUDE_DIR include)
 set (INSTALL_LIB_DIR lib)
 
@@ -65,57 +67,36 @@ target_include_directories (
   $<INSTALL_INTERFACE:${INSTALL_INCLUDE_DIR}>
   )
 
-# Masha's library
-
-set (MASHA_LIB_SRCS
-  JMMversion3.c
-  mesh.c
-  BucketSort.c
-  HeapSort.c
-  QuickSort.c
-  JMMupdates.c
-  linear_algebra.c
-  slowness_and_uexact.c
-  Newton.c
-  )
-
-add_executable (JMMversion3 ${MASHA_LIB_SRCS})
-if (IPO_SUPPORTED)
-  set_property (TARGET JMMversion3 PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
-endif ()
-if (UNIX)
-  target_link_libraries (JMMversion3 m)
-endif ()
-add_sanitizers (JMMversion3)
-
 # Unit tests
 
-find_package (Catch2 REQUIRED)
-add_executable (tests
-  test_main.cpp
-  test_dial.cpp
-  test_vec.cpp
-  )
-target_link_libraries (tests PRIVATE Catch2::Catch2)
-target_link_libraries (tests PRIVATE jmm)
-if (IPO_SUPPORTED)
-  set_property (TARGET tests PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
-endif ()
-add_sanitizers (tests)
+if (BUILD_TESTS)
+  find_package (Catch2 REQUIRED)
+  add_executable (tests
+    test_main.cpp
+    test_dial.cpp
+    test_vec.cpp
+    )
+  target_link_libraries (tests PRIVATE Catch2::Catch2)
+  target_link_libraries (tests PRIVATE jmm)
+  if (IPO_SUPPORTED)
+    set_property (TARGET tests PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
+  endif ()
+  add_sanitizers (tests)
 
-include (CTest)
-include (Catch)
-catch_discover_tests (tests)
-if (IPO_SUPPORTED)
-  set_property (TARGET dial PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
-endif ()
+  include (CTest)
+  include (Catch)
+  catch_discover_tests (tests)
+  if (IPO_SUPPORTED)
+    set_property (TARGET dial PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
+  endif ()
 
-add_executable (main main.c)
-target_link_libraries (main jmm)
-if (IPO_SUPPORTED)
-  set_property (TARGET main PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
+  add_executable (main main.c)
+  target_link_libraries (main jmm)
+  if (IPO_SUPPORTED)
+    set_property (TARGET main PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
+  endif ()
+  add_sanitizers (main)
 endif ()
-add_sanitizers (main)
 
 #
 # Installation and packaging
