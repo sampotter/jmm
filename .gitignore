@@ -3,12 +3,15 @@
 *.eggs
 *.idea
 *.ipynb_checkpoints
+*.so
 *~
+.DS_Store
 .DS_Store
 GPATH
 GRTAGS
 GTAGS
 __pycache__
+a.out
 build*
 callgrind.out.*
 cmake-build-debug
@@ -17,5 +20,4 @@ dists
 jmm.c
 scratch
 vgcore.*
-a.out
-.DS_Store
+*.vtu
