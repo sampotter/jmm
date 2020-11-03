@@ -25,6 +25,9 @@ int mesh3_nve(mesh3_s const *mesh, size_t i);
 void mesh3_ve(mesh3_s const *mesh, size_t i, size_t *ve);
 int mesh3_nvf(mesh3_s const *mesh, size_t i);
 void mesh3_vf(mesh3_s const *mesh, size_t i, size_t *vf);
+int mesh3_ncc(mesh3_s const *mesh, size_t i);
+void mesh3_cc(mesh3_s const *mesh, size_t i, size_t *cc);
+bool mesh3_bdc(mesh3_s const *mesh, size_t i);
 
 #ifdef __cplusplus
 }

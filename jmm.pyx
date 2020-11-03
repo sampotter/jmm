@@ -269,6 +269,9 @@ cdef extern from "mesh3.h":
     void mesh3_vf(mesh3 *mesh, size_t i, size_t *vf)
     int mesh3_nvc(mesh3 *mesh, size_t i)
     void mesh3_vc(mesh3 *mesh, size_t i, size_t *vc)
+    int mesh3_ncc(mesh3 *mesh, size_t i)
+    void mesh3_cc(mesh3 *mesh, size_t i, size_t *cc)
+    bool mesh3_bdc(mesh3 *mesh, size_t i)
 
 
 cdef class Mesh3:
@@ -308,3 +311,12 @@ cdef class Mesh3:
         cdef size_t[::1] vc = np.empty((nvc,), dtype=np.uintp)
         mesh3_vc(self.mesh, i, &vc[0])
         return np.asarray(vc)
+
+    def cc(self, size_t i):
+        cdef int ncc = mesh3_ncc(self.mesh, i)
+        cdef size_t[::1] cc = np.empty((ncc,), dtype=np.uintp)
+        mesh3_cc(self.mesh, i, &cc[0])
+        return np.asarray(cc)
+
+    def bdc(self, size_t i):
+        return mesh3_bdc(self.mesh, i)

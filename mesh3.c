@@ -262,7 +262,7 @@ int mesh3_nvf(mesh3_s const *mesh, size_t i) {
 }
 
 void mesh3_vf(mesh3_s const *mesh, size_t i, size_t *vf) {
-  int nvc = mesh3_nvf(mesh, i);
+  int nvc = mesh3_nvc(mesh, i);
   size_t *vc = malloc(sizeof(size_t)*nvc);
   mesh3_vc(mesh, i, vc);
 
@@ -284,4 +284,87 @@ void mesh3_vf(mesh3_s const *mesh, size_t i, size_t *vf) {
   }
 
   free(vc);
+}
+
+static int num_shared_verts(ind4 const *c1, ind4 const *c2) {
+  // TODO: speed up using SIMD?
+  int n = 0;
+  for (int p = 0; p < 4; ++p) {
+    for (int q = 0; q < 4; ++q) {
+      if (c1->data[p] == c2->data[q]) {
+        ++n;
+        continue;
+      }
+    }
+  }
+  return n;
+}
+
+int mesh3_ncc(mesh3_s const *mesh, size_t i) {
+  ind4 c = mesh->cells[i];
+
+  int nvc[4], max_nvc = -1;
+  for (int p = 0; p < 4; ++p) {
+    nvc[p] = mesh3_nvc(mesh, c.data[p]);
+    if (nvc[p] > max_nvc) max_nvc = nvc[p];
+  }
+
+  size_t *vc = malloc(sizeof(size_t)*max_nvc);
+
+  size_t *cc = malloc(4*sizeof(size_t));
+
+  int ncc = 0;
+
+  size_t j, k;
+  for (int p = 0; p < 4; ++p) {
+    j = c.data[p];
+    mesh3_vc(mesh, j, vc);
+    for (int q = 0; q < nvc[p]; ++q) {
+      k = vc[q];
+      if (i != k
+          && num_shared_verts(&c, &mesh->cells[k]) == 3
+          && !contains(cc, ncc, &k, sizeof(size_t))) {
+        cc[ncc++] = k;
+      }
+    }
+  }
+
+  free(cc);
+  free(vc);
+
+  return ncc;
+}
+
+void mesh3_cc(mesh3_s const *mesh, size_t i, size_t *cc) {
+  ind4 c = mesh->cells[i];
+
+  int nvc[4], max_nvc = -1;
+  for (int p = 0; p < 4; ++p) {
+    nvc[p] = mesh3_nvc(mesh, c.data[p]);
+    if (nvc[p] > max_nvc) max_nvc = nvc[p];
+  }
+
+  size_t *vc = malloc(sizeof(size_t)*max_nvc);
+
+  int ncc = 0;
+
+  size_t j, k;
+  for (int p = 0; p < 4; ++p) {
+    j = c.data[p];
+    mesh3_vc(mesh, j, vc);
+    for (int q = 0; q < nvc[p]; ++q) {
+      k = vc[q];
+      if (i != k
+          && num_shared_verts(&c, &mesh->cells[k]) == 3
+          && !contains(cc, ncc, &k, sizeof(size_t))) {
+        cc[ncc++] = k;
+      }
+    }
+  }
+
+  free(vc);
+}
+
+bool mesh3_bdc(mesh3_s const *mesh, size_t i) {
+  return mesh3_ncc(mesh, i) < 4;
 }
