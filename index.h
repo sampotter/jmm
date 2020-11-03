@@ -6,6 +6,18 @@ extern "C" {
 
 #include "vec.h"
 
+typedef struct {
+  size_t data[2];
+} ind2;
+
+typedef struct {
+  size_t data[3];
+} ind3;
+
+typedef struct {
+  size_t data[4];
+} ind4;
+
 int ind2l(ivec2 shape, ivec2 ind);
 int ind2lc(ivec2 shape, ivec2 ind);
 int indc2l(ivec2 shape, ivec2 indc);

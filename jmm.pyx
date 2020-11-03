@@ -247,6 +247,11 @@ class Dial:
         return np.asarray(self._dial.state)
 
 
+cdef extern from "index.h":
+    cdef struct ind2:
+        size_t data[2]
+
+
 cdef extern from "mesh3.h":
     struct mesh3:
         pass
@@ -254,27 +259,52 @@ cdef extern from "mesh3.h":
     void mesh3_dealloc(mesh3 **mesh)
     void mesh3_init(mesh3 *mesh,
                     dbl *verts, size_t nverts,
-                    int *cells, size_t ncells)
+                    size_t *cells, size_t ncells)
     void mesh3_deinit(mesh3 *mesh)
+    int mesh3_nvv(mesh3 *mesh, size_t i)
+    void mesh3_vv(mesh3 *mesh, size_t i, size_t *vv)
+    int mesh3_nve(mesh3 *mesh, size_t i)
+    void mesh3_ve(mesh3 *mesh, size_t i, size_t *ve)
+    int mesh3_nvf(mesh3 *mesh, size_t i)
+    void mesh3_vf(mesh3 *mesh, size_t i, size_t *vf)
+    int mesh3_nvc(mesh3 *mesh, size_t i)
+    void mesh3_vc(mesh3 *mesh, size_t i, size_t *vc)
 
 
 cdef class Mesh3:
     cdef:
         mesh3 *mesh
 
-    def __cinit__(self, dbl[:, ::1] verts, int[:, ::1] cells):
-        print('__cinit__')
-
+    def __cinit__(self, dbl[:, ::1] verts, size_t[:, ::1] cells):
         mesh3_alloc(&self.mesh)
-
         cdef size_t nverts = verts.shape[0]
         cdef size_t ncells = cells.shape[0]
         mesh3_init(self.mesh, &verts[0, 0], nverts, &cells[0, 0], ncells)
 
-        print('returning from __cinit__')
+    def __dealloc__(self):
+        mesh3_deinit(self.mesh)
+        mesh3_dealloc(&self.mesh)
 
-    # def __dealloc__(self):
-    #     print('__dealloc__')
+    def vv(self, size_t i):
+        cdef int nvv = mesh3_nvv(self.mesh, i)
+        cdef size_t[::1] vv = np.empty((nvv,), dtype=np.uintp)
+        mesh3_vv(self.mesh, i, &vv[0])
+        return np.asarray(vv)
 
-    #     mesh3_deinit(self.mesh)
-    #     mesh3_dealloc(&self.mesh)
+    def ve(self, size_t i):
+        cdef int nve = mesh3_nve(self.mesh, i)
+        cdef size_t[:, ::1] ve = np.empty((nve, 2), dtype=np.uintp)
+        mesh3_ve(self.mesh, i, &ve[0, 0])
+        return np.asarray(ve)
+
+    def vf(self, size_t i):
+        cdef int nvf = mesh3_nvf(self.mesh, i)
+        cdef size_t[:, ::1] vf = np.empty((nvf, 3), dtype=np.uintp)
+        mesh3_vf(self.mesh, i, &vf[0, 0])
+        return np.asarray(vf)
+
+    def vc(self, size_t i):
+        cdef int nvc = mesh3_nvc(self.mesh, i)
+        cdef size_t[::1] vc = np.empty((nvc,), dtype=np.uintp)
+        mesh3_vc(self.mesh, i, &vc[0])
+        return np.asarray(vc)
