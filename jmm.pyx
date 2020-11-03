@@ -28,6 +28,19 @@ cdef extern from "def.h":
         SUCCESS
         BAD_ARGUMENT
 
+cdef extern from "immintrin.h":
+    ctypedef double __m256d
+
+cdef extern from "vec.h":
+    ctypedef struct dvec3:
+        dbl data[4]
+        __m256d packed
+
+cdef extern from "bb.h":
+    void bb3tri_interp3(dbl *f, dvec3 *Df, dvec3 *x, dbl *c)
+    dbl bb3tri(dbl *c, dbl *b)
+    dbl dbb3tri(dbl *c, dbl *b, dbl *a)
+
 cdef extern from "dial.h":
     cdef struct dial3:
         pass
@@ -86,6 +99,34 @@ cdef class ArrayView:
         for i in range(self.ndim):
             size *= self.shape[i]
         return size
+
+
+cdef class Bb3Tri:
+    cdef:
+        dbl[::1] c
+
+    def __cinit__(self, dbl[::1] f, dbl[:, ::1] Df, dbl[:, ::1] x):
+        self.c = np.empty((10,), dtype=np.float64)
+
+        cdef int i, j
+
+        cdef dvec3 Df_[3]
+        for i in range(3):
+            for j in range(3):
+                Df_[i].data[j] = Df[i, j]
+
+        cdef dvec3 x_[3]
+        for i in range(3):
+            for j in range(3):
+                x_[i].data[j] = x[i, j]
+
+        bb3tri_interp3(&f[0], Df_, x_, &self.c[0])
+
+    def f(self, dbl[::1] b):
+        return bb3tri(&self.c[0], &b[0])
+
+    def Df(self, dbl[::1] b, dbl[::1] a):
+        return dbb3tri(&self.c[0], &b[0], &a[0])
 
 cdef class _Dial3:
     cdef:
