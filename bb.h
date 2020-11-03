@@ -6,9 +6,15 @@ extern "C" {
 
 #include "def.h"
 
-dbl bb3(roptr(dbl) c, roptr(dbl) b);
-dbl bb3tri(roptr(dbl) c, roptr(dbl) b);
-dbl bb3tet(roptr(dbl) c, roptr(dbl) b);
+dbl bb3(dbl const *c, dbl const *b);
+dbl dbb3(dbl const *c, dbl const *b, dbl const *a);
+dbl d2bb3(dbl const *c, dbl const *b, dbl const *a);
+
+void bb3tri_interp3(dbl const *f, dvec3 const *Df, dvec3 const *x, dbl *c);
+dbl bb3tri(dbl const *c, dbl const *b);
+dbl dbb3tri(dbl const *c, dbl const *b, dbl const *a);
+
+dbl bb3tet(dbl const *c, dbl const *b);
 
 #ifdef __cplusplus
 }

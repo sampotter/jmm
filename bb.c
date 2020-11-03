@@ -145,7 +145,7 @@
 #define TET0012 18
 #define TET0003 19
 
-dbl bb3(roptr(dbl) c, roptr(dbl) b) {
+dbl bb3(dbl const *c, dbl const *b) {
   dbl tmp[3];
 
   tmp[0] = b[0]*c[0] + b[1]*c[1];
@@ -158,7 +158,49 @@ dbl bb3(roptr(dbl) c, roptr(dbl) b) {
   return b[0]*tmp[0] + b[1]*tmp[1];
 }
 
-dbl bb3tri(roptr(dbl) c, roptr(dbl) b) {
+dbl dbb3(dbl const *c, dbl const *b, dbl const *a) {
+  dbl tmp[3];
+
+  tmp[0] = b[0]*c[0] + b[1]*c[1];
+  tmp[1] = b[0]*c[1] + b[1]*c[2];
+  tmp[2] = b[0]*c[2] + b[1]*c[3];
+
+  tmp[0] = b[0]*tmp[0] + b[1]*tmp[1];
+  tmp[1] = b[0]*tmp[1] + b[1]*tmp[2];
+
+  return a[0]*tmp[0] + a[1]*tmp[1];
+}
+
+dbl d2bb3(dbl const *c, dbl const *b, dbl const *a) {
+  dbl tmp[3];
+
+  tmp[0] = b[0]*c[0] + b[1]*c[1];
+  tmp[1] = b[0]*c[1] + b[1]*c[2];
+  tmp[2] = b[0]*c[2] + b[1]*c[3];
+
+  tmp[0] = a[0]*tmp[0] + a[1]*tmp[1];
+  tmp[1] = a[0]*tmp[1] + a[1]*tmp[2];
+
+  return a[0]*tmp[0] + a[1]*tmp[1];
+}
+
+void bb3tri_interp3(dbl const *f, dvec3 const *Df, dvec3 const *x, dbl *c) {
+  c[TRI300] = f[0];
+  c[TRI030] = f[1];
+  c[TRI003] = f[2];
+
+  c[TRI210] = c[TRI300] + dvec3_dot(Df[TRI100], dvec3_sub(x[TRI010] - x[TRI100]))/3;
+  c[TRI201] = c[TRI300] + dvec3_dot(Df[TRI100], dvec3_sub(x[TRI001] - x[TRI100]))/3;
+  c[TRI120] = c[TRI030] + dvec3_dot(Df[TRI010], dvec3_sub(x[TRI100] - x[TRI010]))/3;
+  c[TRI021] = c[TRI030] + dvec3_dot(Df[TRI010], dvec3_sub(x[TRI001] - x[TRI010]))/3;
+  c[TRI012] = c[TRI003] + dvec3_dot(Df[TRI001], dvec3_sub(x[TRI010] - x[TRI001]))/3;
+  c[TRI102] = c[TRI003] + dvec3_dot(Df[TRI001], dvec3_sub(x[TRI100] - x[TRI001]))/3;
+
+  c[TRI111] = (c[TRI210] + c[TRI201] + c[TRI120] + c[TRI021] + c[TRI012] + c[TRI102])/4
+    - (c[TRI300] + c[TRI030] + c[TRI003])/6;
+}
+
+dbl bb3tri(dbl const *c, dbl const *b) {
   dbl tmp[6];
 
   tmp[TRI200] = b[TRI100]*c[TRI300] + b[TRI010]*c[TRI210] + b[TRI001]*c[TRI201];
@@ -175,7 +217,41 @@ dbl bb3tri(roptr(dbl) c, roptr(dbl) b) {
   return b[TRI100]*tmp[TRI100] + b[TRI010]*tmp[TRI010] + b[TRI001]*tmp[TRI001];
 }
 
-dbl bb3tet(roptr(dbl) c, roptr(dbl) b) {
+dbl dbb3tri(dbl const *c, dbl const *b, dbl const *a) {
+  dbl tmp[6];
+
+  tmp[TRI200] = b[TRI100]*c[TRI300] + b[TRI010]*c[TRI210] + b[TRI001]*c[TRI201];
+  tmp[TRI110] = b[TRI100]*c[TRI210] + b[TRI010]*c[TRI120] + b[TRI001]*c[TRI111];
+  tmp[TRI020] = b[TRI100]*c[TRI120] + b[TRI010]*c[TRI030] + b[TRI001]*c[TRI021];
+  tmp[TRI101] = b[TRI100]*c[TRI201] + b[TRI010]*c[TRI111] + b[TRI001]*c[TRI102];
+  tmp[TRI011] = b[TRI100]*c[TRI111] + b[TRI010]*c[TRI021] + b[TRI001]*c[TRI012];
+  tmp[TRI002] = b[TRI100]*c[TRI102] + b[TRI010]*c[TRI012] + b[TRI001]*c[TRI003];
+
+  tmp[TRI100] = b[TRI100]*tmp[TRI200] + b[TRI010]*tmp[TRI110] + b[TRI001]*tmp[TRI101];
+  tmp[TRI010] = b[TRI100]*tmp[TRI110] + b[TRI010]*tmp[TRI020] + b[TRI001]*tmp[TRI011];
+  tmp[TRI001] = b[TRI100]*tmp[TRI101] + b[TRI010]*tmp[TRI011] + b[TRI001]*tmp[TRI002];
+
+  return a[TRI100]*tmp[TRI100] + a[TRI010]*tmp[TRI010] + a[TRI001]*tmp[TRI001];
+}
+
+dbl d2bb3tri(dbl const *c, dbl const *b, dbl const *a) {
+  dbl tmp[6];
+
+  tmp[TRI200] = b[TRI100]*c[TRI300] + b[TRI010]*c[TRI210] + b[TRI001]*c[TRI201];
+  tmp[TRI110] = b[TRI100]*c[TRI210] + b[TRI010]*c[TRI120] + b[TRI001]*c[TRI111];
+  tmp[TRI020] = b[TRI100]*c[TRI120] + b[TRI010]*c[TRI030] + b[TRI001]*c[TRI021];
+  tmp[TRI101] = b[TRI100]*c[TRI201] + b[TRI010]*c[TRI111] + b[TRI001]*c[TRI102];
+  tmp[TRI011] = b[TRI100]*c[TRI111] + b[TRI010]*c[TRI021] + b[TRI001]*c[TRI012];
+  tmp[TRI002] = b[TRI100]*c[TRI102] + b[TRI010]*c[TRI012] + b[TRI001]*c[TRI003];
+
+  tmp[TRI100] = a[TRI100]*tmp[TRI200] + a[TRI010]*tmp[TRI110] + a[TRI001]*tmp[TRI101];
+  tmp[TRI010] = a[TRI100]*tmp[TRI110] + a[TRI010]*tmp[TRI020] + a[TRI001]*tmp[TRI011];
+  tmp[TRI001] = a[TRI100]*tmp[TRI101] + a[TRI010]*tmp[TRI011] + a[TRI001]*tmp[TRI002];
+
+  return a[TRI100]*tmp[TRI100] + a[TRI010]*tmp[TRI010] + a[TRI001]*tmp[TRI001];
+}
+
+dbl bb3tet(dbl const *c, dbl const *b) {
   dbl tmp[10];
 
   tmp[TET2000] = b[TET1000]*c[TET3000] + b[TET0100]*c[TET2100] + b[TET0010]*c[TET2010] + b[TET0001]*c[TET2001];
