@@ -40,6 +40,7 @@ cdef extern from "bb.h":
     void bb3tri_interp3(dbl *f, dvec3 *Df, dvec3 *x, dbl *c)
     dbl bb3tri(dbl *c, dbl *b)
     dbl dbb3tri(dbl *c, dbl *b, dbl *a)
+    dbl d2bb3tri(dbl *c, dbl *b, dbl *a1, dbl *a2)
 
 cdef extern from "dial.h":
     cdef struct dial3:
@@ -127,6 +128,9 @@ cdef class Bb3Tri:
 
     def Df(self, dbl[::1] b, dbl[::1] a):
         return dbb3tri(&self.c[0], &b[0], &a[0])
+
+    def D2f(self, dbl[::1] b, dbl[::1] a1, dbl[::1] a2):
+        return d2bb3tri(&self.c[0], &b[0], &a1[0], &a2[0])
 
 cdef class _Dial3:
     cdef:

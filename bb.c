@@ -234,7 +234,7 @@ dbl dbb3tri(dbl const *c, dbl const *b, dbl const *a) {
   return a[TRI100]*tmp[TRI100] + a[TRI010]*tmp[TRI010] + a[TRI001]*tmp[TRI001];
 }
 
-dbl d2bb3tri(dbl const *c, dbl const *b, dbl const *a) {
+dbl d2bb3tri(dbl const *c, dbl const *b, dbl const *a1, dbl const *a2) {
   dbl tmp[6];
 
   tmp[TRI200] = b[TRI100]*c[TRI300] + b[TRI010]*c[TRI210] + b[TRI001]*c[TRI201];
@@ -244,11 +244,11 @@ dbl d2bb3tri(dbl const *c, dbl const *b, dbl const *a) {
   tmp[TRI011] = b[TRI100]*c[TRI111] + b[TRI010]*c[TRI021] + b[TRI001]*c[TRI012];
   tmp[TRI002] = b[TRI100]*c[TRI102] + b[TRI010]*c[TRI012] + b[TRI001]*c[TRI003];
 
-  tmp[TRI100] = a[TRI100]*tmp[TRI200] + a[TRI010]*tmp[TRI110] + a[TRI001]*tmp[TRI101];
-  tmp[TRI010] = a[TRI100]*tmp[TRI110] + a[TRI010]*tmp[TRI020] + a[TRI001]*tmp[TRI011];
-  tmp[TRI001] = a[TRI100]*tmp[TRI101] + a[TRI010]*tmp[TRI011] + a[TRI001]*tmp[TRI002];
+  tmp[TRI100] = a1[TRI100]*tmp[TRI200] + a1[TRI010]*tmp[TRI110] + a1[TRI001]*tmp[TRI101];
+  tmp[TRI010] = a1[TRI100]*tmp[TRI110] + a1[TRI010]*tmp[TRI020] + a1[TRI001]*tmp[TRI011];
+  tmp[TRI001] = a1[TRI100]*tmp[TRI101] + a1[TRI010]*tmp[TRI011] + a1[TRI001]*tmp[TRI002];
 
-  return a[TRI100]*tmp[TRI100] + a[TRI010]*tmp[TRI010] + a[TRI001]*tmp[TRI001];
+  return a2[TRI100]*tmp[TRI100] + a2[TRI010]*tmp[TRI010] + a2[TRI001]*tmp[TRI001];
 }
 
 dbl bb3tet(dbl const *c, dbl const *b) {
