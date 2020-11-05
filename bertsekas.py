@@ -64,6 +64,10 @@ def D2F(x):
 
 ################################################################################
 # Test out Bertsekas's optimization algorithm
+#
+# TODO: one place where we could modify this algorithm (at least
+# heuristically) is by updating beta at each iteration, since it looks
+# like m is monotonically increasing.
 
 # Optimization algorithm parameters
 beta = 0.25
