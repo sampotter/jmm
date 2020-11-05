@@ -8,6 +8,7 @@ import array
 from cython cimport Py_buffer
 
 from libc.stdlib cimport free, malloc
+from libc.string cimport memcpy
 
 from enum import Enum
 
@@ -35,6 +36,34 @@ cdef extern from "vec.h":
     ctypedef struct dvec3:
         dbl data[4]
         __m256d packed
+    ctypedef struct dvec4:
+        dbl data[4]
+        __m256d packed
+
+cdef extern from "bary.h":
+    void bary3_coef(const dbl **x, const dbl *y, dbl *c)
+
+cdef class Bary3:
+    cdef:
+        dbl *x[4]
+
+    def __cinit__(self, dbl[:, ::1] x):
+        cdef int i, j
+        for i in range(4):
+            self.x[i] = <dbl *>malloc(3*sizeof(dbl))
+            for j in range(3):
+                self.x[i][j] = x[i, j]
+
+    def __deinit__(self):
+        cdef int i
+        for i in range(4):
+            free(self.x[i])
+
+    def coef(self, dbl[::1] y):
+        c = np.empty((4,), dtype=np.float64)
+        cdef dbl[::1] mv = c
+        bary3_coef(<const dbl **>&self.x[0], &y[0], &mv[0])
+        return c
 
 cdef extern from "bb.h":
     void bb3tri_interp3(dbl *f, dvec3 *Df, dvec3 *x, dbl *c)
