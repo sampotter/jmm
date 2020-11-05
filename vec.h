@@ -10,6 +10,8 @@ extern "C" {
 #include <immintrin.h>
 #include <math.h>
 
+void dbl3_sub(dbl const *u, dbl const *v, dbl *w);
+
 typedef struct {
   dbl x;
   dbl y;

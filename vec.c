@@ -1,5 +1,11 @@
 #include "vec.h"
 
+void dbl3_sub(dbl const *u, dbl const *v, dbl *w) {
+  w[0] = u[0] - v[0];
+  w[1] = u[1] - v[1];
+  w[2] = u[2] - v[2];
+}
+
 dvec2 dvec2_zero() {
   return (dvec2) {0.0, 0.0};
 }
