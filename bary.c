@@ -7,6 +7,7 @@
 
 void bary3_coef(dbl const **x, dbl const *y, dbl *c) {
   // TODO: this doesn't seem that efficient. It's probably faster to
+  // set up the linear system and solve it directly.
 
   dmat33 A;
   dbl3_sub(x[0], x[3], A.rows[0].data);
