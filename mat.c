@@ -108,6 +108,16 @@ void dmat22_transpose(dmat22 *A) {
   A->data[0][1] = tmp;
 }
 
+#define a(i, j) A->rows[i].data[j]
+
+dbl dmat33_det(dmat33 const *A) {
+  return a(0, 0)*(a(1, 1)*a(2, 2) - a(1, 2)*a(2, 1)) -
+    a(0, 1)*(a(1, 0)*a(2, 2) - a(1, 2)*a(2, 0)) +
+    a(0, 2)*(a(1, 0)*a(2, 1) - a(1, 1)*a(2, 0));
+}
+
+#undef a
+
 dvec4 dmat44_dvec4_mul(dmat44 const A, dvec4 const x) {
   dvec4 y;
   for (int i = 0; i < 4; ++i) {

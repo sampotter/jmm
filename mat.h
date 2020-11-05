@@ -30,6 +30,12 @@ void dmat22_eigvals(dmat22 const *A, dbl *lam1, dbl *lam2);
 void dmat22_transpose(dmat22 *A);
 
 typedef struct {
+  dvec3 rows[3];
+} dmat33;
+
+dbl dmat33_det(dmat33 const *A);
+
+typedef struct {
   union {
     dbl data[4][4];
     dvec4 rows[4];
