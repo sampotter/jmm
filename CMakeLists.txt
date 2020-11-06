@@ -49,6 +49,7 @@ set (JMM_SRCS
   mat.c
   math.c
   mesh3.c
+  opt.c
   vec.c
   )
 
