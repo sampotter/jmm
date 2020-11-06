@@ -177,6 +177,18 @@ dvec3 dvec3_zero() {
   return (dvec3) {.data = {0, 0, 0}};
 }
 
+int dvec3_argmax(dvec3 u) {
+  dbl umax = -INFINITY;
+  int argmax;
+  for (int i = 0; i < 3; ++i) {
+    if (u.data[i] > umax) {
+      umax = u.data[i];
+      argmax = i;
+    }
+  }
+  return argmax;
+}
+
 dbl dvec4_dot(dvec4 v0, dvec4 v1) {
   dbl tmp = 0;
   for (int i = 0; i < 4; ++i) {

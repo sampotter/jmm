@@ -59,6 +59,7 @@ dvec3 dvec3_one();
 dvec3 dvec3_saxpy(dbl a, dvec3 x, dvec3 y);
 dvec3 dvec3_sub(dvec3 u, dvec3 v);
 dvec3 dvec3_zero();
+int dvec3_argmax(dvec3 u);
 
 typedef struct {
   union {
