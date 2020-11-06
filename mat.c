@@ -1,6 +1,7 @@
 #include "mat.h"
 
 #include <assert.h>
+#include <string.h>
 
 dmat22 dmat22_add(dmat22 A, dmat22 B) {
   return (dmat22) {
@@ -117,6 +118,41 @@ dbl dmat33_det(dmat33 const *A) {
 }
 
 #undef a
+
+dmat33 dmat33_eye() {
+  dmat33 I;
+  memset(&I, 0x0, sizeof(dmat33));
+  I.rows[0].data[0] = 1;
+  I.rows[1].data[1] = 1;
+  I.rows[2].data[2] = 1;
+  return I;
+}
+
+dvec3 dmat33_getcol(dmat33 const *A, int j) {
+  dvec3 a;
+  for (int i = 0; i < 3; ++i) {
+    a.data[i] = A->rows[j].data[i];
+  }
+  return a;
+}
+
+void dmat33_setcol(dmat33 *A, dvec3 a, int j) {
+  for (int i = 0; i < 3; ++i) {
+    A->rows[j].data[i] = a.data[i];
+  }
+}
+
+dvec3 dmat33_dvec3_solve(dmat33 A, dvec3 b) {
+  dbl det = dmat33_det(&A);
+  dvec3 x, tmp;
+  for (int j = 0; j < 3; ++j) {
+    tmp = dmat33_getcol(&A, j);
+    dmat33_setcol(&A, b, j);
+    x.data[j] = dmat33_det(&A)/det;
+    dmat33_setcol(&A, tmp, j);
+  }
+  return x;
+}
 
 dvec4 dmat44_dvec4_mul(dmat44 const A, dvec4 const x) {
   dvec4 y;

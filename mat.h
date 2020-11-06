@@ -34,6 +34,10 @@ typedef struct {
 } dmat33;
 
 dbl dmat33_det(dmat33 const *A);
+dmat33 dmat33_eye();
+dvec3 dmat33_getcol(dmat33 const *A, int j);
+void dmat33_setcol(dmat33 *A, dvec3 a, int j);
+dvec3 dmat33_dvec3_solve(dmat33 A, dvec3 b);
 
 typedef struct {
   union {
