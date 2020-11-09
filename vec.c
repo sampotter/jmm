@@ -1,5 +1,19 @@
 #include "vec.h"
 
+void dbl2_sub(dbl const *u, dbl const *v, dbl *w) {
+  w[0] = u[0] - v[0];
+  w[1] = u[1] - v[1];
+}
+
+dbl dbl2_dot(dbl const *u, dbl const *v) {
+  return u[0]*v[0] + u[1]*v[1];
+}
+
+void dbl2_saxpy(dbl a, dbl const *x, dbl const *y, dbl *z) {
+  z[0] = a*x[0] + y[0];
+  z[1] = a*x[1] + y[1];
+}
+
 void dbl3_sub(dbl const *u, dbl const *v, dbl *w) {
   w[0] = u[0] - v[0];
   w[1] = u[1] - v[1];

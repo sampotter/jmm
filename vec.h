@@ -10,6 +10,10 @@ extern "C" {
 #include <immintrin.h>
 #include <math.h>
 
+void dbl2_sub(dbl const *u, dbl const *v, dbl *w);
+dbl dbl2_dot(dbl const *u, dbl const *v);
+void dbl2_saxpy(dbl a, dbl const *x, dbl const *y, dbl *z);
+
 void dbl3_sub(dbl const *u, dbl const *v, dbl *w);
 
 typedef struct {
