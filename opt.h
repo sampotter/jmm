@@ -1,25 +1,18 @@
 #pragma once
 
-#include "mat.h"
-#include "vec.h"
+#include "def.h"
 
-typedef struct costfunc3 {
-  void (*func)(dvec3 const *, dbl *, void *);
-  void (*grad)(dvec3 const *, dvec3 *, void *);
-  void (*hess)(dvec3 const *, dmat33 *, void *);
+typedef struct costfunc2 {
+  void (*func)(dbl const *, dbl *, void *);
+  void (*grad)(dbl const *, dbl *, void *);
+  void (*hess)(dbl const *, dbl *, void *);
   void *wkspc;
-} costfunc3_s;
+} costfunc2_s;
 
-typedef struct baryopt_wkspc {
-  costfunc3_s *costfunc;
-  dbl beta;
-  dbl sigma;
-  dbl eps;
-  dbl ftol;
-  dbl xtol;
-  dvec3 *x;
-  dbl f;
-} baryopt_wkspc_s;
-
-bool baryopt_step(baryopt_wkspc_s *wkspc);
-void baryopt_solve(baryopt_wkspc_s *wkspc);
+void eqp_bary_2_0(dbl const *G, dbl const *c, dbl *x);
+void eqp_bary_2_1(dbl const *G, dbl const *c, dbl *x);
+void eqp_bary_2_2(dbl const *G, dbl const *c, dbl *x);
+void iqp_bary_2(dbl const *G, dbl const *c, dbl const *x0, dbl *x, bool *error,
+                dbl tol, int niters);
+void sqp_bary_3_2(costfunc2_s const *costfunc, dbl const *xinit, dbl *x,
+                  dbl *f, bool *error, dbl tol, int niters);
