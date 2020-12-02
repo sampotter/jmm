@@ -6,18 +6,20 @@ extern "C" {
 
 #include "jet.h"
 
-typedef struct field3 field3_s;
 typedef struct mesh3 mesh3_s;
 
 /**
  * A structure managing a jet marching method solving the eikonal
  * equation in 3D on an unstructured tetrahedron mesh.
+ *
+ * NOTE: this is just for s = 1 at the moment. Will extend this to
+ * handle s != later.
  */
 typedef struct eik3 eik3_s;
 
 void eik3_alloc(eik3_s **eik);
 void eik3_dealloc(eik3_s **eik);
-void eik3_init(eik3_s *eik, field3_s const *s, mesh3_s const *mesh);
+void eik3_init(eik3_s *eik, mesh3_s const *mesh);
 void eik3_deinit(eik3_s *eik);
 void eik3_step(eik3_s *eik);
 void eik3_solve(eik3_s *eik);
