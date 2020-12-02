@@ -89,8 +89,97 @@ void eik3_deinit(eik3_s *eik) {
   heap_dealloc(&eik->heap);
 }
 
+typedef struct costfunc {
+  dbl f;
+  dvec2 g;
+  dmat22 H;
+
+  dvec3 x; // x[l]
+  dmat33 Xt; // X' = [x[l0]'; x[l1]'; x[l2]']
+
+  // B-coefs for 9-point triangle interpolation T on base of update
+  dbl Tc[10];
+} costfunc_s;
+
+void costfunc_init(costfunc_s *cf, eik3_s *eik, size_t l,
+                   size_t l0, size_t l1, size_t l2) {
+  mesh3_get_vert(eik->mesh, l, cf->x.data);
+
+  mesh3_get_vert(eik->mesh, l0, cf->Xt.rows[0].data);
+  mesh3_get_vert(eik->mesh, l1, cf->Xt.rows[1].data);
+  mesh3_get_vert(eik->mesh, l2, cf->Xt.rows[2].data);
+
+  jet3_s jet;
+  dbl T[3];
+  dvec3 DT[3];
+
+  jet = eik->jet[l0];
+  T[0] = jet.f;
+  DT[0] = (dvec3) {.data = {jet.fx, jet.fy, jet.fz}};
+
+  jet = eik->jet[l1];
+  T[1] = jet.f;
+  DT[1] = (dvec3) {.data = {jet.fx, jet.fy, jet.fz}};
+
+  jet = eik->jet[l2];
+  T[2] = jet.f;
+  DT[2] = (dvec3) {.data = {jet.fx, jet.fy, jet.fz}};
+
+  bb3tri_interp3(T, DT, cf->Xt.rows, cf->Tc);
+}
+
+void costfunc_set_lambda(costfunc_s *cf, dbl const *lambda) {
+  static dvec3 const a1 = {.data = {-1, 1, 0}};
+  static dvec3 const a2 = {.data = {-1, 0, 1}};
+
+  dbl b[3];
+  b[1] = lambda[0];
+  b[2] = lambda[1];
+  b[0] = 1 - b[1] - b[2];
+
+  dvec3 xb = dvec3_dmat33_mul(b, cf->Xt);
+  dvec3 x_minus_xb = dvec3_sub(cf->x, xb);
+  dbl L = dvec3_norm(x_minus_xb);
+
+  dvec3 tmp1 = dvec3_dmat33_mul(x_minus_xb, cf->Xt);
+  tmp1 = dvec3_dbl_div(g, L);
+
+  dvec2 DL;
+  DL.x = dvec3_dot(a1, tmp1);
+  DL.y = dvec3_dot(a2, tmp1);
+
+  dmat33 X = cf->Xt;
+  dmat33_transpose(&X);
+
+  dmat33 tmp2 = dmat33_mul(X, cf->Xt);
+  tmp2 = dmat33_sub(tmp2, dmat33_outer(tmp1, tmp1));
+  tmp2 = dmat33_dbl_div(tmp2, L);
+
+  dmat22 D2L;
+  D2L.data[0][0] = dvec3_dot(dmat33_dvec3_mul(tmp2, a1), a1);
+  D2L.data[1][0] = D2L.data[0][1] = dvec3_dot(dmat33_dvec3_mul(tmp2, a1), a2);
+  D2L.data[1][1] = dvec3_dot(dmat33_dvec3_mul(tmp2, a2), a2);
+
+  dvec2 DT = {.x = dbb3tri(cf->Tc, b, a1), .y = dbb3tri(cf->Tc, b, a2)};
+
+  dmat22 D2T;
+  D2T.data[0][0] = d2bb3tri(cf->Tc, b, a1, a1);
+  D2T.data[1][0] = D2T.data[0][1] = d2bb3tri(cf->Tc, b, a1, a2);
+  D2T.data[1][1] = d2bb3tri(cf->Tc, b, a1, a2);
+
+  cf->f = L + bb3tri(cf->Tc, b);
+  cf->g = dvec2_add(DL, DT);
+  cf->H = dmat22_add(D2L, D2T);
+}
+
 static void tetra(eik3_s *eik, size_t l, size_t l0, size_t l1, size_t l2) {
-  // TODO: !!!
+  costfunc_s cf;
+  costfunc_init(&cf, eik, l, l0, l1, l2);
+
+  dbl lambda[2] = {0, 0}; // start iteration at x0
+  costfunc_set_lambda(cf, lambda);
+
+  // TODO: do primal-dual interior point iteration to compute update
 }
 
 static void update(eik3_s *eik, size_t l, size_t l0) {
