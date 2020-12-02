@@ -17,6 +17,7 @@ void mesh3_init(mesh3_s *mesh,
                 dbl const *verts, size_t nverts,
                 size_t const *cells, size_t ncells);
 void mesh3_deinit(mesh3_s *mesh);
+size_t mesh3_nverts(mesh3_s const *mesh);
 int mesh3_nvc(mesh3_s const *mesh, size_t i);
 void mesh3_vc(mesh3_s const *mesh, size_t i, size_t *vc);
 int mesh3_nvv(mesh3_s const *mesh, size_t i);

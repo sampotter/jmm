@@ -108,6 +108,10 @@ void mesh3_deinit(mesh3_s *mesh) {
   mesh->vc_offsets = NULL;
 }
 
+size_t mesh3_nverts(mesh3_s const *mesh) {
+  return mesh->nverts;
+}
+
 int mesh3_nvc(mesh3_s const *mesh, size_t i) {
   return mesh->vc_offsets[i + 1] - mesh->vc_offsets[i];
 }
