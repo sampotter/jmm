@@ -13,7 +13,6 @@ typedef struct jet {
 typedef struct jet3 {
   dbl f;
   dbl fx, fy, fz;
-  dbl fxy, fxz, fyz;
 } jet3_s;
 
 #ifdef __cplusplus
