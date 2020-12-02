@@ -163,7 +163,7 @@ dbl get_min_eigval(dbl const *A) {
   return half_tr - sqrt(half_tr*half_tr - det);
 }
 
-void sqp_bary_3_2(costfunc2_s const *costfunc, dbl const *xinit, dbl *x,
+void sqp_bary_3_2(costfunc_s const *cf, dbl const *xinit, dbl *x,
                   dbl *f, bool *error, dbl tol, int niters)
 {
   if (error) *error = false;
@@ -176,11 +176,11 @@ void sqp_bary_3_2(costfunc2_s const *costfunc, dbl const *xinit, dbl *x,
   x1[0] = xinit ? xinit[0] : 1./3;
   x1[1] = xinit ? xinit[1] : 1./3;
 
-  costfunc->func(x1, &f1, costfunc->wkspc);
+  cf->func(x1, &f1, cf->wkspc);
 
   while (true) {
     // Compute Hessian
-    costfunc->hess(x1, d2f, costfunc->wkspc);
+    cf->hess(x1, d2f, cf->wkspc);
 
     // ... perturb it if it isn't positive definite
     lambda_min = get_min_eigval(d2f);
@@ -189,7 +189,7 @@ void sqp_bary_3_2(costfunc2_s const *costfunc, dbl const *xinit, dbl *x,
       d2f[2] -= 1.1*lambda_min;
     }
 
-    costfunc->grad(x1, df, costfunc->wkspc);
+    cf->grad(x1, df, cf->wkspc);
 
     c[0] = df[0] - d2f[0]*x1[0] - d2f[1]*x1[1];
     c[1] = df[1] - d2f[1]*x1[0] - d2f[2]*x1[1];
@@ -207,7 +207,7 @@ void sqp_bary_3_2(costfunc2_s const *costfunc, dbl const *xinit, dbl *x,
     dbl lhs, rhs = f1 + 1e-4*alpha*dbl2_dot(df, h);
   repeat:
     dbl2_saxpy(alpha, h, x0, x1);
-    costfunc->func(x1, &lhs, costfunc->wkspc);
+    cf->func(x1, &lhs, cf->wkspc);
     if (alpha > tol && lhs > rhs) {
       alpha /= 2;
       goto repeat;
@@ -215,7 +215,7 @@ void sqp_bary_3_2(costfunc2_s const *costfunc, dbl const *xinit, dbl *x,
 
     dbl2_saxpy(alpha, h, x0, x1);
     f0 = f1;
-    costfunc->func(x1, &f1, costfunc->wkspc);
+    cf->func(x1, &f1, cf->wkspc);
 
     if (fabs(f1 - f0) <= tol*fmax(f0, f1) + tol) {
       break;
