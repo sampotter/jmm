@@ -297,7 +297,7 @@ static void update(eik3_s *eik, size_t l, size_t l0) {
   // tetrahedra that are incident on the edge (l0, l).
   int nec = mesh3_nec(eik->mesh, l0, l);
   size_t *ec = malloc(nec*sizeof(size_t));
-  mesh3_ec(eik->mesh, l0, l);
+  mesh3_ec(eik->mesh, l0, l, ec);
 
   // Allocate space for the l1 and l2 indices.
   size_t *l1 = malloc(nec*sizeof(size_t));
@@ -306,7 +306,7 @@ static void update(eik3_s *eik, size_t l, size_t l0) {
   int nup = 0;
   for (int i = 0; i < nec; ++i) {
     // Get the indices of cell ec[i]'s vertices
-    int lv[4];
+    size_t lv[4];
     mesh3_cv(eik->mesh, ec[i], lv);
 
     // Find the VALID vertices that *aren't* l0 or l
@@ -333,7 +333,7 @@ static void update(eik3_s *eik, size_t l, size_t l0) {
   // Do the updates
   jet3 jet = {.f = INFINITY, .fx = NAN, .fy = NAN, .fz = NAN};
   for (int i = 0; i < nup; ++i) {
-    jet3 newjet = tetra(eik, l, l0, l1, l2);
+    jet3 newjet = tetra(eik, l, l0, l1[i], l2[i]);
     if (newjet.f < jet.f) {
       jet = newjet;
     }
@@ -341,7 +341,6 @@ static void update(eik3_s *eik, size_t l, size_t l0) {
 
   eik->jet[l] = jet;
 
-coda:
   free(l1);
   free(l2);
 }
@@ -356,9 +355,9 @@ static void adjust(eik3_s *eik, size_t l) {
 
 void eik3_step(eik3_s *eik) {
   size_t l0 = heap_front(eik->heap);
-  assert(eik->states[l0] == TRIAL);
+  assert(eik->state[l0] == TRIAL);
   heap_pop(eik->heap);
-  eik->states[l0] = VALID;
+  eik->state[l0] = VALID;
 
   // Get i0's neighboring nodes.
   int nnb = mesh3_nvv(eik->mesh, l0);
@@ -368,8 +367,8 @@ void eik3_step(eik3_s *eik) {
   // Set FAR nodes to TRIAL and insert them into the heap.
   for (int i = 0; i < nnb; ++i) {
     size_t l = nb[i];
-    if (eik->states[l] == FAR) {
-      eik->states[l] = TRIAL;
+    if (eik->state[l] == FAR) {
+      eik->state[l] = TRIAL;
       heap_insert(eik->heap, l);
     }
   }
@@ -377,7 +376,7 @@ void eik3_step(eik3_s *eik) {
   // Update neighboring nodes.
   for (int i = 0; i < nnb; ++i) {
     size_t l = nb[i];
-    if (eik->states[l] == TRIAL) {
+    if (eik->state[l] == TRIAL) {
       update(eik, l, l0);
       adjust(eik, l);
     }
@@ -403,7 +402,7 @@ void eik3_add_trial(eik3_s *eik, size_t l, jet3 jet) {
 }
 
 void eik3_add_valid(eik3_s *eik, size_t l, jet3 jet) {
-  eik->jets[l] = jet;
+  eik->jet[l] = jet;
 
   // TODO: see comment in eik3_add_trial... would want to make changes
   // that are compatible (we would need to adjust the API of this a
