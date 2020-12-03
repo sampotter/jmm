@@ -8,6 +8,8 @@ extern "C" {
 
 #include "vec.h"
 
+void dbl22sym_dbl2_solve(dbl const *A, dbl const *b, dbl *x);
+
 typedef struct {
   union {
     dbl data[2][2];
@@ -37,7 +39,13 @@ dbl dmat33_det(dmat33 const *A);
 dmat33 dmat33_eye();
 dvec3 dmat33_getcol(dmat33 const *A, int j);
 void dmat33_setcol(dmat33 *A, dvec3 a, int j);
+dvec3 dmat33_dvec3_mul(dmat33 A, dvec3 x);
+dmat33 dmat33_dbl_div(dmat33 A, dbl a);
 dvec3 dmat33_dvec3_solve(dmat33 A, dvec3 b);
+dmat33 dmat33_mul(dmat33 A, dmat33 B);
+dmat33 dmat33_sub(dmat33 A, dmat33 B);
+dmat33 dvec3_outer(dvec3 u, dvec3 v);
+void dmat33_transpose(dmat33 *A);
 
 typedef struct {
   union {
