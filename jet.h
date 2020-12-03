@@ -10,10 +10,10 @@ typedef struct jet {
   dbl f, fx, fy, fxy;
 } jet_s;
 
-typedef struct jet3 {
+typedef struct {
   dbl f;
   dbl fx, fy, fz;
-} jet3_s;
+} jet3;
 
 #ifdef __cplusplus
 }

@@ -1,12 +1,16 @@
 #include "eik3.h"
 
+#include <assert.h>
 #include <stdlib.h>
 
 #ifdef _OPENMP
 #include <omp.h>
 #endif
 
+#include "bb.h"
 #include "heap.h"
+#include "mat.h"
+#include "mesh3.h"
 #include "vec.h"
 
 struct eik3 {
@@ -29,7 +33,7 @@ void eik3_dealloc(eik3_s **eik) {
 static dbl value(void *ptr, int l) {
   eik3_s *eik = (eik3_s *)ptr;
   assert(l >= 0);
-  assert(l < mesh3_nverts(eik->mesh));
+  assert(l < (int)mesh3_nverts(eik->mesh));
   dbl T = eik->jet[l].f;
   return T;
 }
@@ -46,7 +50,7 @@ void eik3_init(eik3_s *eik, mesh3_s const *mesh) {
 
   eik->jet = malloc(nverts*sizeof(jet3));
   for (size_t l = 0; l < nverts; ++l) {
-    eik->jet[l] = (jet3_s) {.f = INFINITY, .fx = NAN, .fy = NAN, .fz = NAN};
+    eik->jet[l] = (jet3) {.f = INFINITY, .fx = NAN, .fy = NAN, .fz = NAN};
   }
 
   eik->state = malloc(nverts*sizeof(state_e));
@@ -95,10 +99,13 @@ typedef struct costfunc {
   dmat22 H;
 
   dvec3 x; // x[l]
-  dmat33 Xt; // X' = [x[l0]'; x[l1]'; x[l2]']
+  dmat33 X; // X = [x[l0]'; x[l1]'; x[l2]']
+  dmat33 Xt;
 
   // B-coefs for 9-point triangle interpolation T on base of update
   dbl Tc[10];
+
+  dvec3 x_minus_xb;
 } costfunc_s;
 
 void costfunc_init(costfunc_s *cf, eik3_s *eik, size_t l,
@@ -109,7 +116,7 @@ void costfunc_init(costfunc_s *cf, eik3_s *eik, size_t l,
   mesh3_get_vert(eik->mesh, l1, cf->Xt.rows[1].data);
   mesh3_get_vert(eik->mesh, l2, cf->Xt.rows[2].data);
 
-  jet3_s jet;
+  jet3 jet;
   dbl T[3];
   dvec3 DT[3];
 
@@ -132,17 +139,17 @@ void costfunc_set_lambda(costfunc_s *cf, dbl const *lambda) {
   static dvec3 const a1 = {.data = {-1, 1, 0}};
   static dvec3 const a2 = {.data = {-1, 0, 1}};
 
-  dbl b[3];
-  b[1] = lambda[0];
-  b[2] = lambda[1];
-  b[0] = 1 - b[1] - b[2];
+  dvec3 b;
+  b.data[1] = lambda[0];
+  b.data[2] = lambda[1];
+  b.data[0] = 1 - b.data[1] - b.data[2];
 
-  dvec3 xb = dvec3_dmat33_mul(b, cf->Xt);
-  dvec3 x_minus_xb = dvec3_sub(cf->x, xb);
-  dbl L = dvec3_norm(x_minus_xb);
+  dvec3 xb = dmat33_dvec3_mul(cf->X, b);
+  cf->x_minus_xb = dvec3_sub(cf->x, xb);
+  dbl L = dvec3_norm(cf->x_minus_xb);
 
-  dvec3 tmp1 = dvec3_dmat33_mul(x_minus_xb, cf->Xt);
-  tmp1 = dvec3_dbl_div(g, L);
+  dvec3 tmp1 = dmat33_dvec3_mul(cf->X, cf->x_minus_xb);
+  tmp1 = dvec3_dbl_div(tmp1, L);
 
   dvec2 DL;
   DL.x = dvec3_dot(a1, tmp1);
@@ -152,7 +159,7 @@ void costfunc_set_lambda(costfunc_s *cf, dbl const *lambda) {
   dmat33_transpose(&X);
 
   dmat33 tmp2 = dmat33_mul(X, cf->Xt);
-  tmp2 = dmat33_sub(tmp2, dmat33_outer(tmp1, tmp1));
+  tmp2 = dmat33_sub(tmp2, dvec3_outer(tmp1, tmp1));
   tmp2 = dmat33_dbl_div(tmp2, L);
 
   dmat22 D2L;
@@ -160,26 +167,129 @@ void costfunc_set_lambda(costfunc_s *cf, dbl const *lambda) {
   D2L.data[1][0] = D2L.data[0][1] = dvec3_dot(dmat33_dvec3_mul(tmp2, a1), a2);
   D2L.data[1][1] = dvec3_dot(dmat33_dvec3_mul(tmp2, a2), a2);
 
-  dvec2 DT = {.x = dbb3tri(cf->Tc, b, a1), .y = dbb3tri(cf->Tc, b, a2)};
+  dvec2 DT;
+  DT.x = dbb3tri(cf->Tc, b.data, a1.data);
+  DT.y = dbb3tri(cf->Tc, b.data, a2.data);
 
   dmat22 D2T;
-  D2T.data[0][0] = d2bb3tri(cf->Tc, b, a1, a1);
-  D2T.data[1][0] = D2T.data[0][1] = d2bb3tri(cf->Tc, b, a1, a2);
-  D2T.data[1][1] = d2bb3tri(cf->Tc, b, a1, a2);
+  D2T.data[0][0] = d2bb3tri(cf->Tc, b.data, a1.data, a1.data);
+  D2T.data[1][0] = D2T.data[0][1] = d2bb3tri(cf->Tc, b.data, a1.data, a2.data);
+  D2T.data[1][1] = d2bb3tri(cf->Tc, b.data, a1.data, a2.data);
 
-  cf->f = L + bb3tri(cf->Tc, b);
+  cf->f = L + bb3tri(cf->Tc, b.data);
   cf->g = dvec2_add(DL, DT);
   cf->H = dmat22_add(D2L, D2T);
 }
 
-static void tetra(eik3_s *eik, size_t l, size_t l0, size_t l1, size_t l2) {
+static dbl get_residual(costfunc_s const *cf, dbl lam0, dbl const *lam,
+                        dbl const *alp, dbl t) {
+  dvec2 tmp1 = cf->g;
+  tmp1.x += alp[0] - alp[1];
+  tmp1.y += alp[0] - alp[2];
+
+  dbl tmp2 = 1/(t*alp[0]) - lam0;
+
+  dvec2 tmp3;
+  tmp3.x = 1/(t*alp[1]) - lam[0];
+  tmp3.x = 1/(t*alp[2]) - lam[1];
+
+  return sqrt(dvec2_norm_sq(tmp1) + tmp2*tmp2 + dvec2_norm_sq(tmp3));
+}
+
+static jet3 tetra(eik3_s *eik, size_t l, size_t l0, size_t l1, size_t l2) {
+  static int const maxniter = 100;
+  static dbl const eps = 1e-15;
+  static dbl const beta = 0.5;
+  static dbl const gamma = 1e-2;
+
   costfunc_s cf;
   costfunc_init(&cf, eik, l, l0, l1, l2);
 
-  dbl lambda[2] = {0, 0}; // start iteration at x0
-  costfunc_set_lambda(cf, lambda);
+  dvec2 lam = {.x = 1./3, .y = 1.3}, dlam;
+  costfunc_set_lambda(&cf, &lam.x);
 
-  // TODO: do primal-dual interior point iteration to compute update
+  dbl lam0 = 1./3;
+
+  // Vector of Lagrange multipliers
+  dvec3 alp = {.data = {3, 3, 3}}, dalp;
+
+  static dbl const mu = 1e2;
+
+  dbl t = mu, s, res, newres;
+  int k = 1;
+  dbl eta = 1;
+
+  res = get_residual(&cf, lam0, &lam.x, alp.data, t);
+
+  // primal-dual iteration
+  while (res > eps || eta > 1 || k < maxniter) {
+    /**
+     * compute Newton step for modified KKT system
+     */
+
+    dlam.x = alp.data[1] - alp.data[0];
+    dlam.y = alp.data[2] - alp.data[0];
+    dlam = dvec2_sub(dlam, cf.g);
+
+    dalp.data[0] = lam0 - 1/(t*alp.data[0]);
+    dalp.data[1] = lam.x - 1/(t*alp.data[1]);
+    dalp.data[2] = lam.y - 1/(t*alp.data[2]);
+
+    dlam.x += lam0*dalp.data[0]/alp.data[0] - lam.x*dalp.data[1]/alp.data[1];
+    dlam.y += lam0*dalp.data[0]/alp.data[0] - lam.y*dalp.data[2]/alp.data[2];
+
+    dmat22 H = cf.H;
+    dbl tmp = lam.x/alp.data[0];
+    H.data[0][0] += tmp + lam.x/alp.data[1];
+    H.data[1][0] = H.data[0][1] = tmp;
+    H.data[1][1] += tmp + lam.y/alp.data[2];
+
+    dlam = dmat22_dvec2_solve(H, dlam);
+    dbl dlam0 = dlam.x + dlam.y;
+
+    dalp.data[0] += lam0*dlam0/alp.data[0];
+    dalp.data[1] -= lam.x*dlam.x/alp.data[1];
+    dalp.data[2] -= lam.y*dlam.y/alp.data[2];
+
+    /**
+     * do backtracking line search
+     */
+
+    s = 1;
+    s = fmin(s, dalp.data[0] < 0 ? -alp.data[0]/dalp.data[0] : 1);
+    s = fmin(s, dalp.data[1] < 0 ? -alp.data[1]/dalp.data[1] : 1);
+    s = fmin(s, dalp.data[2] < 0 ? -alp.data[2]/dalp.data[2] : 1);
+
+    s = fmin(s, dlam0 < 0 ? lam0/dlam0 : 1);
+
+    s = fmin(s, dlam.x < 0 ? -lam.x/dlam.x : 1);
+    s = fmin(s, dlam.y < 0 ? -lam.y/dlam.y : 1);
+
+    while (true) {
+      lam = dvec2_saxpy(s, dlam, lam);
+      alp = dvec3_saxpy(s, dalp, alp);
+      costfunc_set_lambda(&cf, &lam.x);
+      newres = get_residual(&cf, lam0, &lam.x, alp.data, t);
+      if (res < (1 - gamma*s)*newres) {
+        break;
+      }
+      s *= beta;
+    }
+
+    // prepare for next iteration
+    res = newres;
+    lam0 = 1 - lam.x - lam.y;
+    eta = lam0*alp.data[0] + lam.x*alp.data[1] + lam.y*alp.data[2];
+    t = 3*mu/eta;
+    k += 1;
+  }
+
+  assert(k < maxniter);
+
+  dvec3 DT = dvec3_normalized(cf.x_minus_xb);
+
+  return (jet3) {
+    .f = cf.f, .fx = DT.data[0], .fy = DT.data[1], .fz = DT.data[2]};
 }
 
 static void update(eik3_s *eik, size_t l, size_t l0) {
@@ -221,9 +331,15 @@ static void update(eik3_s *eik, size_t l, size_t l0) {
   free(ec);
 
   // Do the updates
+  jet3 jet = {.f = INFINITY, .fx = NAN, .fy = NAN, .fz = NAN};
   for (int i = 0; i < nup; ++i) {
-    tetra(eik, l, l0, l1, l2);
+    jet3 newjet = tetra(eik, l, l0, l1, l2);
+    if (newjet.f < jet.f) {
+      jet = newjet;
+    }
   }
+
+  eik->jet[l] = jet;
 
 coda:
   free(l1);
@@ -276,7 +392,7 @@ void eik3_solve(eik3_s *eik) {
   }
 }
 
-void eik3_add_trial(eik3_s *eik, size_t l, jet3_s jet) {
+void eik3_add_trial(eik3_s *eik, size_t l, jet3 jet) {
   eik->jet[l] = jet;
 
   // TODO: a better way to do this would be to adjust the position of
@@ -286,7 +402,7 @@ void eik3_add_trial(eik3_s *eik, size_t l, jet3_s jet) {
   heap_insert(eik->heap, l);
 }
 
-void eik3_add_valid(eik3_s *eik, size_t l, jet3_s jet) {
+void eik3_add_valid(eik3_s *eik, size_t l, jet3 jet) {
   eik->jets[l] = jet;
 
   // TODO: see comment in eik3_add_trial... would want to make changes
