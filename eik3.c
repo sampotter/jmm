@@ -410,3 +410,11 @@ void eik3_add_valid(eik3_s *eik, size_t l, jet3 jet) {
   assert(eik->state[l] != TRIAL && eik->state[l] != VALID);
   eik->state[l] = VALID;
 }
+
+bool eik3_is_valid(eik3_s const *eik, size_t l) {
+  return eik->state[l] == VALID;
+}
+
+jet3 *eik3_get_jet_ptr(eik3_s const *eik) {
+  return eik->jet;
+}

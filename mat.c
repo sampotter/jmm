@@ -142,6 +142,26 @@ void dmat33_setcol(dmat33 *A, dvec3 a, int j) {
   }
 }
 
+dvec3 dmat33_dvec3_mul(dmat33 A, dvec3 x) {
+  return (dvec3) {
+    .data = {
+      dvec3_dot(A.rows[0], x),
+      dvec3_dot(A.rows[1], x),
+      dvec3_dot(A.rows[2], x)
+    }
+  };
+}
+
+dmat33 dmat33_dbl_div(dmat33 A, dbl a) {
+  return (dmat33) {
+    .rows = {
+      dvec3_dbl_div(A.rows[0], a),
+      dvec3_dbl_div(A.rows[1], a),
+      dvec3_dbl_div(A.rows[2], a)
+    }
+  };
+}
+
 dvec3 dmat33_dvec3_solve(dmat33 A, dvec3 b) {
   dbl det = dmat33_det(&A);
   dvec3 x, tmp;
@@ -153,6 +173,50 @@ dvec3 dmat33_dvec3_solve(dmat33 A, dvec3 b) {
   }
   return x;
 }
+
+dmat33 dmat33_mul(dmat33 A, dmat33 B) {
+  dmat33 C;
+  for (int i = 0; i < 3; ++i) {
+    for (int j = 0; j < 3; ++j) {
+      C.rows[i].data[j] = dvec3_dot(A.rows[i], dmat33_getcol(&B, j));
+    }
+  }
+  return C;
+}
+
+dmat33 dmat33_sub(dmat33 A, dmat33 B) {
+  return (dmat33) {
+    .rows = {
+      dvec3_sub(A.rows[0], B.rows[0]),
+      dvec3_sub(A.rows[1], B.rows[1]),
+      dvec3_sub(A.rows[2], B.rows[2])
+    }
+  };
+}
+
+dmat33 dvec3_outer(dvec3 u, dvec3 v) {
+  dmat33 uv;
+  for (int i = 0; i < 3; ++i) {
+    for (int j = 0; j < 3; ++j) {
+      uv.rows[i].data[j] = u.data[i]*v.data[j];
+    }
+  }
+  return uv;
+}
+
+#define SWAP(x, y) {                            \
+    __typeof(x) tmp = x;                        \
+    x = y;                                      \
+    y = tmp;                                    \
+  }
+
+void dmat33_transpose(dmat33 *A) {
+  SWAP(A->rows[1].data[0], A->rows[0].data[1]);
+  SWAP(A->rows[2].data[0], A->rows[0].data[2]);
+  SWAP(A->rows[2].data[1], A->rows[1].data[2]);
+}
+
+#undef SWAP
 
 dvec4 dmat44_dvec4_mul(dmat44 const A, dvec4 const x) {
   dvec4 y;

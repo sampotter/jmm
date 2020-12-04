@@ -28,6 +28,7 @@ set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC -Wall -Wextra -Werror -mavx")
 set (JMM_PUBLIC_HEADERS
   def.h
   dial.h
+  eik3.h
   )
 
 set (JMM_SRCS
@@ -66,9 +67,15 @@ endif ()
 add_sanitizers (jmm)
 target_include_directories (
   jmm INTERFACE
-  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-  $<INSTALL_INTERFACE:${INSTALL_INCLUDE_DIR}>
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+  $<INSTALL_INTERFACE:${INSTALL_INCLUDE_DIR}/jmm>
   )
+
+# Examples
+
+add_executable (basic_solve examples/basic_solve.c)
+target_link_libraries (basic_solve jmm)
+target_include_directories (basic_solve PRIVATE jmm)
 
 # Unit tests
 

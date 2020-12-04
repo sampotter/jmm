@@ -25,6 +25,8 @@ void eik3_step(eik3_s *eik);
 void eik3_solve(eik3_s *eik);
 void eik3_add_trial(eik3_s *eik, size_t ind, jet3 jet);
 void eik3_add_valid(eik3_s *eik, size_t ind, jet3 jet);
+bool eik3_is_valid(eik3_s const *eik, size_t ind);
+jet3 *eik3_get_jet_ptr(eik3_s const *eik);
 
 #ifdef __cplusplus
 }

@@ -108,6 +108,10 @@ void mesh3_deinit(mesh3_s *mesh) {
   mesh->vc_offsets = NULL;
 }
 
+void mesh3_get_vert(mesh3_s const *mesh, size_t i, dbl *v) {
+  memcpy((void *)v, (void *)&mesh->verts[i], sizeof(dvec3));
+}
+
 size_t mesh3_nverts(mesh3_s const *mesh) {
   return mesh->nverts;
 }
@@ -367,6 +371,64 @@ void mesh3_cc(mesh3_s const *mesh, size_t i, size_t *cc) {
   }
 
   free(vc);
+}
+
+void mesh3_cv(mesh3_s const *mesh, size_t i, size_t *cv) {
+  memcpy((void *)cv, (void *)&mesh->cells[i].data, 4*sizeof(size_t));
+}
+
+int mesh3_nec(mesh3_s const *mesh, size_t i, size_t j) {
+  // TODO: really horrible implementation! :-(
+
+  int nvci = mesh3_nvc(mesh, i);
+  int nvcj = mesh3_nvc(mesh, j);
+
+  size_t *vci = malloc(sizeof(size_t)*nvci);
+  size_t *vcj = malloc(sizeof(size_t)*nvcj);
+
+  int nec = 0;
+
+  size_t c;
+  for (int a = 0; a < nvci; ++a) {
+    c = vci[a];
+    for (int b = 0; b < nvcj; ++b) {
+      if (c == vcj[b]) {
+        ++nec;
+        continue;
+      }
+    }
+  }
+
+  free(vci);
+  free(vcj);
+
+  return nec;
+}
+
+void mesh3_ec(mesh3_s const *mesh, size_t i, size_t j, size_t *ec) {
+  // TODO: really horrible implementation! :-(
+
+  int nvci = mesh3_nvc(mesh, i);
+  int nvcj = mesh3_nvc(mesh, j);
+
+  size_t *vci = malloc(sizeof(size_t)*nvci);
+  size_t *vcj = malloc(sizeof(size_t)*nvcj);
+
+  int nec = 0;
+
+  size_t c;
+  for (int a = 0; a < nvci; ++a) {
+    c = vci[a];
+    for (int b = 0; b < nvcj; ++b) {
+      if (c == vcj[b]) {
+        ec[nec++] = c;
+        continue;
+      }
+    }
+  }
+
+  free(vci);
+  free(vcj);
 }
 
 bool mesh3_bdc(mesh3_s const *mesh, size_t i) {
