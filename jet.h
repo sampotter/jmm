@@ -15,6 +15,8 @@ typedef struct {
   dbl fx, fy, fz;
 } jet3;
 
+bool jet3_is_finite(jet3 const *jet);
+
 #ifdef __cplusplus
 }
 #endif
