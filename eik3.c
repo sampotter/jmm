@@ -388,22 +388,27 @@ void eik3_solve(eik3_s *eik) {
 }
 
 void eik3_add_trial(eik3_s *eik, size_t l, jet3 jet) {
-  eik->jet[l] = jet;
-
-  // TODO: a better way to do this would be to adjust the position of
-  // this node in the heap if it's already TRIAL... much better API
-  assert(eik->state[l] != TRIAL && eik->state[l] != VALID);
-  eik->state[l] = TRIAL;
-  heap_insert(eik->heap, l);
+  if (eik->state[l] == VALID) {
+    return;
+  } else if (eik->pos[l] == NO_INDEX) {
+    assert(eik->state[l] == FAR);
+    eik->jet[l] = jet;
+    eik->state[l] = TRIAL;
+    heap_insert(eik->heap, l);
+  } else if (jet.f < eik->jet[l].f) {
+    assert(eik->state[l] == TRIAL);
+    eik->jet[l] = jet;
+    adjust(eik, l);
+  }
 }
 
 void eik3_add_valid(eik3_s *eik, size_t l, jet3 jet) {
-  eik->jet[l] = jet;
+  // TODO: need to decide what to do if the state is TRIAL
+  if (eik->state[l] == TRIAL) {
+    abort();
+  }
 
-  // TODO: see comment in eik3_add_trial... would want to make changes
-  // that are compatible (we would need to adjust the API of this a
-  // bit to keep things sane)
-  assert(eik->state[l] != TRIAL && eik->state[l] != VALID);
+  eik->jet[l] = jet;
   eik->state[l] = VALID;
 }
 
