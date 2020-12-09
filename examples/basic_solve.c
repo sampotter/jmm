@@ -8,8 +8,8 @@
 #define R0 0.1
 
 int main(int argc, char *argv[]) {
-  if (argc != 4) {
-    printf("usage: <%s> <verts.bin> <cells.bin> <indsrc> <jets.txt>\n",
+  if (argc != 5) {
+    printf("usage: %s <verts.bin> <cells.bin> <indsrc> <jets.bin>\n",
            argv[0]);
     exit(EXIT_FAILURE);
   }
@@ -74,15 +74,15 @@ int main(int argc, char *argv[]) {
       vv = malloc(sizeof(size_t)*nvv);
       mesh3_vv(mesh, l, vv);
       for (int i = 0; i < nvv; ++i) {
-        if (!eik3_is_valid(eik, l)) {
-          mesh3_get_vert(mesh, l, x.data);
+        if (!eik3_is_valid(eik, vv[i])) {
+          mesh3_get_vert(mesh, vv[i], x.data);
           x_minus_xsrc = dvec3_sub(x, xsrc);
           jet.f = dvec3_norm(x_minus_xsrc);
           x_minus_xsrc = dvec3_dbl_div(x_minus_xsrc, jet.f);
           jet.fx = x_minus_xsrc.data[0];
           jet.fy = x_minus_xsrc.data[1];
           jet.fz = x_minus_xsrc.data[2];
-          eik3_add_trial(eik, l, jet);
+          eik3_add_trial(eik, vv[i], jet);
         }
       }
       free(vv);
