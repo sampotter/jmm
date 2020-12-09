@@ -100,7 +100,7 @@ typedef struct costfunc {
 
   dvec3 x; // x[l]
   dmat33 X; // X = [x[l0]'; x[l1]'; x[l2]']
-  dmat33 Xt;
+  dmat33 XXt;
 
   // B-coefs for 9-point triangle interpolation T on base of update
   dbl Tc[10];
@@ -110,11 +110,20 @@ typedef struct costfunc {
 
 void costfunc_init(costfunc_s *cf, eik3_s *eik, size_t l,
                    size_t l0, size_t l1, size_t l2) {
+  assert(jet3_is_finite(&eik->jet[l0]));
+  assert(jet3_is_finite(&eik->jet[l1]));
+  assert(jet3_is_finite(&eik->jet[l2]));
+
   mesh3_get_vert(eik->mesh, l, cf->x.data);
 
-  mesh3_get_vert(eik->mesh, l0, cf->Xt.rows[0].data);
-  mesh3_get_vert(eik->mesh, l1, cf->Xt.rows[1].data);
-  mesh3_get_vert(eik->mesh, l2, cf->Xt.rows[2].data);
+  // initialize X to Xt
+  mesh3_get_vert(eik->mesh, l0, cf->X.rows[0].data);
+  mesh3_get_vert(eik->mesh, l1, cf->X.rows[1].data);
+  mesh3_get_vert(eik->mesh, l2, cf->X.rows[2].data);
+
+  /**
+   * Compute Bernstein-Bezier coefficients before transposing Xt and computing XXt
+   */
 
   jet3 jet;
   dbl T[3];
@@ -132,7 +141,13 @@ void costfunc_init(costfunc_s *cf, eik3_s *eik, size_t l,
   T[2] = jet.f;
   DT[2] = (dvec3) {.data = {jet.fx, jet.fy, jet.fz}};
 
-  bb3tri_interp3(T, DT, cf->Xt.rows, cf->Tc);
+  // cf->X == Xt right now
+  bb3tri_interp3(T, DT, cf->X.rows, cf->Tc);
+
+  // tranpose X and compute XXt inplace
+  cf->XXt = cf->X;
+  dmat33_transpose(&cf->X);
+  cf->XXt = dmat33_mul(cf->X, cf->XXt);
 }
 
 void costfunc_set_lambda(costfunc_s *cf, dbl const *lambda) {
@@ -155,10 +170,7 @@ void costfunc_set_lambda(costfunc_s *cf, dbl const *lambda) {
   DL.x = dvec3_dot(a1, tmp1);
   DL.y = dvec3_dot(a2, tmp1);
 
-  dmat33 X = cf->Xt;
-  dmat33_transpose(&X);
-
-  dmat33 tmp2 = dmat33_mul(X, cf->Xt);
+  dmat33 tmp2 = cf->XXt;
   tmp2 = dmat33_sub(tmp2, dvec3_outer(tmp1, tmp1));
   tmp2 = dmat33_dbl_div(tmp2, L);
 
