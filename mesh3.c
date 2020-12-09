@@ -381,10 +381,12 @@ int mesh3_nec(mesh3_s const *mesh, size_t i, size_t j) {
   // TODO: really horrible implementation! :-(
 
   int nvci = mesh3_nvc(mesh, i);
-  int nvcj = mesh3_nvc(mesh, j);
-
   size_t *vci = malloc(sizeof(size_t)*nvci);
+  mesh3_vc(mesh, i, vci);
+
+  int nvcj = mesh3_nvc(mesh, j);
   size_t *vcj = malloc(sizeof(size_t)*nvcj);
+  mesh3_vc(mesh, j, vcj);
 
   int nec = 0;
 
@@ -409,10 +411,12 @@ void mesh3_ec(mesh3_s const *mesh, size_t i, size_t j, size_t *ec) {
   // TODO: really horrible implementation! :-(
 
   int nvci = mesh3_nvc(mesh, i);
-  int nvcj = mesh3_nvc(mesh, j);
-
   size_t *vci = malloc(sizeof(size_t)*nvci);
+  mesh3_vc(mesh, i, vci);
+
+  int nvcj = mesh3_nvc(mesh, j);
   size_t *vcj = malloc(sizeof(size_t)*nvcj);
+  mesh3_vc(mesh, j, vcj);
 
   int nec = 0;
 
