@@ -205,7 +205,7 @@ static jet3 tetra(eik3_s *eik, size_t l, size_t l0, size_t l1, size_t l2) {
   costfunc_s cf;
   costfunc_init(&cf, eik, l, l0, l1, l2);
 
-  dvec2 lam = {.x = 1./3, .y = 1.3}, dlam;
+  dvec2 lam = {.x = 1./3, .y = 1./3}, dlam;
   costfunc_set_lambda(&cf, &lam.x);
 
   dbl lam0 = 1./3;
