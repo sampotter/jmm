@@ -331,15 +331,13 @@ static void update(eik3_s *eik, size_t l, size_t l0) {
   free(ec);
 
   // Do the updates
-  jet3 jet = {.f = INFINITY, .fx = NAN, .fy = NAN, .fz = NAN};
+  jet3 jet;
   for (int i = 0; i < nup; ++i) {
-    jet3 newjet = tetra(eik, l, l0, l1[i], l2[i]);
-    if (newjet.f < jet.f) {
-      jet = newjet;
+    jet = tetra(eik, l, l0, l1[i], l2[i]);
+    if (jet.f < eik->jet[l].f) {
+      eik->jet[l] = jet;
     }
   }
-
-  eik->jet[l] = jet;
 
   free(l1);
   free(l2);
@@ -354,7 +352,7 @@ static void adjust(eik3_s *eik, size_t l) {
 }
 
 void eik3_step(eik3_s *eik) {
-  size_t l0 = heap_front(eik->heap);
+  size_t l, l0 = heap_front(eik->heap);
   assert(eik->state[l0] == TRIAL);
   heap_pop(eik->heap);
   eik->state[l0] = VALID;
@@ -366,8 +364,7 @@ void eik3_step(eik3_s *eik) {
 
   // Set FAR nodes to TRIAL and insert them into the heap.
   for (int i = 0; i < nnb; ++i) {
-    size_t l = nb[i];
-    if (eik->state[l] == FAR) {
+    if (eik->state[l = nb[i]] == FAR) {
       eik->state[l] = TRIAL;
       heap_insert(eik->heap, l);
     }
@@ -375,8 +372,7 @@ void eik3_step(eik3_s *eik) {
 
   // Update neighboring nodes.
   for (int i = 0; i < nnb; ++i) {
-    size_t l = nb[i];
-    if (eik->state[l] == TRIAL) {
+    if (eik->state[l = nb[i]] == TRIAL) {
       update(eik, l, l0);
       adjust(eik, l);
     }
