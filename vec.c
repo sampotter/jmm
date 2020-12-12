@@ -1,5 +1,10 @@
 #include "vec.h"
 
+void dbl2_add(dbl u[2], dbl v[2], dbl w[2]) {
+  w[0] = u[0] + v[0];
+  w[1] = u[1] + v[1];
+}
+
 void dbl2_sub(dbl const *u, dbl const *v, dbl *w) {
   w[0] = u[0] - v[0];
   w[1] = u[1] - v[1];
@@ -9,15 +14,53 @@ dbl dbl2_dot(dbl const *u, dbl const *v) {
   return u[0]*v[0] + u[1]*v[1];
 }
 
-void dbl2_saxpy(dbl a, dbl const *x, dbl const *y, dbl *z) {
+void dbl2_negate(dbl u[2]) {
+  u[0] = -u[0];
+  u[1] = -u[1];
+}
+
+dbl dbl2_sum(dbl u[2]) {
+  return u[0] + u[1];
+}
+
+void dbl2_saxpy(dbl a, dbl const x[2], dbl const y[2], dbl z[2]) {
   z[0] = a*x[0] + y[0];
   z[1] = a*x[1] + y[1];
+}
+
+dbl dbl2_maxdist(dbl const u[2], dbl const v[2]) {
+  return fmax(fabs(v[0] - u[0]), fabs(v[1] - u[1]));
+}
+
+dbl dbl2_maxnorm(dbl const u[2]) {
+  return fmax(fabs(u[0]), fabs(u[1]));
 }
 
 void dbl3_sub(dbl const *u, dbl const *v, dbl *w) {
   w[0] = u[0] - v[0];
   w[1] = u[1] - v[1];
   w[2] = u[2] - v[2];
+}
+
+dbl dbl3_dot(dbl const *u, dbl const *v) {
+  return u[0]*v[0] + u[1]*v[1] + u[2]*v[2];
+}
+
+dbl dbl3_norm(dbl u[3]) {
+  return sqrt(u[0]*u[0] + u[1]*u[1] + u[2]*u[2]);
+}
+
+void dbl3_dbl_div(dbl u[3], dbl a, dbl v[3]) {
+  v[0] = u[0]/a;
+  v[1] = u[1]/a;
+  v[2] = u[2]/a;
+}
+
+void dbl3_normalize(dbl u[3]) {
+  dbl unorm = sqrt(u[0]*u[0] + u[1]*u[1] + u[2]*u[2]);
+  u[0] /= unorm;
+  u[1] /= unorm;
+  u[2] /= unorm;
 }
 
 dvec2 dvec2_zero() {
@@ -27,6 +70,14 @@ dvec2 dvec2_zero() {
 dvec2 dvec2_ccomb(dvec2 v0, dvec2 v1, dbl t) {
   dvec2 vt = {(1 - t)*v0.x + t*v1.x, (1 - t)*v0.y + t*v1.y};
   return vt;
+}
+
+dvec2 dvec2_from_ptr(dbl const *u) {
+  return (dvec2) {.x = u[0], .y = u[1]};
+}
+
+dbl dvec2_maxdist(dvec2 u, dvec2 v) {
+  return fmax(fabs(v.x - u.x), fabs(v.y - u.y));
 }
 
 dbl dvec2_dist(dvec2 v0, dvec2 v1) {
@@ -100,6 +151,10 @@ dvec2 dvec2_cproj(dvec2 u, dvec2 v) {
 
 dvec2 dvec2_avg(dvec2 u, dvec2 v) {
   return (dvec2) {(u.x + v.x)/2, (u.y + v.y)/2};
+}
+
+dbl dvec2_sum(dvec2 u) {
+  return u.x + u.y;
 }
 
 dvec3 dvec3_add(dvec3 u, dvec3 v) {
@@ -201,6 +256,15 @@ int dvec3_argmax(dvec3 u) {
     }
   }
   return argmax;
+}
+
+void dvec3_normalize(dvec3 *u) {
+  dbl unorm = u->data[0]*u->data[0] + u->data[1]*u->data[1]
+    + u->data[2]*u->data[2];
+  unorm /= sqrt(unorm);
+  u->data[0] /= unorm;
+  u->data[1] /= unorm;
+  u->data[2] /= unorm;
 }
 
 dbl dvec4_dot(dvec4 v0, dvec4 v1) {

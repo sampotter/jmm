@@ -1,5 +1,7 @@
 #include "bb.h"
 
+#include "vec.h"
+
 /**
  * [0] [1]
  * [2]
@@ -184,17 +186,30 @@ dbl d2bb3(dbl const *c, dbl const *b, dbl const *a) {
   return a[0]*tmp[0] + a[1]*tmp[1];
 }
 
-void bb3tri_interp3(dbl const *f, dvec3 const *Df, dvec3 const *x, dbl *c) {
+void bb3tri_interp3(dbl f[3], dbl Df[3][3], dbl x[3][3], dbl *c) {
   c[TRI300] = f[0];
   c[TRI030] = f[1];
   c[TRI003] = f[2];
 
-  c[TRI210] = c[TRI300] + dvec3_dot(Df[TRI100], dvec3_sub(x[TRI010], x[TRI100]))/3;
-  c[TRI201] = c[TRI300] + dvec3_dot(Df[TRI100], dvec3_sub(x[TRI001], x[TRI100]))/3;
-  c[TRI120] = c[TRI030] + dvec3_dot(Df[TRI010], dvec3_sub(x[TRI100], x[TRI010]))/3;
-  c[TRI021] = c[TRI030] + dvec3_dot(Df[TRI010], dvec3_sub(x[TRI001], x[TRI010]))/3;
-  c[TRI012] = c[TRI003] + dvec3_dot(Df[TRI001], dvec3_sub(x[TRI010], x[TRI001]))/3;
-  c[TRI102] = c[TRI003] + dvec3_dot(Df[TRI001], dvec3_sub(x[TRI100], x[TRI001]))/3;
+  dbl tmp[3];
+
+  dbl3_sub(x[TRI010], x[TRI100], tmp);
+  c[TRI210] = c[TRI300] + dbl3_dot(Df[TRI100], tmp)/3;
+
+  dbl3_sub(x[TRI001], x[TRI100], tmp);
+  c[TRI201] = c[TRI300] + dbl3_dot(Df[TRI100], tmp)/3;
+
+  dbl3_sub(x[TRI100], x[TRI010], tmp);
+  c[TRI120] = c[TRI030] + dbl3_dot(Df[TRI010], tmp)/3;
+
+  dbl3_sub(x[TRI001], x[TRI010], tmp);
+  c[TRI021] = c[TRI030] + dbl3_dot(Df[TRI010], tmp)/3;
+
+  dbl3_sub(x[TRI010], x[TRI001], tmp);
+  c[TRI012] = c[TRI003] + dbl3_dot(Df[TRI001], tmp)/3;
+
+  dbl3_sub(x[TRI100], x[TRI001], tmp);
+  c[TRI102] = c[TRI003] + dbl3_dot(Df[TRI001], tmp)/3;
 
   c[TRI111] = (c[TRI210] + c[TRI201] + c[TRI120] + c[TRI021] + c[TRI012] + c[TRI102])/4
     - (c[TRI300] + c[TRI030] + c[TRI003])/6;

@@ -95,6 +95,7 @@ if (BUILD_TESTS)
   add_executable (tests
     test_main.cpp
     test_dial.cpp
+    test_eik3.cpp
     test_vec.cpp
     )
   target_link_libraries (tests PRIVATE Catch2::Catch2)
@@ -110,13 +111,6 @@ if (BUILD_TESTS)
   if (IPO_SUPPORTED)
     set_property (TARGET dial PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
   endif ()
-
-  add_executable (main main.c)
-  target_link_libraries (main jmm)
-  if (IPO_SUPPORTED)
-    set_property (TARGET main PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
-  endif ()
-  add_sanitizers (main)
 endif ()
 
 #

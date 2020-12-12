@@ -17,6 +17,29 @@ typedef struct mesh3 mesh3_s;
  */
 typedef struct eik3 eik3_s;
 
+typedef struct costfunc {
+  dbl f;
+  dbl g[2];
+  dbl H[2][2];
+
+  dbl p[2]; // Newton step
+
+  dbl x[3]; // x[l]
+  dbl X[3][3]; // X = [x[l0]'; x[l1]'; x[l2]']
+  dbl XXt[3][3];
+
+  // B-coefs for 9-point triangle interpolation T on base of update
+  dbl Tc[10];
+
+  dbl x_minus_xb[3];
+} costfunc_s;
+
+void costfunc_init(costfunc_s *cf, eik3_s const *eik,
+                   size_t l, size_t l0, size_t l1, size_t l2);
+void costfunc_set_lambda(costfunc_s *cf, dbl const *lambda);
+
+void tetra(costfunc_s *cf, dbl const *lambda, jet3 *jet);
+
 void eik3_alloc(eik3_s **eik);
 void eik3_dealloc(eik3_s **eik);
 void eik3_init(eik3_s *eik, mesh3_s const *mesh);

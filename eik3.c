@@ -2,6 +2,7 @@
 
 #include <assert.h>
 #include <stdlib.h>
+#include <string.h>
 
 #ifdef _OPENMP
 #include <omp.h>
@@ -93,33 +94,18 @@ void eik3_deinit(eik3_s *eik) {
   heap_dealloc(&eik->heap);
 }
 
-typedef struct costfunc {
-  dbl f;
-  dvec2 g;
-  dmat22 H;
-
-  dvec3 x; // x[l]
-  dmat33 X; // X = [x[l0]'; x[l1]'; x[l2]']
-  dmat33 XXt;
-
-  // B-coefs for 9-point triangle interpolation T on base of update
-  dbl Tc[10];
-
-  dvec3 x_minus_xb;
-} costfunc_s;
-
-void costfunc_init(costfunc_s *cf, eik3_s *eik, size_t l,
-                   size_t l0, size_t l1, size_t l2) {
+void costfunc_init(costfunc_s *cf, eik3_s const *eik,
+                   size_t l, size_t l0, size_t l1, size_t l2) {
   assert(jet3_is_finite(&eik->jet[l0]));
   assert(jet3_is_finite(&eik->jet[l1]));
   assert(jet3_is_finite(&eik->jet[l2]));
 
-  mesh3_get_vert(eik->mesh, l, cf->x.data);
+  mesh3_get_vert(eik->mesh, l, cf->x);
 
   // initialize X to Xt
-  mesh3_get_vert(eik->mesh, l0, cf->X.rows[0].data);
-  mesh3_get_vert(eik->mesh, l1, cf->X.rows[1].data);
-  mesh3_get_vert(eik->mesh, l2, cf->X.rows[2].data);
+  mesh3_get_vert(eik->mesh, l0, cf->X[0]);
+  mesh3_get_vert(eik->mesh, l1, cf->X[1]);
+  mesh3_get_vert(eik->mesh, l2, cf->X[2]);
 
   /**
    * Compute Bernstein-Bezier coefficients before transposing Xt and computing XXt
@@ -127,184 +113,208 @@ void costfunc_init(costfunc_s *cf, eik3_s *eik, size_t l,
 
   jet3 jet;
   dbl T[3];
-  dvec3 DT[3];
+  dbl DT[3][3];
 
   jet = eik->jet[l0];
   T[0] = jet.f;
-  DT[0] = (dvec3) {.data = {jet.fx, jet.fy, jet.fz}};
+  DT[0][0] = jet.fx;
+  DT[0][1] = jet.fy;
+  DT[0][2] = jet.fz;
 
   jet = eik->jet[l1];
   T[1] = jet.f;
-  DT[1] = (dvec3) {.data = {jet.fx, jet.fy, jet.fz}};
+  DT[1][0] = jet.fx;
+  DT[1][1] = jet.fy;
+  DT[1][2] = jet.fz;
 
   jet = eik->jet[l2];
   T[2] = jet.f;
-  DT[2] = (dvec3) {.data = {jet.fx, jet.fy, jet.fz}};
+  DT[2][0] = jet.fx;
+  DT[2][1] = jet.fy;
+  DT[2][2] = jet.fz;
 
   // cf->X == Xt right now
-  bb3tri_interp3(T, DT, cf->X.rows, cf->Tc);
+  bb3tri_interp3(T, &DT[0], cf->X, cf->Tc);
 
   // tranpose X and compute XXt inplace
-  cf->XXt = cf->X;
-  dmat33_transpose(&cf->X);
-  cf->XXt = dmat33_mul(cf->X, cf->XXt);
+  memcpy((void *)cf->XXt, (void *)cf->X, sizeof(dbl)*3*3);
+  dbl33_transpose(cf->X);
+  dbl33_mul(cf->X, cf->XXt, cf->XXt);
 }
 
 void costfunc_set_lambda(costfunc_s *cf, dbl const *lambda) {
-  static dvec3 const a1 = {.data = {-1, 1, 0}};
-  static dvec3 const a2 = {.data = {-1, 0, 1}};
+  static dbl a1[3] = {-1, 1, 0};
+  static dbl a2[3] = {-1, 0, 1};
 
-  dvec3 b;
-  b.data[1] = lambda[0];
-  b.data[2] = lambda[1];
-  b.data[0] = 1 - b.data[1] - b.data[2];
+  dbl b[3], xb[3], tmp1[3], DL[2], tmp2[3][3], D2L[2][2], DT[2], D2T[2][2];
 
-  dvec3 xb = dmat33_dvec3_mul(cf->X, b);
-  cf->x_minus_xb = dvec3_sub(cf->x, xb);
-  dbl L = dvec3_norm(cf->x_minus_xb);
+  b[1] = lambda[0];
+  b[2] = lambda[1];
+  b[0] = 1 - b[1] - b[2];
 
-  dvec3 tmp1 = dmat33_dvec3_mul(cf->X, cf->x_minus_xb);
-  tmp1 = dvec3_dbl_div(tmp1, L);
+  assert(b[0] >= 0);
+  assert(b[1] >= 0);
+  assert(b[2] >= 0);
 
-  dvec2 DL;
-  DL.x = dvec3_dot(a1, tmp1);
-  DL.y = dvec3_dot(a2, tmp1);
+  dbl33_dbl3_mul(cf->X, b, xb);
+  dbl3_sub(cf->x, xb, cf->x_minus_xb);
+  dbl L = dbl3_norm(cf->x_minus_xb);
 
-  dmat33 tmp2 = cf->XXt;
-  tmp2 = dmat33_sub(tmp2, dvec3_outer(tmp1, tmp1));
-  tmp2 = dmat33_dbl_div(tmp2, L);
+  dbl33_dbl3_mul(cf->X, cf->x_minus_xb, tmp1);
+  dbl3_dbl_div(tmp1, L, tmp1);
 
-  dmat22 D2L;
-  D2L.data[0][0] = dvec3_dot(dmat33_dvec3_mul(tmp2, a1), a1);
-  D2L.data[1][0] = D2L.data[0][1] = dvec3_dot(dmat33_dvec3_mul(tmp2, a1), a2);
-  D2L.data[1][1] = dvec3_dot(dmat33_dvec3_mul(tmp2, a2), a2);
+  DL[0] = dbl3_dot(a1, tmp1);
+  DL[1] = dbl3_dot(a2, tmp1);
 
-  dvec2 DT;
-  DT.x = dbb3tri(cf->Tc, b.data, a1.data);
-  DT.y = dbb3tri(cf->Tc, b.data, a2.data);
+  dbl3_outer(tmp1, tmp1, tmp2);
+  dbl33_sub(cf->XXt, tmp2, tmp2);
+  dbl33_dbl_div(tmp2, L, tmp2);
 
-  dmat22 D2T;
-  D2T.data[0][0] = d2bb3tri(cf->Tc, b.data, a1.data, a1.data);
-  D2T.data[1][0] = D2T.data[0][1] = d2bb3tri(cf->Tc, b.data, a1.data, a2.data);
-  D2T.data[1][1] = d2bb3tri(cf->Tc, b.data, a1.data, a2.data);
+  dbl33_dbl3_mul(tmp2, a1, tmp1);
+  D2L[0][0] = dbl3_dot(tmp1, a1);
+  D2L[1][0] = D2L[0][1] = dbl3_dot(tmp1, a2);
+  dbl33_dbl3_mul(tmp2, a2, tmp1);
+  D2L[1][1] = dbl3_dot(tmp1, a2);
 
-  cf->f = L + bb3tri(cf->Tc, b.data);
-  cf->g = dvec2_add(DL, DT);
-  cf->H = dmat22_add(D2L, D2T);
-}
+  DT[0] = dbb3tri(cf->Tc, b, a1);
+  DT[1] = dbb3tri(cf->Tc, b, a2);
 
-static dbl get_residual(costfunc_s const *cf, dbl lam0, dbl const *lam,
-                        dbl const *alp, dbl t) {
-  dvec2 tmp1 = cf->g;
-  tmp1.x += alp[0] - alp[1];
-  tmp1.y += alp[0] - alp[2];
+  D2T[0][0] = d2bb3tri(cf->Tc, b, a1, a1);
+  D2T[1][0] = D2T[0][1] = d2bb3tri(cf->Tc, b, a1, a2);
+  D2T[1][1] = d2bb3tri(cf->Tc, b, a1, a2);
 
-  dbl tmp2 = 1/(t*alp[0]) - lam0;
+  cf->f = L + bb3tri(cf->Tc, b);
+  dbl2_add(DL, DT, cf->g);
+  dbl22_add(D2L, D2T, cf->H);
 
-  dvec2 tmp3;
-  tmp3.x = 1/(t*alp[1]) - lam[0];
-  tmp3.x = 1/(t*alp[2]) - lam[1];
+  /**
+   * Finally, compute Newton step, making sure to perturb the Hessian
+   * if it's indefinite.
+   */
 
-  return sqrt(dvec2_norm_sq(tmp1) + tmp2*tmp2 + dvec2_norm_sq(tmp3));
-}
-
-static jet3 tetra(eik3_s *eik, size_t l, size_t l0, size_t l1, size_t l2) {
-  static int const maxniter = 100;
-  static dbl const eps = 1e-15;
-  static dbl const beta = 0.5;
-  static dbl const gamma = 1e-2;
-
-  costfunc_s cf;
-  costfunc_init(&cf, eik, l, l0, l1, l2);
-
-  dvec2 lam = {.x = 1./3, .y = 1./3}, dlam;
-  costfunc_set_lambda(&cf, &lam.x);
-
-  dbl lam0 = 1./3;
-
-  // Vector of Lagrange multipliers
-  dvec3 alp = {.data = {3, 3, 3}}, dalp;
-
-  static dbl const mu = 1e2;
-
-  dbl t = mu, s, res, newres;
-  int k = 1;
-  dbl eta = 1;
-
-  res = get_residual(&cf, lam0, &lam.x, alp.data, t);
-
-  // primal-dual iteration
-  while (res > eps || eta > 1 || k < maxniter) {
-    /**
-     * compute Newton step for modified KKT system
-     */
-
-    dlam.x = alp.data[1] - alp.data[0];
-    dlam.y = alp.data[2] - alp.data[0];
-    dlam = dvec2_sub(dlam, cf.g);
-
-    dalp.data[0] = lam0 - 1/(t*alp.data[0]);
-    dalp.data[1] = lam.x - 1/(t*alp.data[1]);
-    dalp.data[2] = lam.y - 1/(t*alp.data[2]);
-
-    dlam.x += lam0*dalp.data[0]/alp.data[0] - lam.x*dalp.data[1]/alp.data[1];
-    dlam.y += lam0*dalp.data[0]/alp.data[0] - lam.y*dalp.data[2]/alp.data[2];
-
-    dmat22 H = cf.H;
-    dbl tmp = lam.x/alp.data[0];
-    H.data[0][0] += tmp + lam.x/alp.data[1];
-    H.data[1][0] = H.data[0][1] = tmp;
-    H.data[1][1] += tmp + lam.y/alp.data[2];
-
-    dlam = dmat22_dvec2_solve(H, dlam);
-    dbl dlam0 = dlam.x + dlam.y;
-
-    dalp.data[0] += lam0*dlam0/alp.data[0];
-    dalp.data[1] -= lam.x*dlam.x/alp.data[1];
-    dalp.data[2] -= lam.y*dlam.y/alp.data[2];
-
-    /**
-     * do backtracking line search
-     */
-
-    s = 1;
-    s = fmin(s, dalp.data[0] < 0 ? -alp.data[0]/dalp.data[0] : 1);
-    s = fmin(s, dalp.data[1] < 0 ? -alp.data[1]/dalp.data[1] : 1);
-    s = fmin(s, dalp.data[2] < 0 ? -alp.data[2]/dalp.data[2] : 1);
-
-    s = fmin(s, dlam0 < 0 ? lam0/dlam0 : 1);
-
-    s = fmin(s, dlam.x < 0 ? -lam.x/dlam.x : 1);
-    s = fmin(s, dlam.y < 0 ? -lam.y/dlam.y : 1);
-
-    while (true) {
-      lam = dvec2_saxpy(s, dlam, lam);
-      alp = dvec3_saxpy(s, dalp, alp);
-      costfunc_set_lambda(&cf, &lam.x);
-      newres = get_residual(&cf, lam0, &lam.x, alp.data, t);
-      if (res < (1 - gamma*s)*newres) {
-        break;
-      }
-      s *= beta;
-    }
-
-    // prepare for next iteration
-    res = newres;
-    lam0 = 1 - lam.x - lam.y;
-    eta = lam0*alp.data[0] + lam.x*alp.data[1] + lam.y*alp.data[2];
-    t = 3*mu/eta;
-    k += 1;
+  // Conditionally perturb the Hessian
+  dbl tr = cf->H[0][0] + cf->H[1][1];
+  dbl det = cf->H[0][0]*cf->H[1][1] - cf->H[0][1]*cf->H[1][0];
+  dbl min_eig_doubled = tr - sqrt(tr*tr - 4*det);
+  if (min_eig_doubled < 0) {
+    cf->H[0][0] -= min_eig_doubled;
+    cf->H[1][1] -= min_eig_doubled;
   }
 
-  assert(k < maxniter);
+  // Compute the Newton step
+  dbl22_dbl2_solve(cf->H, cf->g, cf->p);
+  dbl2_negate(cf->p);
+}
 
-  dvec3 DT = dvec3_normalized(cf.x_minus_xb);
+void tetra(costfunc_s *cf, dbl const lam[2], jet3 *jet) {
+  dbl const tscale = 0.5; // Step size scaling parameter
+  dbl const c1 = 1e-4; // Constant for backtracking line search
+  dbl const ftol = 1e-15, xtol = 1e-15;
 
-  return (jet3) {
-    .f = cf.f, .fx = DT.data[0], .fy = DT.data[1], .fz = DT.data[2]};
+  dbl lam1[2], dlam[2];
+  dbl f = cf->f; // Current value of cost function
+  dbl t = 1; // Initial step size
+  dbl tc; // Breakpoint used to find Cauchy point
+  dbl c1_times_g_dot_p;
+  dbl Df; // Directional derivative used in Cauchy point calculation
+
+  /**
+   * Newton iteration
+   */
+  while (true) {
+    c1_times_g_dot_p = c1*dbl2_dot(cf->g, cf->p);
+    assert(c1_times_g_dot_p < 0);
+
+  cauchy:
+
+    tc = (1 - lam[0] - lam[1])/dbl2_sum(cf->p);
+    if (0 < tc && tc < 1) {
+      dbl2_saxpy(tc, cf->p, lam, lam1);
+      costfunc_set_lambda(cf, lam1);
+      dbl2_sub(lam1, lam, dlam);
+      Df = dbl2_dot(cf->g, dlam);
+      if (Df >= 0 || cf->f >= f) {
+        t = tc;
+        goto backtrack;
+      } else {
+        cf->p[0] = (cf->p[0] - cf->p[1])/2;
+        cf->p[1] = (cf->p[1] - cf->p[0])/2;
+        lam = lam1;
+        goto cauchy;
+      }
+    }
+
+    tc = -lam[0]/cf->p[0];
+    if (0 < tc && tc < 1) {
+      dbl2_saxpy(tc, cf->p, lam, lam1);
+      costfunc_set_lambda(cf, lam1);
+      dbl2_sub(lam1, lam, dlam);
+      Df = dbl2_dot(cf->g, dlam);
+      if (Df >= 0 || cf->f >= f) {
+        t = tc;
+        goto backtrack;
+      } else {
+        cf->p[0] = 0;
+        lam = lam1;
+        goto cauchy;
+      }
+    }
+
+    tc = -lam[1]/cf->p[1];
+    if (0 < tc && tc < 1) {
+      dbl2_saxpy(tc, cf->p, lam, lam1);
+      costfunc_set_lambda(cf, lam1);
+      dbl2_sub(lam1, lam, dlam);
+      Df = dbl2_dot(cf->g, dlam);
+      if (Df >= 0 || cf->f >= f) {
+        t = tc;
+        goto backtrack;
+      } else {
+        cf->p[1] = 0;
+        lam = lam1;
+        goto cauchy;
+      }
+    }
+
+    // We didn't trip any breakpoints, compute lam1
+    dbl2_saxpy(t, cf->p, lam, lam1);
+    costfunc_set_lambda(cf, lam1);
+
+  backtrack:
+    while (cf->f >= f + t*c1_times_g_dot_p) {
+      t *= tscale;
+      dbl2_saxpy(t, cf->p, lam, lam1);
+      costfunc_set_lambda(cf, lam1);
+    }
+
+    // Check for convergence
+    if (fabs(cf->f - f) <= ftol*fmax(cf->f, f) + ftol ||
+        dbl2_maxdist(lam, lam1)
+        <= xtol*fmax(dbl2_maxnorm(lam), dbl2_maxnorm(lam1)) + xtol) {
+      break;
+    }
+
+    // Reset for next iteration
+    t = 1;
+    lam = lam1;
+    f = cf->f;
+  }
+
+  dbl DT[3];
+  memcpy((void *)DT, (void *)cf->x_minus_xb, sizeof(dbl)*3);
+  dbl3_normalize(DT);
+
+  jet->f = f;
+  jet->fx = DT[0];
+  jet->fy = DT[1];
+  jet->fz = DT[2];
 }
 
 static void update(eik3_s *eik, size_t l, size_t l0) {
+  /**
+   * Update setup phase
+   */
+
   // To find the updates incident on l and l0, first find the
   // tetrahedra that are incident on the edge (l0, l).
   int nec = mesh3_nec(eik->mesh, l0, l);
@@ -339,18 +349,34 @@ static void update(eik3_s *eik, size_t l, size_t l0) {
     }
   }
 
-  // Don't need ec any more
-  free(ec);
+  /**
+   * Update evaluation phase
+   */
 
-  // Do the updates
-  jet3 jet;
+  costfunc_s cf;
+  dbl lambda[2] = {0, 0};
+
+  // Start by searching for an update tetrahedron that might have an
+  // interior point solution
   for (int i = 0; i < nup; ++i) {
-    jet = tetra(eik, l, l0, l1[i], l2[i]);
-    if (jet.f < eik->jet[l].f) {
-      eik->jet[l] = jet;
+    costfunc_init(&cf, eik, l, l0, l1[i], l2[i]);
+    costfunc_set_lambda(&cf, lambda);
+    if (cf.g[0] > 0 || cf.g[0] > 0) {
+      continue;
+    } else if (dbl2_maxnorm(cf.g) <= EPS) {
+      // Minimizing ray passes through x0
+      eik->jet[l] = eik->jet[l0];
+      eik->jet[l].f = cf.f;
+      break;
+    } else {
+      tetra(&cf, lambda, &eik->jet[l]);
     }
   }
 
+  /**
+   * Cleanup
+   */
+  free(ec);
   free(l1);
   free(l2);
 }

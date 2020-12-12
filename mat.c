@@ -3,6 +3,75 @@
 #include <assert.h>
 #include <string.h>
 
+#define SWAP(x, y) {                            \
+    __typeof(x) tmp = x;                        \
+    x = y;                                      \
+    y = tmp;                                    \
+  }
+
+void dbl22_add(dbl A[2][2], dbl B[2][2], dbl C[2][2]) {
+  C[0][0] = A[0][0] + B[0][0];
+  C[0][1] = A[0][1] + B[0][1];
+  C[1][0] = A[1][0] + B[1][0];
+  C[1][1] = A[1][1] + B[1][1];
+}
+
+void dbl22_dbl2_solve(dbl A[2][2], dbl b[2], dbl x[2]) {
+  dbl det = A[0][0]*A[1][1] - A[0][1]*A[1][0];
+  x[0] = (A[1][1]*b[0] - A[0][1]*b[1])/det;
+  x[1] = (A[0][0]*b[1] - A[1][0]*b[0])/det;
+}
+
+void dbl3_outer(dbl u[3], dbl v[3], dbl uv[3][3]) {
+  for (int i = 0; i < 3; ++i) {
+    for (int j = 0; j < 3; ++j) {
+      uv[i][j] = u[i]*v[j];
+    }
+  }
+}
+
+void dbl33_mul(dbl A[3][3], dbl B[3][3], dbl C[3][3]) {
+  memset((void *)C, 0x0, sizeof(dbl)*3*3);
+  for (int i = 0; i < 3; ++i) {
+    for (int j = 0; j < 3; ++j) {
+      for (int k = 0; k < 3; ++k) {
+        C[i][j] += A[i][k]*B[k][j];
+      }
+    }
+  }
+}
+
+void dbl33_sub(dbl A[3][3], dbl B[3][3], dbl C[3][3]) {
+  for (int i = 0; i < 3; ++i) {
+    for (int j = 0; j < 3; ++j) {
+      C[i][j] = A[i][j] - B[i][j];
+    }
+  }
+}
+
+void dbl33_dbl3_mul(dbl A[3][3], dbl x[3], dbl b[3]) {
+  memset((void *)b, 0x0, sizeof(dbl)*3);
+  for (int i = 0; i < 3; ++i) {
+    for (int j = 0; j < 3; ++j) {
+      b[i] += A[i][j]*x[j];
+    }
+  }
+}
+
+void dbl33_transpose(dbl A[3][3]) {
+  SWAP(A[1][0], A[0][1]);
+  SWAP(A[2][0], A[0][2]);
+  SWAP(A[2][1], A[1][2]);
+}
+
+void dbl33_dbl_div(dbl A[3][3], dbl a, dbl B[3][3]) {
+  for (int i = 0; i < 3; ++i) {
+    for (int j = 0; j < 3; ++j) {
+      B[i][j] = A[i][j]/a;
+    }
+  }
+}
+
 dmat22 dmat22_add(dmat22 A, dmat22 B) {
   return (dmat22) {
     .rows = {
@@ -204,19 +273,11 @@ dmat33 dvec3_outer(dvec3 u, dvec3 v) {
   return uv;
 }
 
-#define SWAP(x, y) {                            \
-    __typeof(x) tmp = x;                        \
-    x = y;                                      \
-    y = tmp;                                    \
-  }
-
 void dmat33_transpose(dmat33 *A) {
   SWAP(A->rows[1].data[0], A->rows[0].data[1]);
   SWAP(A->rows[2].data[0], A->rows[0].data[2]);
   SWAP(A->rows[2].data[1], A->rows[1].data[2]);
 }
-
-#undef SWAP
 
 dvec4 dmat44_dvec4_mul(dmat44 const A, dvec4 const x) {
   dvec4 y;
