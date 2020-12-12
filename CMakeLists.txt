@@ -7,6 +7,8 @@ project (jmm LANGUAGES C CXX VERSION 0.1.1)
 
 option (BUILD_TESTS "Build Catch2 unit tests")
 
+set (CMAKE_XCODE_GENERATE_SCHEME TRUE)
+
 set (INSTALL_INCLUDE_DIR include)
 set (INSTALL_LIB_DIR lib)
 
@@ -77,6 +79,13 @@ target_include_directories (
 add_executable (basic_solve examples/basic_solve.c)
 target_link_libraries (basic_solve jmm)
 target_include_directories (basic_solve PRIVATE jmm)
+set_property (
+  TARGET basic_solve
+  PROPERTY XCODE_SCHEME_ARGUMENTS
+  "${CMAKE_CURRENT_BINARY_DIR}/sphere_verts.bin"
+  "${CMAKE_CURRENT_BINARY_DIR}/sphere_cells.bin"
+  "830"
+  "${CMAKE_CURRENT_BINARY_DIR}/sphere_jets.bin")
 
 # Copy data for examples to build directory
 
