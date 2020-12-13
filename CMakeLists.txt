@@ -5,7 +5,7 @@ check_ipo_supported (RESULT IPO_SUPPORTED)
 
 project (jmm LANGUAGES C CXX VERSION 0.1.1)
 
-option (BUILD_TESTS "Build Catch2 unit tests")
+option (BUILD_TESTS "Build unit tests")
 
 set (CMAKE_XCODE_GENERATE_SCHEME TRUE)
 
@@ -97,29 +97,20 @@ foreach (INPUT_DATA_FILE ${EXAMPLE_INPUT_DATA_FILES})
   configure_file (${INPUT_DATA_FILE} ${CMAKE_CURRENT_BINARY_DIR} COPYONLY)
 endforeach ()
 
+#
 # Unit tests
+#
 
 if (BUILD_TESTS)
-  find_package (Catch2 REQUIRED)
-  add_executable (tests
-    test_main.cpp
-    test_dial.cpp
-    test_eik3.cpp
-    test_vec.cpp
-    )
-  target_link_libraries (tests PRIVATE Catch2::Catch2)
-  target_link_libraries (tests PRIVATE jmm)
-  if (IPO_SUPPORTED)
-    set_property (TARGET tests PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
-  endif ()
-  add_sanitizers (tests)
+  find_package (cgreen REQUIRED)
 
-  include (CTest)
-  include (Catch)
-  catch_discover_tests (tests)
-  if (IPO_SUPPORTED)
-    set_property (TARGET dial PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
-  endif ()
+  set (JMM_TESTS_SRCS test_mat.c)
+  add_library (jmm_tests SHARED ${JMM_TESTS_SRCS})
+  target_link_libraries (jmm_tests PRIVATE jmm)
+  target_link_libraries (jmm_tests PRIVATE cgreen)
+
+  enable_testing ()
+  add_test (NAME jmm COMMAND cgreen-runner $<TARGET_FILE_NAME:jmm_tests>)
 endif ()
 
 #
