@@ -49,7 +49,7 @@ void dbl33_sub(dbl A[3][3], dbl B[3][3], dbl C[3][3]) {
   }
 }
 
-void dbl33_dbl3_mul(dbl A[3][3], dbl x[3], dbl b[3]) {
+void dbl33_dbl3_mul(dbl const A[3][3], dbl const x[3], dbl b[3]) {
   memset((void *)b, 0x0, sizeof(dbl)*3);
   for (int i = 0; i < 3; ++i) {
     for (int j = 0; j < 3; ++j) {
