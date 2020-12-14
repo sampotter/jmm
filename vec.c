@@ -36,6 +36,12 @@ dbl dbl2_maxnorm(dbl const u[2]) {
   return fmax(fabs(u[0]), fabs(u[1]));
 }
 
+void dbl3_add(dbl const u[3], dbl const v[3], dbl w[3]) {
+  w[0] = u[0] + v[0];
+  w[1] = u[1] + v[1];
+  w[2] = u[2] + v[2];
+}
+
 void dbl3_sub(dbl const *u, dbl const *v, dbl *w) {
   w[0] = u[0] - v[0];
   w[1] = u[1] - v[1];
@@ -61,6 +67,12 @@ void dbl3_normalize(dbl u[3]) {
   u[0] /= unorm;
   u[1] /= unorm;
   u[2] /= unorm;
+}
+
+void dbl3_saxpy(dbl a, dbl const x[3], dbl const y[3], dbl z[3]) {
+  z[0] = a*x[0] + y[0];
+  z[1] = a*x[1] + y[1];
+  z[2] = a*x[2] + y[2];
 }
 
 dvec2 dvec2_zero() {
