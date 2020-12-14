@@ -200,21 +200,15 @@ void bb3tri_interp3(dbl f[3], dbl Df[3][3], dbl x[3][3], dbl *c) {
 
   dbl3_sub(x[TRI010], x[TRI100], tmp);
   c[TRI210] = c[TRI300] + dbl3_dot(Df[TRI100], tmp)/3;
+  c[TRI120] = c[TRI030] - dbl3_dot(Df[TRI010], tmp)/3;
 
   dbl3_sub(x[TRI001], x[TRI100], tmp);
   c[TRI201] = c[TRI300] + dbl3_dot(Df[TRI100], tmp)/3;
-
-  dbl3_sub(x[TRI100], x[TRI010], tmp);
-  c[TRI120] = c[TRI030] + dbl3_dot(Df[TRI010], tmp)/3;
+  c[TRI102] = c[TRI003] - dbl3_dot(Df[TRI001], tmp)/3;
 
   dbl3_sub(x[TRI001], x[TRI010], tmp);
   c[TRI021] = c[TRI030] + dbl3_dot(Df[TRI010], tmp)/3;
-
-  dbl3_sub(x[TRI010], x[TRI001], tmp);
-  c[TRI012] = c[TRI003] + dbl3_dot(Df[TRI001], tmp)/3;
-
-  dbl3_sub(x[TRI100], x[TRI001], tmp);
-  c[TRI102] = c[TRI003] + dbl3_dot(Df[TRI001], tmp)/3;
+  c[TRI012] = c[TRI003] - dbl3_dot(Df[TRI001], tmp)/3;
 
   c[TRI111] = (c[TRI210] + c[TRI201] + c[TRI120] + c[TRI021] + c[TRI012] + c[TRI102])/4
     - (c[TRI300] + c[TRI030] + c[TRI003])/6;
