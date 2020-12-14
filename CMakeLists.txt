@@ -102,12 +102,17 @@ endforeach ()
 #
 
 if (BUILD_TESTS)
+  # find_library (CGREEN_LIBRARY NAMES cgreen)
+  # if (NOT CGREEN_LIBRARY)
+  #   message (FATAL_ERROR "Cgreen not found!")
+  # endif ()
   find_package (cgreen REQUIRED)
 
-  set (JMM_TESTS_SRCS test_mat.c)
+  set (JMM_TESTS_SRCS test_eik3.c)
   add_library (jmm_tests SHARED ${JMM_TESTS_SRCS})
+  target_link_libraries (jmm_tests PRIVATE ${CGREEN_LIBRARY})
+  target_include_directories (jmm_tests PRIVATE ${CGREEN_INCLUDE_DIRS})
   target_link_libraries (jmm_tests PRIVATE jmm)
-  target_link_libraries (jmm_tests PRIVATE cgreen)
 
   enable_testing ()
   add_test (NAME jmm COMMAND cgreen-runner $<TARGET_FILE_NAME:jmm_tests>)

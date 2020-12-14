@@ -76,8 +76,6 @@ void eik3_init(eik3_s *eik, mesh3_s const *mesh) {
 
   heap_alloc(&eik->heap);
   heap_init(eik->heap, capacity, value, setpos, (void *)eik);
-
-
 }
 
 void eik3_deinit(eik3_s *eik) {
@@ -94,59 +92,51 @@ void eik3_deinit(eik3_s *eik) {
   heap_dealloc(&eik->heap);
 }
 
-void costfunc_init(costfunc_s *cf, eik3_s const *eik,
+void costfunc_init(costfunc_s *cf, mesh3_s const *mesh, jet3 const *jet,
                    size_t l, size_t l0, size_t l1, size_t l2) {
-  assert(jet3_is_finite(&eik->jet[l0]));
-  assert(jet3_is_finite(&eik->jet[l1]));
-  assert(jet3_is_finite(&eik->jet[l2]));
+  assert(jet3_is_finite(&jet[l0]));
+  assert(jet3_is_finite(&jet[l1]));
+  assert(jet3_is_finite(&jet[l2]));
 
-  mesh3_get_vert(eik->mesh, l, cf->x);
+  mesh3_get_vert(mesh, l, cf->x);
 
-  // initialize X to Xt
-  mesh3_get_vert(eik->mesh, l0, cf->X[0]);
-  mesh3_get_vert(eik->mesh, l1, cf->X[1]);
-  mesh3_get_vert(eik->mesh, l2, cf->X[2]);
+  mesh3_get_vert(mesh, l0, cf->Xt[0]);
+  mesh3_get_vert(mesh, l1, cf->Xt[1]);
+  mesh3_get_vert(mesh, l2, cf->Xt[2]);
+
+  dbl33_transposed(cf->Xt, cf->X);
+  dbl33_mul(cf->X, cf->Xt, cf->XXt);
 
   /**
    * Compute Bernstein-Bezier coefficients before transposing Xt and computing XXt
    */
 
-  jet3 jet;
   dbl T[3];
   dbl DT[3][3];
 
-  jet = eik->jet[l0];
-  T[0] = jet.f;
-  DT[0][0] = jet.fx;
-  DT[0][1] = jet.fy;
-  DT[0][2] = jet.fz;
+  T[0] = jet[l0].f;
+  DT[0][0] = jet[l0].fx;
+  DT[0][1] = jet[l0].fy;
+  DT[0][2] = jet[l0].fz;
 
-  jet = eik->jet[l1];
-  T[1] = jet.f;
-  DT[1][0] = jet.fx;
-  DT[1][1] = jet.fy;
-  DT[1][2] = jet.fz;
+  T[1] = jet[l1].f;
+  DT[1][0] = jet[l1].fx;
+  DT[1][1] = jet[l1].fy;
+  DT[1][2] = jet[l1].fz;
 
-  jet = eik->jet[l2];
-  T[2] = jet.f;
-  DT[2][0] = jet.fx;
-  DT[2][1] = jet.fy;
-  DT[2][2] = jet.fz;
+  T[2] = jet[l2].f;
+  DT[2][0] = jet[l2].fx;
+  DT[2][1] = jet[l2].fy;
+  DT[2][2] = jet[l2].fz;
 
-  // cf->X == Xt right now
-  bb3tri_interp3(T, &DT[0], cf->X, cf->Tc);
-
-  // tranpose X and compute XXt inplace
-  memcpy((void *)cf->XXt, (void *)cf->X, sizeof(dbl)*3*3);
-  dbl33_transpose(cf->X);
-  dbl33_mul(cf->X, cf->XXt, cf->XXt);
+  bb3tri_interp3(T, &DT[0], cf->Xt, cf->Tc);
 }
 
 void costfunc_set_lambda(costfunc_s *cf, dbl const *lambda) {
   static dbl a1[3] = {-1, 1, 0};
   static dbl a2[3] = {-1, 0, 1};
 
-  dbl b[3], xb[3], tmp1[3], DL[2], tmp2[3][3], D2L[2][2], DT[2], D2T[2][2];
+  dbl b[3], xb[3], tmp1[3], tmp2[3][3], L, DL[2], D2L[2][2], DT[2], D2T[2][2];
 
   b[1] = lambda[0];
   b[2] = lambda[1];
@@ -158,9 +148,9 @@ void costfunc_set_lambda(costfunc_s *cf, dbl const *lambda) {
 
   dbl33_dbl3_mul(cf->X, b, xb);
   dbl3_sub(cf->x, xb, cf->x_minus_xb);
-  dbl L = dbl3_norm(cf->x_minus_xb);
+  L = dbl3_norm(cf->x_minus_xb);
 
-  dbl33_dbl3_mul(cf->X, cf->x_minus_xb, tmp1);
+  dbl33_dbl3_mul(cf->Xt, cf->x_minus_xb, tmp1);
   dbl3_dbl_div(tmp1, L, tmp1);
 
   DL[0] = dbl3_dot(a1, tmp1);
@@ -181,7 +171,7 @@ void costfunc_set_lambda(costfunc_s *cf, dbl const *lambda) {
 
   D2T[0][0] = d2bb3tri(cf->Tc, b, a1, a1);
   D2T[1][0] = D2T[0][1] = d2bb3tri(cf->Tc, b, a1, a2);
-  D2T[1][1] = d2bb3tri(cf->Tc, b, a1, a2);
+  D2T[1][1] = d2bb3tri(cf->Tc, b, a2, a2);
 
   cf->f = L + bb3tri(cf->Tc, b);
   dbl2_add(DL, DT, cf->g);
@@ -217,6 +207,8 @@ void tetra(costfunc_s *cf, dbl const lam[2], jet3 *jet) {
   dbl tc; // Breakpoint used to find Cauchy point
   dbl c1_times_g_dot_p;
   dbl Df; // Directional derivative used in Cauchy point calculation
+
+  cf->niter = 0;
 
   /**
    * Newton iteration
@@ -281,7 +273,7 @@ void tetra(costfunc_s *cf, dbl const lam[2], jet3 *jet) {
     costfunc_set_lambda(cf, lam1);
 
   backtrack:
-    while (cf->f >= f + t*c1_times_g_dot_p) {
+    while (cf->f > f + t*c1_times_g_dot_p) {
       t *= tscale;
       dbl2_saxpy(t, cf->p, lam, lam1);
       costfunc_set_lambda(cf, lam1);
@@ -298,6 +290,7 @@ void tetra(costfunc_s *cf, dbl const lam[2], jet3 *jet) {
     t = 1;
     lam = lam1;
     f = cf->f;
+    ++cf->niter;
   }
 
   dbl DT[3];
@@ -359,7 +352,7 @@ static void update(eik3_s *eik, size_t l, size_t l0) {
   // Start by searching for an update tetrahedron that might have an
   // interior point solution
   for (int i = 0; i < nup; ++i) {
-    costfunc_init(&cf, eik, l, l0, l1[i], l2[i]);
+    costfunc_init(&cf, eik->mesh, eik->jet, l, l0, l1[i], l2[i]);
     costfunc_set_lambda(&cf, lambda);
     if (cf.g[0] > 0 || cf.g[0] > 0) {
       continue;
