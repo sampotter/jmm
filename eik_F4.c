@@ -3,7 +3,7 @@
 #include <assert.h>
 #include <stdio.h>
 
-#include "math.h"
+#include "util.h"
 
 // TODO: change naming conventions to make this take up less space:
 //

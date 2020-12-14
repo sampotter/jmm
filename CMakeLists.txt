@@ -51,9 +51,9 @@ set (JMM_SRCS
   index.c
   jet.c
   mat.c
-  math.c
   mesh3.c
   opt.c
+  util.c
   vec.c
   )
 
