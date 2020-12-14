@@ -147,6 +147,11 @@
 #define TET0012 18
 #define TET0003 19
 
+void bb3_interp(dbl const f[2], dbl const Df[2], dbl const x[2], dbl c[4]) {
+  c[1] = (c[0] = f[0]) + Df[0]*(x[1] - x[0])/3;
+  c[2] = (c[3] = f[1]) + Df[1]*(x[0] - x[1])/3;
+}
+
 dbl bb3(dbl const *c, dbl const *b) {
   dbl tmp[3];
 

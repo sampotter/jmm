@@ -6,6 +6,7 @@ extern "C" {
 
 #include "def.h"
 
+void bb3_interp(dbl const f[2], dbl const Df[2], dbl const x[2], dbl c[4]);
 dbl bb3(dbl const *c, dbl const *b);
 dbl dbb3(dbl const *c, dbl const *b, dbl const *a);
 dbl d2bb3(dbl const *c, dbl const *b, dbl const *a);
