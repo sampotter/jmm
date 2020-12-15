@@ -232,7 +232,7 @@ void costfunc_set_lambda(costfunc_s *cf, dbl const *lambda) {
 void tetra(costfunc_s *cf, dbl lam[2], jet3 *jet) {
   dbl const tscale = 0.5; // Step size scaling parameter
   dbl const c1 = 1e-4; // Constant for backtracking line search
-  dbl const rtol = 1e-15, atol = 5e-16;
+  dbl const rtol = 1e-15, atol = 1e-15;
 
   dbl lam1[2], dlam[2];
   dbl f = cf->f; // Current value of cost function
