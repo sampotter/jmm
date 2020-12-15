@@ -18,14 +18,22 @@ void dbl22_add(dbl A[2][2], dbl B[2][2], dbl C[2][2]) {
 
 void dbl22_dbl2_solve(dbl A[2][2], dbl b[2], dbl x[2]) {
   dbl det = A[0][0]*A[1][1] - A[0][1]*A[1][0];
-  x[0] = (A[1][1]*b[0] - A[0][1]*b[1])/det;
-  x[1] = (A[0][0]*b[1] - A[1][0]*b[0])/det;
+  x[0] = (A[1][1]*b[0] - A[1][0]*b[1])/det;
+  x[1] = (A[0][0]*b[1] - A[0][1]*b[0])/det;
 }
 
 void dbl3_outer(dbl u[3], dbl v[3], dbl uv[3][3]) {
   for (int i = 0; i < 3; ++i) {
     for (int j = 0; j < 3; ++j) {
       uv[i][j] = u[i]*v[j];
+    }
+  }
+}
+
+void dbl33_add(dbl const A[3][3], dbl const B[3][3], dbl C[3][3]) {
+  for (int i = 0; i < 3; ++i) {
+    for (int j = 0; j < 3; ++j) {
+      C[i][j] = A[i][j] + B[i][j];
     }
   }
 }
