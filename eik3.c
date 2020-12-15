@@ -201,6 +201,27 @@ void costfunc_set_lambda(costfunc_s *cf, dbl const *lambda) {
   // Compute the Newton step
   dbl22_dbl2_solve(cf->H, cf->g, cf->p);
   dbl2_negate(cf->p);
+
+  /**
+   * Project Newton step based on active constraints
+   */
+
+  if (b[0] <= atol && cf->p[0] + cf->p[1] > 0) {
+    dbl newp[2] = {
+      (cf->p[0] - cf->p[1])/2,
+      (cf->p[1] - cf->p[0])/2
+    };
+    cf->p[0] = newp[0];
+    cf->p[1] = newp[1];
+  }
+
+  if (b[1] <= atol) {
+    cf->p[0] = fmax(0.0, cf->p[0]);
+  }
+
+  if (b[2] <= atol) {
+    cf->p[1] = fmax(0.0, cf->p[1]);
+  }
 }
 
 /**
@@ -249,8 +270,6 @@ void tetra(costfunc_s *cf, dbl lam[2], jet3 *jet) {
         t = tc;
         goto backtrack;
       } else {
-        cf->p[0] = (cf->p[0] - cf->p[1])/2;
-        cf->p[1] = (cf->p[1] - cf->p[0])/2;
         lam[0] = lam1[0];
         lam[1] = lam1[1];
         goto cauchy;
@@ -267,7 +286,6 @@ void tetra(costfunc_s *cf, dbl lam[2], jet3 *jet) {
         t = tc;
         goto backtrack;
       } else {
-        cf->p[0] = 0;
         lam[0] = lam1[0];
         lam[1] = lam1[1];
         goto cauchy;
@@ -284,7 +302,6 @@ void tetra(costfunc_s *cf, dbl lam[2], jet3 *jet) {
         t = tc;
         goto backtrack;
       } else {
-        cf->p[1] = 0;
         lam[0] = lam1[0];
         lam[1] = lam1[1];
         goto cauchy;
