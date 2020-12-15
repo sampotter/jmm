@@ -240,6 +240,7 @@ void tetra(costfunc_s *cf, dbl lam[2], jet3 *jet) {
   dbl tc; // Breakpoint used to find Cauchy point
   dbl c1_times_g_dot_p;
   dbl Df; // Directional derivative used in Cauchy point calculation
+  dbl denom; // Denominator used in Cauchy point calculations
 
   // See page 16 of Kelley
   dbl tol = rtol*dbl2_norm(cf->g) + atol;
@@ -262,8 +263,9 @@ void tetra(costfunc_s *cf, dbl lam[2], jet3 *jet) {
      * Find the Cauchy point
      */
 
-    tc = (1 - lam[0] - lam[1])/dbl2_sum(cf->p);
-    if (0 < tc && tc < 1) {
+    denom = dbl2_sum(cf->p);
+    tc = (1 - lam[0] - lam[1])/denom;
+    if (fabs(denom) > rtol && 0 < tc && tc < 1) {
       dbl2_saxpy(tc, cf->p, lam, lam1);
       costfunc_set_lambda(cf, lam1);
       dbl2_sub(lam1, lam, dlam);
@@ -278,8 +280,9 @@ void tetra(costfunc_s *cf, dbl lam[2], jet3 *jet) {
       }
     }
 
-    tc = -lam[0]/cf->p[0];
-    if (0 < tc && tc < 1) {
+    denom = cf->p[0];
+    tc = -lam[0]/denom;
+    if (fabs(denom) > rtol && 0 < tc && tc < 1) {
       dbl2_saxpy(tc, cf->p, lam, lam1);
       costfunc_set_lambda(cf, lam1);
       dbl2_sub(lam1, lam, dlam);
@@ -294,8 +297,9 @@ void tetra(costfunc_s *cf, dbl lam[2], jet3 *jet) {
       }
     }
 
-    tc = -lam[1]/cf->p[1];
-    if (0 < tc && tc < 1) {
+    denom = cf->p[1];
+    tc = -lam[1]/denom;
+    if (fabs(denom) > rtol && 0 < tc && tc < 1) {
       dbl2_saxpy(tc, cf->p, lam, lam1);
       costfunc_set_lambda(cf, lam1);
       dbl2_sub(lam1, lam, dlam);
