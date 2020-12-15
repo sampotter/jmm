@@ -28,6 +28,15 @@ void dbl2_saxpy(dbl a, dbl const x[2], dbl const y[2], dbl z[2]) {
   z[1] = a*x[1] + y[1];
 }
 
+dbl dbl2_dist(dbl const u[2], dbl const v[2]) {
+  dbl tmp[2] = {v[0] - u[0], v[1] - u[1]};
+  return sqrt(tmp[0]*tmp[0] + tmp[1]*tmp[1]);
+}
+
+dbl dbl2_norm(dbl const u[2]) {
+  return sqrt(u[0]*u[0] + u[1]*u[1]);
+}
+
 dbl dbl2_maxdist(dbl const u[2], dbl const v[2]) {
   return fmax(fabs(v[0] - u[0]), fabs(v[1] - u[1]));
 }
