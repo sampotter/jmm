@@ -105,10 +105,11 @@ void costfunc_init(costfunc_s *cf, mesh3_s const *mesh, jet3 const *jet,
   mesh3_get_vert(mesh, l2, cf->Xt[2]);
 
   dbl33_transposed(cf->Xt, cf->X);
-  dbl33_mul(cf->X, cf->Xt, cf->XXt);
+  dbl33_mul(cf->Xt, cf->X, cf->XtX);
 
   /**
-   * Compute Bernstein-Bezier coefficients before transposing Xt and computing XXt
+   * Compute Bernstein-Bezier coefficients before transposing Xt and
+   * computing XtX
    */
 
   dbl T[3];
@@ -151,13 +152,13 @@ void costfunc_set_lambda(costfunc_s *cf, dbl const *lambda) {
   L = dbl3_norm(cf->x_minus_xb);
 
   dbl33_dbl3_mul(cf->Xt, cf->x_minus_xb, tmp1);
-  dbl3_dbl_div(tmp1, L, tmp1);
+  dbl3_dbl_div(tmp1, -L, tmp1);
 
   DL[0] = dbl3_dot(a1, tmp1);
   DL[1] = dbl3_dot(a2, tmp1);
 
   dbl3_outer(tmp1, tmp1, tmp2);
-  dbl33_sub(cf->XXt, tmp2, tmp2);
+  dbl33_sub(cf->XtX, tmp2, tmp2);
   dbl33_dbl_div(tmp2, L, tmp2);
 
   dbl33_dbl3_mul(tmp2, a1, tmp1);
@@ -196,10 +197,15 @@ void costfunc_set_lambda(costfunc_s *cf, dbl const *lambda) {
   dbl2_negate(cf->p);
 }
 
-void tetra(costfunc_s *cf, dbl const lam[2], jet3 *jet) {
+/**
+ * Do a tetrahedron update starting at `lam`, writing the result to
+ * `jet`. This assumes that `costfunc_set_lambda` has already been
+ * called, so that `cf` is currently at `lam`.
+ */
+void tetra(costfunc_s *cf, dbl lam[2], jet3 *jet) {
   dbl const tscale = 0.5; // Step size scaling parameter
   dbl const c1 = 1e-4; // Constant for backtracking line search
-  dbl const ftol = 1e-15, xtol = 1e-15;
+  dbl const rtol = 1e-15, atol = 5e-16;
 
   dbl lam1[2], dlam[2];
   dbl f = cf->f; // Current value of cost function
@@ -208,12 +214,20 @@ void tetra(costfunc_s *cf, dbl const lam[2], jet3 *jet) {
   dbl c1_times_g_dot_p;
   dbl Df; // Directional derivative used in Cauchy point calculation
 
+  // See page 16 of Kelley
+  dbl tol = rtol*dbl2_norm(cf->g) + atol;
+
   cf->niter = 0;
 
   /**
    * Newton iteration
+   *
+   * TODO: in most of the places we call set_lambda below, we only
+   * need some of the stuff computed by set_lambda (usually just
+   * cf->f)... definitely don't want to waste time computing extra
+   * quantities!
    */
-  while (true) {
+  while (dbl2_maxnorm(cf->p) >= tol) {
     c1_times_g_dot_p = c1*dbl2_dot(cf->g, cf->p);
     assert(c1_times_g_dot_p < 0);
 
@@ -231,7 +245,8 @@ void tetra(costfunc_s *cf, dbl const lam[2], jet3 *jet) {
       } else {
         cf->p[0] = (cf->p[0] - cf->p[1])/2;
         cf->p[1] = (cf->p[1] - cf->p[0])/2;
-        lam = lam1;
+        lam[0] = lam1[0];
+        lam[1] = lam1[1];
         goto cauchy;
       }
     }
@@ -247,7 +262,8 @@ void tetra(costfunc_s *cf, dbl const lam[2], jet3 *jet) {
         goto backtrack;
       } else {
         cf->p[0] = 0;
-        lam = lam1;
+        lam[0] = lam1[0];
+        lam[1] = lam1[1];
         goto cauchy;
       }
     }
@@ -263,7 +279,8 @@ void tetra(costfunc_s *cf, dbl const lam[2], jet3 *jet) {
         goto backtrack;
       } else {
         cf->p[1] = 0;
-        lam = lam1;
+        lam[0] = lam1[0];
+        lam[1] = lam1[1];
         goto cauchy;
       }
     }
@@ -273,23 +290,18 @@ void tetra(costfunc_s *cf, dbl const lam[2], jet3 *jet) {
     costfunc_set_lambda(cf, lam1);
 
   backtrack:
-    while (cf->f > f + t*c1_times_g_dot_p) {
+    while (cf->f > f + t*c1_times_g_dot_p + atol) {
       t *= tscale;
       dbl2_saxpy(t, cf->p, lam, lam1);
       costfunc_set_lambda(cf, lam1);
     }
 
-    // Check for convergence
-    if (fabs(cf->f - f) <= ftol*fmax(cf->f, f) + ftol ||
-        dbl2_maxdist(lam, lam1)
-        <= xtol*fmax(dbl2_maxnorm(lam), dbl2_maxnorm(lam1)) + xtol) {
-      break;
-    }
-
     // Reset for next iteration
     t = 1;
-    lam = lam1;
+    lam[0] = lam1[0];
+    lam[1] = lam1[1];
     f = cf->f;
+
     ++cf->niter;
   }
 
@@ -297,7 +309,7 @@ void tetra(costfunc_s *cf, dbl const lam[2], jet3 *jet) {
   memcpy((void *)DT, (void *)cf->x_minus_xb, sizeof(dbl)*3);
   dbl3_normalize(DT);
 
-  jet->f = f;
+  jet->f = cf->f;
   jet->fx = DT[0];
   jet->fy = DT[1];
   jet->fz = DT[2];
