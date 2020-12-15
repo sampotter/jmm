@@ -24,6 +24,7 @@ dbl dbl2_maxnorm(dbl const u[2]);
 void dbl3_add(dbl const u[3], dbl const v[3], dbl w[3]);
 void dbl3_sub(dbl const *u, dbl const *v, dbl *w);
 dbl dbl3_dot(dbl const *u, dbl const *v);
+dbl dbl3_dist(dbl const u[3], dbl const v[3]);
 dbl dbl3_norm(dbl u[3]);
 void dbl3_dbl_div(dbl u[3], dbl a, dbl v[3]);
 void dbl3_normalize(dbl u[3]);

@@ -61,6 +61,11 @@ dbl dbl3_dot(dbl const *u, dbl const *v) {
   return u[0]*v[0] + u[1]*v[1] + u[2]*v[2];
 }
 
+dbl dbl3_dist(dbl const u[3], dbl const v[3]) {
+  dbl tmp[3] = {v[0] - u[0], v[1] - u[1], v[2] - u[2]};
+  return sqrt(tmp[0]*tmp[0] + tmp[1]*tmp[1] + tmp[2]*tmp[2]);
+}
+
 dbl dbl3_norm(dbl u[3]) {
   return sqrt(u[0]*u[0] + u[1]*u[1] + u[2]*u[2]);
 }
