@@ -268,7 +268,7 @@ void tetra(costfunc_s *cf, dbl lam[2], jet3 *jet) {
       costfunc_set_lambda(cf, lam1);
       dbl2_sub(lam1, lam, dlam);
       Df = dbl2_dot(cf->g, dlam);
-      if (Df >= 0 || cf->f >= f) {
+      if (Df >= 0) {
         t = tc;
         goto backtrack;
       } else {
@@ -284,7 +284,7 @@ void tetra(costfunc_s *cf, dbl lam[2], jet3 *jet) {
       costfunc_set_lambda(cf, lam1);
       dbl2_sub(lam1, lam, dlam);
       Df = dbl2_dot(cf->g, dlam);
-      if (Df >= 0 || cf->f >= f) {
+      if (Df >= 0) {
         t = tc;
         goto backtrack;
       } else {
@@ -300,7 +300,7 @@ void tetra(costfunc_s *cf, dbl lam[2], jet3 *jet) {
       costfunc_set_lambda(cf, lam1);
       dbl2_sub(lam1, lam, dlam);
       Df = dbl2_dot(cf->g, dlam);
-      if (Df >= 0 || cf->f >= f) {
+      if (Df >= 0) {
         t = tc;
         goto backtrack;
       } else {
