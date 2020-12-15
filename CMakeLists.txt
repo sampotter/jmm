@@ -108,11 +108,17 @@ if (BUILD_TESTS)
   # endif ()
   find_package (cgreen REQUIRED)
 
-  set (JMM_TESTS_SRCS test_eik3.c)
+  find_package (gsl REQUIRED)
+
+  set (JMM_TESTS_SRCS
+    test_bb.c
+    test_eik3.c
+    )
   add_library (jmm_tests SHARED ${JMM_TESTS_SRCS})
   target_link_libraries (jmm_tests PRIVATE ${CGREEN_LIBRARY})
   target_include_directories (jmm_tests PRIVATE ${CGREEN_INCLUDE_DIRS})
   target_link_libraries (jmm_tests PRIVATE jmm)
+  target_link_libraries (jmm_tests PRIVATE GSL::gsl)
 
   enable_testing ()
   add_test (NAME jmm COMMAND cgreen-runner $<TARGET_FILE_NAME:jmm_tests>)
