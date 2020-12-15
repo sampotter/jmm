@@ -137,15 +137,21 @@ void costfunc_set_lambda(costfunc_s *cf, dbl const *lambda) {
   static dbl a1[3] = {-1, 1, 0};
   static dbl a2[3] = {-1, 0, 1};
 
+  static dbl const atol = 5e-16;
+
   dbl b[3], xb[3], tmp1[3], tmp2[3][3], L, DL[2], D2L[2][2], DT[2], D2T[2][2];
 
   b[1] = lambda[0];
   b[2] = lambda[1];
   b[0] = 1 - b[1] - b[2];
 
-  assert(b[0] >= 0);
-  assert(b[1] >= 0);
-  assert(b[2] >= 0);
+  assert(b[0] >= -atol);
+  assert(b[1] >= -atol);
+  assert(b[2] >= -atol);
+
+  b[0] = fmax(0.0, b[0]);
+  b[1] = fmax(0.0, b[1]);
+  b[2] = fmax(0.0, b[2]);
 
   dbl33_dbl3_mul(cf->X, b, xb);
   dbl3_sub(cf->x, xb, cf->x_minus_xb);
