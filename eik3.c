@@ -258,7 +258,9 @@ void tetra(costfunc_s *cf, dbl lam[2], jet3 *jet) {
     c1_times_g_dot_p = c1*dbl2_dot(cf->g, cf->p);
     assert(c1_times_g_dot_p < 0);
 
-  cauchy:
+    /**
+     * Find the Cauchy point
+     */
 
     tc = (1 - lam[0] - lam[1])/dbl2_sum(cf->p);
     if (0 < tc && tc < 1) {
@@ -272,7 +274,7 @@ void tetra(costfunc_s *cf, dbl lam[2], jet3 *jet) {
       } else {
         lam[0] = lam1[0];
         lam[1] = lam1[1];
-        goto cauchy;
+        continue;
       }
     }
 
@@ -288,7 +290,7 @@ void tetra(costfunc_s *cf, dbl lam[2], jet3 *jet) {
       } else {
         lam[0] = lam1[0];
         lam[1] = lam1[1];
-        goto cauchy;
+        continue;
       }
     }
 
@@ -304,7 +306,7 @@ void tetra(costfunc_s *cf, dbl lam[2], jet3 *jet) {
       } else {
         lam[0] = lam1[0];
         lam[1] = lam1[1];
-        goto cauchy;
+        continue;
       }
     }
 
