@@ -262,7 +262,7 @@ dbl d2bb3tri(dbl const *c, dbl const *b, dbl const *a1, dbl const *a2) {
   tmp[TRI010] = a2[TRI100]*tmp[TRI110] + a2[TRI010]*tmp[TRI020] + a2[TRI001]*tmp[TRI011];
   tmp[TRI001] = a2[TRI100]*tmp[TRI101] + a2[TRI010]*tmp[TRI011] + a2[TRI001]*tmp[TRI002];
 
-return 3*(b[TRI100]*tmp[TRI100] + b[TRI010]*tmp[TRI010] + b[TRI001]*tmp[TRI001]);
+  return 6*(b[TRI100]*tmp[TRI100] + b[TRI010]*tmp[TRI010] + b[TRI001]*tmp[TRI001]);
 }
 
 dbl bb3tet(dbl const *c, dbl const *b) {
