@@ -4,9 +4,11 @@
 *.idea
 *.ipynb_checkpoints
 *.so
+*.vtu
 *~
 .DS_Store
 .DS_Store
+.cache
 GPATH
 GRTAGS
 GTAGS
@@ -15,9 +17,9 @@ a.out
 build*
 callgrind.out.*
 cmake-build-debug
+compile_commands.json
 dist
 dists
 jmm.c
 scratch
 vgcore.*
-*.vtu
