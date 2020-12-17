@@ -37,6 +37,10 @@ dbl dbl2_norm(dbl const u[2]) {
   return sqrt(u[0]*u[0] + u[1]*u[1]);
 }
 
+dbl dbl2_norm_sq(dbl const u[2]) {
+  return u[0]*u[0] + u[1]*u[1];
+}
+
 dbl dbl2_maxdist(dbl const u[2], dbl const v[2]) {
   return fmax(fabs(v[0] - u[0]), fabs(v[1] - u[1]));
 }

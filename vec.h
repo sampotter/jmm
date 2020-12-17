@@ -18,6 +18,7 @@ dbl dbl2_sum(dbl u[2]);
 void dbl2_saxpy(dbl a, dbl const x[2], dbl const y[2], dbl z[2]);
 dbl dbl2_dist(dbl const u[2], dbl const v[2]);
 dbl dbl2_norm(dbl const u[2]);
+dbl dbl2_norm_sq(dbl const u[2]);
 dbl dbl2_maxdist(dbl const u[2], dbl const v[2]);
 dbl dbl2_maxnorm(dbl const u[2]);
 
