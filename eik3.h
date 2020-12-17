@@ -25,6 +25,11 @@ typedef struct costfunc {
 
   dbl x_minus_xb[3];
 
+  dbl g_dot_p_active; // Dot product between g and p "restricted to
+                      // the active set". If a constraint is active,
+                      // we only want to "restrict this dot product"
+                      // to the active subspace.
+
   int niter;
 } costfunc_s;
 

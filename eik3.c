@@ -1,6 +1,7 @@
 #include "eik3.h"
 
 #include <assert.h>
+#include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -202,6 +203,9 @@ void costfunc_set_lambda(costfunc_s *cf, dbl const *lambda) {
   dbl22_dbl2_solve(cf->H, cf->g, cf->p);
   dbl2_negate(cf->p);
 
+  // This may get overwritten below.
+  cf->g_dot_p_active = dbl2_dot(cf->g, cf->p);
+
   /**
    * Project Newton step based on active constraints
    */
@@ -213,14 +217,18 @@ void costfunc_set_lambda(costfunc_s *cf, dbl const *lambda) {
     };
     cf->p[0] = newp[0];
     cf->p[1] = newp[1];
+    // cf->g_dot_p_active = -dbl2_norm_sq(cf->g);
+    // cf->g_dot_p_active -= dbl22_trace(cf->H) - cf->H[0][1] - cf->H[1][0];
   }
 
   if (b[1] <= atol) {
     cf->p[0] = fmax(0.0, cf->p[0]);
+    // cf->g_dot_p_active = -cf->g[1]*cf->g[1]/cf->H[1][1];
   }
 
   if (b[2] <= atol) {
     cf->p[1] = fmax(0.0, cf->p[1]);
+    // cf->g_dot_p_active = -cf->g[0]*cf->g[0]/cf->H[0][0];
   }
 }
 
@@ -256,7 +264,8 @@ void tetra(costfunc_s *cf, dbl lam[2], jet3 *jet) {
    * quantities!
    */
   while (dbl2_maxnorm(cf->p) >= tol) {
-    c1_times_g_dot_p = c1*dbl2_dot(cf->g, cf->p);
+    // c1_times_g_dot_p = c1*dbl2_dot(cf->g, cf->p);
+    c1_times_g_dot_p = c1*cf->g_dot_p_active;
     assert(c1_times_g_dot_p < 0);
 
     /**
@@ -269,14 +278,12 @@ void tetra(costfunc_s *cf, dbl lam[2], jet3 *jet) {
       dbl2_saxpy(tc, cf->p, lam, lam1);
       costfunc_set_lambda(cf, lam1);
       dbl2_sub(lam1, lam, dlam);
-      Df = dbl2_dot(cf->g, dlam);
+      Df = dbl2_dot(cf->g, dlam)/tc;
       if (Df >= 0) {
         t = tc;
         goto backtrack;
       } else {
-        lam[0] = lam1[0];
-        lam[1] = lam1[1];
-        continue;
+        goto reset;
       }
     }
 
@@ -286,14 +293,12 @@ void tetra(costfunc_s *cf, dbl lam[2], jet3 *jet) {
       dbl2_saxpy(tc, cf->p, lam, lam1);
       costfunc_set_lambda(cf, lam1);
       dbl2_sub(lam1, lam, dlam);
-      Df = dbl2_dot(cf->g, dlam);
+      Df = dbl2_dot(cf->g, dlam)/tc;
       if (Df >= 0) {
         t = tc;
         goto backtrack;
       } else {
-        lam[0] = lam1[0];
-        lam[1] = lam1[1];
-        continue;
+        goto reset;
       }
     }
 
@@ -303,14 +308,12 @@ void tetra(costfunc_s *cf, dbl lam[2], jet3 *jet) {
       dbl2_saxpy(tc, cf->p, lam, lam1);
       costfunc_set_lambda(cf, lam1);
       dbl2_sub(lam1, lam, dlam);
-      Df = dbl2_dot(cf->g, dlam);
+      Df = dbl2_dot(cf->g, dlam)/tc;
       if (Df >= 0) {
         t = tc;
         goto backtrack;
       } else {
-        lam[0] = lam1[0];
-        lam[1] = lam1[1];
-        continue;
+        goto reset;
       }
     }
 
@@ -325,12 +328,11 @@ void tetra(costfunc_s *cf, dbl lam[2], jet3 *jet) {
       costfunc_set_lambda(cf, lam1);
     }
 
-    // Reset for next iteration
+  reset: // Reset for next iteration
     t = 1;
     lam[0] = lam1[0];
     lam[1] = lam1[1];
     f = cf->f;
-
     ++cf->niter;
   }
 
