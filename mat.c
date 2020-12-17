@@ -22,6 +22,10 @@ void dbl22_dbl2_solve(dbl A[2][2], dbl b[2], dbl x[2]) {
   x[1] = (A[0][0]*b[1] - A[0][1]*b[0])/det;
 }
 
+dbl dbl22_trace(dbl const A[2][2]) {
+  return A[0][0] + A[1][1];
+}
+
 void dbl3_outer(dbl u[3], dbl v[3], dbl uv[3][3]) {
   for (int i = 0; i < 3; ++i) {
     for (int j = 0; j < 3; ++j) {
