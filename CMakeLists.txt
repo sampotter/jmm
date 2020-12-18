@@ -102,13 +102,11 @@ endforeach ()
 #
 
 if (BUILD_TESTS)
-  # find_library (CGREEN_LIBRARY NAMES cgreen)
-  # if (NOT CGREEN_LIBRARY)
-  #   message (FATAL_ERROR "Cgreen not found!")
-  # endif ()
-  find_package (cgreen REQUIRED)
+  find_library (CGREEN_LIBRARY cgreen HINTS /usr/local/lib)
+  find_package (GSL REQUIRED)
 
-  find_package (gsl REQUIRED)
+  message ("${CGREEN_LIBRARY}")
+  set (CGREEN_INCLUDE_DIRS "/usr/local/include")
 
   set (JMM_TESTS_SRCS
     test_bb.c
