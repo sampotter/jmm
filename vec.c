@@ -70,7 +70,7 @@ dbl dbl3_dist(dbl const u[3], dbl const v[3]) {
   return sqrt(tmp[0]*tmp[0] + tmp[1]*tmp[1] + tmp[2]*tmp[2]);
 }
 
-dbl dbl3_norm(dbl u[3]) {
+dbl dbl3_norm(dbl const u[3]) {
   return sqrt(u[0]*u[0] + u[1]*u[1] + u[2]*u[2]);
 }
 

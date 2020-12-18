@@ -137,25 +137,27 @@ static void update(eik3_s *eik, size_t l, size_t l0) {
    * Update evaluation phase
    */
 
-  utetra_s cf;
-  dbl lambda[2] = {0, 0};
+  utetra_s *cf;
+  utetra_alloc(&cf);
+
+  dbl lambda[2] = {0, 0}, g[2];
 
   // Start by searching for an update tetrahedron that might have an
   // interior point solution
   for (int i = 0; i < nup; ++i) {
-    utetra_init(&cf, eik->mesh, eik->jet, l, l0, l1[i], l2[i]);
-    utetra_set_lambda(&cf, lambda);
-    if (cf.g[0] > 0 || cf.g[0] > 0) {
+    utetra_init(cf, eik->mesh, eik->jet, l, l0, l1[i], l2[i]);
+    utetra_set_lambda(cf, lambda);
+    utetra_get_gradient(cf, g);
+    if (g[0] > 0 || g[0] > 0) {
       continue;
-    } else if (dbl2_maxnorm(cf.g) <= EPS) {
-      // Minimizing ray passes through x0
-      eik->jet[l] = eik->jet[l0];
-      eik->jet[l].f = cf.f;
-      break;
-    } else {
-      utetra_solve(&cf, lambda, &eik->jet[l]);
     }
+    if (dbl2_maxnorm(g) > EPS) {
+      utetra_solve(cf);
+    }
+    eik->jet[l] = utetra_get_jet(cf);
   }
+
+  utetra_dealloc(&cf);
 
   /**
    * Cleanup

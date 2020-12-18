@@ -8,35 +8,19 @@ extern "C" {
 
 typedef struct mesh3 mesh3_s;
 
-typedef struct utetra {
-  dbl f;
-  dbl g[2];
-  dbl H[2][2];
+typedef struct utetra utetra_s;
 
-  dbl p[2]; // Newton step
-
-  dbl x[3]; // x[l]
-  dbl X[3][3]; // X = [x[l0] x[l1] x[l2]]
-  dbl Xt[3][3]; // X'
-  dbl XtX[3][3]; // X'*X
-
-  // B-coefs for 9-point triangle interpolation T on base of update
-  dbl Tc[10];
-
-  dbl x_minus_xb[3];
-
-  dbl g_dot_p_active; // Dot product between g and p "restricted to
-                      // the active set". If a constraint is active,
-                      // we only want to "restrict this dot product"
-                      // to the active subspace.
-
-  int niter;
-} utetra_s;
-
+void utetra_alloc(utetra_s **cf);
+void utetra_dealloc(utetra_s **cf);
 void utetra_init(utetra_s *cf, mesh3_s const *mesh, jet3 const *jet,
                  size_t l, size_t l0, size_t l1, size_t l2);
+void utetra_solve(utetra_s *cf);
+void utetra_get_lambda(utetra_s *cf, dbl lam[2]);
 void utetra_set_lambda(utetra_s *cf, dbl const lam[2]);
-void utetra_solve(utetra_s *cf, dbl lam[2], jet3 *jet);
+dbl utetra_get_value(utetra_s const *cf);
+void utetra_get_gradient(utetra_s const *cf, dbl g[2]);
+jet3 utetra_get_jet(utetra_s const *cf);
+int utetra_get_num_iter(utetra_s const *cf);
 
 #ifdef __cplusplus
 }

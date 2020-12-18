@@ -75,7 +75,8 @@ Ensure(eik3, tetra_works_for_olim18_122_update) {
   mesh3_s *mesh;
   mesh3_alloc(&mesh);
 
-  utetra_s cf;
+  utetra_s *cf;
+  utetra_alloc(&cf);
 
   int p;
   for (int i = 0; i < 6; ++i) {
@@ -101,16 +102,16 @@ Ensure(eik3, tetra_works_for_olim18_122_update) {
       get_gt_jet(xsrc, &verts_perm[3*j],  &jet[j]);
     }
 
-    utetra_init(&cf, mesh, jet, 3, 0, 1, 2);
+    utetra_init(cf, mesh, jet, 3, 0, 1, 2);
 
     /**
      * Verify that cost function has correct nodal values
      */
     for (int j = 0; j < 3; ++j) {
-      utetra_set_lambda(&cf, lam_verts[perm[i][j]]);
+      utetra_set_lambda(cf, lam_verts[perm[i][j]]);
       dbl L = dbl3_dist(&verts_perm[3*j], &verts[9]);
       dbl f = jet[j].f + L;
-      assert_that_double(cf.f, is_equal_to_double(f));
+      assert_that_double(utetra_get_value(cf), is_equal_to_double(f));
     }
 
     /**
@@ -127,8 +128,9 @@ Ensure(eik3, tetra_works_for_olim18_122_update) {
         lam[1] = 1 - lam[1];
       }
 
-      utetra_set_lambda(&cf, lam);
-      utetra_solve(&cf, lam, &newjet);
+      utetra_set_lambda(cf, lam);
+      utetra_solve(cf);
+      newjet = utetra_get_jet(cf);
 
       if (fabs(lam[0]) < 1e-15) {
         assert_that(fabs(lam_gt[i][0]) < 1e-15);
@@ -145,6 +147,8 @@ Ensure(eik3, tetra_works_for_olim18_122_update) {
 
     mesh3_deinit(mesh);
   }
+
+  utetra_dealloc(&cf);
 
   mesh3_dealloc(&mesh);
 
@@ -184,54 +188,62 @@ Ensure(eik3, tetra_works_for_olim18_222_update) {
     .fz = 0.57735026918962551
   };
 
-  utetra_s cf;
-  utetra_init(&cf, mesh, jet, 3, 0, 1, 2);
+  utetra_s *cf;
+  utetra_alloc(&cf);
+  utetra_init(cf, mesh, jet, 3, 0, 1, 2);
 
-  utetra_set_lambda(&cf, lambda);
-  utetra_solve(&cf, lambda, &newjet);
+  utetra_set_lambda(cf, lambda);
+  utetra_solve(cf);
+  newjet = utetra_get_jet(cf);
   assert_that_double(lambda[0], is_equal_to_double(1./3));
   assert_that_double(lambda[0], is_equal_to_double(1./3));
   assert_that_double(jet_gt.f, is_equal_to_double(newjet.f));
   assert_that_double(jet_gt.fx, is_equal_to_double(newjet.fx));
   assert_that_double(jet_gt.fy, is_equal_to_double(newjet.fy));
   assert_that_double(jet_gt.fz, is_equal_to_double(newjet.fz));
-  assert_that(cf.niter, is_equal_to(0));
+  assert_that(utetra_get_num_iter(cf), is_equal_to(0));
 
   lambda[0] = 0;
   lambda[1] = 0;
-  utetra_set_lambda(&cf, lambda);
-  utetra_solve(&cf, lambda, &newjet);
+  utetra_set_lambda(cf, lambda);
+  utetra_solve(cf);
+  utetra_get_lambda(cf, lambda);
+  newjet = utetra_get_jet(cf);
   assert_that_double(lambda[0], is_equal_to_double(1./3));
   assert_that_double(lambda[1], is_equal_to_double(1./3));
   assert_that_double(jet_gt.f, is_equal_to_double(newjet.f));
   assert_that_double(jet_gt.fx, is_equal_to_double(newjet.fx));
   assert_that_double(jet_gt.fy, is_equal_to_double(newjet.fy));
   assert_that_double(jet_gt.fz, is_equal_to_double(newjet.fz));
-  assert_that(cf.niter, is_less_than(10));
+  assert_that(utetra_get_num_iter(cf), is_less_than(10));
 
   lambda[0] = 1;
   lambda[1] = 0;
-  utetra_set_lambda(&cf, lambda);
-  utetra_solve(&cf, lambda, &newjet);
+  utetra_set_lambda(cf, lambda);
+  utetra_solve(cf);
+  utetra_get_lambda(cf, lambda);
+  newjet = utetra_get_jet(cf);
   assert_that_double(lambda[0], is_equal_to_double(1./3));
   assert_that_double(lambda[1], is_equal_to_double(1./3));
   assert_that_double(jet_gt.f, is_equal_to_double(newjet.f));
   assert_that_double(jet_gt.fx, is_equal_to_double(newjet.fx));
   assert_that_double(jet_gt.fy, is_equal_to_double(newjet.fy));
   assert_that_double(jet_gt.fz, is_equal_to_double(newjet.fz));
-  assert_that(cf.niter, is_less_than(10));
+  assert_that(utetra_get_num_iter(cf), is_less_than(10));
 
   lambda[0] = 0;
   lambda[1] = 1;
-  utetra_set_lambda(&cf, lambda);
-  utetra_solve(&cf, lambda, &newjet);
+  utetra_set_lambda(cf, lambda);
+  utetra_solve(cf);
+  utetra_get_lambda(cf, lambda);
+  newjet = utetra_get_jet(cf);
   assert_that_double(lambda[0], is_equal_to_double(1./3));
   assert_that_double(lambda[1], is_equal_to_double(1./3));
   assert_that_double(jet_gt.f, is_equal_to_double(newjet.f));
   assert_that_double(jet_gt.fx, is_equal_to_double(newjet.fx));
   assert_that_double(jet_gt.fy, is_equal_to_double(newjet.fy));
   assert_that_double(jet_gt.fz, is_equal_to_double(newjet.fz));
-  assert_that(cf.niter, is_less_than(10));
+  assert_that(utetra_get_num_iter(cf), is_less_than(10));
 
   for (int i = 0; i < NUM_RANDOM_TRIALS; ++i) {
     lambda[0] = gsl_ran_flat(rng, 0, 1);
@@ -241,14 +253,18 @@ Ensure(eik3, tetra_works_for_olim18_222_update) {
       lambda[1] = 1 - lambda[1];
     }
 
-    utetra_set_lambda(&cf, lambda);
-    utetra_solve(&cf, lambda, &newjet);
+    utetra_set_lambda(cf, lambda);
+    utetra_solve(cf);
+    utetra_get_lambda(cf, lambda);
+    newjet = utetra_get_jet(cf);
 
     assert_that_double(lambda[0], is_equal_to_double(1./3));
     assert_that_double(lambda[1], is_equal_to_double(1./3));
 
-    assert_that(cf.niter, is_less_than(10));
+    assert_that(utetra_get_num_iter(cf), is_less_than(10));
   }
+
+  utetra_dealloc(&cf);
 
   mesh3_deinit(mesh);
   mesh3_dealloc(&mesh);
@@ -300,7 +316,8 @@ Ensure(eik3, tetra_works_for_olim26_updates) {
   mesh3_s *mesh;
   mesh3_alloc(&mesh);
 
-  utetra_s cf;
+  utetra_s *cf;
+  utetra_alloc(&cf);
 
   int p;
   for (int i = 0; i < 6; ++i) {
@@ -324,16 +341,16 @@ Ensure(eik3, tetra_works_for_olim26_updates) {
       get_gt_jet(xsrc, &verts_perm[3*j],  &jet[j]);
     }
 
-    utetra_init(&cf, mesh, jet, 3, 0, 1, 2);
+    utetra_init(cf, mesh, jet, 3, 0, 1, 2);
 
     /**
      * Verify that cost function has correct nodal values
      */
     for (int j = 0; j < 3; ++j) {
-      utetra_set_lambda(&cf, lam_gt[2*j]);
+      utetra_set_lambda(cf, lam_gt[2*j]);
       dbl L = dbl3_dist(&verts_perm[3*j], &verts[9]);
       dbl f = jet[j].f + L;
-      assert_that_double(cf.f, is_equal_to_double(f));
+      assert_that_double(utetra_get_value(cf), is_equal_to_double(f));
     }
 
     /**
@@ -350,8 +367,10 @@ Ensure(eik3, tetra_works_for_olim26_updates) {
         lam[1] = 1 - lam[1];
       }
 
-      utetra_set_lambda(&cf, lam);
-      utetra_solve(&cf, lam, &newjet);
+      utetra_set_lambda(cf, lam);
+      utetra_solve(cf);
+      utetra_get_lambda(cf, lam);
+      newjet = utetra_get_jet(cf);
 
       if (fabs(lam[0]) < 1e-15) {
         assert_that(fabs(lam_gt[i][0]) < 1e-15);
@@ -368,6 +387,8 @@ Ensure(eik3, tetra_works_for_olim26_updates) {
 
     mesh3_deinit(mesh);
   }
+
+  utetra_dealloc(&cf);
 
   mesh3_dealloc(&mesh);
 

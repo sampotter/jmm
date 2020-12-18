@@ -7,6 +7,42 @@
 #include "mat.h"
 #include "mesh3.h"
 
+struct utetra {
+  dbl lam[2]; // Current iterate
+
+  dbl f;
+  dbl g[2];
+  dbl H[2][2];
+
+  dbl p[2]; // Newton step
+
+  dbl x[3]; // x[l]
+  dbl X[3][3]; // X = [x[l0] x[l1] x[l2]]
+  dbl Xt[3][3]; // X'
+  dbl XtX[3][3]; // X'*X
+
+  // B-coefs for 9-point triangle interpolation T on base of update
+  dbl Tc[10];
+
+  dbl x_minus_xb[3];
+
+  dbl g_dot_p_active; // Dot product between g and p "restricted to
+                      // the active set". If a constraint is active,
+                      // we only want to "restrict this dot product"
+                      // to the active subspace.
+
+  int niter;
+};
+
+void utetra_alloc(utetra_s **utetra) {
+  *utetra = malloc(sizeof(utetra_s));
+}
+
+void utetra_dealloc(utetra_s **utetra) {
+  free(*utetra);
+  *utetra = NULL;
+}
+
 void utetra_init(utetra_s *cf, mesh3_s const *mesh, jet3 const *jet,
                    size_t l, size_t l0, size_t l1, size_t l2) {
   assert(jet3_is_finite(&jet[l0]));
@@ -48,7 +84,117 @@ void utetra_init(utetra_s *cf, mesh3_s const *mesh, jet3 const *jet,
   bb3tri_interp3(T, &DT[0], cf->Xt, cf->Tc);
 }
 
-void utetra_set_lambda(utetra_s *cf, dbl const *lambda) {
+/**
+ * Do a tetrahedron update starting at `lam`, writing the result to
+ * `jet`. This assumes that `utetra_set_lambda` has already been
+ * called, so that `cf` is currently at `lam`.
+ */
+void utetra_solve(utetra_s *cf) {
+  dbl const tscale = 0.5; // Step size scaling parameter
+  dbl const c1 = 1e-4; // Constant for backtracking line search
+  dbl const rtol = 1e-15, atol = 1e-15;
+
+  dbl lam1[2], dlam[2];
+  dbl f = cf->f; // Current value of cost function
+  dbl t = 1; // Initial step size
+  dbl tc; // Breakpoint used to find Cauchy point
+  dbl c1_times_g_dot_p;
+  dbl Df; // Directional derivative used in Cauchy point calculation
+  dbl denom; // Denominator used in Cauchy point calculations
+
+  // See page 16 of Kelley
+  dbl tol = rtol*dbl2_norm(cf->g) + atol;
+
+  cf->niter = 0;
+
+  /**
+   * Newton iteration
+   *
+   * TODO: in most of the places we call set_lambda below, we only
+   * need some of the stuff computed by set_lambda (usually just
+   * cf->f)... definitely don't want to waste time computing extra
+   * quantities!
+   */
+  while (dbl2_maxnorm(cf->p) >= tol) {
+    // c1_times_g_dot_p = c1*dbl2_dot(cf->g, cf->p);
+    c1_times_g_dot_p = c1*cf->g_dot_p_active;
+    assert(c1_times_g_dot_p < 0);
+
+    /**
+     * Find the Cauchy point
+     */
+
+    denom = dbl2_sum(cf->p);
+    tc = (1 - cf->lam[0] - cf->lam[1])/denom;
+    if (fabs(denom) > rtol && 0 < tc && tc < 1) {
+      dbl2_saxpy(tc, cf->p, cf->lam, lam1);
+      utetra_set_lambda(cf, lam1);
+      dbl2_sub(lam1, cf->lam, dlam);
+      Df = dbl2_dot(cf->g, dlam)/tc;
+      if (Df >= 0) {
+        t = tc;
+        goto backtrack;
+      } else {
+        goto reset;
+      }
+    }
+
+    denom = cf->p[0];
+    tc = -cf->lam[0]/denom;
+    if (fabs(denom) > rtol && 0 < tc && tc < 1) {
+      dbl2_saxpy(tc, cf->p, cf->lam, lam1);
+      utetra_set_lambda(cf, lam1);
+      dbl2_sub(lam1, cf->lam, dlam);
+      Df = dbl2_dot(cf->g, dlam)/tc;
+      if (Df >= 0) {
+        t = tc;
+        goto backtrack;
+      } else {
+        goto reset;
+      }
+    }
+
+    denom = cf->p[1];
+    tc = -cf->lam[1]/denom;
+    if (fabs(denom) > rtol && 0 < tc && tc < 1) {
+      dbl2_saxpy(tc, cf->p, cf->lam, lam1);
+      utetra_set_lambda(cf, lam1);
+      dbl2_sub(lam1, cf->lam, dlam);
+      Df = dbl2_dot(cf->g, dlam)/tc;
+      if (Df >= 0) {
+        t = tc;
+        goto backtrack;
+      } else {
+        goto reset;
+      }
+    }
+
+    // We didn't trip any breakpoints, compute lam1
+    dbl2_saxpy(t, cf->p, cf->lam, lam1);
+    utetra_set_lambda(cf, lam1);
+
+  backtrack:
+    while (cf->f > f + t*c1_times_g_dot_p + atol) {
+      t *= tscale;
+      dbl2_saxpy(t, cf->p, cf->lam, lam1);
+      utetra_set_lambda(cf, lam1);
+    }
+
+  reset: // Reset for next iteration
+    t = 1;
+    cf->lam[0] = lam1[0];
+    cf->lam[1] = lam1[1];
+    f = cf->f;
+    ++cf->niter;
+  }
+}
+
+void utetra_get_lambda(utetra_s *cf, dbl lam[2]) {
+  lam[0] = cf->lam[0];
+  lam[1] = cf->lam[1];
+}
+
+void utetra_set_lambda(utetra_s *cf, dbl const lam[2]) {
   static dbl a1[3] = {-1, 1, 0};
   static dbl a2[3] = {-1, 0, 1};
 
@@ -56,8 +202,8 @@ void utetra_set_lambda(utetra_s *cf, dbl const *lambda) {
 
   dbl b[3], xb[3], tmp1[3], tmp2[3][3], L, DL[2], D2L[2][2], DT[2], D2T[2][2];
 
-  b[1] = lambda[0];
-  b[2] = lambda[1];
+  b[1] = lam[0];
+  b[2] = lam[1];
   b[0] = 1 - b[1] - b[2];
 
   assert(b[0] >= -atol);
@@ -146,116 +292,25 @@ void utetra_set_lambda(utetra_s *cf, dbl const *lambda) {
   }
 }
 
-/**
- * Do a tetrahedron update starting at `lam`, writing the result to
- * `jet`. This assumes that `utetra_set_lambda` has already been
- * called, so that `cf` is currently at `lam`.
- */
-void utetra_solve(utetra_s *cf, dbl lam[2], jet3 *jet) {
-  dbl const tscale = 0.5; // Step size scaling parameter
-  dbl const c1 = 1e-4; // Constant for backtracking line search
-  dbl const rtol = 1e-15, atol = 1e-15;
+dbl utetra_get_value(utetra_s const *cf) {
+  return cf->f;
+}
 
-  dbl lam1[2], dlam[2];
-  dbl f = cf->f; // Current value of cost function
-  dbl t = 1; // Initial step size
-  dbl tc; // Breakpoint used to find Cauchy point
-  dbl c1_times_g_dot_p;
-  dbl Df; // Directional derivative used in Cauchy point calculation
-  dbl denom; // Denominator used in Cauchy point calculations
+void utetra_get_gradient(utetra_s const *cf, dbl g[2]) {
+  g[0] = cf->g[0];
+  g[1] = cf->g[1];
+}
 
-  // See page 16 of Kelley
-  dbl tol = rtol*dbl2_norm(cf->g) + atol;
+jet3 utetra_get_jet(utetra_s const *cf) {
+  jet3 jet;
+  jet.f = cf->f;
+  dbl L = dbl3_norm(cf->x_minus_xb);
+  jet.fx = cf->x_minus_xb[0]/L;
+  jet.fy = cf->x_minus_xb[1]/L;
+  jet.fz = cf->x_minus_xb[2]/L;
+  return jet;
+}
 
-  cf->niter = 0;
-
-  /**
-   * Newton iteration
-   *
-   * TODO: in most of the places we call set_lambda below, we only
-   * need some of the stuff computed by set_lambda (usually just
-   * cf->f)... definitely don't want to waste time computing extra
-   * quantities!
-   */
-  while (dbl2_maxnorm(cf->p) >= tol) {
-    // c1_times_g_dot_p = c1*dbl2_dot(cf->g, cf->p);
-    c1_times_g_dot_p = c1*cf->g_dot_p_active;
-    assert(c1_times_g_dot_p < 0);
-
-    /**
-     * Find the Cauchy point
-     */
-
-    denom = dbl2_sum(cf->p);
-    tc = (1 - lam[0] - lam[1])/denom;
-    if (fabs(denom) > rtol && 0 < tc && tc < 1) {
-      dbl2_saxpy(tc, cf->p, lam, lam1);
-      utetra_set_lambda(cf, lam1);
-      dbl2_sub(lam1, lam, dlam);
-      Df = dbl2_dot(cf->g, dlam)/tc;
-      if (Df >= 0) {
-        t = tc;
-        goto backtrack;
-      } else {
-        goto reset;
-      }
-    }
-
-    denom = cf->p[0];
-    tc = -lam[0]/denom;
-    if (fabs(denom) > rtol && 0 < tc && tc < 1) {
-      dbl2_saxpy(tc, cf->p, lam, lam1);
-      utetra_set_lambda(cf, lam1);
-      dbl2_sub(lam1, lam, dlam);
-      Df = dbl2_dot(cf->g, dlam)/tc;
-      if (Df >= 0) {
-        t = tc;
-        goto backtrack;
-      } else {
-        goto reset;
-      }
-    }
-
-    denom = cf->p[1];
-    tc = -lam[1]/denom;
-    if (fabs(denom) > rtol && 0 < tc && tc < 1) {
-      dbl2_saxpy(tc, cf->p, lam, lam1);
-      utetra_set_lambda(cf, lam1);
-      dbl2_sub(lam1, lam, dlam);
-      Df = dbl2_dot(cf->g, dlam)/tc;
-      if (Df >= 0) {
-        t = tc;
-        goto backtrack;
-      } else {
-        goto reset;
-      }
-    }
-
-    // We didn't trip any breakpoints, compute lam1
-    dbl2_saxpy(t, cf->p, lam, lam1);
-    utetra_set_lambda(cf, lam1);
-
-  backtrack:
-    while (cf->f > f + t*c1_times_g_dot_p + atol) {
-      t *= tscale;
-      dbl2_saxpy(t, cf->p, lam, lam1);
-      utetra_set_lambda(cf, lam1);
-    }
-
-  reset: // Reset for next iteration
-    t = 1;
-    lam[0] = lam1[0];
-    lam[1] = lam1[1];
-    f = cf->f;
-    ++cf->niter;
-  }
-
-  dbl DT[3];
-  memcpy((void *)DT, (void *)cf->x_minus_xb, sizeof(dbl)*3);
-  dbl3_normalize(DT);
-
-  jet->f = cf->f;
-  jet->fx = DT[0];
-  jet->fy = DT[1];
-  jet->fz = DT[2];
+int utetra_get_num_iter(utetra_s const *cf) {
+  return cf->niter;
 }
