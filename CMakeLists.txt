@@ -111,6 +111,7 @@ if (BUILD_TESTS)
   set (JMM_TESTS_SRCS
     test_bb.c
     test_eik3.c
+    test_opt.c
     )
   add_library (jmm_tests SHARED ${JMM_TESTS_SRCS})
   target_link_libraries (jmm_tests PRIVATE ${CGREEN_LIBRARY})
