@@ -62,12 +62,12 @@ Ensure(eik3, tetra_works_for_olim18_122_update) {
   dbl lam[2];
 
   dbl lam_gt[6][2] = {
-    {0.5, 0.5},
-    {0.5, 0.5},
-    {0.0, 0.5},
     {0.5, 0.0},
     {0.0, 0.5},
-    {0.5, 0.0}
+    {0.5, 0.0},
+    {0.5, 0.5},
+    {0.0, 0.5},
+    {0.5, 0.5}
   };
 
   dbl lam_verts[3][2] = {{0, 0}, {1, 0}, {0, 1}};
@@ -80,8 +80,6 @@ Ensure(eik3, tetra_works_for_olim18_122_update) {
 
   int p;
   for (int i = 0; i < 6; ++i) {
-    printf("i = %d\n", i);
-
     /**
      * Get vertices for this permutation
      */
@@ -130,6 +128,7 @@ Ensure(eik3, tetra_works_for_olim18_122_update) {
 
       utetra_set_lambda(cf, lam);
       utetra_solve(cf);
+      utetra_get_lambda(cf, lam);
       newjet = utetra_get_jet(cf);
 
       if (fabs(lam[0]) < 1e-15) {
@@ -143,6 +142,8 @@ Ensure(eik3, tetra_works_for_olim18_122_update) {
       } else {
         assert_that_double(lam[1], is_equal_to_double(lam_gt[i][1]));
       }
+
+      utetra_reset(cf);
     }
 
     mesh3_deinit(mesh);
@@ -202,6 +203,7 @@ Ensure(eik3, tetra_works_for_olim18_222_update) {
   assert_that_double(jet_gt.fy, is_equal_to_double(newjet.fy));
   assert_that_double(jet_gt.fz, is_equal_to_double(newjet.fz));
   assert_that(utetra_get_num_iter(cf), is_equal_to(0));
+  utetra_reset(cf);
 
   lambda[0] = 0;
   lambda[1] = 0;
@@ -216,6 +218,7 @@ Ensure(eik3, tetra_works_for_olim18_222_update) {
   assert_that_double(jet_gt.fy, is_equal_to_double(newjet.fy));
   assert_that_double(jet_gt.fz, is_equal_to_double(newjet.fz));
   assert_that(utetra_get_num_iter(cf), is_less_than(10));
+  utetra_reset(cf);
 
   lambda[0] = 1;
   lambda[1] = 0;
@@ -230,6 +233,7 @@ Ensure(eik3, tetra_works_for_olim18_222_update) {
   assert_that_double(jet_gt.fy, is_equal_to_double(newjet.fy));
   assert_that_double(jet_gt.fz, is_equal_to_double(newjet.fz));
   assert_that(utetra_get_num_iter(cf), is_less_than(10));
+  utetra_reset(cf);
 
   lambda[0] = 0;
   lambda[1] = 1;
@@ -244,6 +248,7 @@ Ensure(eik3, tetra_works_for_olim18_222_update) {
   assert_that_double(jet_gt.fy, is_equal_to_double(newjet.fy));
   assert_that_double(jet_gt.fz, is_equal_to_double(newjet.fz));
   assert_that(utetra_get_num_iter(cf), is_less_than(10));
+  utetra_reset(cf);
 
   for (int i = 0; i < NUM_RANDOM_TRIALS; ++i) {
     lambda[0] = gsl_ran_flat(rng, 0, 1);
@@ -262,6 +267,8 @@ Ensure(eik3, tetra_works_for_olim18_222_update) {
     assert_that_double(lambda[1], is_equal_to_double(1./3));
 
     assert_that(utetra_get_num_iter(cf), is_less_than(10));
+
+    utetra_reset(cf);
   }
 
   utetra_dealloc(&cf);
@@ -383,6 +390,8 @@ Ensure(eik3, tetra_works_for_olim26_updates) {
       } else {
         assert_that_double(lam[1], is_equal_to_double(lam_gt[i][1]));
       }
+
+      utetra_reset(cf);
     }
 
     mesh3_deinit(mesh);

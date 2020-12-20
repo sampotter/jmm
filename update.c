@@ -6,6 +6,7 @@
 #include "bb.h"
 #include "mat.h"
 #include "mesh3.h"
+#include "opt.h"
 
 struct utetra {
   dbl lam[2]; // Current iterate
@@ -25,11 +26,6 @@ struct utetra {
   dbl Tc[10];
 
   dbl x_minus_xb[3];
-
-  dbl g_dot_p_active; // Dot product between g and p "restricted to
-                      // the active set". If a constraint is active,
-                      // we only want to "restrict this dot product"
-                      // to the active subspace.
 
   int niter;
 };
@@ -94,100 +90,14 @@ void utetra_reset(utetra_s *cf) {
  * called, so that `cf` is currently at `lam`.
  */
 void utetra_solve(utetra_s *cf) {
-  dbl const tscale = 0.5; // Step size scaling parameter
-  dbl const c1 = 1e-4; // Constant for backtracking line search
-  dbl const rtol = 1e-15, atol = 1e-15;
-
-  dbl lam1[2], dlam[2];
-  dbl f = cf->f; // Current value of cost function
-  dbl t = 1; // Initial step size
-  dbl tc; // Breakpoint used to find Cauchy point
-  dbl c1_times_g_dot_p;
-  dbl Df; // Directional derivative used in Cauchy point calculation
-  dbl denom; // Denominator used in Cauchy point calculations
-
-  // See page 16 of Kelley
-  dbl tol = rtol*dbl2_norm(cf->g) + atol;
-
-  cf->niter = 0;
-
-  /**
-   * Newton iteration
-   *
-   * TODO: in most of the places we call set_lambda below, we only
-   * need some of the stuff computed by set_lambda (usually just
-   * cf->f)... definitely don't want to waste time computing extra
-   * quantities!
-   */
-  while (dbl2_maxnorm(cf->p) >= tol) {
-    // c1_times_g_dot_p = c1*dbl2_dot(cf->g, cf->p);
-    c1_times_g_dot_p = c1*cf->g_dot_p_active;
-    assert(c1_times_g_dot_p < 0);
-
-    /**
-     * Find the Cauchy point
-     */
-
-    denom = dbl2_sum(cf->p);
-    tc = (1 - cf->lam[0] - cf->lam[1])/denom;
-    if (fabs(denom) > rtol && 0 < tc && tc < 1) {
-      dbl2_saxpy(tc, cf->p, cf->lam, lam1);
-      utetra_set_lambda(cf, lam1);
-      dbl2_sub(lam1, cf->lam, dlam);
-      Df = dbl2_dot(cf->g, dlam)/tc;
-      if (Df >= 0) {
-        t = tc;
-        goto backtrack;
-      } else {
-        goto reset;
-      }
-    }
-
-    denom = cf->p[0];
-    tc = -cf->lam[0]/denom;
-    if (fabs(denom) > rtol && 0 < tc && tc < 1) {
-      dbl2_saxpy(tc, cf->p, cf->lam, lam1);
-      utetra_set_lambda(cf, lam1);
-      dbl2_sub(lam1, cf->lam, dlam);
-      Df = dbl2_dot(cf->g, dlam)/tc;
-      if (Df >= 0) {
-        t = tc;
-        goto backtrack;
-      } else {
-        goto reset;
-      }
-    }
-
-    denom = cf->p[1];
-    tc = -cf->lam[1]/denom;
-    if (fabs(denom) > rtol && 0 < tc && tc < 1) {
-      dbl2_saxpy(tc, cf->p, cf->lam, lam1);
-      utetra_set_lambda(cf, lam1);
-      dbl2_sub(lam1, cf->lam, dlam);
-      Df = dbl2_dot(cf->g, dlam)/tc;
-      if (Df >= 0) {
-        t = tc;
-        goto backtrack;
-      } else {
-        goto reset;
-      }
-    }
-
-    // We didn't trip any breakpoints, compute lam1
-    dbl2_saxpy(t, cf->p, cf->lam, lam1);
+  dbl const rtol = 1e-15;
+  dbl const atol = 5e-16;
+  dbl lam1[2];
+  dbl f = cf->f;
+  while (dbl2_norm(cf->p) > atol) {
+    dbl2_add(cf->lam, cf->p, lam1);
     utetra_set_lambda(cf, lam1);
-
-  backtrack:
-    while (cf->f > f + t*c1_times_g_dot_p + atol) {
-      t *= tscale;
-      dbl2_saxpy(t, cf->p, cf->lam, lam1);
-      utetra_set_lambda(cf, lam1);
-    }
-
-  reset: // Reset for next iteration
-    t = 1;
-    cf->lam[0] = lam1[0];
-    cf->lam[1] = lam1[1];
+    assert(cf->f - f <= rtol*fmax(cf->f, f) + atol);
     f = cf->f;
     ++cf->niter;
   }
@@ -202,9 +112,13 @@ void utetra_set_lambda(utetra_s *cf, dbl const lam[2]) {
   static dbl a1[3] = {-1, 1, 0};
   static dbl a2[3] = {-1, 0, 1};
 
-  static dbl const atol = 5e-16;
+  static dbl const atol = 1e-15;
 
   dbl b[3], xb[3], tmp1[3], tmp2[3][3], L, DL[2], D2L[2][2], DT[2], D2T[2][2];
+  dbl tmp3[2];
+
+  cf->lam[0] = lam[0];
+  cf->lam[1] = lam[1];
 
   b[1] = lam[0];
   b[2] = lam[1];
@@ -213,10 +127,6 @@ void utetra_set_lambda(utetra_s *cf, dbl const lam[2]) {
   assert(b[0] >= -atol);
   assert(b[1] >= -atol);
   assert(b[2] >= -atol);
-
-  b[0] = fmax(0.0, b[0]);
-  b[1] = fmax(0.0, b[1]);
-  b[2] = fmax(0.0, b[2]);
 
   dbl33_dbl3_mul(cf->X, b, xb);
   dbl3_sub(cf->x, xb, cf->x_minus_xb);
@@ -250,8 +160,15 @@ void utetra_set_lambda(utetra_s *cf, dbl const lam[2]) {
   dbl22_add(D2L, D2T, cf->H);
 
   /**
-   * Finally, compute Newton step, making sure to perturb the Hessian
-   * if it's indefinite.
+   * Finally, compute Newton step solving the minimization problem:
+   *
+   *     minimize  y’*H*y/2 + [g - H*x]’*y + [x’*H*x/2 - g’*x + f(x)]
+   *   subject to  x >= 0
+   *               sum(x) <= 1
+   *
+   * perturbing the Hessian below should ensure a descent
+   * direction. (It would be interesting to see if we can remove the
+   * perturbation entirely.)
    */
 
   // Conditionally perturb the Hessian
@@ -263,37 +180,16 @@ void utetra_set_lambda(utetra_s *cf, dbl const lam[2]) {
     cf->H[1][1] -= min_eig_doubled;
   }
 
-  // Compute the Newton step
-  dbl22_dbl2_solve(cf->H, cf->g, cf->p);
-  dbl2_negate(cf->p);
+  // Solve a quadratic program to find the next iterate.
+  triqp2_s qp;
+  dbl22_dbl2_mul(cf->H, lam, tmp3);
+  dbl2_sub(cf->g, tmp3, qp.b);
+  memcpy((void *)qp.A, (void *)cf->H, sizeof(dbl)*2*2);
+  triqp2_solve(&qp);
 
-  // This may get overwritten below.
-  cf->g_dot_p_active = dbl2_dot(cf->g, cf->p);
-
-  /**
-   * Project Newton step based on active constraints
-   */
-
-  if (b[0] <= atol && cf->p[0] + cf->p[1] > 0) {
-    dbl newp[2] = {
-      (cf->p[0] - cf->p[1])/2,
-      (cf->p[1] - cf->p[0])/2
-    };
-    cf->p[0] = newp[0];
-    cf->p[1] = newp[1];
-    // cf->g_dot_p_active = -dbl2_norm_sq(cf->g);
-    // cf->g_dot_p_active -= dbl22_trace(cf->H) - cf->H[0][1] - cf->H[1][0];
-  }
-
-  if (b[1] <= atol) {
-    cf->p[0] = fmax(0.0, cf->p[0]);
-    // cf->g_dot_p_active = -cf->g[1]*cf->g[1]/cf->H[1][1];
-  }
-
-  if (b[2] <= atol) {
-    cf->p[1] = fmax(0.0, cf->p[1]);
-    // cf->g_dot_p_active = -cf->g[0]*cf->g[0]/cf->H[0][0];
-  }
+  // Compute the projected Newton step from the current iterate and
+  // next iterate.
+  dbl2_sub(qp.x, lam, cf->p);
 }
 
 dbl utetra_get_value(utetra_s const *cf) {
