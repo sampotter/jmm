@@ -84,6 +84,10 @@ void utetra_init(utetra_s *cf, mesh3_s const *mesh, jet3 const *jet,
   bb3tri_interp3(T, &DT[0], cf->Xt, cf->Tc);
 }
 
+void utetra_reset(utetra_s *cf) {
+  cf->niter = 0;
+}
+
 /**
  * Do a tetrahedron update starting at `lam`, writing the result to
  * `jet`. This assumes that `utetra_set_lambda` has already been

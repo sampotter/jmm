@@ -14,6 +14,7 @@ void utetra_alloc(utetra_s **cf);
 void utetra_dealloc(utetra_s **cf);
 void utetra_init(utetra_s *cf, mesh3_s const *mesh, jet3 const *jet,
                  size_t l, size_t l0, size_t l1, size_t l2);
+void utetra_reset(utetra_s *cf);
 void utetra_solve(utetra_s *cf);
 void utetra_get_lambda(utetra_s *cf, dbl lam[2]);
 void utetra_set_lambda(utetra_s *cf, dbl const lam[2]);
