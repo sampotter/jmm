@@ -40,6 +40,12 @@ cdef extern from "vec.h":
         dbl data[4]
         __m256d packed
 
+cdef extern from "jet.h":
+    ctypedef struct jet3:
+        dbl f
+        dbl fx
+        dbl fy
+        dbl fz
 
 cdef extern from "dial.h":
     cdef struct dial3:
@@ -327,3 +333,14 @@ cdef class Mesh3:
 
     def bdc(self, size_t i):
         return mesh3_bdc(self.mesh, i)
+
+
+cdef class Jet3:
+    cdef:
+        jet3 jet
+
+    def __cinit__(self, dbl f, dbl fx, dbl fy, dbl fz):
+        self.jet.f = f
+        self.jet.fx = fx
+        self.jet.fy = fy
+        self.jet.fz = fz
