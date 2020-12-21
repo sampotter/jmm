@@ -40,36 +40,6 @@ cdef extern from "vec.h":
         dbl data[4]
         __m256d packed
 
-cdef extern from "bary.h":
-    void bary3_coef(const dbl **x, const dbl *y, dbl *c)
-
-cdef class Bary3:
-    cdef:
-        dbl *x[4]
-
-    def __cinit__(self, dbl[:, ::1] x):
-        cdef int i, j
-        for i in range(4):
-            self.x[i] = <dbl *>malloc(3*sizeof(dbl))
-            for j in range(3):
-                self.x[i][j] = x[i, j]
-
-    def __deinit__(self):
-        cdef int i
-        for i in range(4):
-            free(self.x[i])
-
-    def coef(self, dbl[::1] y):
-        c = np.empty((4,), dtype=np.float64)
-        cdef dbl[::1] mv = c
-        bary3_coef(<const dbl **>&self.x[0], &y[0], &mv[0])
-        return c
-
-cdef extern from "bb.h":
-    void bb3tri_interp3(dbl *f, dvec3 *Df, dvec3 *x, dbl *c)
-    dbl bb3tri(dbl *c, dbl *b)
-    dbl dbb3tri(dbl *c, dbl *b, dbl *a)
-    dbl d2bb3tri(dbl *c, dbl *b, dbl *a1, dbl *a2)
 
 cdef extern from "dial.h":
     cdef struct dial3:
@@ -87,6 +57,28 @@ cdef extern from "dial.h":
     dbl *dial3_get_Toff_ptr(const dial3 *dial)
     dbl *dial3_get_xsrc_ptr(const dial3 *dial)
     state *dial3_get_state_ptr(const dial3 *dial)
+
+cdef extern from "mesh3.h":
+    struct mesh3:
+        pass
+    void mesh3_alloc(mesh3 **mesh)
+    void mesh3_dealloc(mesh3 **mesh)
+    void mesh3_init(mesh3 *mesh,
+                    dbl *verts, size_t nverts,
+                    size_t *cells, size_t ncells)
+    void mesh3_deinit(mesh3 *mesh)
+    size_t mesh3_nverts(const mesh3 *mesh)
+    int mesh3_nvv(mesh3 *mesh, size_t i)
+    void mesh3_vv(mesh3 *mesh, size_t i, size_t *vv)
+    int mesh3_nve(mesh3 *mesh, size_t i)
+    void mesh3_ve(mesh3 *mesh, size_t i, size_t *ve)
+    int mesh3_nvf(mesh3 *mesh, size_t i)
+    void mesh3_vf(mesh3 *mesh, size_t i, size_t *vf)
+    int mesh3_nvc(mesh3 *mesh, size_t i)
+    void mesh3_vc(mesh3 *mesh, size_t i, size_t *vc)
+    int mesh3_ncc(mesh3 *mesh, size_t i)
+    void mesh3_cc(mesh3 *mesh, size_t i, size_t *cc)
+    bool mesh3_bdc(mesh3 *mesh, size_t i)
 
 cdef class ArrayView:
     cdef:
@@ -129,37 +121,6 @@ cdef class ArrayView:
         for i in range(self.ndim):
             size *= self.shape[i]
         return size
-
-
-cdef class Bb3Tri:
-    cdef:
-        dbl[::1] c
-
-    def __cinit__(self, dbl[::1] f, dbl[:, ::1] Df, dbl[:, ::1] x):
-        self.c = np.empty((10,), dtype=np.float64)
-
-        cdef int i, j
-
-        cdef dvec3 Df_[3]
-        for i in range(3):
-            for j in range(3):
-                Df_[i].data[j] = Df[i, j]
-
-        cdef dvec3 x_[3]
-        for i in range(3):
-            for j in range(3):
-                x_[i].data[j] = x[i, j]
-
-        bb3tri_interp3(&f[0], Df_, x_, &self.c[0])
-
-    def f(self, dbl[::1] b):
-        return bb3tri(&self.c[0], &b[0])
-
-    def Df(self, dbl[::1] b, dbl[::1] a):
-        return dbb3tri(&self.c[0], &b[0], &a[0])
-
-    def D2f(self, dbl[::1] b, dbl[::1] a1, dbl[::1] a2):
-        return d2bb3tri(&self.c[0], &b[0], &a1[0], &a2[0])
 
 cdef class _Dial3:
     cdef:
@@ -319,34 +280,6 @@ class Dial:
     @property
     def state(self):
         return np.asarray(self._dial.state)
-
-
-cdef extern from "index.h":
-    cdef struct ind2:
-        size_t data[2]
-
-
-cdef extern from "mesh3.h":
-    struct mesh3:
-        pass
-    void mesh3_alloc(mesh3 **mesh)
-    void mesh3_dealloc(mesh3 **mesh)
-    void mesh3_init(mesh3 *mesh,
-                    dbl *verts, size_t nverts,
-                    size_t *cells, size_t ncells)
-    void mesh3_deinit(mesh3 *mesh)
-    int mesh3_nvv(mesh3 *mesh, size_t i)
-    void mesh3_vv(mesh3 *mesh, size_t i, size_t *vv)
-    int mesh3_nve(mesh3 *mesh, size_t i)
-    void mesh3_ve(mesh3 *mesh, size_t i, size_t *ve)
-    int mesh3_nvf(mesh3 *mesh, size_t i)
-    void mesh3_vf(mesh3 *mesh, size_t i, size_t *vf)
-    int mesh3_nvc(mesh3 *mesh, size_t i)
-    void mesh3_vc(mesh3 *mesh, size_t i, size_t *vc)
-    int mesh3_ncc(mesh3 *mesh, size_t i)
-    void mesh3_cc(mesh3 *mesh, size_t i, size_t *cc)
-    bool mesh3_bdc(mesh3 *mesh, size_t i)
-
 
 cdef class Mesh3:
     cdef:
