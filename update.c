@@ -78,6 +78,8 @@ void utetra_init(utetra_s *cf, mesh3_s const *mesh, jet3 const *jet,
   DT[2][2] = jet[l2].fz;
 
   bb3tri_interp3(T, &DT[0], cf->Xt, cf->Tc);
+
+  cf->niter = 0;
 }
 
 void utetra_reset(utetra_s *cf) {
