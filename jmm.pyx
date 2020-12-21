@@ -86,6 +86,25 @@ cdef extern from "mesh3.h":
     void mesh3_cc(mesh3 *mesh, size_t i, size_t *cc)
     bool mesh3_bdc(mesh3 *mesh, size_t i)
 
+cdef extern from "eik3.h":
+    cdef struct eik3:
+        pass
+    void eik3_alloc(eik3 **eik)
+    void eik3_dealloc(eik3 **eik)
+    void eik3_init(eik3 *eik, const mesh3 *mesh)
+    void eik3_deinit(eik3 *eik)
+    void eik3_step(eik3 *eik)
+    void eik3_solve(eik3 *eik)
+    void eik3_add_trial(eik3 *eik, size_t ind, jet3 jet)
+    void eik3_add_valid(eik3 *eik, size_t ind, jet3 jet)
+    const mesh3 *eik3_get_mesh(const eik3 *eik)
+    bool eik3_is_far(const eik3 *eik, size_t ind)
+    bool eik3_is_trial(const eik3 *eik, size_t ind)
+    bool eik3_is_valid(const eik3 *eik, size_t ind)
+    jet3 *eik3_get_jet_ptr(const eik3 *eik)
+    state *eik3_get_state_ptr(const eik3 *eik)
+
+
 cdef class ArrayView:
     cdef:
         bool readonly
@@ -344,3 +363,68 @@ cdef class Jet3:
         self.jet.fx = fx
         self.jet.fy = fy
         self.jet.fz = fz
+
+
+cdef class Eik3:
+    cdef:
+        eik3 *eik
+        ArrayView jet_view
+        ArrayView state_view
+
+    def __cinit__(self, Mesh3 mesh):
+        eik3_alloc(&self.eik)
+        eik3_init(self.eik, mesh.mesh)
+
+        self.jet_view = ArrayView(1)
+        self.jet_view.readonly = True
+        self.jet_view.ptr = <void *>eik3_get_jet_ptr(self.eik)
+        self.jet_view.shape[0] = self.size
+        self.jet_view.strides[0] = 4*sizeof(dbl)
+        self.jet_view.format = 'dddd'
+        self.jet_view.itemsize = 4*sizeof(dbl)
+
+        self.state_view = ArrayView(1)
+        self.state_view.readonly = True
+        self.state_view.ptr = <void *>eik3_get_state_ptr(self.eik)
+        self.state_view.shape[0] = self.size
+        self.state_view.strides[0] = sizeof(state)
+        self.state_view.format = 'i'
+        self.state_view.itemsize = sizeof(state)
+
+    def __dealloc__(self):
+        eik3_deinit(self.eik)
+        eik3_dealloc(&self.eik)
+
+    def step(self):
+        return eik3_step(self.eik)
+
+    def solve(self):
+        eik3_solve(self.eik)
+
+    def add_trial(self, size_t ind, Jet3 jet):
+        eik3_add_trial(self.eik, ind, jet.jet)
+
+    def add_valid(self, size_t ind, Jet3 jet):
+        eik3_add_valid(self.eik, ind, jet.jet)
+
+    def is_far(self, size_t ind):
+        return eik3_is_far(self.eik, ind)
+
+    def is_trial(self, size_t ind):
+        return eik3_is_trial(self.eik, ind)
+
+    def is_valid(self, size_t ind):
+        return eik3_is_valid(self.eik, ind)
+
+    @property
+    def size(self):
+        cdef const mesh3 *mesh = eik3_get_mesh(self.eik)
+        return mesh3_nverts(mesh)
+
+    @property
+    def jet(self):
+        return np.asarray(self.jet_view)
+
+    @property
+    def state(self):
+        return np.asarray(self.state_view)

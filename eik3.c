@@ -236,10 +236,26 @@ void eik3_add_valid(eik3_s *eik, size_t l, jet3 jet) {
   eik->state[l] = VALID;
 }
 
+bool eik3_is_far(eik3_s const *eik, size_t l) {
+  return eik->state[l] == FAR;
+}
+
+bool eik3_is_trial(eik3_s const *eik, size_t l) {
+  return eik->state[l] == TRIAL;
+}
+
 bool eik3_is_valid(eik3_s const *eik, size_t l) {
   return eik->state[l] == VALID;
 }
 
+mesh3_s const *eik3_get_mesh(eik3_s const *eik) {
+  return eik->mesh;
+}
+
 jet3 *eik3_get_jet_ptr(eik3_s const *eik) {
   return eik->jet;
+}
+
+state_e *eik3_get_state_ptr(eik3_s const *eik) {
+  return eik->state;
 }
