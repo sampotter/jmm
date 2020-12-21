@@ -91,16 +91,25 @@ void utetra_reset(utetra_s *cf) {
  */
 void utetra_solve(utetra_s *cf) {
   dbl const rtol = 1e-15;
-  dbl const atol = 5e-16;
-  dbl lam1[2];
-  dbl f = cf->f;
-  while (dbl2_norm(cf->p) > atol) {
+  dbl const atol = 5e-15;
+  dbl const c1 = 1e-2;
+  dbl lam1[2], f, c1_times_g_dot_p, eta;
+  dbl pnorm0 = dbl2_maxnorm(cf->p);
+  while (dbl2_maxnorm(cf->p) > rtol*pnorm0 + atol) {
+    f = cf->f;
+    c1_times_g_dot_p = c1*dbl2_dot(cf->g, cf->p);
+    eta = 1.0;
     dbl2_add(cf->lam, cf->p, lam1);
     utetra_set_lambda(cf, lam1);
-    assert(cf->f - f <= rtol*fmax(cf->f, f) + atol);
-    f = cf->f;
+    while (cf->f > f + c1_times_g_dot_p + atol) {
+      cf->p[0] *= eta/(eta + 1);
+      cf->p[1] *= eta/(eta + 1);
+      dbl2_add(cf->lam, cf->p, lam1);
+      utetra_set_lambda(cf, lam1);
+      ++eta;
+    }
     ++cf->niter;
-  }
+  };
 }
 
 void utetra_get_lambda(utetra_s *cf, dbl lam[2]) {
