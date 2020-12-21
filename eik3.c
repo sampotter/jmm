@@ -133,6 +133,11 @@ static void update(eik3_s *eik, size_t l, size_t l0) {
     }
   }
 
+  // If we didn't find any updates, jump to cleanup and return early.
+  if (nup == 0) {
+    goto cleanup;
+  }
+
   /**
    * Update evaluation phase
    */
@@ -141,6 +146,7 @@ static void update(eik3_s *eik, size_t l, size_t l0) {
   utetra_alloc(&cf);
 
   dbl lambda[2] = {0, 0}, g[2];
+  jet3 jet;
 
   // Start by searching for an update tetrahedron that might have an
   // interior point solution
@@ -148,20 +154,18 @@ static void update(eik3_s *eik, size_t l, size_t l0) {
     utetra_init(cf, eik->mesh, eik->jet, l, l0, l1[i], l2[i]);
     utetra_set_lambda(cf, lambda);
     utetra_get_gradient(cf, g);
-    if (g[0] > 0 || g[0] > 0) {
-      continue;
+    utetra_solve(cf);
+    jet = utetra_get_jet(cf);
+    assert(jet.f > eik->jet[l0].f);
+    if (jet.f < eik->jet[l].f
+        && dbl3_dot(&jet.fx, &eik->jet[l0].fx) > 0) {
+      eik->jet[l] = utetra_get_jet(cf);
     }
-    if (dbl2_maxnorm(g) > EPS) {
-      utetra_solve(cf);
-    }
-    eik->jet[l] = utetra_get_jet(cf);
   }
 
   utetra_dealloc(&cf);
 
-  /**
-   * Cleanup
-   */
+cleanup:
   free(ec);
   free(l1);
   free(l2);
