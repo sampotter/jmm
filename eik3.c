@@ -179,7 +179,7 @@ static void adjust(eik3_s *eik, size_t l) {
   heap_swim(eik->heap, eik->pos[l]);
 }
 
-void eik3_step(eik3_s *eik) {
+size_t eik3_step(eik3_s *eik) {
   size_t l, l0 = heap_front(eik->heap);
   assert(eik->state[l0] == TRIAL);
   heap_pop(eik->heap);
@@ -207,11 +207,13 @@ void eik3_step(eik3_s *eik) {
   }
 
   free(nb);
+
+  return l0;
 }
 
 void eik3_solve(eik3_s *eik) {
   while (heap_size(eik->heap) > 0) {
-    eik3_step(eik);
+    (void)eik3_step(eik);
   }
 }
 

@@ -93,7 +93,7 @@ cdef extern from "eik3.h":
     void eik3_dealloc(eik3 **eik)
     void eik3_init(eik3 *eik, const mesh3 *mesh)
     void eik3_deinit(eik3 *eik)
-    void eik3_step(eik3 *eik)
+    size_t eik3_step(eik3 *eik)
     void eik3_solve(eik3 *eik)
     void eik3_add_trial(eik3 *eik, size_t ind, jet3 jet)
     void eik3_add_valid(eik3 *eik, size_t ind, jet3 jet)
