@@ -196,8 +196,6 @@ int mesh3_nve(mesh3_s const *mesh, size_t i) {
 
   int nve = 0;
   for (int p = 0; p < nvc; ++p) {
-    printf("p = %d\n", p);
-
     ind4 cell = mesh->cells[vc[p]];
 
     // Find the indices of cell vertices that aren't `i`.
