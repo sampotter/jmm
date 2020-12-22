@@ -145,7 +145,7 @@ static void update(eik3_s *eik, size_t l, size_t l0) {
   utetra_s *cf;
   utetra_alloc(&cf);
 
-  dbl lambda[2] = {0, 0}, g[2];
+  dbl lambda[2] = {0, 0}, g[2], T0 = eik->jet[l0].f, Tmax;
   jet3 jet;
 
   // Start by searching for an update tetrahedron that might have an
@@ -156,10 +156,11 @@ static void update(eik3_s *eik, size_t l, size_t l0) {
     utetra_get_gradient(cf, g);
     utetra_solve(cf);
     jet = utetra_get_jet(cf);
-    assert(jet.f > eik->jet[l0].f);
-    if (jet.f < eik->jet[l].f
+    Tmax = fmax(T0, fmax(eik->jet[l1[i]].f, eik->jet[l2[i]].f));
+    if (jet.f > T0
+        && jet.f < eik->jet[l].f
         && dbl3_dot(&jet.fx, &eik->jet[l0].fx) > 0) {
-      eik->jet[l] = utetra_get_jet(cf);
+      eik->jet[l] = jet;
     }
   }
 
