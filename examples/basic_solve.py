@@ -1,6 +1,8 @@
 '''This is a version of basic_solve.c written in Python, intended to
 demonstrate the Python API's use.'''
 
+
+import colorcet as cc
 import jmm
 import numpy as np
 import os
@@ -55,17 +57,27 @@ def plot_solution(plotter, verts, cells, eik, highlight_ind=None):
     poly_data = pv.PolyData(points, faces)
     poly_data.point_arrays['T'] = T
     # Add it to the plotter and plot the values of the eikonal
-    plotter.add_mesh(poly_data, scalars='T')
+    plotter.add_mesh(poly_data, scalars='T', cmap=cc.cm.rainbow)
     # Now, traverse each point and gradient, and add a colored arrow
-    for ind, p, d in zip(uniq_inds, points, DT):
-        if highlight_ind is not None and ind == highlight_ind:
-            color = 'red'
-        else:
-            color = 'white'
-        sphere = pv.Sphere(h/12, p)
-        plotter.add_mesh(sphere, color=color)
-        arrow = pv.Arrow(p, d, tip_length=0.1, scale=h)
-        plotter.add_mesh(arrow, color=color)
+    if highlight_ind is None:
+        for ind, p, d in zip(uniq_inds, points, DT):
+            Dtau = p/np.linalg.norm(p)
+            alpha = 256*(np.dot(d, Dtau) + 1)/2
+            color = cc.cm.coolwarm_r(alpha)[:3]
+            sphere = pv.Sphere(h/12, p)
+            plotter.add_mesh(sphere, color=color)
+            arrow = pv.Arrow(p, d, tip_length=0.1, scale=h)
+            plotter.add_mesh(arrow, color=color)
+    else:
+        for ind, p, d in zip(uniq_inds, points, DT):
+            if ind == highlight_ind:
+                color = 'blue'
+            else:
+                color = 'white'
+            sphere = pv.Sphere(h/12, p)
+            plotter.add_mesh(sphere, color=color)
+            arrow = pv.Arrow(p, d, tip_length=0.1, scale=h)
+            plotter.add_mesh(arrow, color=color)
 
 
 if __name__ == '__main__':
