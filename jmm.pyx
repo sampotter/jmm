@@ -74,17 +74,20 @@ cdef extern from "mesh3.h":
                     size_t *cells, size_t ncells)
     void mesh3_deinit(mesh3 *mesh)
     size_t mesh3_nverts(const mesh3 *mesh)
-    int mesh3_nvv(mesh3 *mesh, size_t i)
-    void mesh3_vv(mesh3 *mesh, size_t i, size_t *vv)
-    int mesh3_nve(mesh3 *mesh, size_t i)
-    void mesh3_ve(mesh3 *mesh, size_t i, size_t *ve)
-    int mesh3_nvf(mesh3 *mesh, size_t i)
-    void mesh3_vf(mesh3 *mesh, size_t i, size_t *vf)
-    int mesh3_nvc(mesh3 *mesh, size_t i)
-    void mesh3_vc(mesh3 *mesh, size_t i, size_t *vc)
-    int mesh3_ncc(mesh3 *mesh, size_t i)
-    void mesh3_cc(mesh3 *mesh, size_t i, size_t *cc)
-    bool mesh3_bdc(mesh3 *mesh, size_t i)
+    int mesh3_nvc(const mesh3 *mesh, size_t i)
+    void mesh3_vc(const mesh3 *mesh, size_t i, size_t *vc)
+    int mesh3_nvv(const mesh3 *mesh, size_t i)
+    void mesh3_vv(const mesh3 *mesh, size_t i, size_t *vv)
+    int mesh3_nve(const mesh3 *mesh, size_t i)
+    void mesh3_ve(const mesh3 *mesh, size_t i, size_t *ve)
+    int mesh3_nvf(const mesh3 *mesh, size_t i)
+    void mesh3_vf(const mesh3 *mesh, size_t i, size_t *vf)
+    int mesh3_ncc(const mesh3 *mesh, size_t i)
+    void mesh3_cc(const mesh3 *mesh, size_t i, size_t *cc)
+    void mesh3_cv(const mesh3 *mesh, size_t i, size_t *cv)
+    int mesh3_nec(const mesh3 *mesh, size_t i, size_t j)
+    void mesh3_ec(const mesh3 *mesh, size_t i, size_t j, size_t *ec)
+    bool mesh3_bdc(const mesh3 *mesh, size_t i)
 
 cdef extern from "eik3.h":
     cdef struct eik3:
@@ -320,6 +323,12 @@ cdef class Mesh3:
         mesh3_deinit(self.mesh)
         mesh3_dealloc(&self.mesh)
 
+    def vc(self, size_t i):
+        cdef int nvc = mesh3_nvc(self.mesh, i)
+        cdef size_t[::1] vc = np.empty((nvc,), dtype=np.uintp)
+        mesh3_vc(self.mesh, i, &vc[0])
+        return np.asarray(vc)
+
     def vv(self, size_t i):
         cdef int nvv = mesh3_nvv(self.mesh, i)
         cdef size_t[::1] vv = np.empty((nvv,), dtype=np.uintp)
@@ -338,17 +347,22 @@ cdef class Mesh3:
         mesh3_vf(self.mesh, i, &vf[0, 0])
         return np.asarray(vf)
 
-    def vc(self, size_t i):
-        cdef int nvc = mesh3_nvc(self.mesh, i)
-        cdef size_t[::1] vc = np.empty((nvc,), dtype=np.uintp)
-        mesh3_vc(self.mesh, i, &vc[0])
-        return np.asarray(vc)
-
     def cc(self, size_t i):
         cdef int ncc = mesh3_ncc(self.mesh, i)
         cdef size_t[::1] cc = np.empty((ncc,), dtype=np.uintp)
         mesh3_cc(self.mesh, i, &cc[0])
         return np.asarray(cc)
+
+    def cv(self, size_t i):
+        cdef size_t[::1] cv = np.empty((4,), dtype=np.uintp)
+        mesh3_cv(self.mesh, i, &cv[0])
+        return np.asarray(cv)
+
+    def ec(self, size_t i, size_t j):
+        cdef int nec = mesh3_nec(self.mesh, i, j)
+        cdef size_t[::1] ec = np.empty((nec,), dtype=np.uintp)
+        mesh3_ec(self.mesh, i, j, &ec[0])
+        return np.asarray(ec)
 
     def bdc(self, size_t i):
         return mesh3_bdc(self.mesh, i)
