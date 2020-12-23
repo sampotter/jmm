@@ -5,7 +5,6 @@ extern "C" {
 #endif
 
 #include "def.h"
-#include "vec.h"
 
 #include <immintrin.h>
 #include <math.h>
