@@ -180,6 +180,10 @@ static void adjust(eik3_s *eik, size_t l) {
   heap_swim(eik->heap, eik->pos[l]);
 }
 
+size_t eik3_peek(eik3_s const *eik) {
+  return heap_front(eik->heap);
+}
+
 size_t eik3_step(eik3_s *eik) {
   size_t l, l0 = heap_front(eik->heap);
   assert(eik->state[l0] == TRIAL);

@@ -96,6 +96,7 @@ cdef extern from "eik3.h":
     void eik3_dealloc(eik3 **eik)
     void eik3_init(eik3 *eik, const mesh3 *mesh)
     void eik3_deinit(eik3 *eik)
+    size_t eik3_peek(const eik3 *eik)
     size_t eik3_step(eik3 *eik)
     void eik3_solve(eik3 *eik)
     void eik3_add_trial(eik3 *eik, size_t ind, jet3 jet)
@@ -409,6 +410,9 @@ cdef class Eik3:
         eik3_deinit(self.eik)
         eik3_dealloc(&self.eik)
 
+    def peek(self):
+        return eik3_peek(self.eik)
+
     def step(self):
         return eik3_step(self.eik)
 
@@ -429,6 +433,10 @@ cdef class Eik3:
 
     def is_valid(self, size_t ind):
         return eik3_is_valid(self.eik, ind)
+
+    @property
+    def front(self):
+        return self.peek()
 
     @property
     def size(self):

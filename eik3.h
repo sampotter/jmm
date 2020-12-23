@@ -21,6 +21,7 @@ void eik3_alloc(eik3_s **eik);
 void eik3_dealloc(eik3_s **eik);
 void eik3_init(eik3_s *eik, mesh3_s const *mesh);
 void eik3_deinit(eik3_s *eik);
+size_t eik3_peek(eik3_s const *eik);
 size_t eik3_step(eik3_s *eik);
 void eik3_solve(eik3_s *eik);
 void eik3_add_trial(eik3_s *eik, size_t ind, jet3 jet);
