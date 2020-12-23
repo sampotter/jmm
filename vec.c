@@ -93,6 +93,10 @@ void dbl3_saxpy(dbl a, dbl const x[3], dbl const y[3], dbl z[3]) {
   z[2] = a*x[2] + y[2];
 }
 
+bool dbl3_is_zero(dbl const u[3]) {
+  return u[0] == 0 && u[1] == 0 && u[2] == 0;
+}
+
 dvec2 dvec2_zero() {
   return (dvec2) {0.0, 0.0};
 }
