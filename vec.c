@@ -19,7 +19,7 @@ void dbl2_negate(dbl u[2]) {
   u[1] = -u[1];
 }
 
-dbl dbl2_sum(dbl u[2]) {
+dbl dbl2_sum(dbl const u[2]) {
   return u[0] + u[1];
 }
 

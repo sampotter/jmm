@@ -14,7 +14,7 @@ void dbl2_add(dbl u[2], dbl v[2], dbl w[2]);
 void dbl2_sub(dbl const *u, dbl const *v, dbl *w);
 dbl dbl2_dot(dbl const *u, dbl const *v);
 void dbl2_negate(dbl u[2]);
-dbl dbl2_sum(dbl u[2]);
+dbl dbl2_sum(dbl const u[2]);
 void dbl2_saxpy(dbl a, dbl const x[2], dbl const y[2], dbl z[2]);
 dbl dbl2_dist(dbl const u[2], dbl const v[2]);
 dbl dbl2_norm(dbl const u[2]);
