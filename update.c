@@ -212,14 +212,12 @@ void utetra_get_gradient(utetra_s const *cf, dbl g[2]) {
   g[1] = cf->g[1];
 }
 
-jet3 utetra_get_jet(utetra_s const *cf) {
-  jet3 jet;
-  jet.f = cf->f;
+void utetra_get_jet(utetra_s const *cf, jet3 *jet) {
+  jet->f = cf->f;
   dbl L = dbl3_norm(cf->x_minus_xb);
-  jet.fx = cf->x_minus_xb[0]/L;
-  jet.fy = cf->x_minus_xb[1]/L;
-  jet.fz = cf->x_minus_xb[2]/L;
-  return jet;
+  jet->fx = cf->x_minus_xb[0]/L;
+  jet->fy = cf->x_minus_xb[1]/L;
+  jet->fz = cf->x_minus_xb[2]/L;
 }
 
 void utetra_get_lag_mults(utetra_s const *cf, dbl alpha[3]) {

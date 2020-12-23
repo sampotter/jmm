@@ -155,12 +155,12 @@ static void update(eik3_s *eik, size_t l, size_t l0) {
     utetra_set_lambda(cf, lambda);
     utetra_get_gradient(cf, g);
     utetra_solve(cf);
-    jet = utetra_get_jet(cf);
     Tmax = fmax(T0, fmax(eik->jet[l1[i]].f, eik->jet[l2[i]].f));
     if (jet.f > T0
         && jet.f < eik->jet[l].f
         && dbl3_dot(&jet.fx, &eik->jet[l0].fx) > 0) {
       eik->jet[l] = jet;
+      utetra_get_jet(cf, &jet[i]);
     }
   }
 

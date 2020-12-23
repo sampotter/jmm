@@ -129,7 +129,7 @@ Ensure(eik3, tetra_works_for_olim18_122_update) {
       utetra_set_lambda(cf, lam);
       utetra_solve(cf);
       utetra_get_lambda(cf, lam);
-      newjet = utetra_get_jet(cf);
+      utetra_get_jet(cf, &newjet);
 
       if (fabs(lam[0]) < 1e-15) {
         assert_that(fabs(lam_gt[i][0]) < 1e-15);
@@ -195,7 +195,7 @@ Ensure(eik3, tetra_works_for_olim18_222_update) {
 
   utetra_set_lambda(cf, lambda);
   utetra_solve(cf);
-  newjet = utetra_get_jet(cf);
+  utetra_get_jet(cf, &newjet);
   assert_that_double(lambda[0], is_equal_to_double(1./3));
   assert_that_double(lambda[0], is_equal_to_double(1./3));
   assert_that_double(jet_gt.f, is_equal_to_double(newjet.f));
@@ -210,7 +210,7 @@ Ensure(eik3, tetra_works_for_olim18_222_update) {
   utetra_set_lambda(cf, lambda);
   utetra_solve(cf);
   utetra_get_lambda(cf, lambda);
-  newjet = utetra_get_jet(cf);
+  utetra_get_jet(cf, &newjet);
   assert_that_double(lambda[0], is_equal_to_double(1./3));
   assert_that_double(lambda[1], is_equal_to_double(1./3));
   assert_that_double(jet_gt.f, is_equal_to_double(newjet.f));
@@ -225,7 +225,7 @@ Ensure(eik3, tetra_works_for_olim18_222_update) {
   utetra_set_lambda(cf, lambda);
   utetra_solve(cf);
   utetra_get_lambda(cf, lambda);
-  newjet = utetra_get_jet(cf);
+  utetra_get_jet(cf, &newjet);
   assert_that_double(lambda[0], is_equal_to_double(1./3));
   assert_that_double(lambda[1], is_equal_to_double(1./3));
   assert_that_double(jet_gt.f, is_equal_to_double(newjet.f));
@@ -240,7 +240,7 @@ Ensure(eik3, tetra_works_for_olim18_222_update) {
   utetra_set_lambda(cf, lambda);
   utetra_solve(cf);
   utetra_get_lambda(cf, lambda);
-  newjet = utetra_get_jet(cf);
+  utetra_get_jet(cf, &newjet);
   assert_that_double(lambda[0], is_equal_to_double(1./3));
   assert_that_double(lambda[1], is_equal_to_double(1./3));
   assert_that_double(jet_gt.f, is_equal_to_double(newjet.f));
@@ -261,7 +261,7 @@ Ensure(eik3, tetra_works_for_olim18_222_update) {
     utetra_set_lambda(cf, lambda);
     utetra_solve(cf);
     utetra_get_lambda(cf, lambda);
-    newjet = utetra_get_jet(cf);
+    utetra_get_jet(cf, &newjet);
 
     assert_that_double(lambda[0], is_equal_to_double(1./3));
     assert_that_double(lambda[1], is_equal_to_double(1./3));
@@ -377,7 +377,7 @@ Ensure(eik3, tetra_works_for_olim26_updates) {
       utetra_set_lambda(cf, lam);
       utetra_solve(cf);
       utetra_get_lambda(cf, lam);
-      newjet = utetra_get_jet(cf);
+      utetra_get_jet(cf, &newjet);
 
       if (fabs(lam[0]) < 1e-15) {
         assert_that(fabs(lam_gt[i][0]) < 1e-15);
