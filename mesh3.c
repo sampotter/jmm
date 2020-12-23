@@ -436,3 +436,58 @@ void mesh3_ec(mesh3_s const *mesh, size_t i, size_t j, size_t *ec) {
 bool mesh3_bdc(mesh3_s const *mesh, size_t i) {
   return mesh3_ncc(mesh, i) < 4;
 }
+
+bool mesh3_vcv(mesh3_s const *mesh, size_t i, size_t c, size_t *j) {
+  size_t *cc;
+  int ncc = mesh3_ncc(mesh, c);
+  cc = malloc(sizeof(size_t)*ncc);
+  mesh3_cc(mesh, c, cc);
+
+  size_t *cv = mesh->cells[c].data, *cva;
+
+  bool found = false;
+  bool I[4]; // I[p] == true if cva[p] belongs to cv
+
+  int count;
+  for (int a = 0; a < ncc; ++a) {
+    // Get the vertices of the "a"th cell neighboring cell `c`.
+    cva = mesh->cells[cc[a]].data;
+    // Fill in the entries of the mask `I`, denoting which elements of
+    // `cva` belong to cell `c`.
+    I[0] = I[1] = I[2] = I[3] = false;
+    for (int p = 0; p < 4; ++p) {
+      // If one of cell `cc[a]`'s vertices is vertex `i`, then this
+      // can't be the cell we're looking for. Move on.
+      if (cva[p] == i) {
+        continue;
+      }
+      for (int q = 0; q < 4; ++q) {
+        I[p] |= cv[q] == cva[p];
+      }
+    }
+    // Count the number of elements in cell `c` and cell `cc[a]`'s
+    // intersection.
+    count = I[0] + I[1] + I[2] + I[3];
+    assert(count <= 3);
+    // If there are 3 elements in the intersection, we've found the
+    // opposite cell.
+    if (count == 3) {
+      // Find the element that isn't in the intersection...
+      int p;
+      for (p = 0; p < 4; ++p) if (!I[p]) break;
+      assert(cva[p] != i);
+      // Set `*j` to this vertex, indicate that we've found what we're
+      // looking for, and break out of this loop.
+      *j = cva[p];
+      found = true;
+      break;
+    }
+  }
+
+  free(cc);
+
+  // It might happen that we don't find a suitable vertex. If this
+  // happens, we're at the boundary. Might be worth adding an assert
+  // to this effect here.
+  return found;
+}

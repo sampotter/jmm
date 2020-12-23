@@ -33,6 +33,7 @@ void mesh3_cv(mesh3_s const *mesh, size_t i, size_t *cv);
 int mesh3_nec(mesh3_s const *mesh, size_t i, size_t j);
 void mesh3_ec(mesh3_s const *mesh, size_t i, size_t j, size_t *ec);
 bool mesh3_bdc(mesh3_s const *mesh, size_t i);
+bool mesh3_vcv(mesh3_s const *mesh, size_t iv, size_t ic, size_t *j);
 
 #ifdef __cplusplus
 }
