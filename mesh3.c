@@ -424,7 +424,7 @@ void mesh3_ec(mesh3_s const *mesh, size_t i, size_t j, size_t *ec) {
     for (int b = 0; b < nvcj; ++b) {
       if (c == vcj[b]) {
         ec[nec++] = c;
-        continue;
+        continue; // TODO: should be break? test later...
       }
     }
   }
