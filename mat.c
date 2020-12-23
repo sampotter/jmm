@@ -3,11 +3,7 @@
 #include <assert.h>
 #include <string.h>
 
-#define SWAP(x, y) {                            \
-    __typeof(x) tmp = x;                        \
-    x = y;                                      \
-    y = tmp;                                    \
-  }
+#include "macros.h"
 
 void dbl22_add(dbl A[2][2], dbl B[2][2], dbl C[2][2]) {
   C[0][0] = A[0][0] + B[0][0];
