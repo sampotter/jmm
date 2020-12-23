@@ -443,43 +443,31 @@ bool mesh3_vcv(mesh3_s const *mesh, size_t i, size_t c, size_t *j) {
   cc = malloc(sizeof(size_t)*ncc);
   mesh3_cc(mesh, c, cc);
 
-  size_t *cv = mesh->cells[c].data, *cva;
+  size_t *I = mesh->cells[c].data, *J;
 
   bool found = false;
-  bool I[4]; // I[p] == true if cva[p] belongs to cv
 
-  int count;
   for (int a = 0; a < ncc; ++a) {
     // Get the vertices of the "a"th cell neighboring cell `c`.
-    cva = mesh->cells[cc[a]].data;
-    // Fill in the entries of the mask `I`, denoting which elements of
-    // `cva` belong to cell `c`.
-    I[0] = I[1] = I[2] = I[3] = false;
-    for (int p = 0; p < 4; ++p) {
-      // If one of cell `cc[a]`'s vertices is vertex `i`, then this
-      // can't be the cell we're looking for. Move on.
-      if (cva[p] == i) {
-        continue;
-      }
-      for (int q = 0; q < 4; ++q) {
-        I[p] |= cv[q] == cva[p];
+    J = mesh->cells[cc[a]].data;
+
+    // If one of cell `cc[a]`'s vertices is vertex `i`, then this
+    // can't be the cell we're looking for. Move on.
+    if (J[0] == i || J[1] == i || J[2] == i || J[3] == i) {
+      continue;
+    }
+
+    // Find the tetrahedron that doesn't have `i` as one of its
+    // vertices and break once we've found it. This is the tetrahedron
+    // opposite vertex `i`.
+    for (int b = 0; b < 4; ++b) {
+      if (I[0] != J[b] && I[1] != J[b] && I[2] != J[b] && I[3] != J[b]) {
+        *j = J[b];
+        found = true;
+        break;
       }
     }
-    // Count the number of elements in cell `c` and cell `cc[a]`'s
-    // intersection.
-    count = I[0] + I[1] + I[2] + I[3];
-    assert(count <= 3);
-    // If there are 3 elements in the intersection, we've found the
-    // opposite cell.
-    if (count == 3) {
-      // Find the element that isn't in the intersection...
-      int p;
-      for (p = 0; p < 4; ++p) if (!I[p]) break;
-      assert(cva[p] != i);
-      // Set `*j` to this vertex, indicate that we've found what we're
-      // looking for, and break out of this loop.
-      *j = cva[p];
-      found = true;
+    if (found) {
       break;
     }
   }
