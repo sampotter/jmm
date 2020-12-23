@@ -21,6 +21,7 @@ void utetra_set_lambda(utetra_s *cf, dbl const lam[2]);
 dbl utetra_get_value(utetra_s const *cf);
 void utetra_get_gradient(utetra_s const *cf, dbl g[2]);
 jet3 utetra_get_jet(utetra_s const *cf);
+void utetra_get_lag_mults(utetra_s const *cf, dbl alpha[3]);
 int utetra_get_num_iter(utetra_s const *cf);
 
 #ifdef __cplusplus

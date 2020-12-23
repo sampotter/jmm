@@ -222,6 +222,38 @@ jet3 utetra_get_jet(utetra_s const *cf) {
   return jet;
 }
 
+void utetra_get_lag_mults(utetra_s const *cf, dbl alpha[3]) {
+  dbl b[3] = {1 - dbl2_sum(cf->lam), cf->lam[0], cf->lam[1]};
+  alpha[0] = alpha[1] = alpha[2] = 0;
+  if (b[0] == 1) {
+    alpha[0] = 0;
+    alpha[1] = -cf->g[0];
+    alpha[2] = -cf->g[1];
+  } else if (b[1] == 1) {
+    alpha[0] = cf->g[0];
+    alpha[1] = 0;
+    alpha[2] = cf->g[0] - cf->g[1];
+  } else if (b[2] == 1) {
+    alpha[0] = cf->g[0];
+    alpha[1] = cf->g[0] - cf->g[1];
+    alpha[2] = 0;
+  } else if (b[0] == 0) { // b[1] != 0 && b[2] != 0
+    alpha[0] = dbl2_sum(cf->g)/2;
+    alpha[1] = 0;
+    alpha[2] = 0;
+  } else if (b[1] == 0) { // b[0] != 0 && b[2] != 0
+    alpha[0] = 0;
+    alpha[1] = -cf->g[0];
+    alpha[2] = 0;
+  } else if (b[2] == 0) { // b[0] != 0 && b[1] != 0
+    alpha[0] = 0;
+    alpha[1] = 0;
+    alpha[2] = -cf->g[1];
+  } else {
+    assert(b[0] > 0 && b[1] > 0 && b[2] > 0);
+  }
+}
+
 int utetra_get_num_iter(utetra_s const *cf) {
   return cf->niter;
 }
