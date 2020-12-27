@@ -1,9 +1,16 @@
 *.bin
+*.edge
 *.egg-info
 *.eggs
+*.ele
+*.face
 *.idea
 *.ipynb_checkpoints
+*.mtl
+*.node
+*.smesh
 *.so
+*.vtk
 *.vtu
 *~
 .DS_Store
