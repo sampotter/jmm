@@ -8,6 +8,8 @@
 #include "mesh3.h"
 #include "opt.h"
 
+#define MAX_NITER 100
+
 struct utetra {
   dbl lam[2]; // Current iterate
 
@@ -98,6 +100,7 @@ void utetra_solve(utetra_s *cf) {
   dbl lam1[2], f, c1_times_g_dot_p, eta;
   dbl pnorm0 = dbl2_maxnorm(cf->p);
   while (dbl2_maxnorm(cf->p) > rtol*pnorm0 + atol) {
+    assert(cf->niter < MAX_NITER);
     f = cf->f;
     c1_times_g_dot_p = c1*dbl2_dot(cf->g, cf->p);
     eta = 1.0;
