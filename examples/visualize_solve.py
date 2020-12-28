@@ -149,4 +149,12 @@ if __name__ == '__main__':
         plot_solution(
             plotter, verts, cells, eik, highlight_ind=new_valid_ind)
 
-    plot_next()
+    # plot_next()
+
+    # L = []
+    # l0 = eik.peek()
+    # while l0 != 987:
+    #     print(l0)
+    #     L.append(l0)
+    #     assert(eik.step() == l0)
+    #     l0 = eik.peek()
