@@ -88,16 +88,6 @@ set_property (
   "830"
   "${CMAKE_CURRENT_BINARY_DIR}/sphere_jets.bin")
 
-# Copy data for examples to build directory
-
-set (EXAMPLE_INPUT_DATA_FILES
-  ${CMAKE_CURRENT_SOURCE_DIR}/examples/sphere_cells.bin
-  ${CMAKE_CURRENT_SOURCE_DIR}/examples/sphere_verts.bin
-  )
-foreach (INPUT_DATA_FILE ${EXAMPLE_INPUT_DATA_FILES})
-  configure_file (${INPUT_DATA_FILE} ${CMAKE_CURRENT_BINARY_DIR} COPYONLY)
-endforeach ()
-
 #
 # Unit tests
 #
