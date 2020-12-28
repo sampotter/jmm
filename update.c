@@ -19,10 +19,14 @@ struct utetra {
 
   dbl p[2]; // Newton step
 
+  dbl angles[3];
+
   dbl x[3]; // x[l]
   dbl X[3][3]; // X = [x[l0] x[l1] x[l2]]
   dbl Xt[3][3]; // X'
   dbl XtX[3][3]; // X'*X
+
+  dbl T[3];
 
   // B-coefs for 9-point triangle interpolation T on base of update
   dbl Tc[10];
@@ -56,30 +60,38 @@ void utetra_init(utetra_s *cf, mesh3_s const *mesh, jet3 const *jet,
   dbl33_transposed(cf->Xt, cf->X);
   dbl33_mul(cf->Xt, cf->X, cf->XtX);
 
+  dbl Xt_minus_x[3][3];
+  for (int i = 0; i < 3; ++i) {
+    dbl3_sub(cf->Xt[i], cf->x, Xt_minus_x[i]);
+    dbl3_normalize(Xt_minus_x[i]);
+  }
+  for (int i = 0; i < 3; ++i) {
+    cf->angles[i] = dbl3_dot(Xt_minus_x[i], Xt_minus_x[(i + 1) % 3]);
+  }
+
   /**
    * Compute Bernstein-Bezier coefficients before transposing Xt and
    * computing XtX
    */
 
-  dbl T[3];
   dbl DT[3][3];
 
-  T[0] = jet[l0].f;
+  cf->T[0] = jet[l0].f;
   DT[0][0] = jet[l0].fx;
   DT[0][1] = jet[l0].fy;
   DT[0][2] = jet[l0].fz;
 
-  T[1] = jet[l1].f;
+  cf->T[1] = jet[l1].f;
   DT[1][0] = jet[l1].fx;
   DT[1][1] = jet[l1].fy;
   DT[1][2] = jet[l1].fz;
 
-  T[2] = jet[l2].f;
+  cf->T[2] = jet[l2].f;
   DT[2][0] = jet[l2].fx;
   DT[2][1] = jet[l2].fy;
   DT[2][2] = jet[l2].fz;
 
-  bb3tri_interp3(T, &DT[0], cf->Xt, cf->Tc);
+  bb3tri_interp3(cf->T, &DT[0], cf->Xt, cf->Tc);
 
   cf->niter = 0;
 }
@@ -94,27 +106,33 @@ void utetra_reset(utetra_s *cf) {
  * called, so that `cf` is currently at `lam`.
  */
 void utetra_solve(utetra_s *cf) {
-  dbl const rtol = 1e-15;
-  dbl const atol = 5e-15;
+  //dbl const rtol = 1e-15;
+  //dbl const atol = 5e-15;
+
   dbl const c1 = 1e-2;
-  dbl lam1[2], f, c1_times_g_dot_p, eta;
-  dbl pnorm0 = dbl2_maxnorm(cf->p);
-  while (dbl2_maxnorm(cf->p) > rtol*pnorm0 + atol) {
-    assert(cf->niter < MAX_NITER);
+  dbl lam[2], lam1[2], p[2], f, c1_times_g_dot_p, beta;
+
+  for (cf->niter = 0; cf->niter < 20; ++cf->niter) {
+    // Get values for current iterate
+    lam[0] = cf->lam[0]; lam[1] = cf->lam[1];
+    p[0] = cf->p[0]; p[1] = cf->p[1];
     f = cf->f;
-    c1_times_g_dot_p = c1*dbl2_dot(cf->g, cf->p);
-    eta = 1.0;
-    dbl2_add(cf->lam, cf->p, lam1);
+
+    // Do backtracking line search
+    beta = 1;
+    c1_times_g_dot_p = c1*dbl2_dot(p, cf->g);
+    dbl2_saxpy(beta, p, lam, lam1);
     utetra_set_lambda(cf, lam1);
-    while (cf->f > f + c1_times_g_dot_p + atol) {
-      cf->p[0] *= eta/(eta + 1);
-      cf->p[1] *= eta/(eta + 1);
-      dbl2_add(cf->lam, cf->p, lam1);
+    while (cf->f > f + beta*c1_times_g_dot_p) {
+      beta /= 2;
+      dbl2_saxpy(beta, p, lam, lam1);
       utetra_set_lambda(cf, lam1);
-      ++eta;
     }
-    ++cf->niter;
   };
+
+  assert(cf->f > cf->T[0]);
+  assert(cf->f > cf->T[1]);
+  assert(cf->f > cf->T[2]);
 }
 
 void utetra_get_lambda(utetra_s *cf, dbl lam[2]) {
@@ -223,35 +241,41 @@ void utetra_get_jet(utetra_s const *cf, jet3 *jet) {
   jet->fz = cf->x_minus_xb[2]/L;
 }
 
+/**
+ * Compute the Lagrange multipliers for the constraint optimization
+ * problem corresponding to this type of update
+ */
 void utetra_get_lag_mults(utetra_s const *cf, dbl alpha[3]) {
+  dbl const atol = 5e-15;
   dbl b[3] = {1 - dbl2_sum(cf->lam), cf->lam[0], cf->lam[1]};
   alpha[0] = alpha[1] = alpha[2] = 0;
-  if (b[0] == 1) {
+  // TODO: optimize this
+  if (fabs(b[0] - 1) < atol) {
     alpha[0] = 0;
     alpha[1] = -cf->g[0];
     alpha[2] = -cf->g[1];
-  } else if (b[1] == 1) {
+  } else if (fabs(b[1] - 1) < atol) {
     alpha[0] = cf->g[0];
     alpha[1] = 0;
     alpha[2] = cf->g[0] - cf->g[1];
-  } else if (b[2] == 1) {
+  } else if (fabs(b[2] - 1) < atol) {
     alpha[0] = cf->g[0];
     alpha[1] = cf->g[0] - cf->g[1];
     alpha[2] = 0;
-  } else if (b[0] == 0) { // b[1] != 0 && b[2] != 0
+  } else if (fabs(b[0]) < atol) { // b[1] != 0 && b[2] != 0
     alpha[0] = dbl2_sum(cf->g)/2;
     alpha[1] = 0;
     alpha[2] = 0;
-  } else if (b[1] == 0) { // b[0] != 0 && b[2] != 0
+  } else if (fabs(b[1]) < atol) { // b[0] != 0 && b[2] != 0
     alpha[0] = 0;
     alpha[1] = -cf->g[0];
     alpha[2] = 0;
-  } else if (b[2] == 0) { // b[0] != 0 && b[1] != 0
+  } else if (fabs(b[2]) < atol) { // b[0] != 0 && b[1] != 0
     alpha[0] = 0;
     alpha[1] = 0;
     alpha[2] = -cf->g[1];
   } else {
-    assert(b[0] > 0 && b[1] > 0 && b[2] > 0);
+    assert(b[0] > -atol && b[1] > -atol && b[2] > -atol);
   }
 }
 
