@@ -112,6 +112,10 @@ void mesh3_get_vert(mesh3_s const *mesh, size_t i, dbl *v) {
   memcpy((void *)v, (void *)&mesh->verts[i], sizeof(dvec3));
 }
 
+dbl const *mesh3_get_vert_ptr(mesh3_s const *mesh, size_t i) {
+  return &mesh->verts[i].data[0];
+}
+
 size_t mesh3_nverts(mesh3_s const *mesh) {
   return mesh->nverts;
 }
