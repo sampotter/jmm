@@ -17,6 +17,14 @@ if __name__ == '__main__':
 
     verts_bin_path = '%s_verts.bin' % root
     verts = mesh.points.astype(np.float64)
+    indsrc = np.argmin(np.sqrt(np.sum(verts**2, axis=1)))
+    if np.linalg.norm(verts[indsrc]) > np.finfo(np.float64).resolution:
+        print('- rounding point closest to origin to (0, 0, 0)')
+        verts[indsrc, :] = 0
+        mesh.points[indsrc, :] = 0
+        mesh.write(mesh_path)
+        print('- wrote corrected %s' % mesh_path)
+    print('- point source index: %d' % indsrc)
     with open(verts_bin_path, 'wb') as f:
         verts.tofile(f)
     print('- wrote %s' % verts_bin_path)
