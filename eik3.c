@@ -11,6 +11,7 @@
 
 #include "bb.h"
 #include "heap.h"
+#include "macros.h"
 #include "mat.h"
 #include "mesh3.h"
 #include "update.h"
@@ -22,6 +23,11 @@ struct eik3 {
   state_e *state;
   int *pos;
   heap_s *heap;
+
+  int num_valid;
+
+  int *full_update;
+  int num_full_updates;
 };
 
 void eik3_alloc(eik3_s **eik) {
@@ -78,6 +84,15 @@ void eik3_init(eik3_s *eik, mesh3_s const *mesh) {
 
   heap_alloc(&eik->heap);
   heap_init(eik->heap, capacity, value, setpos, (void *)eik);
+
+  eik->num_valid = 0;
+
+  eik->full_update = malloc(nverts*sizeof(int));
+  for (size_t l = 0; l < nverts; ++l) {
+    eik->full_update[l] = false;
+  }
+
+  eik->num_full_updates = 0;
 }
 
 void eik3_deinit(eik3_s *eik) {
@@ -92,84 +107,190 @@ void eik3_deinit(eik3_s *eik) {
 
   heap_deinit(eik->heap);
   heap_dealloc(&eik->heap);
+
+  free(eik->full_update);
+  eik->full_update = NULL;
+}
+
+static jet3 solve_2pt_bvp(eik3_s const *eik, size_t l, size_t l0) {
+  dbl const *x = mesh3_get_vert_ptr(eik->mesh, l);
+  dbl const *x0 = mesh3_get_vert_ptr(eik->mesh, l0);
+  dbl n0[3];
+  dbl3_sub(x, x0, n0);
+  dbl L = dbl3_normalize(n0);
+  return (jet3) {.f = L, .fx = n0[0], .fy = n0[1], .fz = n0[2]};
+}
+
+static void do_1pt_update(eik3_s *eik, size_t l, size_t l0) {
+  jet3 jet = solve_2pt_bvp(eik, l, l0);
+  assert(jet.f <= eik->jet[l].f);
+  eik->jet[l] = jet;
+}
+
+static bool do_2pt_updates(eik3_s *eik, size_t l, size_t l0, size_t *l1) {
+  int nvv0 = mesh3_nvv(eik->mesh, l0);
+  size_t *vv0 = malloc(nvv0*sizeof(size_t));
+  mesh3_vv(eik->mesh, l0, vv0);
+
+  utri_s *utri;
+  utri_alloc(&utri);
+
+  dbl T = INFINITY;
+  int min_i1 = NO_INDEX;
+  for (int i1 = 0; i1 < nvv0; ++i1) {
+    size_t l1 = vv0[i1];
+    if (eik->state[l1] != VALID) {
+      continue;
+    }
+    if (eik3_is_point_source(eik, l1)) {
+      do_1pt_update(eik, l, l1);
+      utri_dealloc(&utri);
+      free(vv0);
+      return false;
+    }
+    utri_init(utri, eik->mesh, eik->jet, l, l0, l1);
+    if (!utri_is_causal(utri)) {
+      continue;
+    }
+    utri_solve(utri);
+    dbl Tnew = utri_get_value(utri);
+    if (Tnew < T) {
+      T = Tnew;
+      min_i1 = i1;
+    }
+  }
+
+  utri_dealloc(&utri);
+  free(vv0);
+  *l1 = vv0[min_i1];
+  return min_i1 != NO_INDEX;
+}
+
+static void get_opposite_cell_edge(mesh3_s const *mesh,
+                                   size_t c,
+                                   size_t l0, size_t l1,
+                                   size_t *l2, size_t *l3) {
+  size_t v[4];
+  mesh3_cv(mesh, c, v);
+  int k = 0;
+  for (int i = 0; i < 4; ++i) {
+    if (v[i] == l0 || v[i] == l1) {
+      continue;
+    }
+    if (k == 0) {
+      *l2 = v[i];
+      ++k;
+    } else if (k == 1) {
+      *l3 = v[i];
+      ++k;
+    } else {
+      assert(false);
+    }
+  }
+}
+
+static void sort_and_orient(size_t *l2, size_t *l3, int n) {
+  for (int i = 0; i < n; ++i) {
+    for (int j = i + 1; j < n; ++j) {
+      // We don't want any duplicate entries among the l2 or l3
+      // indices, but this can easily happen. This is the "orient"
+      // part of this function.
+      if (l2[j] == l2[i] || l3[j] == l3[i]) {
+        SWAP(l2[j], l3[j]);
+      }
+      if (l3[j] == l2[i]) {
+        SWAP(l2[i + 1], l2[j]);
+        SWAP(l3[i + 1], l3[j]);
+      }
+    }
+  }
+}
+
+static int get_l2_and_l3(eik3_s const *eik, size_t l0, size_t l1,
+                         size_t **l2_ptr, size_t **l3_ptr) {
+  int nec = mesh3_nec(eik->mesh, l0, l1);
+  size_t *ec = malloc(nec*sizeof(size_t));
+  mesh3_ec(eik->mesh, l0, l1, ec);
+
+  size_t *l2 = *l2_ptr = malloc(nec*sizeof(size_t));
+  size_t *l3 = *l3_ptr = malloc(nec*sizeof(size_t));
+
+  for (int i = 0; i < nec; ++i) {
+    size_t v[4];
+    mesh3_cv(eik->mesh, ec[i], v);
+    get_opposite_cell_edge(eik->mesh, ec[i], l0, l1, &l2[i], &l3[i]);
+  }
+
+  sort_and_orient(l2, l3, nec);
+
+  free(ec);
+
+  return nec;
+}
+
+static void do_tetra_updates(eik3_s *eik, size_t l, size_t l0, size_t l1,
+                             size_t const *l2, int n) {
+  utetra_s *utetra;
+  utetra_alloc(&utetra);
+
+  dbl lam[2], alpha[3];
+  jet3 jet;
+
+  for (int i = 0; i < n; ++i) {
+    if (eik->state[l2[i]] != VALID) {
+      continue;
+    }
+    assert(!eik3_is_point_source(eik, l0));
+    assert(!eik3_is_point_source(eik, l1));
+    if (eik3_is_point_source(eik, l2[i])) {
+      do_1pt_update(eik, l, l2[i]);
+      goto cleanup;
+    }
+    lam[0] = lam[1] = 0;
+    utetra_init(utetra, eik->mesh, eik->jet, l, l0, l1, l2[i]);
+    if (!utetra_is_causal(utetra)) {
+      continue;
+    }
+    utetra_set_lambda(utetra, lam);
+    utetra_solve(utetra);
+    utetra_get_lag_mults(utetra, alpha);
+    if (dbl3_maxnorm(alpha) <= 1e-15) {
+      utetra_get_jet(utetra, &jet);
+      if (jet.f < eik->jet[l].f) {
+        eik->jet[l] = jet;
+      }
+    }
+  }
+
+cleanup:
+  utetra_dealloc(&utetra);
 }
 
 static void update(eik3_s *eik, size_t l, size_t l0) {
   /**
-   * Update setup phase
-   */
-
-  // To find the updates incident on l and l0, first find the
-  // tetrahedra that are incident on the edge (l0, l).
-  int nec = mesh3_nec(eik->mesh, l0, l);
-  size_t *ec = malloc(nec*sizeof(size_t));
-  mesh3_ec(eik->mesh, l0, l, ec);
-
-  // Allocate space for the l1 and l2 indices.
-  size_t *l1 = malloc(nec*sizeof(size_t));
-  size_t *l2 = malloc(nec*sizeof(size_t));
-
-  int nup = 0;
-  for (int i = 0; i < nec; ++i) {
-    // Get the indices of cell ec[i]'s vertices
-    size_t lv[4];
-    mesh3_cv(eik->mesh, ec[i], lv);
-
-    // Find the VALID vertices that *aren't* l0 or l
-    int lnew[2];
-    int k = 0;
-    for (int j = 0; j < 4; ++j) {
-      if (lv[j] != l0 && lv[j] != l && eik->state[lv[j]] == VALID) {
-        lnew[k++] = lv[j];
-      }
-    }
-    assert(k <= 2);
-
-    // If we found a pair of VALID verts, add a new update, assigning
-    // l1 and l2
-    if (k == 2) {
-      l1[nup] = lnew[0];
-      l2[nup++] = lnew[1];
-    }
+   * The first thing we do is check if we're trying to update from a
+   * point source. In this case, we just solve the two-point BVP to
+   * high accuracy and return immediately.
+  */
+  if (eik3_is_point_source(eik, l0)) {
+    do_1pt_update(eik, l, l0);
+    return;
   }
 
-  // If we didn't find any updates, jump to cleanup and return early.
-  if (nup == 0) {
-    goto cleanup;
+  size_t l1;
+  if (!do_2pt_updates(eik, l, l0, &l1)) {
+    return;
   }
 
-  /**
-   * Update evaluation phase
-   */
+  // TODO: not using l3 right now, but might want to use it later if
+  // we want to try out "volume updates"
+  size_t *l2, *l3;
+  int n = get_l2_and_l3(eik, l0, l1, &l2, &l3);
 
-  utetra_s *cf;
-  utetra_alloc(&cf);
+  do_tetra_updates(eik, l, l0, l1, l2, n);
 
-  dbl lambda[2] = {0, 0}, g[2], T0 = eik->jet[l0].f, Tmax;
-  jet3 jet;
-
-  // Start by searching for an update tetrahedron that might have an
-  // interior point solution
-  for (int i = 0; i < nup; ++i) {
-    utetra_init(cf, eik->mesh, eik->jet, l, l0, l1[i], l2[i]);
-    utetra_set_lambda(cf, lambda);
-    utetra_get_gradient(cf, g);
-    utetra_solve(cf);
-    Tmax = fmax(T0, fmax(eik->jet[l1[i]].f, eik->jet[l2[i]].f));
-    if (jet.f > T0
-        && jet.f < eik->jet[l].f
-        && dbl3_dot(&jet.fx, &eik->jet[l0].fx) > 0) {
-      eik->jet[l] = jet;
-      utetra_get_jet(cf, &jet[i]);
-    }
-  }
-
-  utetra_dealloc(&cf);
-
-cleanup:
-  free(ec);
-  free(l1);
   free(l2);
+  free(l3);
 }
 
 static void adjust(eik3_s *eik, size_t l) {
@@ -184,11 +305,88 @@ size_t eik3_peek(eik3_s const *eik) {
   return heap_front(eik->heap);
 }
 
+static void full_update(eik3_s *eik, size_t l) {
+  assert(isinf(eik->jet[l].f));
+
+  int nvv = mesh3_nvv(eik->mesh, l);
+  size_t *vv = malloc(nvv*sizeof(size_t));
+  mesh3_vv(eik->mesh, l, vv);
+
+  int lvalid_capacity = nvv;
+  size_t *lvalid = malloc(lvalid_capacity*sizeof(size_t));
+
+  int num_valid = 0;
+  for (int i = 0; i < nvv; ++i) {
+    if (eik->state[vv[i]] == VALID) {
+      if (num_valid == lvalid_capacity) {
+        lvalid_capacity *= 2;
+        lvalid = realloc(lvalid, lvalid_capacity*sizeof(size_t));
+      }
+      lvalid[num_valid++] = vv[i];
+    }
+  }
+  // Now, VALID get neighbors of neighbors
+  for (int i = 0; i < nvv; ++i) {
+    int nvv_ = mesh3_nvv(eik->mesh, vv[i]);
+    size_t *vv_ = malloc(nvv_*sizeof(size_t));
+    mesh3_vv(eik->mesh, vv[i], vv_);
+    for (int j = 0; j < nvv_; ++j) {
+      // Move on if this vertex isn't VALID
+      if (eik->state[vv_[j]] != VALID) {
+        continue;
+      }
+      // Check if we've already found this VALID vertex
+      bool repeat = false;
+      for (int k = 0; k < num_valid; ++k) {
+        if (vv_[j] == lvalid[k]) {
+          repeat = true;
+          break;
+        }
+      }
+      if (repeat) {
+        continue;
+      }
+      // Append this vertex
+      if (num_valid == lvalid_capacity) {
+        lvalid_capacity *= 2;
+        lvalid = realloc(lvalid, lvalid_capacity*sizeof(size_t));
+      }
+      lvalid[num_valid++] = vv_[j];
+    }
+    free(vv_);
+  }
+
+  assert(num_valid > 3);
+
+  size_t l0, l1, *l2;
+  for (int i0 = 0; i0 < num_valid; ++i0) {
+    l0 = lvalid[i0];
+    for (int i1 = i0 + 1; i1 < num_valid; ++i1) {
+      l1 = lvalid[i1];
+      l2 = &lvalid[i1 + 1];
+      do_tetra_updates(eik, l, l0, l1, l2, num_valid - i1 - 1);
+    }
+  }
+
+  free(lvalid);
+  free(vv);
+}
+
 size_t eik3_step(eik3_s *eik) {
   size_t l, l0 = heap_front(eik->heap);
   assert(eik->state[l0] == TRIAL);
   heap_pop(eik->heap);
+
+  if (!isfinite(eik->jet[l0].f)) {
+    full_update(eik, l0);
+    assert(isfinite(eik->jet[l0].f));
+    eik->full_update[l0] = true;
+    ++eik->num_full_updates;
+  }
+
   eik->state[l0] = VALID;
+
+  ++eik->num_valid;
 
   // Get i0's neighboring nodes.
   int nnb = mesh3_nvv(eik->mesh, l0);
