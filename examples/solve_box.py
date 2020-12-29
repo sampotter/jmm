@@ -34,6 +34,8 @@ mask to use when coloring scatter plots (one of: "full", "boundary")''')
         else:
             raise Exception(
                 'mask should be "full" or "boundary" (got "%s")' % args.mask)
+    else:
+        mask = args.mask
 
     verts_bin_path = root + '_verts.bin'
     cells_bin_path = root + '_cells.bin'
@@ -79,9 +81,12 @@ mask to use when coloring scatter plots (one of: "full", "boundary")''')
     ED[nn] = np.sqrt(np.sum((DT[nn] - Dtau[nn])**2, axis=1))
     ED[~nn] = np.nan
     angle = np.empty_like(E)
-    angle[nn] = np.rad2deg(np.arccos((DT[nn]*Dtau[nn]).sum(1)))
+    dot = (DT[nn]*Dtau[nn]).sum(1)
+    if (abs(dot).max() > 1 + 1e-15).any():
+        print('* WARNING: found weird dot product: %g' % abs(dot).max())
+    dot = np.maximum(-1, np.minimum(1, dot))
+    angle[nn] = np.rad2deg(np.arccos(dot))
     angle[~nn] = np.nan
-
     eT = np.linalg.norm(E)/np.linalg.norm(T)
     print('- l2 error (p = 0): %g' % eT)
 
@@ -95,18 +100,9 @@ mask to use when coloring scatter plots (one of: "full", "boundary")''')
     else:
         mask = None
 
-    plt.figure(figsize=(10, 5))
+    plt.figure(figsize=(12, 4))
 
-    plt.subplot(1, 2, 1)
-    if mask is None:
-        plt.scatter(T, angle, s=1, c='k')
-    else:
-        plt.scatter(T[~mask], angle[~mask], s=1, c='k', zorder=1)
-        plt.scatter(T[mask], angle[mask], s=1, c='r', zorder=2)
-    plt.xlabel(r'$\tau(x) = \|x\|$')
-    plt.ylabel(r'$\angle (\nabla T, \nabla \tau)$ [Deg.]')
-
-    plt.subplot(1, 2, 2)
+    plt.subplot(1, 3, 1)
     if mask is None:
         plt.scatter(T, angle, s=1, c='k')
     else:
@@ -114,6 +110,24 @@ mask to use when coloring scatter plots (one of: "full", "boundary")''')
         plt.scatter(T[mask], E[mask], s=1, c='r', zorder=2)
     plt.xlabel(r'$\tau(x) = \|x\|$')
     plt.ylabel(r'$T(x) - \tau(x)$')
+
+    plt.subplot(1, 3, 2)
+    if mask is None:
+        plt.scatter(T, ED, s=1, c='k')
+    else:
+        plt.scatter(T[~mask], ED[~mask], s=1, c='k', zorder=1)
+        plt.scatter(T[mask], ED[mask], s=1, c='r', zorder=2)
+    plt.xlabel(r'$\tau(x) = \|x\|$')
+    plt.ylabel(r'$\|\nabla T(x) - \nabla \tau(x)\|$')
+
+    plt.subplot(1, 3, 3)
+    if mask is None:
+        plt.scatter(T, angle, s=1, c='k')
+    else:
+        plt.scatter(T[~mask], angle[~mask], s=1, c='k', zorder=1)
+        plt.scatter(T[mask], angle[mask], s=1, c='r', zorder=2)
+    plt.xlabel(r'$\tau(x) = \|x\|$')
+    plt.ylabel(r'$\angle (\nabla T, \nabla \tau)$ [Deg.]')
 
     plt.tight_layout()
     plt.savefig('%s_hists.pdf' % root)
