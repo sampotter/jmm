@@ -247,6 +247,11 @@ void eik3_add_valid(eik3_s *eik, size_t l, jet3 jet) {
   eik->state[l] = VALID;
 }
 
+bool eik3_is_point_source(eik3_s const *eik, size_t l) {
+  return eik->state[l] == VALID && isfinite(eik->jet[l].f)
+    && isnan(eik->jet[l].fx) && isnan(eik->jet[l].fy) && isnan(eik->jet[l].fz);
+}
+
 bool eik3_is_far(eik3_s const *eik, size_t l) {
   return eik->state[l] == FAR;
 }
@@ -269,4 +274,12 @@ jet3 *eik3_get_jet_ptr(eik3_s const *eik) {
 
 state_e *eik3_get_state_ptr(eik3_s const *eik) {
   return eik->state;
+}
+
+int eik3_get_num_full_updates(eik3_s const *eik) {
+  return eik->num_full_updates;
+}
+
+int *eik3_get_full_update_ptr(eik3_s const *eik) {
+  return eik->full_update;
 }
