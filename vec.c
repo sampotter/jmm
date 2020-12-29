@@ -49,6 +49,10 @@ dbl dbl2_maxnorm(dbl const u[2]) {
   return fmax(fabs(u[0]), fabs(u[1]));
 }
 
+bool dbl2_isfinite(dbl const u[2]) {
+  return isfinite(u[0]) && isfinite(u[1]);
+}
+
 void dbl3_add(dbl const u[3], dbl const v[3], dbl w[3]) {
   w[0] = u[0] + v[0];
   w[1] = u[1] + v[1];

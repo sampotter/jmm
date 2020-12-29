@@ -20,6 +20,7 @@ dbl dbl2_norm(dbl const u[2]);
 dbl dbl2_norm_sq(dbl const u[2]);
 dbl dbl2_maxdist(dbl const u[2], dbl const v[2]);
 dbl dbl2_maxnorm(dbl const u[2]);
+bool dbl2_isfinite(dbl const u[2]);
 
 void dbl3_add(dbl const u[3], dbl const v[3], dbl w[3]);
 void dbl3_sub(dbl const *u, dbl const *v, dbl *w);
