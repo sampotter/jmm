@@ -221,10 +221,6 @@ void utetra_solve(utetra_s *cf) {
       utetra_set_lambda(cf, lam1);
     }
   };
-
-  assert(cf->f > cf->T[0]);
-  assert(cf->f > cf->T[1]);
-  assert(cf->f > cf->T[2]);
 }
 
 void utetra_get_lambda(utetra_s *cf, dbl lam[2]) {
