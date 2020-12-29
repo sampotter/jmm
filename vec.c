@@ -98,6 +98,10 @@ bool dbl3_is_zero(dbl const u[3]) {
   return u[0] == 0 && u[1] == 0 && u[2] == 0;
 }
 
+dbl dbl3_maxnorm(dbl const u[3]) {
+  return fmax(fabs(u[0]), fmax(fabs(u[1]), fabs(u[2])));
+}
+
 dvec2 dvec2_zero() {
   return (dvec2) {0.0, 0.0};
 }

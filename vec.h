@@ -30,6 +30,7 @@ void dbl3_dbl_div(dbl u[3], dbl a, dbl v[3]);
 dbl dbl3_normalize(dbl u[3]);
 void dbl3_saxpy(dbl a, dbl const x[3], dbl const y[3], dbl z[3]);
 bool dbl3_is_zero(dbl const u[3]);
+dbl dbl3_maxnorm(dbl const u[3]);
 
 typedef struct {
   dbl x;
