@@ -24,4 +24,6 @@ do
 
     echo "  ./solve_box.py --root=$ROOT"
     ./solve_box.py --root=$ROOT | sed 's/^/    /'
+
+    echo ""
 done < $TETRAHEDRON_VOLUMES
