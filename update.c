@@ -96,6 +96,10 @@ void utetra_init(utetra_s *cf, mesh3_s const *mesh, jet3 const *jet,
   cf->niter = 0;
 }
 
+bool utetra_is_causal(utetra_s const *cf) {
+  return cf->angles[0] >= 0 && cf->angles[1] >= 0 && cf->angles[2] >= 0;
+}
+
 void utetra_reset(utetra_s *cf) {
   cf->niter = 0;
 }
