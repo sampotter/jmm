@@ -107,6 +107,8 @@ cdef extern from "eik3.h":
     bool eik3_is_valid(const eik3 *eik, size_t ind)
     jet3 *eik3_get_jet_ptr(const eik3 *eik)
     state *eik3_get_state_ptr(const eik3 *eik)
+    int eik3_get_num_full_updates(const eik3 *eik)
+    int *eik3_get_full_update_ptr(const eik3 *eik)
 
 
 cdef class ArrayView:
@@ -385,6 +387,7 @@ cdef class Eik3:
         eik3 *eik
         ArrayView jet_view
         ArrayView state_view
+        ArrayView full_update_view
 
     def __cinit__(self, Mesh3 mesh):
         eik3_alloc(&self.eik)
@@ -405,6 +408,15 @@ cdef class Eik3:
         self.state_view.strides[0] = sizeof(state)
         self.state_view.format = 'i'
         self.state_view.itemsize = sizeof(state)
+
+        self.full_update_view = ArrayView(1)
+        self.full_update_view.readonly = True
+        self.full_update_view.ptr = <void *>eik3_get_full_update_ptr(self.eik)
+        self.full_update_view.shape[0] = self.size
+        self.full_update_view.strides[0] = sizeof(int)
+        self.full_update_view.format = 'i'
+        self.full_update_view.itemsize = sizeof(int)
+
 
     def __dealloc__(self):
         eik3_deinit(self.eik)
@@ -450,3 +462,11 @@ cdef class Eik3:
     @property
     def state(self):
         return np.asarray(self.state_view)
+
+    @property
+    def num_full_updates(self):
+        return eik3_get_num_full_updates(self.eik)
+
+    @property
+    def full_update(self):
+        return np.asarray(self.full_update_view).astype(np.bool)
