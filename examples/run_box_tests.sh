@@ -22,6 +22,6 @@ do
     echo "  ./extract_verts_and_cells_from_tet_mesh.py --root=$ROOT"
     ./extract_verts_and_cells_from_tet_mesh.py --root=$ROOT | sed 's/^/    /'
 
-    echo "./solve_box.py --root=$ROOT"
+    echo "  ./solve_box.py --root=$ROOT"
     ./solve_box.py --root=$ROOT | sed 's/^/    /'
 done < $TETRAHEDRON_VOLUMES
