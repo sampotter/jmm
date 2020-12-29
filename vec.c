@@ -80,11 +80,12 @@ void dbl3_dbl_div(dbl u[3], dbl a, dbl v[3]) {
   v[2] = u[2]/a;
 }
 
-void dbl3_normalize(dbl u[3]) {
+dbl dbl3_normalize(dbl u[3]) {
   dbl unorm = sqrt(u[0]*u[0] + u[1]*u[1] + u[2]*u[2]);
   u[0] /= unorm;
   u[1] /= unorm;
   u[2] /= unorm;
+  return unorm;
 }
 
 void dbl3_saxpy(dbl a, dbl const x[3], dbl const y[3], dbl z[3]) {
