@@ -152,6 +152,14 @@ void bb3_interp(dbl const f[2], dbl const Df[2], dbl const x[2], dbl c[4]) {
   c[2] = (c[3] = f[1]) + Df[1]*(x[0] - x[1])/3;
 }
 
+void bb3_interp3(dbl const f[2], dbl const *g[2], dbl const *x[2], dbl c[4]) {
+  dbl dx[3];
+  dbl3_sub(x[1], x[0], dx);
+  dbl Df[2] = {dbl3_dot(dx, g[0]), -dbl3_dot(dx, g[1])};
+  c[1] = (c[0] = f[0]) + Df[0]/3;
+  c[2] = (c[3] = f[1]) + Df[1]/3;
+}
+
 dbl bb3(dbl const *c, dbl const *b) {
   dbl tmp[3];
 
