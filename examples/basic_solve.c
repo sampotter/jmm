@@ -21,6 +21,10 @@ int main(int argc, char *argv[]) {
 
   FILE *fp = NULL;
 
+  /**
+   * Set up mesh
+   */
+
   // Read verts from binary file at argv[1]
   fp = fopen(argv[1], "rb");
   fseek(fp, 0, SEEK_END);
@@ -39,92 +43,33 @@ int main(int argc, char *argv[]) {
   fread(cells, cellsize, ncells, fp);
   fclose(fp);
 
+  // Create tetrahedron mesh for solver
   mesh3_s *mesh;
   mesh3_alloc(&mesh);
   mesh3_init(mesh, verts, nverts, cells, ncells);
 
-  size_t indsrc = atoi(argv[3]);
-  dvec3 xsrc;
-  mesh3_get_vert(mesh, indsrc, xsrc.data);
+  /**
+   * Solve point source problem
+   */
 
+  // Get index of point source
+  size_t indsrc = atoi(argv[3]);
+
+  // Set up and run solver
   eik3_s *eik;
   eik3_alloc(&eik);
   eik3_init(eik, mesh);
-
-  jet3 jet;
-  dvec3 x, x_minus_xsrc;
-
-  int nvv;
-  size_t *vv;
-
-  /**
-   * Start by making all neighbors of the point source VALID. This
-   * way, we guarantee that no updates will involve the point source.
-   */
-  nvv = mesh3_nvv(mesh, indsrc);
-  vv = malloc(sizeof(size_t)*nvv);
-  mesh3_vv(mesh, indsrc, vv);
-  for (int i = 0; i < nvv; ++i) {
-    mesh3_get_vert(mesh, vv[i], x.data);
-    x_minus_xsrc = dvec3_sub(x, xsrc);
-    jet.f = dvec3_norm(x_minus_xsrc);
-    x_minus_xsrc = dvec3_dbl_div(x_minus_xsrc, jet.f);
-    jet.fx = x_minus_xsrc.data[0];
-    jet.fy = x_minus_xsrc.data[1];
-    jet.fz = x_minus_xsrc.data[2];
-    eik3_add_valid(eik, vv[i], jet);
-  }
-  free(vv);
-
-  /**
-   * Make all nodes within a distance of R0 from the point source
-   * VALID.
-   */
-  for (size_t l = 0; l < nverts; ++l) {
-    if (eik3_is_valid(eik, l)) {
-      continue;
-    }
-    mesh3_get_vert(mesh, l, x.data);
-    x_minus_xsrc = dvec3_sub(x, xsrc);
-    jet.f = dvec3_norm(x_minus_xsrc);
-    if (jet.f <= R0) {
-      x_minus_xsrc = dvec3_dbl_div(x_minus_xsrc, jet.f);
-      jet.fx = x_minus_xsrc.data[0];
-      jet.fy = x_minus_xsrc.data[1];
-      jet.fz = x_minus_xsrc.data[2];
-      eik3_add_valid(eik, l, jet);
-    }
-  }
-
-  /**
-   * Make all FAR neighbors of VALID nodes TRIAL.
-   */
-  for (size_t l = 0; l < nverts; ++l) {
-    if (eik3_is_valid(eik, l)) {
-      nvv = mesh3_nvv(mesh, l);
-      vv = malloc(sizeof(size_t)*nvv);
-      mesh3_vv(mesh, l, vv);
-      for (int i = 0; i < nvv; ++i) {
-        if (!eik3_is_valid(eik, vv[i])) {
-          mesh3_get_vert(mesh, vv[i], x.data);
-          x_minus_xsrc = dvec3_sub(x, xsrc);
-          jet.f = dvec3_norm(x_minus_xsrc);
-          x_minus_xsrc = dvec3_dbl_div(x_minus_xsrc, jet.f);
-          jet.fx = x_minus_xsrc.data[0];
-          jet.fy = x_minus_xsrc.data[1];
-          jet.fz = x_minus_xsrc.data[2];
-          eik3_add_trial(eik, vv[i], jet);
-        }
-      }
-      free(vv);
-    }
-  }
-
+  eik3_add_trial(eik, indsrc, jet3_make_point_source(0));
   eik3_solve(eik);
 
+  // Write jets to disk
   fp = fopen(argv[4], "wb");
   fwrite(eik3_get_jet_ptr(eik), sizeof(jet3), nverts, fp);
   fclose(fp);
+
+  /**
+   * Teardown
+   */
 
   eik3_deinit(eik);
   eik3_dealloc(&eik);

@@ -22,9 +22,18 @@ r0 = 0.1
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--root', type=str)
+    parser.add_argument('--mask', type=str, help='''
+mask to use when coloring scatter plots (one of: "full", "boundary")''')
     args = parser.parse_args()
 
     root = args.root
+
+    if args.mask is not None:
+        if args.mask in {'full', 'boundary'}:
+            mask = args.mask
+        else:
+            raise Exception(
+                'mask should be "full" or "boundary" (got "%s")' % args.mask)
 
     verts_bin_path = root + '_verts.bin'
     cells_bin_path = root + '_cells.bin'
@@ -55,30 +64,11 @@ if __name__ == '__main__':
     indsrc = np.argmin(tau)
     print('- point source is at index %d: %s' % (indsrc, tuple(xsrc)))
 
-    valid_inds = [indsrc]
-    eik.add_valid(indsrc, jmm.Jet3(tau[indsrc], *Dtau[indsrc]))
-
-    # Start by making all neighbors of the point source VALID.
-    for i in mesh.vv(indsrc):
-        eik.add_valid(i, jmm.Jet3(tau[i], *Dtau[i]))
-        if i not in valid_inds:
-            valid_inds.append(i)
-
-    # Make all remaining nodes in the factored ball VALID.
-    for i in np.where(np.sqrt(np.sum(verts**2, axis=1)) <= r0)[0]:
-        if eik.is_valid(i):
-            continue
-        eik.add_valid(i, jmm.Jet3(Dtau[i], *Dtau[i]))
-        if i not in valid_inds:
-            valid_inds.append(i)
-
-    # Make all FAR neighbors of VALID nodes TRIAL.
-    for i in valid_inds:
-        for j in mesh.vv(i):
-            if eik.is_far(j):
-                eik.add_trial(j, jmm.Jet3(tau[i], *Dtau[i]))
+    eik.add_trial(indsrc, jmm.Jet3(0, np.nan, np.nan, np.nan))
 
     eik.solve()
+
+    print('- number of full updates: %d' % eik.num_full_updates)
 
     T = np.array([jet[0] for jet in eik.jet])
     DT = np.array([(jet[1], jet[2], jet[3]) for jet in eik.jet])
@@ -92,14 +82,38 @@ if __name__ == '__main__':
     angle[nn] = np.rad2deg(np.arccos((DT[nn]*Dtau[nn]).sum(1)))
     angle[~nn] = np.nan
 
-    plt.figure(figsize=(9, 5))
+    eT = np.linalg.norm(E)/np.linalg.norm(T)
+    print('- l2 error (p = 0): %g' % eT)
+
+    if mask == 'full':
+        mask = eik.full_update
+    elif mask == 'boundary':
+        import meshplex
+        mesh_tetra = meshplex.MeshTetra(verts, cells)
+        mesh_tetra.mark_boundary()
+        mask = mesh_tetra.is_boundary_point
+    else:
+        mask = None
+
+    plt.figure(figsize=(10, 5))
+
     plt.subplot(1, 2, 1)
-    plt.scatter(T, angle, s=2, c='k')
+    if mask is None:
+        plt.scatter(T, angle, s=1, c='k')
+    else:
+        plt.scatter(T[~mask], angle[~mask], s=1, c='k', zorder=1)
+        plt.scatter(T[mask], angle[mask], s=1, c='r', zorder=2)
     plt.xlabel(r'$\tau(x) = \|x\|$')
     plt.ylabel(r'$\angle (\nabla T, \nabla \tau)$ [Deg.]')
+
     plt.subplot(1, 2, 2)
-    plt.scatter(T, E, s=2, c='k')
+    if mask is None:
+        plt.scatter(T, angle, s=1, c='k')
+    else:
+        plt.scatter(T[~mask], E[~mask], s=1, c='k', zorder=1)
+        plt.scatter(T[mask], E[mask], s=1, c='r', zorder=2)
     plt.xlabel(r'$\tau(x) = \|x\|$')
-    plt.ylabel(r'$|T(x) - \tau(x)|$')
+    plt.ylabel(r'$T(x) - \tau(x)$')
+
     plt.tight_layout()
     plt.savefig('%s_hists.pdf' % root)

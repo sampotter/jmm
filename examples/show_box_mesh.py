@@ -1,8 +1,7 @@
 import pyvista as pv
 import pyvistaqt as pvqt
 
-# root = 'box'
-root = 'room'
+root = 'box/0.001/box'
 
 path = '%s.1.vtk' % root
 
@@ -13,7 +12,7 @@ grid = pv.read(path)
 cells = grid.cells.reshape(-1, 5)[:, 1:]
 centroids = grid.points[cells].mean(1)
 
-mask = centroids[:, 1] < 2
+mask = centroids[:, 0] < 0
 inds = mask.nonzero()[0]
 subgrid = grid.extract_cells(inds)
 
