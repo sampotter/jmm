@@ -4,11 +4,99 @@
 #include <string.h>
 
 #include "bb.h"
+#include "hybrid.h"
 #include "mat.h"
 #include "mesh3.h"
 #include "opt.h"
 
 #define MAX_NITER 100
+
+struct utri {
+  dbl x[3];
+  dbl x0[3];
+  dbl x1[3];
+  dbl x1_minus_x0[3];
+
+  dbl Tc[4];
+
+  dbl cos01;
+
+  dbl lam;
+
+  dbl f;
+  dbl Df;
+
+  dbl x_minus_xb[3];
+};
+
+void utri_alloc(utri_s **utri) {
+  *utri = malloc(sizeof(utri_s));
+}
+
+void utri_dealloc(utri_s **utri) {
+  free(*utri);
+  *utri = NULL;
+}
+
+void utri_set_lambda(utri_s *utri, dbl lam) {
+  utri->lam = lam;
+
+  dbl xb[3];
+  dbl3_saxpy(lam, utri->x1_minus_x0, utri->x0, xb);
+  dbl3_sub(utri->x, xb, utri->x_minus_xb);
+  dbl L = dbl3_norm(utri->x_minus_xb);
+
+  dbl dL_dlam = dbl3_dot(utri->x1_minus_x0, utri->x_minus_xb)/L;
+
+  dbl b[2] = {1 - lam, lam};
+  dbl T = bb3(utri->Tc, b);
+
+  utri->f = T + L;
+
+  dbl a[2] = {-1, 1};
+  dbl dT_dlam = dbb3(utri->Tc, b, a);
+
+  utri->Df = dT_dlam + dL_dlam;
+}
+
+static dbl utri_hybrid_f(dbl lam, utri_s *utri) {
+  utri_set_lambda(utri, lam);
+  return utri->Df;
+}
+
+void utri_init(utri_s *utri, mesh3_s const *mesh, jet3 const *jet, size_t l,
+               size_t l0, size_t l1) {
+  assert(jet3_is_finite(&jet[l0]));
+  assert(jet3_is_finite(&jet[l1]));
+
+  mesh3_get_vert(mesh, l, utri->x);
+  mesh3_get_vert(mesh, l0, utri->x0);
+  mesh3_get_vert(mesh, l1, utri->x1);
+
+  dbl3_sub(utri->x1, utri->x0, utri->x1_minus_x0);
+
+  dbl dx0[3], dx1[3];
+  dbl3_sub(utri->x0, utri->x, dx0);
+  dbl3_sub(utri->x1, utri->x, dx1);
+  utri->cos01 = dbl3_dot(dx0, dx1)/(dbl3_norm(dx0)*dbl3_norm(dx1));
+
+  dbl f[2] = {jet[l0].f, jet[l1].f};
+  dbl const *Df[2] = {&jet[l0].fx, &jet[l1].fx};
+  dbl const *x[2] = {utri->x0, utri->x1};
+  bb3_interp3(f, Df, x, utri->Tc);
+}
+
+bool utri_is_causal(utri_s const *utri) {
+  return utri->cos01 >= 0;
+}
+
+void utri_solve(utri_s *utri) {
+  (void)hybrid((hybrid_cost_func_t)utri_hybrid_f, 0, 1, utri);
+}
+
+dbl utri_get_value(utri_s const *utri) {
+  return utri->f;
+}
 
 struct utetra {
   dbl lam[2]; // Current iterate

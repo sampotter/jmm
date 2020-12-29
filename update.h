@@ -8,6 +8,16 @@ extern "C" {
 
 typedef struct mesh3 mesh3_s;
 
+typedef struct utri utri_s;
+
+void utri_alloc(utri_s **utri);
+void utri_dealloc(utri_s **utri);
+void utri_init(utri_s *utri, mesh3_s const *mesh, jet3 const *jet, size_t l,
+               size_t l0, size_t l1);
+bool utri_is_causal(utri_s const *utri);
+void utri_solve(utri_s *utri);
+dbl utri_get_value(utri_s const *utri);
+
 typedef struct utetra utetra_s;
 
 void utetra_alloc(utetra_s **cf);
