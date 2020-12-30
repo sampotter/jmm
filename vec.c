@@ -106,6 +106,12 @@ dbl dbl3_maxnorm(dbl const u[3]) {
   return fmax(fabs(u[0]), fmax(fabs(u[1]), fabs(u[2])));
 }
 
+void dbl3_cross(dbl const u[3], dbl const v[3], dbl w[3]) {
+  w[0] = u[1]*v[2] - u[2]*v[1];
+  w[1] = u[2]*v[0] - u[0]*v[2];
+  w[2] = u[0]*v[1] - u[1]*v[0];
+}
+
 dvec2 dvec2_zero() {
   return (dvec2) {0.0, 0.0};
 }
