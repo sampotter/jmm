@@ -104,7 +104,7 @@ mask to use when coloring scatter plots (one of: "full", "boundary")''')
 
     plt.subplot(1, 3, 1)
     if mask is None:
-        plt.scatter(T, angle, s=1, c='k')
+        plt.scatter(T, E, s=1, c='k')
     else:
         plt.scatter(T[~mask], E[~mask], s=1, c='k', zorder=1)
         plt.scatter(T[mask], E[mask], s=1, c='r', zorder=2)
