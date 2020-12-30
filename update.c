@@ -262,12 +262,14 @@ void utetra_set_lambda(utetra_s *cf, dbl const lam[2]) {
   dbl33_dbl3_mul(cf->X, b, xb);
   dbl3_sub(cf->x, xb, cf->x_minus_xb);
   L = dbl3_norm(cf->x_minus_xb);
+  assert(L > 0);
 
   dbl33_dbl3_mul(cf->Xt, cf->x_minus_xb, tmp1);
   dbl3_dbl_div(tmp1, -L, tmp1);
 
   DL[0] = dbl3_dot(a1, tmp1);
   DL[1] = dbl3_dot(a2, tmp1);
+  assert(dbl2_isfinite(DL));
 
   dbl3_outer(tmp1, tmp1, tmp2);
   dbl33_sub(cf->XtX, tmp2, tmp2);
@@ -278,6 +280,7 @@ void utetra_set_lambda(utetra_s *cf, dbl const lam[2]) {
   D2L[1][0] = D2L[0][1] = dbl3_dot(tmp1, a2);
   dbl33_dbl3_mul(tmp2, a2, tmp1);
   D2L[1][1] = dbl3_dot(tmp1, a2);
+  assert(dbl22_isfinite(D2L));
 
   DT[0] = dbb3tri(cf->Tc, b, a1);
   DT[1] = dbb3tri(cf->Tc, b, a2);
@@ -287,8 +290,13 @@ void utetra_set_lambda(utetra_s *cf, dbl const lam[2]) {
   D2T[1][1] = d2bb3tri(cf->Tc, b, a2, a2);
 
   cf->f = L + bb3tri(cf->Tc, b);
+  assert(isfinite(cf->f));
+
   dbl2_add(DL, DT, cf->g);
+  assert(dbl2_isfinite(cf->g));
+
   dbl22_add(D2L, D2T, cf->H);
+  assert(dbl22_isfinite(cf->H));
 
   /**
    * Finally, compute Newton step solving the minimization problem:
