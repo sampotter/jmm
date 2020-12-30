@@ -18,6 +18,8 @@ size_t array_size(array_s const *arr);
 size_t array_find(array_s const *arr, void const *elt);
 bool array_contains(array_s const *arr, void const *elt);
 void array_append(array_s *arr, void const *elt);
+void array_get(array_s const *arr, size_t i, void *elt);
+void *array_get_ptr(array_s const *arr, size_t i);
 
 #ifdef __cplusplus
 }

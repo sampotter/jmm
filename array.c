@@ -68,3 +68,14 @@ void array_append(array_s *arr, void const *elt) {
   memcpy(ptr, elt, arr->eltsize);
   ++arr->size;
 }
+
+void array_get(array_s const *arr, size_t i, void *elt) {
+  if (i >= arr->size) {
+    return;
+  }
+  memcpy(elt, arr->data + arr->eltsize*i, arr->eltsize);
+}
+
+void *array_get_ptr(array_s const *arr, size_t i) {
+  return i < arr->size ? arr->data + arr->eltsize*i : NULL;
+}

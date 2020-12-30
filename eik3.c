@@ -9,6 +9,7 @@
 #include <omp.h>
 #endif
 
+#include "array.h"
 #include "bb.h"
 #include "heap.h"
 #include "macros.h"
@@ -309,61 +310,49 @@ static void full_update(eik3_s *eik, size_t l) {
   size_t *vv = malloc(nvv*sizeof(size_t));
   mesh3_vv(eik->mesh, l, vv);
 
-  int lvalid_capacity = nvv;
-  size_t *lvalid = malloc(lvalid_capacity*sizeof(size_t));
+  array_s *lvalid;
+  array_alloc(&lvalid);
+  array_init(lvalid, sizeof(size_t), 16);
 
-  int num_valid = 0;
+  // Find VALID neighbors of node `l`:
   for (int i = 0; i < nvv; ++i) {
-    if (eik->state[vv[i]] == VALID) {
-      if (num_valid == lvalid_capacity) {
-        lvalid_capacity *= 2;
-        lvalid = realloc(lvalid, lvalid_capacity*sizeof(size_t));
-      }
-      lvalid[num_valid++] = vv[i];
+    if (eik3_is_valid(eik, vv[i])) {
+      array_append(lvalid, &vv[i]);
     }
   }
-  // Now, VALID get neighbors of neighbors
+
+  // Next, get the VALID neighbors of the nodes in lvalid:
   for (int i = 0; i < nvv; ++i) {
+    // Get neighboring vertices...
     int nvv_ = mesh3_nvv(eik->mesh, vv[i]);
     size_t *vv_ = malloc(nvv_*sizeof(size_t));
     mesh3_vv(eik->mesh, vv[i], vv_);
+
+    // ... append VALID neighbors we haven't found already.
     for (int j = 0; j < nvv_; ++j) {
-      // Move on if this vertex isn't VALID
-      if (eik->state[vv_[j]] != VALID) {
-        continue;
+      if (eik3_is_valid(eik, vv_[j]) && !array_contains(lvalid, &vv_[j])) {
+        array_append(lvalid, &vv_[j]);
       }
-      // Check if we've already found this VALID vertex
-      bool repeat = false;
-      for (int k = 0; k < num_valid; ++k) {
-        if (vv_[j] == lvalid[k]) {
-          repeat = true;
-          break;
-        }
-      }
-      if (repeat) {
-        continue;
-      }
-      // Append this vertex
-      if (num_valid == lvalid_capacity) {
-        lvalid_capacity *= 2;
-        lvalid = realloc(lvalid, lvalid_capacity*sizeof(size_t));
-      }
-      lvalid[num_valid++] = vv_[j];
     }
+
     free(vv_);
   }
 
-  assert(num_valid > 3);
+  int num_valid = array_size(lvalid);
 
+  // Now, do the updates...
   size_t l0, l1, *l2;
   for (int i0 = 0; i0 < num_valid; ++i0) {
-    l0 = lvalid[i0];
+    array_get(lvalid, i0, &l0);
     for (int i1 = i0 + 1; i1 < num_valid; ++i1) {
-      l1 = lvalid[i1];
-      l2 = &lvalid[i1 + 1];
+      array_get(lvalid, i1, &l1);
+      l2 = array_get_ptr(lvalid, i1 + 1);
       do_tetra_updates(eik, l, l0, l1, l2, num_valid - i1 - 1);
     }
   }
+
+  array_deinit(lvalid);
+  array_dealloc(&lvalid);
 
   free(lvalid);
   free(vv);
