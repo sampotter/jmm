@@ -4,6 +4,7 @@
 #include <string.h>
 
 #include "bb.h"
+#include "eik3.h"
 #include "hybrid.h"
 #include "mat.h"
 #include "mesh3.h"
@@ -64,14 +65,33 @@ static dbl utri_hybrid_f(dbl lam, utri_s *utri) {
   return utri->Df;
 }
 
-void utri_init(utri_s *utri, mesh3_s const *mesh, jet3 const *jet, size_t l,
-               size_t l0, size_t l1) {
+void utri_init_from_eik3(utri_s *utri, eik3_s const *eik, size_t l,
+                         size_t l0, size_t l1) {
+  mesh3_s const *mesh = eik3_get_mesh(eik);
+
+  dbl x[3];
+  mesh3_get_vert(mesh, l, x);
+
+  dbl Xt[2][3];
+  mesh3_get_vert(mesh, l0, Xt[0]);
+  mesh3_get_vert(mesh, l1, Xt[1]);
+
+  jet3 jet[2] = {
+    eik3_get_jet(eik, l0),
+    eik3_get_jet(eik, l1)
+  };
+
   assert(jet3_is_finite(&jet[l0]));
   assert(jet3_is_finite(&jet[l1]));
 
-  mesh3_get_vert(mesh, l, utri->x);
-  mesh3_get_vert(mesh, l0, utri->x0);
-  mesh3_get_vert(mesh, l1, utri->x1);
+  utri_init(utri, x, Xt, jet);
+}
+
+void utri_init(utri_s *utri, dbl const x[3], dbl const Xt[2][3],
+               jet3 const jet[2]) {
+  memcpy(utri->x, x, 3*sizeof(dbl));
+  memcpy(utri->x0, Xt[0], 3*sizeof(dbl));
+  memcpy(utri->x1, Xt[1], 3*sizeof(dbl));
 
   dbl3_sub(utri->x1, utri->x0, utri->x1_minus_x0);
 
@@ -80,10 +100,9 @@ void utri_init(utri_s *utri, mesh3_s const *mesh, jet3 const *jet, size_t l,
   dbl3_sub(utri->x1, utri->x, dx1);
   utri->cos01 = dbl3_dot(dx0, dx1)/(dbl3_norm(dx0)*dbl3_norm(dx1));
 
-  dbl f[2] = {jet[l0].f, jet[l1].f};
-  dbl const *Df[2] = {&jet[l0].fx, &jet[l1].fx};
-  dbl const *x[2] = {utri->x0, utri->x1};
-  bb3_interp3(f, Df, x, utri->Tc);
+  dbl f[2] = {jet[0].f, jet[1].f};
+  dbl const *Df[2] = {&jet[0].fx, &jet[1].fx};
+  bb3_interp3(f, Df, (dbl const **)Xt, utri->Tc);
 }
 
 bool utri_is_causal(utri_s const *utri) {
@@ -133,17 +152,36 @@ void utetra_dealloc(utetra_s **utetra) {
   *utetra = NULL;
 }
 
-void utetra_init(utetra_s *cf, mesh3_s const *mesh, jet3 const *jet,
-                   size_t l, size_t l0, size_t l1, size_t l2) {
-  assert(jet3_is_finite(&jet[l0]));
-  assert(jet3_is_finite(&jet[l1]));
-  assert(jet3_is_finite(&jet[l2]));
+void utetra_init_from_eik3(utetra_s *cf, eik3_s const *eik,
+                           size_t l, size_t l0, size_t l1, size_t l2) {
+  mesh3_s const *mesh = eik3_get_mesh(eik);
+  jet3 const *jet = eik3_get_jet_ptr(eik);
+  utetra_init_from_ptrs(cf, mesh, jet, l, l0, l1, l2);
+}
 
-  mesh3_get_vert(mesh, l, cf->x);
+void utetra_init_from_ptrs(utetra_s *cf, mesh3_s const *mesh, jet3 const *jet,
+                           size_t l, size_t l0, size_t l1, size_t l2) {
+  dbl x[3];
+  mesh3_get_vert(mesh, l, x);
 
-  mesh3_get_vert(mesh, l0, cf->Xt[0]);
-  mesh3_get_vert(mesh, l1, cf->Xt[1]);
-  mesh3_get_vert(mesh, l2, cf->Xt[2]);
+  dbl Xt[3][3];
+  mesh3_get_vert(mesh, l0, Xt[0]);
+  mesh3_get_vert(mesh, l1, Xt[1]);
+  mesh3_get_vert(mesh, l2, Xt[2]);
+
+  jet3 jet_[3] = {jet[l0], jet[l1], jet[l2]};
+
+  assert(jet3_is_finite(&jet[0]));
+  assert(jet3_is_finite(&jet[1]));
+  assert(jet3_is_finite(&jet[2]));
+
+  utetra_init(cf, x, Xt, jet_);
+}
+
+void utetra_init(utetra_s *cf, dbl const x[3], dbl const Xt[3][3],
+                 jet3 const jet[3]) {
+  memcpy(cf->x, x, 3*sizeof(dbl));
+  memcpy(cf->Xt, Xt, 3*3*sizeof(dbl));
 
   dbl33_transposed(cf->Xt, cf->X);
   dbl33_mul(cf->Xt, cf->X, cf->XtX);
@@ -157,28 +195,13 @@ void utetra_init(utetra_s *cf, mesh3_s const *mesh, jet3 const *jet,
     cf->angles[i] = dbl3_dot(Xt_minus_x[i], Xt_minus_x[(i + 1) % 3]);
   }
 
-  /**
-   * Compute Bernstein-Bezier coefficients before transposing Xt and
-   * computing XtX
-   */
-
   dbl DT[3][3];
-
-  cf->T[0] = jet[l0].f;
-  DT[0][0] = jet[l0].fx;
-  DT[0][1] = jet[l0].fy;
-  DT[0][2] = jet[l0].fz;
-
-  cf->T[1] = jet[l1].f;
-  DT[1][0] = jet[l1].fx;
-  DT[1][1] = jet[l1].fy;
-  DT[1][2] = jet[l1].fz;
-
-  cf->T[2] = jet[l2].f;
-  DT[2][0] = jet[l2].fx;
-  DT[2][1] = jet[l2].fy;
-  DT[2][2] = jet[l2].fz;
-
+  for (int i = 0; i < 3; ++i) {
+    cf->T[i] = jet[i].f;
+    DT[i][0] = jet[i].fx;
+    DT[i][1] = jet[i].fy;
+    DT[i][2] = jet[i].fz;
+  }
   bb3tri_interp3(cf->T, &DT[0], cf->Xt, cf->Tc);
 
   cf->niter = 0;

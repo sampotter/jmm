@@ -110,6 +110,87 @@ cdef extern from "eik3.h":
     int eik3_get_num_full_updates(const eik3 *eik)
     int *eik3_get_full_update_ptr(const eik3 *eik)
 
+cdef extern from "update.h":
+    cdef struct utetra:
+        pass
+    void utetra_alloc(utetra **cf)
+    void utetra_dealloc(utetra **cf)
+    void utetra_init_from_eik3(utetra *cf, const eik3 *eik,
+                              size_t l, size_t l0, size_t l1, size_t l2)
+    void utetra_init(utetra *cf, const dbl x[3], const dbl Xt[3][3],
+                     const jet3 jet[3])
+    bool utetra_is_degenerate(const utetra *cf)
+    bool utetra_is_causal(const utetra *cf)
+    void utetra_reset(utetra *cf)
+    void utetra_solve(utetra *cf)
+    void utetra_get_lambda(utetra *cf, dbl lam[2])
+    void utetra_set_lambda(utetra *cf, const dbl lam[2])
+    dbl utetra_get_value(const utetra *cf)
+    void utetra_get_gradient(const utetra *cf, dbl g[2])
+    void utetra_get_jet(const utetra *cf, jet3 *jet)
+    void utetra_get_lag_mults(const utetra *cf, dbl alpha[3])
+    int utetra_get_num_iter(const utetra *cf)
+
+cdef class UpdateTetra:
+    cdef:
+        utetra *_utetra
+
+    def __cinit__(self, dbl[:] x, dbl[:, :] Xt, dbl[:] T, dbl[:, :] DT):
+        cdef jet3 jet[3]
+        cdef int i
+        cdef int j
+        for i in range(3):
+            jet[i].f = T[i]
+            jet[i].fx = DT[i, 0]
+            jet[i].fy = DT[i, 1]
+            jet[i].fz = DT[i, 2]
+        cdef dbl Xt_[3][3]
+        for i in range(3):
+            for j in range(3):
+                Xt_[i][j] = Xt[i, j]
+        utetra_alloc(&self._utetra)
+        utetra_init(self._utetra, &x[0], Xt_, jet)
+
+    def __dealloc__(self):
+        utetra_dealloc(&self._utetra)
+
+    def is_degenerate(self):
+        return utetra_is_degenerate(self._utetra)
+
+    def reset(self):
+        utetra_reset(self._utetra)
+
+    def solve(self):
+        utetra_solve(self._utetra)
+
+    def get_lambda(self):
+        cdef dbl[:] lam = np.empty((2,), dtype=np.float64)
+        utetra_get_lambda(self._utetra, &lam[0])
+        return np.asarray(lam)
+
+    def set_lambda(self, dbl[:] lam):
+        utetra_set_lambda(self._utetra, &lam[0])
+
+    def get_value(self):
+        return utetra_get_value(self._utetra)
+
+    def get_gradient(self):
+        cdef dbl[:] g = np.empty((2,), dtype=np.float64)
+        utetra_get_gradient(self._utetra, &g[0])
+        return np.asarray(g)
+
+    def get_jet(self):
+        cdef jet3 jet
+        utetra_get_jet(self._utetra, &jet)
+        return Jet3(jet.f, jet.fx, jet.fy, jet.fz)
+
+    def get_lag_mults(self):
+        cdef dbl[:] alpha = np.empty((3,), dtype=np.float64)
+        utetra_get_lag_mults(self._utetra, &alpha[0])
+        return np.asarray(alpha)
+
+    def get_num_iter(self):
+        return utetra_get_num_iter(self._utetra)
 
 cdef class ArrayView:
     cdef:
@@ -380,6 +461,22 @@ cdef class Jet3:
         self.jet.fx = fx
         self.jet.fy = fy
         self.jet.fz = fz
+
+    @property
+    def f(self):
+        return self.jet.f
+
+    @property
+    def fx(self):
+        return self.jet.fx
+
+    @property
+    def fy(self):
+        return self.jet.fy
+
+    @property
+    def fz(self):
+        return self.jet.fz
 
 
 cdef class Eik3:

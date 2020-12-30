@@ -100,7 +100,7 @@ Ensure(eik3, tetra_works_for_olim18_122_update) {
       get_gt_jet(xsrc, &verts_perm[3*j],  &jet[j]);
     }
 
-    utetra_init(cf, mesh, jet, 3, 0, 1, 2);
+    utetra_init_from_ptrs(cf, mesh, jet, 3, 0, 1, 2);
 
     /**
      * Verify that cost function has correct nodal values
@@ -191,7 +191,7 @@ Ensure(eik3, tetra_works_for_olim18_222_update) {
 
   utetra_s *cf;
   utetra_alloc(&cf);
-  utetra_init(cf, mesh, jet, 3, 0, 1, 2);
+  utetra_init_from_ptrs(cf, mesh, jet, 3, 0, 1, 2);
 
   utetra_set_lambda(cf, lambda);
   utetra_solve(cf);
@@ -348,7 +348,7 @@ Ensure(eik3, tetra_works_for_olim26_updates) {
       get_gt_jet(xsrc, &verts_perm[3*j],  &jet[j]);
     }
 
-    utetra_init(cf, mesh, jet, 3, 0, 1, 2);
+    utetra_init_from_ptrs(cf, mesh, jet, 3, 0, 1, 2);
 
     /**
      * Verify that cost function has correct nodal values

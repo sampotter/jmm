@@ -149,7 +149,7 @@ static bool do_2pt_updates(eik3_s *eik, size_t l, size_t l0, size_t *l1) {
       free(vv0);
       return false;
     }
-    utri_init(utri, eik->mesh, eik->jet, l, l0, l1);
+    utri_init_from_eik3(utri, eik, l, l0, l1);
     utri_solve(utri);
     dbl Tnew = utri_get_value(utri);
     if (Tnew < T) {
@@ -244,7 +244,7 @@ static void do_tetra_updates(eik3_s *eik, size_t l, size_t l0, size_t l1,
       do_1pt_update(eik, l, l2[i]);
       goto cleanup;
     }
-    utetra_init(utetra, eik->mesh, eik->jet, l, l0, l1, l2[i]);
+    utetra_init_from_eik3(utetra, eik, l, l0, l1, l2[i]);
     if (utetra_is_degenerate(utetra)) {
       continue;
     }
@@ -303,6 +303,10 @@ size_t eik3_peek(eik3_s const *eik) {
   return heap_front(eik->heap);
 }
 
+/**
+ * Apply the "adaptive Gauss-Seidel" iteration of Bornemann and Rasch
+ * on a small scale to try to compute a good value for node `l`.
+ */
 static void full_update(eik3_s *eik, size_t l) {
   assert(isinf(eik->jet[l].f));
 
@@ -450,6 +454,10 @@ bool eik3_is_valid(eik3_s const *eik, size_t l) {
 
 mesh3_s const *eik3_get_mesh(eik3_s const *eik) {
   return eik->mesh;
+}
+
+jet3 eik3_get_jet(eik3_s const *eik, size_t l) {
+  return eik->jet[l];
 }
 
 jet3 *eik3_get_jet_ptr(eik3_s const *eik) {
