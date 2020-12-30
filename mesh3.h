@@ -6,8 +6,17 @@ extern "C" {
 
 #include "def.h"
 
-// TODO: make it so that the verts/cells can be copied or not (in
-// which case mesh3 is just a "view")
+// Some ideas for improving the design of mesh3:
+//
+// - TODO: make it so that the verts/cells can be copied or not (in
+//   which case mesh3 is just a "view")
+//
+// - TODO: replace e.g. pairs like mesh3_nvc and mesh3_vc with a
+//   single function, mesh3_vc, which builds and returns a pointer to
+//   an array_s
+//
+// - TODO: write generator-style functions which will elements from
+//   e.g. mesh3_vc one-at-a-time
 
 typedef struct mesh3 mesh3_s;
 
