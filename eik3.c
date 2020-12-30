@@ -243,11 +243,11 @@ static void do_tetra_updates(eik3_s *eik, size_t l, size_t l0, size_t l1,
       do_1pt_update(eik, l, l2[i]);
       goto cleanup;
     }
-    lam[0] = lam[1] = 0;
     utetra_init(utetra, eik->mesh, eik->jet, l, l0, l1, l2[i]);
     if (utetra_is_degenerate(utetra)) {
       continue;
     }
+    lam[0] = lam[1] = 0;
     utetra_set_lambda(utetra, lam);
     utetra_solve(utetra);
     utetra_get_lag_mults(utetra, alpha);
