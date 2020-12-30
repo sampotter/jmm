@@ -34,6 +34,7 @@ set (JMM_PUBLIC_HEADERS
   )
 
 set (JMM_SRCS
+  array.c
   bary.c
   bb.c
   bicubic.c
@@ -100,6 +101,7 @@ if (BUILD_TESTS)
   set (CGREEN_INCLUDE_DIRS "/usr/local/include")
 
   set (JMM_TESTS_SRCS
+    test_array.c
     test_bb.c
     test_eik3.c
     test_opt.c
