@@ -97,6 +97,12 @@ void dbl33_dbl_div(dbl A[3][3], dbl a, dbl B[3][3]) {
   }
 }
 
+dbl dbl33_det(dbl const A[3][3]) {
+  return A[0][0]*(A[1][1]*A[2][2] - A[1][2]*A[2][1])
+       - A[0][1]*(A[1][0]*A[2][2] - A[1][2]*A[2][0])
+       + A[0][2]*(A[1][0]*A[2][1] - A[1][1]*A[2][0]);
+}
+
 dmat22 dmat22_add(dmat22 A, dmat22 B) {
   return (dmat22) {
     .rows = {
