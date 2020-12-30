@@ -24,6 +24,7 @@ void utetra_alloc(utetra_s **cf);
 void utetra_dealloc(utetra_s **cf);
 void utetra_init(utetra_s *cf, mesh3_s const *mesh, jet3 const *jet,
                  size_t l, size_t l0, size_t l1, size_t l2);
+bool utetra_is_degenerate(utetra_s const *cf);
 bool utetra_is_causal(utetra_s const *cf);
 void utetra_reset(utetra_s *cf);
 void utetra_solve(utetra_s *cf);

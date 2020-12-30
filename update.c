@@ -184,6 +184,17 @@ void utetra_init(utetra_s *cf, mesh3_s const *mesh, jet3 const *jet,
   cf->niter = 0;
 }
 
+bool utetra_is_degenerate(utetra_s const *cf) {
+  // Check if the point being updated lies in the plane spanned by by
+  // x0, x1, and x2. If it does, the update is degenerate.
+  dbl dX[3][3];
+  dbl3_sub(cf->Xt[0], cf->x, dX[0]);
+  dbl3_sub(cf->Xt[1], cf->x, dX[1]);
+  dbl3_sub(cf->Xt[2], cf->x, dX[2]);
+  dbl det = dbl33_det(dX);
+  return fabs(det) < 1e-15;
+}
+
 bool utetra_is_causal(utetra_s const *cf) {
   return cf->angles[0] >= 0 && cf->angles[1] >= 0 && cf->angles[2] >= 0;
 }
