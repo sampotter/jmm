@@ -195,35 +195,6 @@ void mesh3_vv(mesh3_s const *mesh, size_t i, size_t *vv) {
   free(vc);
 }
 
-int mesh3_nvf(mesh3_s const *mesh, size_t i) {
-  return mesh3_nvc(mesh, i);
-}
-
-void mesh3_vf(mesh3_s const *mesh, size_t i, size_t *vf) {
-  int nvc = mesh3_nvc(mesh, i);
-  size_t *vc = malloc(sizeof(size_t)*nvc);
-  mesh3_vc(mesh, i, vc);
-
-  int nvf = 0;
-  for (int p = 0; p < nvc; ++p) {
-    ind4 cell = mesh->cells[vc[p]];
-
-    ind3 f;
-    int r = 0;
-    for (int q = 0; q < 4; ++q) {
-      size_t j = cell.data[q];
-      if (i == j) continue;
-      f.data[r++] = j;
-    }
-    assert(r == 3);
-
-    memcpy((void *)&vf[3*nvf], &f.data[0], 3*sizeof(size_t));
-    ++nvf;
-  }
-
-  free(vc);
-}
-
 static int num_shared_verts(ind4 const *c1, ind4 const *c2) {
   // TODO: speed up using SIMD?
   int n = 0;
