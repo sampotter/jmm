@@ -152,12 +152,11 @@ void bb3_interp(dbl const f[2], dbl const Df[2], dbl const x[2], dbl c[4]) {
   c[2] = (c[3] = f[1]) + Df[1]*(x[0] - x[1])/3;
 }
 
-void bb3_interp3(dbl const f[2], dbl const *g[2], dbl const *x[2], dbl c[4]) {
+void bb3_interp3(dbl const f[2], dbl const Df[2][3], dbl const x[2][3], dbl c[4]) {
   dbl dx[3];
   dbl3_sub(x[1], x[0], dx);
-  dbl Df[2] = {dbl3_dot(dx, g[0]), -dbl3_dot(dx, g[1])};
-  c[1] = (c[0] = f[0]) + Df[0]/3;
-  c[2] = (c[3] = f[1]) + Df[1]/3;
+  c[1] = (c[0] = f[0]) + dbl3_dot(dx, Df[0])/3;
+  c[2] = (c[3] = f[1]) + dbl3_dot(dx, Df[1])/3;
 }
 
 dbl bb3(dbl const *c, dbl const *b) {
@@ -199,7 +198,7 @@ dbl d2bb3(dbl const *c, dbl const *b, dbl const *a) {
   return 3*(b[0]*tmp[0] + b[1]*tmp[1]);
 }
 
-void bb3tri_interp3(dbl f[3], dbl Df[3][3], dbl x[3][3], dbl *c) {
+void bb3tri_interp3(dbl const f[3], dbl const Df[3][3], dbl const x[3][3], dbl c[10]) {
   c[TRI300] = f[0];
   c[TRI030] = f[1];
   c[TRI003] = f[2];

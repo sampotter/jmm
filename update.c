@@ -81,8 +81,8 @@ void utri_init_from_eik3(utri_s *utri, eik3_s const *eik, size_t l,
     eik3_get_jet(eik, l1)
   };
 
-  assert(jet3_is_finite(&jet[l0]));
-  assert(jet3_is_finite(&jet[l1]));
+  assert(jet3_is_finite(&jet[0]));
+  assert(jet3_is_finite(&jet[1]));
 
   utri_init(utri, x, Xt, jet);
 }
@@ -101,8 +101,11 @@ void utri_init(utri_s *utri, dbl const x[3], dbl const Xt[2][3],
   utri->cos01 = dbl3_dot(dx0, dx1)/(dbl3_norm(dx0)*dbl3_norm(dx1));
 
   dbl f[2] = {jet[0].f, jet[1].f};
-  dbl const *Df[2] = {&jet[0].fx, &jet[1].fx};
-  bb3_interp3(f, Df, (dbl const **)Xt, utri->Tc);
+  dbl Df[2][3] = {
+    {jet[0].fx, jet[0].fy, jet[0].fz},
+    {jet[1].fx, jet[1].fy, jet[1].fz}
+  };
+  bb3_interp3(f, Df, Xt, utri->Tc);
 }
 
 bool utri_is_causal(utri_s const *utri) {
@@ -171,9 +174,9 @@ void utetra_init_from_ptrs(utetra_s *cf, mesh3_s const *mesh, jet3 const *jet,
 
   jet3 jet_[3] = {jet[l0], jet[l1], jet[l2]};
 
-  assert(jet3_is_finite(&jet[0]));
-  assert(jet3_is_finite(&jet[1]));
-  assert(jet3_is_finite(&jet[2]));
+  assert(jet3_is_finite(&jet_[0]));
+  assert(jet3_is_finite(&jet_[1]));
+  assert(jet3_is_finite(&jet_[2]));
 
   utetra_init(cf, x, Xt, jet_);
 }
