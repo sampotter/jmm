@@ -159,8 +159,8 @@ static bool do_2pt_updates(eik3_s *eik, size_t l, size_t l0, size_t *l1) {
   }
 
   utri_dealloc(&utri);
-  free(vv0);
   *l1 = vv0[min_i1];
+  free(vv0);
   return min_i1 != NO_INDEX;
 }
 

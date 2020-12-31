@@ -108,12 +108,16 @@ void mesh3_deinit(mesh3_s *mesh) {
   mesh->vc_offsets = NULL;
 }
 
-void mesh3_get_vert(mesh3_s const *mesh, size_t i, dbl *v) {
-  memcpy((void *)v, (void *)&mesh->verts[i], sizeof(dvec3));
+dvec3 mesh3_get_vert(mesh3_s const *mesh, size_t i) {
+  return mesh->verts[i];
 }
 
 dbl const *mesh3_get_vert_ptr(mesh3_s const *mesh, size_t i) {
   return &mesh->verts[i].data[0];
+}
+
+void mesh3_copy_vert(mesh3_s const *mesh, size_t i, dbl *v) {
+  memcpy(v, &mesh->verts[i].data[0], 3*sizeof(dbl));
 }
 
 size_t mesh3_nverts(mesh3_s const *mesh) {

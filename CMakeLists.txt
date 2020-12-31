@@ -81,6 +81,7 @@ target_include_directories (
 add_executable (basic_solve examples/basic_solve.c)
 target_link_libraries (basic_solve jmm)
 target_include_directories (basic_solve PRIVATE jmm)
+add_sanitizers (basic_solve)
 set_property (
   TARGET basic_solve
   PROPERTY XCODE_SCHEME_ARGUMENTS
@@ -111,6 +112,7 @@ if (BUILD_TESTS)
   target_include_directories (jmm_tests PRIVATE ${CGREEN_INCLUDE_DIRS})
   target_link_libraries (jmm_tests PRIVATE jmm)
   target_link_libraries (jmm_tests PRIVATE GSL::gsl)
+  add_sanitizers (jmm_tests)
 
   enable_testing ()
   add_test (NAME jmm COMMAND cgreen-runner $<TARGET_FILE_NAME:jmm_tests>)

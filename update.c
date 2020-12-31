@@ -70,11 +70,11 @@ void utri_init_from_eik3(utri_s *utri, eik3_s const *eik, size_t l,
   mesh3_s const *mesh = eik3_get_mesh(eik);
 
   dbl x[3];
-  mesh3_get_vert(mesh, l, x);
+  mesh3_copy_vert(mesh, l, x);
 
   dbl Xt[2][3];
-  mesh3_get_vert(mesh, l0, Xt[0]);
-  mesh3_get_vert(mesh, l1, Xt[1]);
+  mesh3_copy_vert(mesh, l0, Xt[0]);
+  mesh3_copy_vert(mesh, l1, Xt[1]);
 
   jet3 jet[2] = {
     eik3_get_jet(eik, l0),
@@ -165,12 +165,12 @@ void utetra_init_from_eik3(utetra_s *cf, eik3_s const *eik,
 void utetra_init_from_ptrs(utetra_s *cf, mesh3_s const *mesh, jet3 const *jet,
                            size_t l, size_t l0, size_t l1, size_t l2) {
   dbl x[3];
-  mesh3_get_vert(mesh, l, x);
+  mesh3_copy_vert(mesh, l, x);
 
   dbl Xt[3][3];
-  mesh3_get_vert(mesh, l0, Xt[0]);
-  mesh3_get_vert(mesh, l1, Xt[1]);
-  mesh3_get_vert(mesh, l2, Xt[2]);
+  mesh3_copy_vert(mesh, l0, Xt[0]);
+  mesh3_copy_vert(mesh, l1, Xt[1]);
+  mesh3_copy_vert(mesh, l2, Xt[2]);
 
   jet3 jet_[3] = {jet[l0], jet[l1], jet[l2]};
 
