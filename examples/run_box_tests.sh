@@ -6,11 +6,15 @@ TETGEN_FLAGS="-q -k -C -B -N -E -F"
 
 TETRAHEDRON_VOLUMES="a.txt"
 
+OUTDIR=$1
+
+MASK=$2
+
 while IFS= read -r line
 do
     echo "Running box test with a = ${line}:"
 
-    OUTPATH=box/$line
+    OUTPATH=$OUTDIR/$line
     mkdir -p $OUTPATH
 
     $TETGEN $TETGEN_FLAGS -a$line box.off > $OUTPATH/tetgen_output.txt
@@ -22,8 +26,8 @@ do
     echo "  ./extract_verts_and_cells_from_tet_mesh.py --root=$ROOT"
     ./extract_verts_and_cells_from_tet_mesh.py --root=$ROOT | sed 's/^/    /'
 
-    echo "  ./solve_box.py --root=$ROOT --mask=boundary"
-    ./solve_box.py --root=$ROOT --mask=boundary | sed 's/^/    /'
+    echo "  ./solve_box.py --root=$ROOT --mask=$MASK"
+    ./solve_box.py --root=$ROOT --mask=$MASK | sed 's/^/    /'
 
     echo ""
 done < $TETRAHEDRON_VOLUMES
