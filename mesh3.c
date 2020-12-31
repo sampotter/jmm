@@ -281,6 +281,10 @@ void mesh3_cv(mesh3_s const *mesh, size_t i, size_t *cv) {
 int mesh3_nec(mesh3_s const *mesh, size_t i, size_t j) {
   // TODO: really horrible implementation! :-(
 
+  if (i == j) {
+    return 0;
+  }
+
   int nvci = mesh3_nvc(mesh, i);
   size_t *vci = malloc(sizeof(size_t)*nvci);
   mesh3_vc(mesh, i, vci);
@@ -310,6 +314,10 @@ int mesh3_nec(mesh3_s const *mesh, size_t i, size_t j) {
 
 void mesh3_ec(mesh3_s const *mesh, size_t i, size_t j, size_t *ec) {
   // TODO: really horrible implementation! :-(
+
+  if (i == j) {
+    return;
+  }
 
   int nvci = mesh3_nvc(mesh, i);
   size_t *vci = malloc(sizeof(size_t)*nvci);
