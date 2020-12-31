@@ -131,3 +131,13 @@ mask to use when coloring scatter plots (one of: "full", "boundary")''')
 
     plt.tight_layout()
     plt.savefig('%s_hists.pdf' % root)
+
+    plt.figure(figsize=(10, 8))
+    if mask is None:
+        plt.scatter(T, np.maximum(2.2e-16, abs(E)), s=0.25, c='k')
+    else:
+        plt.scatter(T[~mask], np.maximum(2.2e-16, abs(E[~mask])), s=0.25, c='k', zorder=1)
+        plt.scatter(T[mask], np.maximum(2.2e-16, abs(E[mask])), s=0.25, c='r', zorder=2)
+    plt.yscale('log')
+    plt.tight_layout()
+    plt.savefig('%s_log_abs_error_hist.pdf' % root)
