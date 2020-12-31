@@ -78,8 +78,6 @@ cdef extern from "mesh3.h":
     void mesh3_vc(const mesh3 *mesh, size_t i, size_t *vc)
     int mesh3_nvv(const mesh3 *mesh, size_t i)
     void mesh3_vv(const mesh3 *mesh, size_t i, size_t *vv)
-    int mesh3_nve(const mesh3 *mesh, size_t i)
-    void mesh3_ve(const mesh3 *mesh, size_t i, size_t *ve)
     int mesh3_nvf(const mesh3 *mesh, size_t i)
     void mesh3_vf(const mesh3 *mesh, size_t i, size_t *vf)
     int mesh3_ncc(const mesh3 *mesh, size_t i)
@@ -418,12 +416,6 @@ cdef class Mesh3:
         cdef size_t[::1] vv = np.empty((nvv,), dtype=np.uintp)
         mesh3_vv(self.mesh, i, &vv[0])
         return np.asarray(vv)
-
-    def ve(self, size_t i):
-        cdef int nve = mesh3_nve(self.mesh, i)
-        cdef size_t[:, ::1] ve = np.empty((nve, 2), dtype=np.uintp)
-        mesh3_ve(self.mesh, i, &ve[0, 0])
-        return np.asarray(ve)
 
     def vf(self, size_t i):
         cdef int nvf = mesh3_nvf(self.mesh, i)
