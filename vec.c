@@ -112,6 +112,14 @@ void dbl3_cross(dbl const u[3], dbl const v[3], dbl w[3]) {
   w[2] = u[0]*v[1] - u[1]*v[0];
 }
 
+dbl dbl3_sum(dbl const u[3]) {
+  return u[0] + u[1] + u[2];
+}
+
+bool dbl4_nonneg(dbl const u[4]) {
+  return u[0] >= 0 && u[1] >= 0 && u[2] >= 0 && u[3] >= 0;
+}
+
 dvec2 dvec2_zero() {
   return (dvec2) {0.0, 0.0};
 }
