@@ -272,7 +272,75 @@ dbl d2bb3tri(dbl const *c, dbl const *b, dbl const *a1, dbl const *a2) {
   return 6*(b[TRI100]*tmp[TRI100] + b[TRI010]*tmp[TRI010] + b[TRI001]*tmp[TRI001]);
 }
 
-dbl bb3tet(dbl const *c, dbl const *b) {
+void bb3tet_interp3(dbl const f[4], dbl const Df[4][3], dbl const x[4][3], dbl c[20]) {
+  dbl dx[3];
+
+  /**
+   * Start by computing the Bezier ordinates for each vertex of the
+   * tetrahedron. (These are just the function values.)
+   */
+
+  c[TET3000] = f[0];
+  c[TET0300] = f[1];
+  c[TET0030] = f[2];
+  c[TET0003] = f[3];
+
+  /**
+   * Next, compute Bezier ordinates along tetrahedron edges first.
+   */
+
+  // 1 <-> 2
+  dbl3_sub(x[TET0100], x[TET1000], dx);
+  c[TET2100] = c[TET3000] + dbl3_dot(Df[TET1000], dx)/3;
+  c[TET1200] = c[TET0300] - dbl3_dot(Df[TET0100], dx)/3;
+
+  // 1 <-> 3
+  dbl3_sub(x[TET0010], x[TET1000], dx);
+  c[TET2010] = c[TET3000] + dbl3_dot(Df[TET1000], dx)/3;
+  c[TET1020] = c[TET0030] - dbl3_dot(Df[TET0010], dx)/3;
+
+  // 1 <-> 4
+  dbl3_sub(x[TET0001], x[TET1000], dx);
+  c[TET2001] = c[TET3000] + dbl3_dot(Df[TET1000], dx)/3;
+  c[TET1002] = c[TET0003] - dbl3_dot(Df[TET0001], dx)/3;
+
+  // 2 <-> 3
+  dbl3_sub(x[TET0010], x[TET0100], dx);
+  c[TET0210] = c[TET0300] + dbl3_dot(Df[TET0100], dx)/3;
+  c[TET0120] = c[TET0030] - dbl3_dot(Df[TET0010], dx)/3;
+
+  // 2 <-> 4
+  dbl3_sub(x[TET0001], x[TET0100], dx);
+  c[TET0201] = c[TET0300] + dbl3_dot(Df[TET0100], dx)/3;
+  c[TET0102] = c[TET0003] - dbl3_dot(Df[TET0001], dx)/3;
+
+  // 3 <-> 4
+  dbl3_sub(x[TET0001], x[TET0010], dx);
+  c[TET0021] = c[TET0030] + dbl3_dot(Df[TET0010], dx)/3;
+  c[TET0012] = c[TET0003] - dbl3_dot(Df[TET0001], dx)/3;
+
+  /**
+   * Finally, compute Bezier ordinates in the center of each
+   * tetrahedron face.
+   */
+
+  c[TET1110] = (c[TET2100] + c[TET2010] + c[TET1200] + c[TET0210] + c[TET0120] + c[TET1020])/4
+    - (c[TET3000] + c[TET0300] + c[TET0030])/6;
+
+  c[TET1101] = (c[TET2100] + c[TET2001] + c[TET1200] + c[TET0201] + c[TET0102] + c[TET1002])/4
+    - (c[TET3000] + c[TET0300] + c[TET0003])/6;
+
+  c[TET1011] = (c[TET2010] + c[TET2001] + c[TET1020] + c[TET0021] + c[TET0012] + c[TET1002])/4
+    - (c[TET3000] + c[TET0030] + c[TET0003])/6;
+
+  c[TET0111] = (c[TET0210] + c[TET0201] + c[TET0120] + c[TET0021] + c[TET0012] + c[TET0102])/4
+    - (c[TET0300] + c[TET0030] + c[TET0003])/6;
+
+  // (We're done---there are no interior Bezier ordinates for the 3D
+  // generalzation of the 9-parameter interpolant.)
+}
+
+dbl bb3tet(dbl const c[20], dbl const b[4]) {
   dbl tmp[10];
 
   tmp[TET2000] = b[TET1000]*c[TET3000] + b[TET0100]*c[TET2100] + b[TET0010]*c[TET2010] + b[TET0001]*c[TET2001];
@@ -292,6 +360,50 @@ dbl bb3tet(dbl const *c, dbl const *b) {
   tmp[TET0001] = b[TET1000]*tmp[TET1001] + b[TET0100]*tmp[TET0101] + b[TET0010]*tmp[TET0011] + b[TET0001]*tmp[TET0002];
 
   return b[TET1000]*tmp[TET1000] + b[TET0100]*tmp[TET0100] + b[TET0010]*tmp[TET0010] + b[TET0001]*tmp[TET0001];
+}
+
+dbl dbb3tet(dbl const c[20], dbl const b[4], dbl const a[4]) {
+  dbl tmp[10];
+
+  tmp[TET2000] = a[TET1000]*c[TET3000] + a[TET0100]*c[TET2100] + a[TET0010]*c[TET2010] + a[TET0001]*c[TET2001];
+  tmp[TET1100] = a[TET1000]*c[TET2100] + a[TET0100]*c[TET1200] + a[TET0010]*c[TET1110] + a[TET0001]*c[TET1101];
+  tmp[TET0200] = a[TET1000]*c[TET1200] + a[TET0100]*c[TET0300] + a[TET0010]*c[TET0210] + a[TET0001]*c[TET0201];
+  tmp[TET1010] = a[TET1000]*c[TET2010] + a[TET0100]*c[TET1110] + a[TET0010]*c[TET1020] + a[TET0001]*c[TET1011];
+  tmp[TET0110] = a[TET1000]*c[TET1110] + a[TET0100]*c[TET0210] + a[TET0010]*c[TET0120] + a[TET0001]*c[TET0111];
+  tmp[TET0020] = a[TET1000]*c[TET1020] + a[TET0100]*c[TET0120] + a[TET0010]*c[TET0030] + a[TET0001]*c[TET0021];
+  tmp[TET1001] = a[TET1000]*c[TET2001] + a[TET0100]*c[TET1101] + a[TET0010]*c[TET1011] + a[TET0001]*c[TET1002];
+  tmp[TET0101] = a[TET1000]*c[TET1101] + a[TET0100]*c[TET0201] + a[TET0010]*c[TET0111] + a[TET0001]*c[TET0102];
+  tmp[TET0011] = a[TET1000]*c[TET1011] + a[TET0100]*c[TET0111] + a[TET0010]*c[TET0021] + a[TET0001]*c[TET0012];
+  tmp[TET0002] = a[TET1000]*c[TET1002] + a[TET0100]*c[TET0102] + a[TET0010]*c[TET0012] + a[TET0001]*c[TET0003];
+
+  tmp[TET1000] = b[TET1000]*tmp[TET2000] + b[TET0100]*tmp[TET1100] + b[TET0010]*tmp[TET1010] + b[TET0001]*tmp[TET1001];
+  tmp[TET0100] = b[TET1000]*tmp[TET1100] + b[TET0100]*tmp[TET0200] + b[TET0010]*tmp[TET0110] + b[TET0001]*tmp[TET0101];
+  tmp[TET0010] = b[TET1000]*tmp[TET1010] + b[TET0100]*tmp[TET0110] + b[TET0010]*tmp[TET0020] + b[TET0001]*tmp[TET0011];
+  tmp[TET0001] = b[TET1000]*tmp[TET1001] + b[TET0100]*tmp[TET0101] + b[TET0010]*tmp[TET0011] + b[TET0001]*tmp[TET0002];
+
+  return 3*(b[TET1000]*tmp[TET1000] + b[TET0100]*tmp[TET0100] + b[TET0010]*tmp[TET0010] + b[TET0001]*tmp[TET0001]);
+}
+
+dbl d2bb3tet(dbl const c[20], dbl const b[4], dbl const a[2][4]) {
+  dbl tmp[10];
+
+  tmp[TET2000] = a[0][TET1000]*c[TET3000] + a[0][TET0100]*c[TET2100] + a[0][TET0010]*c[TET2010] + a[0][TET0001]*c[TET2001];
+  tmp[TET1100] = a[0][TET1000]*c[TET2100] + a[0][TET0100]*c[TET1200] + a[0][TET0010]*c[TET1110] + a[0][TET0001]*c[TET1101];
+  tmp[TET0200] = a[0][TET1000]*c[TET1200] + a[0][TET0100]*c[TET0300] + a[0][TET0010]*c[TET0210] + a[0][TET0001]*c[TET0201];
+  tmp[TET1010] = a[0][TET1000]*c[TET2010] + a[0][TET0100]*c[TET1110] + a[0][TET0010]*c[TET1020] + a[0][TET0001]*c[TET1011];
+  tmp[TET0110] = a[0][TET1000]*c[TET1110] + a[0][TET0100]*c[TET0210] + a[0][TET0010]*c[TET0120] + a[0][TET0001]*c[TET0111];
+  tmp[TET0020] = a[0][TET1000]*c[TET1020] + a[0][TET0100]*c[TET0120] + a[0][TET0010]*c[TET0030] + a[0][TET0001]*c[TET0021];
+  tmp[TET1001] = a[0][TET1000]*c[TET2001] + a[0][TET0100]*c[TET1101] + a[0][TET0010]*c[TET1011] + a[0][TET0001]*c[TET1002];
+  tmp[TET0101] = a[0][TET1000]*c[TET1101] + a[0][TET0100]*c[TET0201] + a[0][TET0010]*c[TET0111] + a[0][TET0001]*c[TET0102];
+  tmp[TET0011] = a[0][TET1000]*c[TET1011] + a[0][TET0100]*c[TET0111] + a[0][TET0010]*c[TET0021] + a[0][TET0001]*c[TET0012];
+  tmp[TET0002] = a[0][TET1000]*c[TET1002] + a[0][TET0100]*c[TET0102] + a[0][TET0010]*c[TET0012] + a[0][TET0001]*c[TET0003];
+
+  tmp[TET1000] = a[1][TET1000]*tmp[TET2000] + a[1][TET0100]*tmp[TET1100] + a[1][TET0010]*tmp[TET1010] + a[1][TET0001]*tmp[TET1001];
+  tmp[TET0100] = a[1][TET1000]*tmp[TET1100] + a[1][TET0100]*tmp[TET0200] + a[1][TET0010]*tmp[TET0110] + a[1][TET0001]*tmp[TET0101];
+  tmp[TET0010] = a[1][TET1000]*tmp[TET1010] + a[1][TET0100]*tmp[TET0110] + a[1][TET0010]*tmp[TET0020] + a[1][TET0001]*tmp[TET0011];
+  tmp[TET0001] = a[1][TET1000]*tmp[TET1001] + a[1][TET0100]*tmp[TET0101] + a[1][TET0010]*tmp[TET0011] + a[1][TET0001]*tmp[TET0002];
+
+  return 6*(b[TET1000]*tmp[TET1000] + b[TET0100]*tmp[TET0100] + b[TET0010]*tmp[TET0010] + b[TET0001]*tmp[TET0001]);
 }
 
 // Local Variables:

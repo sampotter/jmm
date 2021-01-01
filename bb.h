@@ -17,7 +17,10 @@ dbl bb3tri(dbl const *c, dbl const *b);
 dbl dbb3tri(dbl const *c, dbl const *b, dbl const *a);
 dbl d2bb3tri(dbl const *c, dbl const *b, dbl const *a1, dbl const *a2);
 
-dbl bb3tet(dbl const *c, dbl const *b);
+void bb3tet_interp3(dbl const f[4], dbl const Df[4][3], dbl const x[4][3], dbl c[20]);
+dbl bb3tet(dbl const c[20], dbl const b[4]);
+dbl dbb3tet(dbl const c[20], dbl const b[4], dbl const a[4]);
+dbl d2bb3tet(dbl const c[20], dbl const b[4], dbl const a[2][4]);
 
 #ifdef __cplusplus
 }
