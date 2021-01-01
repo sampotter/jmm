@@ -114,6 +114,10 @@ void utri_solve(utri_s *utri) {
   (void)hybrid((hybrid_cost_func_t)utri_hybrid_f, 0, 1, utri);
 }
 
+dbl utri_get_lambda(utri_s const *utri) {
+  return utri->lam;
+}
+
 dbl utri_get_value(utri_s const *utri) {
   return utri->f;
 }

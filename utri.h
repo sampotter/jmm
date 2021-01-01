@@ -18,6 +18,7 @@ void utri_init(utri_s *utri, dbl const x[3], dbl const Xt[2][3],
                jet3 const jet[2]);
 bool utri_is_causal(utri_s const *utri);
 void utri_solve(utri_s *utri);
+dbl utri_get_lambda(utri_s const *utri);
 dbl utri_get_value(utri_s const *utri);
 
 #ifdef __cplusplus
