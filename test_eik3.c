@@ -8,7 +8,7 @@
 
 #include "eik3.h"
 #include "mesh3.h"
-#include "update.h"
+#include "utetra.h"
 #include "vec.h"
 
 #define NUM_RANDOM_TRIALS 10

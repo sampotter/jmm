@@ -15,7 +15,8 @@
 #include "macros.h"
 #include "mat.h"
 #include "mesh3.h"
-#include "update.h"
+#include "utetra.h"
+#include "utri.h"
 #include "vec.h"
 
 struct eik3 {

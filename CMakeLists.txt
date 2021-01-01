@@ -54,8 +54,9 @@ set (JMM_SRCS
   mat.c
   mesh3.c
   opt.c
-  update.c
+  utetra.c
   util.c
+  utri.c
   vec.c
   )
 

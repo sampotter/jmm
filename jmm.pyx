@@ -106,7 +106,7 @@ cdef extern from "eik3.h":
     int eik3_get_num_full_updates(const eik3 *eik)
     int *eik3_get_full_update_ptr(const eik3 *eik)
 
-cdef extern from "update.h":
+cdef extern from "utetra.h":
     cdef struct utetra:
         pass
     void utetra_alloc(utetra **cf)
