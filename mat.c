@@ -82,7 +82,7 @@ void dbl33_transpose(dbl A[3][3]) {
   SWAP(A[2][1], A[1][2]);
 }
 
-void dbl33_transposed(dbl A[3][3], dbl At[3][3]) {
+void dbl33_transposed(dbl const A[3][3], dbl At[3][3]) {
   memcpy((void *)At, (void *)A, sizeof(dbl)*3*3);
   SWAP(At[1][0], At[0][1]);
   SWAP(At[2][0], At[0][2]);

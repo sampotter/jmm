@@ -104,7 +104,9 @@ if (BUILD_TESTS)
 
   set (JMM_TESTS_SRCS
     test_array.c
-    test_bb.c
+    test_bb3.c
+    test_bb3tri.c
+    test_bb3tet.c
     test_eik3.c
     test_opt.c
     test_mesh3.c
