@@ -45,7 +45,7 @@ void utri_set_lambda(utri_s *utri, dbl lam) {
   dbl3_sub(utri->x, xb, utri->x_minus_xb);
   dbl L = dbl3_norm(utri->x_minus_xb);
 
-  dbl dL_dlam = dbl3_dot(utri->x1_minus_x0, utri->x_minus_xb)/L;
+  dbl dL_dlam = -dbl3_dot(utri->x1_minus_x0, utri->x_minus_xb)/L;
 
   dbl b[2] = {1 - lam, lam};
   dbl T = bb3(utri->Tc, b);
