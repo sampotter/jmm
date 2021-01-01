@@ -108,6 +108,7 @@ if (BUILD_TESTS)
     test_eik3.c
     test_opt.c
     test_mesh3.c
+    test_utri.c
     )
   add_library (jmm_tests SHARED ${JMM_TESTS_SRCS})
   target_link_libraries (jmm_tests PRIVATE ${CGREEN_LIBRARY})
