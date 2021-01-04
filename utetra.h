@@ -30,6 +30,7 @@ void utetra_get_gradient(utetra_s const *cf, dbl g[2]);
 void utetra_get_jet(utetra_s const *cf, jet3 *jet);
 void utetra_get_lag_mults(utetra_s const *cf, dbl alpha[3]);
 int utetra_get_num_iter(utetra_s const *cf);
+bool utetra_has_interior_point_solution(utetra_s const *cf);
 
 #ifdef __cplusplus
 }

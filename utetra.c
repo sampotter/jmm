@@ -307,3 +307,9 @@ void utetra_get_lag_mults(utetra_s const *cf, dbl alpha[3]) {
 int utetra_get_num_iter(utetra_s const *cf) {
   return cf->niter;
 }
+
+bool utetra_has_interior_point_solution(utetra_s const *cf) {
+  dbl alpha[3];
+  utetra_get_lag_mults(cf, alpha);
+  return dbl3_maxnorm(alpha) <= 1e-15;
+}
