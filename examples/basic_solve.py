@@ -27,7 +27,7 @@ mask to use when coloring scatter plots (only "boundary" now)''')
     parser.add_argument('--indsrc', type=int, help='''
 index to vertex with location of point source''')
     parser.add_argument('--r0', type=float, help='''
-factoring radius (TODO: not currently being used)''', default=0.1)
+factoring radius (TODO: not currently being used)''', default=None)
     args = parser.parse_args()
 
     path = args.path
@@ -58,9 +58,17 @@ factoring radius (TODO: not currently being used)''', default=0.1)
 
     eik = jmm.Eik3(mesh)
 
-    xsrc = np.zeros(3)
-    R = verts - xsrc
-    tau = np.sqrt(np.sum(R**2, axis=1))
+    if indsrc is None:
+        print('- placing point source at vertex closest to (0, 0, 0)')
+        xsrc = np.zeros(3)
+        R = verts - xsrc
+        tau = np.sqrt(np.sum(R**2, axis=1))
+        indsrc = np.argmin(tau)
+    else:
+        xsrc = verts[indsrc]
+        R = verts - xsrc
+        tau = np.sqrt(np.sum(R**2, axis=1))
+    print('- point source is at index %d: %s' % (indsrc, tuple(xsrc)))
 
     Dtau = np.empty((tau.size, 3), dtype=tau.dtype)
     nz = tau != 0
@@ -68,12 +76,20 @@ factoring radius (TODO: not currently being used)''', default=0.1)
     Dtau[~nz] = np.nan
     del nz
 
-    if indsrc is None:
-        print('- placing point source at vertex closest to (0, 0, 0)')
-        indsrc = np.argmin(tau)
-    print('- point source is at index %d: %s' % (indsrc, tuple(xsrc)))
-
-    eik.add_trial(indsrc, jmm.Jet3(0, np.nan, np.nan, np.nan))
+    if r0 is None:
+        eik.add_trial(indsrc, jmm.Jet3(0, np.nan, np.nan, np.nan))
+    else:
+        num_fac = 0
+        for l in np.where(tau < r0)[0]:
+            eik.add_valid(l, jmm.Jet3(tau[l], *Dtau[l]))
+            num_fac += 1
+        for l in np.where(eik.state == jmm.State.Valid.value)[0]:
+            for m in mesh.vv(l):
+                if eik.state[m] == jmm.State.Valid.value:
+                    continue
+                eik.add_trial(m, jmm.Jet3(tau[m], *Dtau[m]))
+                num_fac += 1
+        print('- number of nodes inside factoring radius: %d' % num_fac)
 
     # raise Exception()
 

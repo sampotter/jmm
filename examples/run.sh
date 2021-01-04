@@ -31,8 +31,8 @@ do
     echo "  ./extract_verts_and_cells_from_tet_mesh.py --root=$ROOT"
     ./extract_verts_and_cells_from_tet_mesh.py --root=$ROOT | sed 's/^/    /'
 
-    echo "  ./basic_solve.py --path=$OUTPATH --scene=$SCENE --mask=$MASK"
-    ./basic_solve.py --path=$OUTPATH --scene=$SCENE --mask=$MASK | sed 's/^/    /'
+    echo "  ./basic_solve.py --path=$OUTPATH --scene=$SCENE --mask=$MASK --r0=0.1 "
+    ./basic_solve.py --path=$OUTPATH --scene=$SCENE --mask=$MASK --r0=0.1 | sed 's/^/    /'
 
     echo ""
 done < $TETRAHEDRON_VOLUMES
