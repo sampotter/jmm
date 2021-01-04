@@ -42,7 +42,10 @@ void mesh3_cc(mesh3_s const *mesh, size_t i, size_t *cc);
 void mesh3_cv(mesh3_s const *mesh, size_t i, size_t *cv);
 int mesh3_nec(mesh3_s const *mesh, size_t i, size_t j);
 void mesh3_ec(mesh3_s const *mesh, size_t i, size_t j, size_t *ec);
+bool *mesh3_get_bdc_ptr(mesh3_s *mesh);
 bool mesh3_bdc(mesh3_s const *mesh, size_t i);
+bool *mesh3_get_bdv_ptr(mesh3_s *mesh);
+bool mesh3_bdv(mesh3_s const *mesh, size_t i);
 
 #ifdef __cplusplus
 }

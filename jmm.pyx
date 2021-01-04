@@ -90,6 +90,8 @@ cdef extern from "mesh3.h":
     int mesh3_nec(const mesh3 *mesh, size_t i, size_t j)
     void mesh3_ec(const mesh3 *mesh, size_t i, size_t j, size_t *ec)
     bool mesh3_bdc(const mesh3 *mesh, size_t i)
+    bool mesh3_bdv(const mesh3 *mesh, size_t i)
+
 
 cdef extern from "eik3.h":
     cdef struct eik3:
@@ -463,6 +465,7 @@ cdef class Mesh3:
         cdef size_t ncells = cells.shape[0]
         mesh3_init(self.mesh, &verts[0, 0], nverts, &cells[0, 0], ncells)
 
+
     def __dealloc__(self):
         mesh3_deinit(self.mesh)
         mesh3_dealloc(&self.mesh)
@@ -498,6 +501,9 @@ cdef class Mesh3:
 
     def bdc(self, size_t i):
         return mesh3_bdc(self.mesh, i)
+
+    def bdv(self, size_t i):
+        return mesh3_bdv(self.mesh, i)
 
 
 cdef class Jet3:

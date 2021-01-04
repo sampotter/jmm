@@ -1,6 +1,7 @@
 #include <cgreen/cgreen.h>
 
 #include "mesh3.h"
+#include "util.h"
 
 Describe(mesh3);
 BeforeEach(mesh3) {}
@@ -31,16 +32,6 @@ AfterEach(mesh3) {}
 #define TEAR_DOWN_MESH()                        \
   mesh3_deinit(mesh);                           \
   mesh3_dealloc(&mesh);
-
-int size_t_cmp(size_t const *i, size_t const *j) {
-  if (*i < *j) {
-    return -1;
-  } else if (*i > *j) {
-    return 1;
-  } else {
-    return 0;
-  }
-}
 
 Ensure (mesh3, get_nverts_works_for_cube) {
   SET_UP_CUBE_MESH();
@@ -122,7 +113,7 @@ Ensure (mesh3, cc_works_for_cube) {
   size_t cc[4];
   for (int i = 0; i < 5; ++i) {
     mesh3_cc(mesh, i, cc);
-    qsort(cc, ncc[i], sizeof(size_t), (compar_t)size_t_cmp);
+    qsort(cc, ncc[i], sizeof(size_t), (compar_t)compar_size_t);
     assert_that(cc, is_equal_to_contents_of(cc_gt[i], ncc[i]*sizeof(size_t)));
   }
 
@@ -260,7 +251,7 @@ Ensure (mesh3, ec_works_for_cube) {
 
   for (int i = 0; i < num_edges; ++i) {
     mesh3_ec(mesh, edges[i][0], edges[i][1], ec);
-    qsort(ec, nec[i], sizeof(size_t), (compar_t)size_t_cmp);
+    qsort(ec, nec[i], sizeof(size_t), (compar_t)compar_size_t);
     assert_that(ec, is_equal_to_contents_of(ec_gt[i], nec[i]*sizeof(size_t)));
   }
 
@@ -275,6 +266,19 @@ Ensure (mesh3, bdc_works_for_cube) {
   for (int i = 0; i < 5; ++i) {
     bool bdc = mesh3_bdc(mesh, i);
     assert_that(bdc, is_equal_to(bdc_gt[i]));
+  }
+
+  TEAR_DOWN_MESH();
+}
+
+Ensure (mesh3, bdv_works_for_cube) {
+  SET_UP_CUBE_MESH();
+
+  bool bdv_gt[8] = {true, true, true, true, true, true, true, true};
+
+  for (int i = 0; i < 8; ++i) {
+    bool bdv = mesh3_bdv(mesh, i);
+    assert_that(bdv, is_equal_to(bdv_gt[i]));
   }
 
   TEAR_DOWN_MESH();

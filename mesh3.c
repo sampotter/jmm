@@ -6,6 +6,7 @@
 #include <string.h>
 
 #include "index.h"
+#include "util.h"
 
 struct mesh3 {
   dvec3 *verts;
@@ -14,6 +15,8 @@ struct mesh3 {
   size_t ncells;
   size_t *vc;
   size_t *vc_offsets;
+  bool *bdc;
+  bool *bdv;
 };
 
 void mesh3_alloc(mesh3_s **mesh) {
@@ -70,6 +73,76 @@ static void init_vc(mesh3_s *mesh) {
   free(nvc);
 }
 
+typedef struct {
+  size_t lf[3];
+  size_t lc;
+} tagged_face_s;
+
+int compar_tagged_face(tagged_face_s const *f1, tagged_face_s const *f2) {
+  for (int i = 0, cmp; i < 3; ++i) {
+    cmp = compar_size_t(&f1->lf[i], &f2->lf[i]);
+    if (cmp != 0) {
+      return cmp;
+    }
+  }
+  return 0;
+}
+
+/**
+ * In this function we figure out which cells (tetrahedra) and
+ * vertices are on the boundary. This is slightly arbitrary. We
+ * stipulate that a vertex is on the boundary if every ball
+ * surrounding the vertex intersects the exterior of the domain. A
+ * cell is a boundary cell if it has a face that's incident on the
+ * boundary of the domain.
+ *
+ * Using this information we find the unique faces in the mesh. A
+ */
+static void init_bd(mesh3_s *mesh) {
+  mesh->bdc = calloc(mesh->ncells, sizeof(bool));
+  mesh->bdv = calloc(mesh->nverts, sizeof(bool));
+
+  // Allocate some space for the faces of each cell in the mesh.
+  size_t nf = 4*mesh->ncells;
+  tagged_face_s *f = malloc(nf*sizeof(tagged_face_s));
+
+  // Traverse the cells in the mesh, and populate `f`. These faces are
+  // "tagged", meaning that they have a backpointer to the originating
+  // cell.
+  size_t *C;
+  for (size_t lc = 0; lc < mesh->ncells; ++lc) {
+    C = &mesh->cells[lc].data[0];
+    f[4*lc] = (tagged_face_s) {.lf = {C[0], C[1], C[2]}, .lc = lc};
+    f[4*lc + 1] = (tagged_face_s) {.lf = {C[0], C[1], C[3]}, .lc = lc};
+    f[4*lc + 2] = (tagged_face_s) {.lf = {C[0], C[2], C[3]}, .lc = lc};
+    f[4*lc + 3] = (tagged_face_s) {.lf = {C[1], C[2], C[3]}, .lc = lc};
+  }
+
+  // Sort the components of each tagged face.
+  for (size_t l = 0; l < nf; ++l) {
+    qsort(f[l].lf, 3, sizeof(size_t), (compar_t)compar_size_t);
+  }
+
+  // Sort the tagged faces themselves into a dictionary order.
+  qsort(f, nf, sizeof(tagged_face_s), (compar_t)compar_tagged_face);
+
+  // After sorting, we can tell if a face is duplicated by checking
+  // whether it's equal to the succeeding face in `f`. If there's a
+  // duplicate, we update the relevant boundary information.
+  for (size_t l = 0; l < nf - 1; ++l) {
+    if (!compar_tagged_face(&f[l], &f[l + 1])) {
+      ++l;
+      continue;
+    }
+    mesh->bdc[f[l].lc] = true;
+    mesh->bdv[f[l].lf[0]] = true;
+    mesh->bdv[f[l].lf[1]] = true;
+    mesh->bdv[f[l].lf[2]] = true;
+  }
+
+  free(f);
+}
+
 void mesh3_init(mesh3_s *mesh,
                 dbl const *verts, size_t nverts,
                 size_t const *cells, size_t ncells) {
@@ -94,6 +167,7 @@ void mesh3_init(mesh3_s *mesh,
   mesh->ncells = ncells;
 
   init_vc(mesh);
+  init_bd(mesh);
 }
 
 void mesh3_deinit(mesh3_s *mesh) {
@@ -101,11 +175,15 @@ void mesh3_deinit(mesh3_s *mesh) {
   free(mesh->cells);
   free(mesh->vc);
   free(mesh->vc_offsets);
+  free(mesh->bdc);
+  free(mesh->bdv);
 
   mesh->verts = NULL;
   mesh->cells = NULL;
   mesh->vc = NULL;
   mesh->vc_offsets = NULL;
+  mesh->bdc = NULL;
+  mesh->bdv = NULL;
 }
 
 dvec3 mesh3_get_vert(mesh3_s const *mesh, size_t i) {
@@ -373,6 +451,18 @@ void mesh3_ec(mesh3_s const *mesh, size_t i, size_t j, size_t *ec) {
   free(vcj);
 }
 
+bool *mesh3_get_bdc_ptr(mesh3_s *mesh) {
+  return mesh->bdc;
+}
+
 bool mesh3_bdc(mesh3_s const *mesh, size_t i) {
-  return mesh3_ncc(mesh, i) < 4;
+  return mesh->bdc[i];
+}
+
+bool *mesh3_get_bdv_ptr(mesh3_s *mesh) {
+  return mesh->bdv;
+}
+
+bool mesh3_bdv(mesh3_s const *mesh, size_t i) {
+  return mesh->bdv[i];
 }

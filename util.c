@@ -38,3 +38,13 @@ void Dq(dbl const A[3][3], dbl const b[3], dbl const x[3], dbl Dq[3]) {
 
   dbl3_add(tmp, b, Dq);
 }
+
+int compar_size_t(size_t const *i, size_t const *j) {
+  if (*i < *j) {
+    return -1;
+  } else if (*i > *j) {
+    return 1;
+  } else {
+    return 0;
+  }
+}
