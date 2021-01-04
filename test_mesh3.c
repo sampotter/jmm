@@ -32,6 +32,18 @@ AfterEach(mesh3) {}
   mesh3_deinit(mesh);                           \
   mesh3_dealloc(&mesh);
 
+int size_t_cmp(size_t const *i, size_t const *j) {
+  if (*i < *j) {
+    return -1;
+  } else if (*i > *j) {
+    return 1;
+  } else {
+    return 0;
+  }
+}
+
+typedef int (*compar_t)(void const *, void const *);
+
 Ensure (mesh3, get_nverts_works_for_cube) {
   SET_UP_CUBE_MESH();
 
@@ -49,6 +61,20 @@ Ensure (mesh3, nvc_works_for_cube) {
   for (int i = 0; i < 8; ++i) {
     nvc = mesh3_nvc(mesh, i);
     assert_that(nvc, is_equal_to(nvc_gt[i]));
+  }
+
+  TEAR_DOWN_MESH();
+}
+
+Ensure (mesh3, nvf_works_for_cube) {
+  SET_UP_CUBE_MESH();
+
+  int nvf_gt[8] = {4, 1, 1, 4, 1, 4, 4, 1};
+
+  int nvf;
+  for (int i = 0; i < 8; ++i) {
+    nvf = mesh3_nvf(mesh, i);
+    assert_that(nvf, is_equal_to(nvf_gt[i]));
   }
 
   TEAR_DOWN_MESH();
@@ -81,18 +107,6 @@ Ensure (mesh3, ncc_works_for_cube) {
 
   TEAR_DOWN_MESH();
 }
-
-int size_t_cmp(size_t const *i, size_t const *j) {
-  if (*i < *j) {
-    return -1;
-  } else if (*i > *j) {
-    return 1;
-  } else {
-    return 0;
-  }
-}
-
-typedef int (*compar_t)(void const *, void const *);
 
 Ensure (mesh3, cc_works_for_cube) {
   SET_UP_CUBE_MESH();
