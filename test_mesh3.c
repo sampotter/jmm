@@ -42,8 +42,6 @@ int size_t_cmp(size_t const *i, size_t const *j) {
   }
 }
 
-typedef int (*compar_t)(void const *, void const *);
-
 Ensure (mesh3, get_nverts_works_for_cube) {
   SET_UP_CUBE_MESH();
 

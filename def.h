@@ -70,6 +70,8 @@ typedef enum error {
   BAD_ARGUMENT
 } error_e;
 
+typedef int (*compar_t)(void const *, void const *);
+
 #ifdef __cplusplus
 }
 #endif
