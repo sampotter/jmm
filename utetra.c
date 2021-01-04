@@ -152,7 +152,7 @@ void utetra_solve(utetra_s *cf) {
   };
 }
 
-void utetra_get_lambda(utetra_s *cf, dbl lam[2]) {
+void utetra_get_lambda(utetra_s const *cf, dbl lam[2]) {
   lam[0] = cf->lam[0];
   lam[1] = cf->lam[1];
 }
