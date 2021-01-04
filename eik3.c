@@ -267,42 +267,97 @@ cleanup:
   utetra_dealloc(&utetra);
 }
 
+int compar_utetra(utetra_s const **cf1_handle, utetra_s const **cf2_handle) {
+  utetra_s const *cf1 = *cf1_handle;
+  utetra_s const *cf2 = *cf2_handle;
+  if (cf1 == NULL && cf2 == NULL) {
+    return 0;
+  } else if (cf2 == NULL) {
+    return -1;
+  } else if (cf1 == NULL) {
+    return 1;
+  } else {
+    dbl const T1 = utetra_get_value(cf1);
+    dbl const T2 = utetra_get_value(cf2);
+    if (T1 < T2) {
+      return -1;
+    } else if (T1 > T2) {
+      return 1;
+    } else {
+      return 0;
+    }
+  }
+}
+
+static bool adjacent_utetra_are_optimal(utetra_s const *cf1, utetra_s const *cf2) {
+  dbl const atol = 1e-15;
+  dbl lam1[2], lam2[2];
+  utetra_get_lambda(cf1, lam1);
+  utetra_get_lambda(cf2, lam2);
+  return fabs(lam1[0] - lam2[0]) <= atol
+    && fabs(lam1[1]) <= atol
+    && fabs(lam2[1]) <= atol
+    && fabs(utetra_get_value(cf1) - utetra_get_value(cf2)) <= atol;
+}
+
 static void do_tetra_updates(eik3_s *eik, size_t l, size_t l0, size_t l1,
                              size_t const *l2, int n) {
-  utetra_s *utetra;
-  utetra_alloc(&utetra);
+  assert(!eik3_is_point_source(eik, l0));
+  assert(!eik3_is_point_source(eik, l1));
 
-  dbl lam[2], alpha[3];
-  jet3 jet;
+  utetra_s **utetra = malloc(n*sizeof(utetra_s *));
+  memset(utetra, 0x0, n*sizeof(utetra_s *));
 
+  dbl lam[2];
+
+  utetra_s *cf;
   for (int i = 0; i < n; ++i) {
     if (eik->state[l2[i]] != VALID) {
       continue;
     }
-    assert(!eik3_is_point_source(eik, l0));
-    assert(!eik3_is_point_source(eik, l1));
     if (eik3_is_point_source(eik, l2[i])) {
       do_1pt_update(eik, l, l2[i]);
       goto cleanup;
     }
-    utetra_init_from_eik3(utetra, eik, l, l0, l1, l2[i]);
-    if (utetra_is_degenerate(utetra)) {
+    utetra_alloc(&utetra[i]);
+    cf = utetra[i];
+    utetra_init_from_eik3(cf, eik, l, l0, l1, l2[i]);
+    // TODO: more efficient and simpler to check if x, x0, x1, and x2
+    // are coplanar *before* calling utetra_init_from_eik3 (then we
+    // don't need to dealloc below(
+    if (utetra_is_degenerate(cf)) {
+      utetra_dealloc(&utetra[i]);
+      utetra[i] = NULL;
       continue;
     }
     lam[0] = lam[1] = 0;
-    utetra_set_lambda(utetra, lam);
-    utetra_solve(utetra);
-    utetra_get_lag_mults(utetra, alpha);
-    if (dbl3_maxnorm(alpha) <= 1e-15) {
-      utetra_get_jet(utetra, &jet);
-      if (jet.f < eik->jet[l].f) {
-        eik->jet[l] = jet;
-      }
+    utetra_set_lambda(cf, lam);
+    utetra_solve(cf);
+  }
+
+  qsort(utetra, n, sizeof(utetra_s *), (compar_t)compar_utetra);
+
+  for (int i = 0; i < n; ++i) {
+    cf = utetra[i];
+    if (cf == NULL || utetra_get_value(cf) > eik->jet[l].f) {
+      break;
+    }
+    if (utetra_has_interior_point_solution(cf) ||
+        (i + 1 < n &&
+         utetra[i + 1] != NULL &&
+         adjacent_utetra_are_optimal(cf, utetra[i + 1]))) {
+      utetra_get_jet(cf, &eik->jet[l]);
+      goto cleanup;
     }
   }
 
 cleanup:
-  utetra_dealloc(&utetra);
+  for (int i = 0; i < n; ++i) {
+    if (utetra[i]) {
+      utetra_dealloc(&utetra[i]);
+    }
+  }
+  free(utetra);
 }
 
 static void update(eik3_s *eik, size_t l, size_t l0) {
@@ -326,6 +381,8 @@ static void update(eik3_s *eik, size_t l, size_t l0) {
   size_t *l2, *l3;
   int n = get_l2_and_l3(eik, l0, l1, &l2, &l3);
 
+  // TODO: use initial guess for lambda taken from `do_2pt_updates` to
+  // use as a warm start in `do_tetra_updates`
   do_tetra_updates(eik, l, l0, l1, l2, n);
 
   /**
