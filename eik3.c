@@ -363,76 +363,12 @@ size_t eik3_peek(eik3_s const *eik) {
   return heap_front(eik->heap);
 }
 
-/**
- * Apply the "adaptive Gauss-Seidel" iteration of Bornemann and Rasch
- * on a small scale to try to compute a good value for node `l`.
- */
-static void full_update(eik3_s *eik, size_t l) {
-  assert(isinf(eik->jet[l].f));
-
-  int nvv = mesh3_nvv(eik->mesh, l);
-  size_t *vv = malloc(nvv*sizeof(size_t));
-  mesh3_vv(eik->mesh, l, vv);
-
-  array_s *lvalid;
-  array_alloc(&lvalid);
-  array_init(lvalid, sizeof(size_t), 16);
-
-  // Find VALID neighbors of node `l`:
-  for (int i = 0; i < nvv; ++i) {
-    if (eik3_is_valid(eik, vv[i])) {
-      array_append(lvalid, &vv[i]);
-    }
-  }
-
-  // Next, get the VALID neighbors of the nodes in lvalid:
-  for (int i = 0; i < nvv; ++i) {
-    // Get neighboring vertices...
-    int nvv_ = mesh3_nvv(eik->mesh, vv[i]);
-    size_t *vv_ = malloc(nvv_*sizeof(size_t));
-    mesh3_vv(eik->mesh, vv[i], vv_);
-
-    // ... append VALID neighbors we haven't found already.
-    for (int j = 0; j < nvv_; ++j) {
-      if (eik3_is_valid(eik, vv_[j]) && !array_contains(lvalid, &vv_[j])) {
-        array_append(lvalid, &vv_[j]);
-      }
-    }
-
-    free(vv_);
-  }
-
-  int num_valid = array_size(lvalid);
-
-  // Now, do the updates...
-  size_t l0, l1, *l2;
-  for (int i0 = 0; i0 < num_valid; ++i0) {
-    array_get(lvalid, i0, &l0);
-    for (int i1 = i0 + 1; i1 < num_valid; ++i1) {
-      array_get(lvalid, i1, &l1);
-      l2 = array_get_ptr(lvalid, i1 + 1);
-      do_tetra_updates(eik, l, l0, l1, l2, num_valid - i1 - 1);
-    }
-  }
-
-  array_deinit(lvalid);
-  array_dealloc(&lvalid);
-
-  free(lvalid);
-  free(vv);
-}
-
 size_t eik3_step(eik3_s *eik) {
   size_t l, l0 = heap_front(eik->heap);
   assert(eik->state[l0] == TRIAL);
   heap_pop(eik->heap);
 
-  if (!isfinite(eik->jet[l0].f)) {
-    full_update(eik, l0);
-    assert(isfinite(eik->jet[l0].f));
-    eik->full_update[l0] = true;
-    ++eik->num_full_updates;
-  }
+  assert(isfinite(eik->jet[l0].f));
 
   eik->state[l0] = VALID;
 
