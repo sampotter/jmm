@@ -227,6 +227,46 @@ static int get_l2_and_l3(eik3_s const *eik, size_t l0, size_t l1,
   return nec;
 }
 
+static void do_tetra_update(eik3_s *eik, size_t l, size_t *L) {
+  size_t l0 = L[0], l1 = L[1], l2 = L[2];
+
+  utetra_s *utetra;
+  utetra_alloc(&utetra);
+
+  assert(!eik3_is_point_source(eik, l0));
+
+  if (eik3_is_point_source(eik, l1)) {
+    do_1pt_update(eik, l, l1);
+    goto cleanup;
+  }
+
+  if (eik3_is_point_source(eik, l2)) {
+    do_1pt_update(eik, l, l2);
+    goto cleanup;
+  }
+
+  utetra_init_from_eik3(utetra, eik, l, l0, l1, l2);
+  if (utetra_is_degenerate(utetra)) {
+    goto cleanup;
+  }
+
+  dbl lam[2] = {0, 0}, alpha[3];
+  utetra_set_lambda(utetra, lam);
+  utetra_solve(utetra);
+
+  jet3 jet;
+  utetra_get_lag_mults(utetra, alpha);
+  if (dbl3_maxnorm(alpha) <= 1e-15) {
+    utetra_get_jet(utetra, &jet);
+    if (jet.f < eik->jet[l].f) {
+      eik->jet[l] = jet;
+    }
+  }
+
+cleanup:
+  utetra_dealloc(&utetra);
+}
+
 static void do_tetra_updates(eik3_s *eik, size_t l, size_t l0, size_t l1,
                              size_t const *l2, int n) {
   utetra_s *utetra;
@@ -288,6 +328,25 @@ static void update(eik3_s *eik, size_t l, size_t l0) {
 
   do_tetra_updates(eik, l, l0, l1, l2, n);
 
+  /**
+   * We also want to do any updates corresponding to valid faces
+   * surrounding l and including l0. These may have been missed when
+   * doing the preceding hierarchical update.
+   */
+
+  int nvf = mesh3_nvf(eik->mesh, l);
+  size_t (*vf)[3] = malloc(3*nvf*sizeof(size_t));
+  mesh3_vf(eik->mesh, l, vf);
+  for (int i = 0; i < nvf; ++i) {
+    if ((l0 == vf[i][0] || l0 == vf[i][1] || l0 == vf[i][2])
+        && eik->state[vf[i][0]] == VALID
+        && eik->state[vf[i][1]] == VALID
+        && eik->state[vf[i][2]] == VALID) {
+      do_tetra_update(eik, l, vf[i]);
+    }
+  }
+
+  free(vf);
   free(l2);
   free(l3);
 }

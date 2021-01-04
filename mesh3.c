@@ -134,6 +134,35 @@ void mesh3_vc(mesh3_s const *mesh, size_t i, size_t *vc) {
   memcpy((void *)vc, (void *)vci, sizeof(size_t)*nvc);
 }
 
+int mesh3_nvf(mesh3_s const *mesh, size_t l) {
+  return mesh3_nvc(mesh, l);
+}
+
+void mesh3_vf(mesh3_s const *mesh, size_t l, size_t (*vf)[3]) {
+  // TODO: this is a very bad implementation!
+
+  int nvc = mesh3_nvc(mesh, l);
+  size_t *vc = malloc(nvc*sizeof(size_t));
+  mesh3_vc(mesh, l, vc);
+
+  size_t cv[4];
+
+  int k;
+  for (int i = 0; i < nvc; ++i) {
+    mesh3_cv(mesh, vc[i], cv);
+
+    k = 0;
+    for (int j = 0; j < 4; ++j) {
+      if (cv[j] == l) {
+        continue;
+      }
+      vf[i][k++] = cv[j];
+    }
+  }
+
+  free(vc);
+}
+
 static bool contains(void *arr, int len, void *elt, size_t size) {
   char *ptr = (char *)arr;
   for (int i = 0; i < len; ++i) {

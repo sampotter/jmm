@@ -33,6 +33,8 @@ void mesh3_copy_vert(mesh3_s const *mesh, size_t i, dbl *v);
 size_t mesh3_nverts(mesh3_s const *mesh);
 int mesh3_nvc(mesh3_s const *mesh, size_t i);
 void mesh3_vc(mesh3_s const *mesh, size_t i, size_t *vc);
+int mesh3_nvf(mesh3_s const *mesh, size_t i);
+void mesh3_vf(mesh3_s const *mesh, size_t i, size_t (*vf)[3]);
 int mesh3_nvv(mesh3_s const *mesh, size_t i);
 void mesh3_vv(mesh3_s const *mesh, size_t i, size_t *vv);
 int mesh3_ncc(mesh3_s const *mesh, size_t i);
