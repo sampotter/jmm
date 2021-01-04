@@ -1,18 +1,14 @@
 import pyvista as pv
 import pyvistaqt as pvqt
 
-root = 'box/0.001/box'
+tet_mesh = 'room/room.1.vtk'
+surf_mesh = pv.read('room.obj')
 
-path = '%s.1.vtk' % root
-
-surf_mesh = pv.read('%s.obj' % root)
-
-grid = pv.read(path)
-
+grid = pv.read(tet_mesh)
 cells = grid.cells.reshape(-1, 5)[:, 1:]
 centroids = grid.points[cells].mean(1)
 
-mask = centroids[:, 0] < 0
+mask = centroids[:, 1] < 2
 inds = mask.nonzero()[0]
 subgrid = grid.extract_cells(inds)
 

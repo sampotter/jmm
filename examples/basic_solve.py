@@ -16,38 +16,43 @@ import pyvistaqt as pvqt
 import sys
 
 
-r0 = 0.1
-
-
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--root', type=str)
+    parser.add_argument('--path', type=str, help='''
+path to directory from which tetrahedron mesh will be read and to
+which output will be written''')
+    parser.add_argument('--scene', type=str)
     parser.add_argument('--mask', type=str, help='''
-mask to use when coloring scatter plots (one of: "full", "boundary")''')
+mask to use when coloring scatter plots (only "boundary" now)''')
+    parser.add_argument('--indsrc', type=int, help='''
+index to vertex with location of point source''')
+    parser.add_argument('--r0', type=float, help='''
+factoring radius (TODO: not currently being used)''', default=0.1)
     args = parser.parse_args()
 
-    root = args.root
+    path = args.path
+    scene = args.scene
+    indsrc = args.indsrc
+    r0 = args.r0
 
     if args.mask is not None:
-        if args.mask in {'full', 'boundary'}:
+        if args.mask in {'boundary'}:
             mask = args.mask
         else:
             raise Exception(
-                'mask should be "full" or "boundary" (got "%s")' % args.mask)
+                'mask should be "boundary" (got "%s")' % args.mask)
     else:
         mask = args.mask
 
-    verts_bin_path = root + '_verts.bin'
-    cells_bin_path = root + '_cells.bin'
-
-    print('- reading verts from %s' % verts_bin_path)
-    print('- reading cells from %s' % cells_bin_path)
-
+    verts_bin_path = os.path.join(path, scene + '_verts.bin')
     verts = np.fromfile(verts_bin_path, np.float64)
     verts = verts.reshape(verts.size//3, 3)
+    print('- read verts from %s' % verts_bin_path)
 
+    cells_bin_path = os.path.join(path, scene + '_cells.bin')
     cells = np.fromfile(cells_bin_path, np.uintp)
     cells = cells.reshape(cells.size//4, 4)
+    print('- reading cells from %s' % cells_bin_path)
 
     mesh = jmm.Mesh3(verts, cells)
 
@@ -63,14 +68,16 @@ mask to use when coloring scatter plots (one of: "full", "boundary")''')
     Dtau[~nz] = np.nan
     del nz
 
-    indsrc = np.argmin(tau)
+    if indsrc is None:
+        print('- placing point source at vertex closest to (0, 0, 0)')
+        indsrc = np.argmin(tau)
     print('- point source is at index %d: %s' % (indsrc, tuple(xsrc)))
 
     eik.add_trial(indsrc, jmm.Jet3(0, np.nan, np.nan, np.nan))
 
-    eik.solve()
+    # raise Exception()
 
-    print('- number of full updates: %d' % eik.num_full_updates)
+    eik.solve()
 
     T = np.array([jet[0] for jet in eik.jet])
     DT = np.array([(jet[1], jet[2], jet[3]) for jet in eik.jet])
@@ -90,9 +97,7 @@ mask to use when coloring scatter plots (one of: "full", "boundary")''')
     eT = np.linalg.norm(E)/np.linalg.norm(T)
     print('- l2 error (p = 0): %g' % eT)
 
-    if mask == 'full':
-        mask = eik.full_update
-    elif mask == 'boundary':
+    if mask == 'boundary':
         import meshplex
         mesh_tetra = meshplex.MeshTetra(verts, cells)
         mesh_tetra.mark_boundary()
@@ -128,9 +133,8 @@ mask to use when coloring scatter plots (one of: "full", "boundary")''')
         plt.scatter(T[mask], angle[mask], s=1, c='r', zorder=2)
     plt.xlabel(r'$\tau(x) = \|x\|$')
     plt.ylabel(r'$\angle (\nabla T, \nabla \tau)$ [Deg.]')
-
     plt.tight_layout()
-    plt.savefig('%s_hists.pdf' % root)
+    plt.savefig('%s/hists.pdf' % path)
 
     plt.figure(figsize=(10, 8))
     if mask is None:
@@ -140,4 +144,4 @@ mask to use when coloring scatter plots (one of: "full", "boundary")''')
         plt.scatter(T[mask], np.maximum(2.2e-16, abs(E[mask])), s=0.25, c='r', zorder=2)
     plt.yscale('log')
     plt.tight_layout()
-    plt.savefig('%s_log_abs_error_hist.pdf' % root)
+    plt.savefig('%s/log_abs_error_hist.pdf' % path)
