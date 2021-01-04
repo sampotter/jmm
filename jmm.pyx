@@ -246,6 +246,7 @@ cdef class UpdateTetra:
     def get_num_iter(self):
         return utetra_get_num_iter(self._utetra)
 
+
 cdef class ArrayView:
     cdef:
         bool readonly
@@ -287,6 +288,7 @@ cdef class ArrayView:
         for i in range(self.ndim):
             size *= self.shape[i]
         return size
+
 
 cdef class _Dial3:
     cdef:
@@ -380,8 +382,10 @@ cdef class _Dial3:
     def state(self):
         return self.state_view
 
+
 class Stype(Enum):
     Constant = 0
+
 
 class State(Enum):
     Far = 0
@@ -390,6 +394,7 @@ class State(Enum):
     Boundary = 3
     AdjacentToBoundary = 4
     NewValid = 5
+
 
 class Dial:
 
@@ -446,6 +451,7 @@ class Dial:
     @property
     def state(self):
         return np.asarray(self._dial.state)
+
 
 cdef class Mesh3:
     cdef:
