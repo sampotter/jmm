@@ -36,11 +36,14 @@ void dbl3_cross(dbl const u[3], dbl const v[3], dbl w[3]);
 dbl dbl3_sum(dbl const u[3]);
 
 bool dbl4_nonneg(dbl const u[4]);
+dbl dbl4_sum(dbl const u[4]);
 
 typedef struct {
   dbl x;
   dbl y;
 } dvec2;
+
+void int3_add(int const p[3], int const q[3], int r[3]);
 
 dvec2 dvec2_zero();
 dvec2 dvec2_ccomb(dvec2 v0, dvec2 v1, dbl t);
@@ -127,6 +130,7 @@ typedef struct {
   };
 } ivec3;
 
+ivec3 ivec3_from_int3(int const p[3]);
 ivec3 ivec3_add(ivec3 p, ivec3 q);
 int ivec3_prod(ivec3 p);
 dvec3 ivec3_dbl_mul(ivec3 p, dbl a);

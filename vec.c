@@ -120,6 +120,16 @@ bool dbl4_nonneg(dbl const u[4]) {
   return u[0] >= 0 && u[1] >= 0 && u[2] >= 0 && u[3] >= 0;
 }
 
+dbl dbl4_sum(dbl const u[4]) {
+  return u[0] + u[1] + u[2] + u[3];
+}
+
+void int3_add(int const p[3], int const q[3], int r[3]) {
+  r[0] = p[0] + q[0];
+  r[1] = p[1] + q[1];
+  r[2] = p[2] + q[2];
+}
+
 dvec2 dvec2_zero() {
   return (dvec2) {0.0, 0.0};
 }
@@ -416,6 +426,10 @@ dvec4 dvec4_iota() {
 
 ivec2 ivec2_add(ivec2 p, ivec2 q) {
   return (ivec2) {p.i + q.i, p.j + q.j};
+}
+
+ivec3 ivec3_from_int3(int const p[3]) {
+  return (ivec3) {.data = {p[0], p[1], p[2]}};
 }
 
 ivec3 ivec3_add(ivec3 p, ivec3 q) {
