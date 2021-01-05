@@ -103,6 +103,41 @@ dbl dbl33_det(dbl const A[3][3]) {
        + A[0][2]*(A[1][0]*A[2][1] - A[1][1]*A[2][0]);
 }
 
+void dbl44_dbl4_solve(dbl const A[4][4], dbl const b[4], dbl x[4]) {
+  dbl LU[4][4];
+  memcpy(LU, A, 4*4*sizeof(dbl));
+
+  dbl const n = 4;
+
+  // LU decomposition
+  for (int k = 0; k < n - 1; ++k) {
+    for (int i = k + 1; i < n; ++i) {
+      LU[i][k] /= LU[k][k];
+    }
+    for (int i = k + 1; i < n; ++i) {
+      for (int j = k + 1; j < n; ++j) {
+        LU[i][j] -= LU[i][k]*LU[k][j];
+      }
+    }
+  }
+
+  // forward sub
+  for (int i = 0; i < n; ++i) {
+    x[i] = b[i];
+    for (int j = 0; j < i; ++j) {
+      x[i] -= LU[i][j]*x[j];
+    }
+  }
+
+  // backward sub
+  for (int i = n - 1; i >= 0; --i) {
+    for (int j = i + 1; j < n; ++j) {
+      x[i] -= LU[i][j]*x[j];
+    }
+    x[i] /= LU[i][i];
+  }
+}
+
 dmat22 dmat22_add(dmat22 A, dmat22 B) {
   return (dmat22) {
     .rows = {

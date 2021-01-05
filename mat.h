@@ -22,6 +22,8 @@ void dbl33_transposed(dbl const A[3][3], dbl At[3][3]);
 void dbl33_dbl_div(dbl A[3][3], dbl a, dbl B[3][3]);
 dbl dbl33_det(dbl const A[3][3]);
 
+void dbl44_dbl4_solve(dbl const A[4][4], dbl const b[4], dbl x[4]);
+
 typedef struct {
   union {
     dbl data[2][2];
