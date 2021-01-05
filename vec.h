@@ -90,7 +90,6 @@ dvec3 dvec3_zero();
 int dvec3_argmax(dvec3 u);
 void dvec3_normalize(dvec3 *u);
 
-
 typedef struct {
   union {
     dbl data[4];
