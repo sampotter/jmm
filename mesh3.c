@@ -198,6 +198,10 @@ void mesh3_copy_vert(mesh3_s const *mesh, size_t i, dbl *v) {
   memcpy(v, &mesh->verts[i].data[0], 3*sizeof(dbl));
 }
 
+size_t mesh3_ncells(mesh3_s const *mesh) {
+  return mesh->ncells;
+}
+
 size_t mesh3_nverts(mesh3_s const *mesh) {
   return mesh->nverts;
 }

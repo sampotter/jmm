@@ -30,6 +30,7 @@ void mesh3_deinit(mesh3_s *mesh);
 dvec3 mesh3_get_vert(mesh3_s const *mesh, size_t i);
 dbl const *mesh3_get_vert_ptr(mesh3_s const *mesh, size_t i);
 void mesh3_copy_vert(mesh3_s const *mesh, size_t i, dbl *v);
+size_t mesh3_ncells(mesh3_s const *mesh);
 size_t mesh3_nverts(mesh3_s const *mesh);
 int mesh3_nvc(mesh3_s const *mesh, size_t i);
 void mesh3_vc(mesh3_s const *mesh, size_t i, size_t *vc);
