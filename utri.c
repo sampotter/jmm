@@ -121,3 +121,11 @@ dbl utri_get_lambda(utri_s const *utri) {
 dbl utri_get_value(utri_s const *utri) {
   return utri->f;
 }
+
+void utri_get_jet(utri_s const *utri, jet3 *jet) {
+  jet->f = utri->f;
+  dbl L = dbl3_norm(utri->x_minus_xb);
+  jet->fx = utri->x_minus_xb[0]/L;
+  jet->fy = utri->x_minus_xb[1]/L;
+  jet->fz = utri->x_minus_xb[2]/L;
+}
