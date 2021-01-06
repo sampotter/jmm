@@ -408,6 +408,68 @@ static void update(eik3_s *eik, size_t l, size_t l0) {
   free(l3);
 }
 
+static void do_2pt_bd_update(eik3_s *eik, size_t l, size_t l0, size_t l1) {
+  assert(!eik3_is_point_source(eik, l0));
+
+  if (eik->state[l0] != VALID || eik->state[l1] != VALID ||
+      !mesh3_bdv(eik->mesh, l0) || !mesh3_bdv(eik->mesh, l1)) {
+    return;
+  }
+
+  if (eik3_is_point_source(eik, l1)) {
+    do_1pt_update(eik, l, l1);
+    return;
+  }
+
+  utri_s *utri;
+  utri_alloc(&utri);
+  utri_init_from_eik3(utri, eik, l, l0, l1);
+  utri_solve(utri);
+  if (utri_get_value(utri) < eik->jet[l].f) {
+    utri_get_jet(utri, &eik->jet[l]);
+  }
+}
+
+/**
+ * Updating boundary points is much trickier than updating interior
+ * points. We handle this case separately.
+ */
+static void update_bd(eik3_s *eik, size_t l, size_t l0) {
+  if (eik3_is_point_source(eik, l0)) {
+    do_1pt_update(eik, l, l0);
+    return;
+  }
+
+  /**
+   * Find all adjacent faces.
+   */
+  int nvf = mesh3_nvf(eik->mesh, l);
+  size_t (*vf)[3] = malloc(3*nvf*sizeof(size_t)), *lf;
+  mesh3_vf(eik->mesh, l, vf);
+
+  for (int i = 0; i < nvf; ++i) {
+    lf = vf[i];
+    do_2pt_bd_update(eik, l, lf[0], lf[1]);
+    do_2pt_bd_update(eik, l, lf[1], lf[2]);
+    do_2pt_bd_update(eik, l, lf[2], lf[0]);
+  }
+
+  /**
+   * Do adjacent tetrahedron updates.
+   */
+  for (int i = 0; i < nvf; ++i) {
+    lf = vf[i];
+    if ((l0 == lf[0] || l0 == lf[1] || l0 == lf[2])
+        && eik->state[lf[0]] == VALID
+        && eik->state[lf[1]] == VALID
+        && eik->state[lf[2]] == VALID) {
+      do_tetra_update(eik, l, lf);
+    }
+  }
+
+  free(vf);
+}
+
 static void adjust(eik3_s *eik, size_t l) {
   assert(eik->state[l] == TRIAL);
   assert(l >= 0);
@@ -447,7 +509,11 @@ size_t eik3_step(eik3_s *eik) {
   // Update neighboring nodes.
   for (int i = 0; i < nnb; ++i) {
     if (eik->state[l = nb[i]] == TRIAL) {
-      update(eik, l, l0);
+      if (mesh3_bdv(eik->mesh, l)) {
+        update_bd(eik, l, l0);
+      } else {
+        update(eik, l, l0);
+      }
       adjust(eik, l);
     }
   }
