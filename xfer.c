@@ -45,7 +45,6 @@ static void xfer_tetra(int const subgrid_ind[3], xfer_tetra_wkspc_t *wkspc) {
   if (mesh3_dbl3_in_cell(wkspc->mesh, wkspc->lc, point, b)) {
     size_t l = ind2l3(dim, grid_ind);
     dbl y = bb3tet(wkspc->c, b);
-    mesh3_dbl3_in_cell(wkspc->mesh, wkspc->lc, point, b);
     // If the grid value is NaN, just set it. Otherwise, set it to the
     // average of the new value and existing grid value. This is a bit
     // arbitrary, but if we're doing everything else right, it should
