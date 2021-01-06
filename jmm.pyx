@@ -70,6 +70,17 @@ cdef extern from "dial.h":
     dbl *dial3_get_xsrc_ptr(const dial3 *dial)
     state *dial3_get_state_ptr(const dial3 *dial)
 
+cdef extern from "geom.h":
+    ctypedef struct rect3:
+        dbl min[3]
+        dbl max[3]
+
+cdef extern from "grid3.h":
+    cdef struct grid3:
+        int dim[3]
+        dbl min[3]
+        dbl h
+
 cdef extern from "mesh3.h":
     cdef struct mesh3:
         pass
@@ -79,6 +90,7 @@ cdef extern from "mesh3.h":
                     dbl *verts, size_t nverts,
                     size_t *cells, size_t ncells)
     void mesh3_deinit(mesh3 *mesh)
+    void mesh3_get_bbox(const mesh3 *mesh, rect3 *bbox)
     size_t mesh3_nverts(const mesh3 *mesh)
     int mesh3_nvc(const mesh3 *mesh, size_t i)
     void mesh3_vc(const mesh3 *mesh, size_t i, size_t *vc)
@@ -136,6 +148,11 @@ cdef extern from "utetra.h":
     int utetra_get_num_iter(const utetra *cf)
 
 
+cdef extern from "xfer.h":
+    void xfer(const mesh3 *mesh, const jet3 *jet, const grid3 *grid,
+              dbl *y)
+
+
 cdef class Bb3Tet:
     cdef:
         dbl _c[20]
@@ -186,6 +203,29 @@ cdef class Bb3Tet:
         #         a_[i][j] = a[i, j]
         return d2bb3tet(self._c, &b[0], <const dbl (*)[4]>&a[0, 0])
 
+
+cdef class Grid3:
+    cdef:
+        grid3 _grid
+
+    def __cinit__(self, int[:] dim, dbl[:] xmin, dbl h):
+        self._grid.dim[0] = dim[0]
+        self._grid.dim[1] = dim[1]
+        self._grid.dim[2] = dim[2]
+        self._grid.min[0] = xmin[0]
+        self._grid.min[1] = xmin[1]
+        self._grid.min[2] = xmin[2]
+        self._grid.h = h
+
+    @property
+    def size(self):
+        return self._grid.dim[0]*self._grid.dim[1]*self._grid.dim[2]
+
+    @property
+    def shape(self):
+        return np.array([self._grid.dim[0],
+                         self._grid.dim[1],
+                         self._grid.dim[2]])
 
 cdef class UpdateTetra:
     cdef:
@@ -469,6 +509,12 @@ cdef class Mesh3:
         mesh3_deinit(self.mesh)
         mesh3_dealloc(&self.mesh)
 
+    def get_bbox(self):
+        cdef rect3 bbox
+        mesh3_get_bbox(self.mesh, &bbox)
+        return ((bbox.min[0], bbox.min[1], bbox.min[2]),
+                (bbox.max[0], bbox.max[1], bbox.max[2]))
+
     def vc(self, size_t i):
         cdef int nvc = mesh3_nvc(self.mesh, i)
         cdef size_t[::1] vc = np.empty((nvc,), dtype=np.uintp)
@@ -595,6 +641,12 @@ cdef class Eik3:
 
     def is_valid(self, size_t ind):
         return eik3_is_valid(self.eik, ind)
+
+    def transfer_solution_to_grid(self, Grid3 grid):
+        cdef dbl[::1] y = np.empty((grid.size,), dtype=np.float64)
+        xfer(eik3_get_mesh(self.eik), eik3_get_jet_ptr(self.eik),
+             &grid._grid, &y[0])
+        return np.asarray(y).reshape(grid.shape)
 
     @property
     def front(self):
