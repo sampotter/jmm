@@ -48,6 +48,11 @@ void xfer(mesh3_s const *mesh, jet3 const *jet, grid3_s const *grid, dbl *y) {
     y[i] = NAN;
   }
 
+  /**
+   * Traverse the cells of the tetrahedron mesh, restrict the grid so
+   * that it just covers each cell, and then evaluate the Bezier
+   * tetrahedron at each grid node if it contains the grid node.
+   */
   xfer_tetra_wkspc_t wkspc  = {.mesh = mesh, .grid = grid, .y = y};
   for (wkspc.lc = 0; wkspc.lc < mesh3_ncells(mesh); ++wkspc.lc) {
     rect3 bbox;
