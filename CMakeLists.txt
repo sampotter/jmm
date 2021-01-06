@@ -79,8 +79,11 @@ target_include_directories (
   $<INSTALL_INTERFACE:${INSTALL_INCLUDE_DIR}/jmm>
   )
 
+#
 # Examples
+#
 
+# basic_solve
 add_executable (basic_solve examples/basic_solve.c)
 target_link_libraries (basic_solve jmm)
 target_include_directories (basic_solve PRIVATE jmm)
@@ -92,6 +95,12 @@ set_property (
   "${CMAKE_CURRENT_BINARY_DIR}/sphere_cells.bin"
   "830"
   "${CMAKE_CURRENT_BINARY_DIR}/sphere_jets.bin")
+
+# transfer_solution
+add_executable (transfer_solution examples/transfer_solution.c)
+target_link_libraries (transfer_solution jmm)
+target_include_directories (transfer_solution PRIVATE jmm)
+add_sanitizers (transfer_solution)
 
 #
 # Unit tests
