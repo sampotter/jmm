@@ -47,6 +47,7 @@ set (JMM_SRCS
   eik_S4.c
   eik3.c
   field.c
+  geom.c
   grid3.c
   heap.c
   hybrid.c
