@@ -3,7 +3,6 @@ import jmm
 import matplotlib.pyplot as plt
 import numpy as np
 import pyvista as pv
-import pyvistaqt as pvqt
 
 plt.ion()
 
@@ -41,4 +40,5 @@ T = eik.transfer_solution_to_grid(grid)
 plt.figure()
 plt.imshow(T[:, 10, :], extent=[pmin[0], pmax[0], pmin[2], pmax[2]], cmap=cc.cm.rainbow)
 plt.colorbar()
+plt.gca().set_aspect('equal')
 plt.show()
