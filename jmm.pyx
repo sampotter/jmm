@@ -71,7 +71,7 @@ cdef extern from "dial.h":
     state *dial3_get_state_ptr(const dial3 *dial)
 
 cdef extern from "mesh3.h":
-    struct mesh3:
+    cdef struct mesh3:
         pass
     void mesh3_alloc(mesh3 **mesh)
     void mesh3_dealloc(mesh3 **mesh)
