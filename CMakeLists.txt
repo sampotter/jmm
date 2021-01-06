@@ -59,6 +59,7 @@ set (JMM_SRCS
   util.c
   utri.c
   vec.c
+  xfer.c
   )
 
 add_library (jmm STATIC ${JMM_SRCS})
