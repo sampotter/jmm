@@ -23,6 +23,9 @@ void dbl33_dbl_div(dbl A[3][3], dbl a, dbl B[3][3]);
 dbl dbl33_det(dbl const A[3][3]);
 
 void dbl44_dbl4_solve(dbl const A[4][4], dbl const b[4], dbl x[4]);
+dbl dbl44_det(dbl const A[4][4]);
+void dbl44_get_col(dbl const A[4][4], int j, dbl a[4]);
+void dbl44_set_col(dbl A[4][4], int j, dbl const a[4]);
 
 typedef struct {
   union {
