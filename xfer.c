@@ -42,21 +42,6 @@ static void xfer_tetra(int const subgrid_ind[3], xfer_tetra_wkspc_t *wkspc) {
   }
 }
 
-static void bb3tet_from_cell(mesh3_s const *mesh, jet3 const *jet, size_t lc,
-                             dbl c[20]) {
-  dbl y[4], Dy[4][3], x[4][3];
-  size_t lv[4];
-  mesh3_cv(mesh, lc, lv);
-  for (int i = 0; i < 4; ++i) {
-    y[i] = jet[lv[i]].f;
-    Dy[i][0] = jet[lv[i]].fx;
-    Dy[i][1] = jet[lv[i]].fy;
-    Dy[i][2] = jet[lv[i]].fz;
-    mesh3_copy_vert(mesh, lv[i], x[i]);
-  }
-  bb3tet_interp3(y, Dy, x, c);
-}
-
 void xfer(mesh3_s const *mesh, jet3 const *jet, grid3_s const *grid, dbl *y) {
   // Initialize values on grid to NaN.
   for (size_t i = 0; i < grid3_size(grid); ++i) {
@@ -68,7 +53,7 @@ void xfer(mesh3_s const *mesh, jet3 const *jet, grid3_s const *grid, dbl *y) {
     rect3 bbox;
     mesh3_get_cell_bbox(mesh, wkspc.lc, &bbox);
     wkspc.subgrid = grid3_restrict_to_rect(grid, &bbox, wkspc.offset);
-    bb3tet_from_cell(mesh, jet, wkspc.lc, wkspc.c);
+    bb3tet_for_cell(mesh, jet, wkspc.lc, wkspc.c);
     grid3_map(&wkspc.subgrid, (grid3_map_func_t)xfer_tetra, &wkspc);
   }
 }

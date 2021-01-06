@@ -1,5 +1,6 @@
 #include "bb.h"
 
+#include "mesh3.h"
 #include "vec.h"
 
 /**
@@ -338,6 +339,21 @@ void bb3tet_interp3(dbl const f[4], dbl const Df[4][3], dbl const x[4][3], dbl c
 
   // (We're done---there are no interior Bezier ordinates for the 3D
   // generalzation of the 9-parameter interpolant.)
+}
+
+void bb3tet_for_cell(mesh3_s const *mesh, jet3 const *jet, size_t lc,
+                     dbl c[20]) {
+  dbl y[4], Dy[4][3], x[4][3];
+  size_t lv[4];
+  mesh3_cv(mesh, lc, lv);
+  for (int i = 0; i < 4; ++i) {
+    y[i] = jet[lv[i]].f;
+    Dy[i][0] = jet[lv[i]].fx;
+    Dy[i][1] = jet[lv[i]].fy;
+    Dy[i][2] = jet[lv[i]].fz;
+    mesh3_copy_vert(mesh, lv[i], x[i]);
+  }
+  bb3tet_interp3(y, Dy, x, c);
 }
 
 dbl bb3tet(dbl const c[20], dbl const b[4]) {
