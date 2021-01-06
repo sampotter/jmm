@@ -4,7 +4,7 @@
 extern "C" {
 #endif
 
-#include "def.h"
+#include "geom.h"
 #include "vec.h"
 
 // Some ideas for improving the design of mesh3:
@@ -32,6 +32,8 @@ dbl const *mesh3_get_vert_ptr(mesh3_s const *mesh, size_t i);
 void mesh3_copy_vert(mesh3_s const *mesh, size_t i, dbl *v);
 size_t mesh3_ncells(mesh3_s const *mesh);
 size_t mesh3_nverts(mesh3_s const *mesh);
+void mesh3_get_bbox(mesh3_s const *mesh, rect3 *bbox);
+void mesh3_get_cell_bbox(mesh3_s const *mesh, size_t i, rect3 *bbox);
 int mesh3_nvc(mesh3_s const *mesh, size_t i);
 void mesh3_vc(mesh3_s const *mesh, size_t i, size_t *vc);
 int mesh3_nvf(mesh3_s const *mesh, size_t i);

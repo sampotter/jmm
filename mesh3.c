@@ -206,6 +206,46 @@ size_t mesh3_nverts(mesh3_s const *mesh) {
   return mesh->nverts;
 }
 
+void mesh3_get_bbox(mesh3_s const *mesh, rect3 *bbox) {
+  dbl *min = bbox->min, *max = bbox->max, *v;
+
+  min[0] = min[1] = min[2] = INFINITY;
+  for (size_t l = 0; l < mesh->nverts; ++l) {
+    v = &mesh->verts[l].data[0];
+    min[0] = fmin(min[0], v[0]);
+    min[1] = fmin(min[1], v[1]);
+    min[2] = fmin(min[2], v[2]);
+  }
+
+  max[0] = max[1] = max[2] = -INFINITY;
+  for (size_t l = 0; l < mesh->nverts; ++l) {
+    v = &mesh->verts[l].data[0];
+    max[0] = fmax(max[0], v[0]);
+    max[1] = fmax(max[1], v[1]);
+    max[2] = fmax(max[2], v[2]);
+  }
+}
+
+void mesh3_get_cell_bbox(mesh3_s const *mesh, size_t i, rect3 *bbox) {
+  size_t const *cell = &mesh->cells[i].data[0];
+
+  dbl *min = bbox->min, *max = bbox->max;
+
+  min[0] = min[1] = min[2] = INFINITY;
+  for (int i = 0; i < 4; ++i) {
+    min[0] = fmin(min[0], mesh->verts[cell[i]].data[0]);
+    min[1] = fmin(min[1], mesh->verts[cell[i]].data[1]);
+    min[2] = fmin(min[2], mesh->verts[cell[i]].data[2]);
+  }
+
+  max[0] = max[1] = max[2] = -INFINITY;
+  for (int i = 0; i < 4; ++i) {
+    max[0] = fmax(max[0], mesh->verts[cell[i]].data[0]);
+    max[1] = fmax(max[1], mesh->verts[cell[i]].data[1]);
+    max[2] = fmax(max[2], mesh->verts[cell[i]].data[2]);
+  }
+}
+
 int mesh3_nvc(mesh3_s const *mesh, size_t i) {
   return mesh->vc_offsets[i + 1] - mesh->vc_offsets[i];
 }
