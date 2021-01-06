@@ -465,7 +465,6 @@ cdef class Mesh3:
         cdef size_t ncells = cells.shape[0]
         mesh3_init(self.mesh, &verts[0, 0], nverts, &cells[0, 0], ncells)
 
-
     def __dealloc__(self):
         mesh3_deinit(self.mesh)
         mesh3_dealloc(&self.mesh)
