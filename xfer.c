@@ -19,26 +19,42 @@ typedef struct {
 } xfer_tetra_wkspc_t;
 
 static void xfer_tetra(int const subgrid_ind[3], xfer_tetra_wkspc_t *wkspc) {
+  // Get the Cartesian coordinates of the point in the subgrid indexed
+  // by `subgrid_ind`.
   dbl point[3];
   grid3_get_point(&wkspc->subgrid, subgrid_ind, point);
 
+  // Get the indices of this point in the original containing grid.
   ivec3 dim = ivec3_from_int3(wkspc->grid->dim);
   ivec3 grid_ind = ivec3_add(
     ivec3_from_int3(subgrid_ind), ivec3_from_int3(wkspc->offset));
 
+  // Return early if this point is outside the original grid.
+  //
+  // TODO: could remove this check by ensuring that a generated
+  // subgrid is contained in the parent grid.
   if (!grid3_inbounds(wkspc->grid, &grid_ind.data[0])) {
     return;
   }
 
+  /**
+   * Check if the point is in cell `lc`, computing its barycentric
+   * coordinates along the way.
+   */
   dbl b[4];
   if (mesh3_dbl3_in_cell(wkspc->mesh, wkspc->lc, point, b)) {
     size_t l = ind2l3(dim, grid_ind);
     dbl y = bb3tet(wkspc->c, b);
     mesh3_dbl3_in_cell(wkspc->mesh, wkspc->lc, point, b);
-    if (isfinite(wkspc->y[l])) {
-      assert(fabs(y - wkspc->y[l])/fabs(fmax(y, wkspc->y[l])) <= 1e-12);
+    // If the grid value is NaN, just set it. Otherwise, set it to the
+    // average of the new value and existing grid value. This is a bit
+    // arbitrary, but if we're doing everything else right, it should
+    // be okay.
+    if (isnan(wkspc->y[l])) {
+      wkspc->y[l] = y;
+    } else {
+      wkspc->y[l] = (y + wkspc->y[l])/2;
     }
-    wkspc->y[l] = y;
   }
 }
 

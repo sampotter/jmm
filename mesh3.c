@@ -249,6 +249,8 @@ void mesh3_get_cell_bbox(mesh3_s const *mesh, size_t i, rect3 *bbox) {
 
 bool mesh3_dbl3_in_cell(mesh3_s const *mesh, size_t lc, dbl const x[3],
                         dbl b[4]) {
+  dbl const atol = 1e-13;
+
   assert(lc < mesh->ncells);
 
   size_t const *c = &mesh->cells[lc].data[0];
@@ -279,7 +281,7 @@ bool mesh3_dbl3_in_cell(mesh3_s const *mesh, size_t lc, dbl const x[3],
 
   // After solving this system, the components of b will sum to unity,
   // so we just need to check if b is nonnegative.
-  return dbl4_nonneg(b);
+  return b[0] >= -atol && b[1] >= -atol && b[2] >= -atol && b[3] >= -atol;
 }
 
 int mesh3_nvc(mesh3_s const *mesh, size_t i) {
