@@ -25,11 +25,7 @@ struct eik3 {
   state_e *state;
   int *pos;
   heap_s *heap;
-
   int num_valid;
-
-  int *full_update;
-  int num_full_updates;
 };
 
 void eik3_alloc(eik3_s **eik) {
@@ -88,13 +84,6 @@ void eik3_init(eik3_s *eik, mesh3_s const *mesh) {
   heap_init(eik->heap, capacity, value, setpos, (void *)eik);
 
   eik->num_valid = 0;
-
-  eik->full_update = malloc(nverts*sizeof(int));
-  for (size_t l = 0; l < nverts; ++l) {
-    eik->full_update[l] = false;
-  }
-
-  eik->num_full_updates = 0;
 }
 
 void eik3_deinit(eik3_s *eik) {
@@ -109,9 +98,6 @@ void eik3_deinit(eik3_s *eik) {
 
   heap_deinit(eik->heap);
   heap_dealloc(&eik->heap);
-
-  free(eik->full_update);
-  eik->full_update = NULL;
 }
 
 static jet3 solve_2pt_bvp(eik3_s const *eik, size_t l, size_t l0) {
@@ -585,12 +571,4 @@ jet3 *eik3_get_jet_ptr(eik3_s const *eik) {
 
 state_e *eik3_get_state_ptr(eik3_s const *eik) {
   return eik->state;
-}
-
-int eik3_get_num_full_updates(eik3_s const *eik) {
-  return eik->num_full_updates;
-}
-
-int *eik3_get_full_update_ptr(eik3_s const *eik) {
-  return eik->full_update;
 }
