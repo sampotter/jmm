@@ -249,6 +249,12 @@ void utetra_set_lambda(utetra_s *cf, dbl const lam[2]) {
   dbl2_sub(qp.x, lam, cf->p);
 }
 
+void utetra_get_bary_coords(utetra_s const *cf, dbl b[3]) {
+  b[0] = 1 - cf->lam[0] - cf->lam[1];
+  b[1] = cf->lam[0];
+  b[2] = cf->lam[1];
+}
+
 dbl utetra_get_value(utetra_s const *cf) {
   return cf->f;
 }

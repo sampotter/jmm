@@ -25,6 +25,7 @@ void utetra_reset(utetra_s *cf);
 void utetra_solve(utetra_s *cf);
 void utetra_get_lambda(utetra_s const *cf, dbl lam[2]);
 void utetra_set_lambda(utetra_s *cf, dbl const lam[2]);
+void utetra_get_bary_coords(utetra_s const *cf, dbl b[3]);
 dbl utetra_get_value(utetra_s const *cf);
 void utetra_get_gradient(utetra_s const *cf, dbl g[2]);
 void utetra_get_jet(utetra_s const *cf, jet3 *jet);

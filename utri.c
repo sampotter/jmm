@@ -118,6 +118,11 @@ dbl utri_get_lambda(utri_s const *utri) {
   return utri->lam;
 }
 
+void utri_get_bary_coords(utri_s const *utri, dbl b[2]) {
+  b[0] = 1 - utri->lam;
+  b[1] = utri->lam;
+}
+
 dbl utri_get_value(utri_s const *utri) {
   return utri->f;
 }
