@@ -17,7 +17,6 @@ extern "C" {
 
 #define EPS 1e-13
 #define NO_INDEX -1
-#define NO_PARENT -1
 #define PI_OVER_FOUR 0.7853981633974483
 #define SQRT2 1.414213562373095
 #define SQRT5 2.236067977499789
@@ -25,6 +24,7 @@ extern "C" {
 #define SQRT13 3.605551275463989
 #define SQRT17 4.123105625617661
 #define UNFACTORED -1
+#define NO_PARENT SIZE_MAX
 
 // TODO: replace state_e with the commented out section of code
 // below. Apart from saving a significant amount of memory, this will

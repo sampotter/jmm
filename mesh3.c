@@ -6,8 +6,57 @@
 #include <string.h>
 
 #include "index.h"
+#include "macros.h"
 #include "mat.h"
 #include "util.h"
+
+typedef struct {
+  size_t le[2];
+} edge_s;
+
+edge_s make_edge(size_t l0, size_t l1) {
+  edge_s e = {.le = {l0, l1}};
+  if (l1 < l0) {
+    SWAP(e.le[0], e.le[1]);
+  }
+  return e;
+};
+
+int edge_cmp(edge_s const *e1, edge_s const *e2) {
+  int cmp = compar_size_t(&e1->le[0], &e2->le[0]);
+  if (cmp != 0) {
+    return cmp;
+  } else {
+    return compar_size_t(&e1->le[1], &e2->le[1]);
+  }
+}
+
+typedef struct {
+  size_t lf[3];
+  size_t lc;
+} tagged_face_s;
+
+tagged_face_s make_tagged_face(size_t l0, size_t l1, size_t l2, size_t lc) {
+  tagged_face_s f = {.lf = {l0, l1, l2}, .lc = lc};
+  qsort(f.lf, 3, sizeof(size_t), (compar_t)compar_size_t);
+  return f;
+}
+
+void tagged_face_init(tagged_face_s *f, size_t const *lf, size_t lc) {
+  memcpy(f->lf, lf, 3*sizeof(size_t));
+  qsort(f->lf, 3, sizeof(size_t), (compar_t)compar_size_t);
+  f->lc = lc;
+}
+
+int tagged_face_cmp(tagged_face_s const *f1, tagged_face_s const *f2) {
+  for (int i = 0, cmp; i < 3; ++i) {
+    cmp = compar_size_t(&f1->lf[i], &f2->lf[i]);
+    if (cmp != 0) {
+      return cmp;
+    }
+  }
+  return 0;
+}
 
 struct mesh3 {
   dvec3 *verts;
@@ -18,6 +67,10 @@ struct mesh3 {
   size_t *vc_offsets;
   bool *bdc;
   bool *bdv;
+  size_t nbdf;
+  tagged_face_s *bdf;
+  size_t nbde;
+  edge_s *bde;
 };
 
 void mesh3_alloc(mesh3_s **mesh) {
@@ -74,21 +127,6 @@ static void init_vc(mesh3_s *mesh) {
   free(nvc);
 }
 
-typedef struct {
-  size_t lf[3];
-  size_t lc;
-} tagged_face_s;
-
-int compar_tagged_face(tagged_face_s const *f1, tagged_face_s const *f2) {
-  for (int i = 0, cmp; i < 3; ++i) {
-    cmp = compar_size_t(&f1->lf[i], &f2->lf[i]);
-    if (cmp != 0) {
-      return cmp;
-    }
-  }
-  return 0;
-}
-
 /**
  * In this function we figure out which cells (tetrahedra) and
  * vertices are on the boundary. This is slightly arbitrary. We
@@ -113,25 +151,22 @@ static void init_bd(mesh3_s *mesh) {
   size_t *C;
   for (size_t lc = 0; lc < mesh->ncells; ++lc) {
     C = &mesh->cells[lc].data[0];
-    f[4*lc] = (tagged_face_s) {.lf = {C[0], C[1], C[2]}, .lc = lc};
-    f[4*lc + 1] = (tagged_face_s) {.lf = {C[0], C[1], C[3]}, .lc = lc};
-    f[4*lc + 2] = (tagged_face_s) {.lf = {C[0], C[2], C[3]}, .lc = lc};
-    f[4*lc + 3] = (tagged_face_s) {.lf = {C[1], C[2], C[3]}, .lc = lc};
-  }
-
-  // Sort the components of each tagged face.
-  for (size_t l = 0; l < nf; ++l) {
-    qsort(f[l].lf, 3, sizeof(size_t), (compar_t)compar_size_t);
+    f[4*lc] = make_tagged_face(C[0], C[1], C[2], lc);
+    f[4*lc + 1] = make_tagged_face(C[0], C[1], C[3], lc);
+    f[4*lc + 2] = make_tagged_face(C[0], C[2], C[3], lc);
+    f[4*lc + 3] = make_tagged_face(C[1], C[2], C[3], lc);
   }
 
   // Sort the tagged faces themselves into a dictionary order.
-  qsort(f, nf, sizeof(tagged_face_s), (compar_t)compar_tagged_face);
+  qsort(f, nf, sizeof(tagged_face_s), (compar_t)tagged_face_cmp);
+
+  mesh->nbdf = 0;
 
   // After sorting, we can tell if a face is duplicated by checking
   // whether it's equal to the succeeding face in `f`. If there's a
   // duplicate, we update the relevant boundary information.
   for (size_t l = 0; l < nf - 1; ++l) {
-    if (!compar_tagged_face(&f[l], &f[l + 1])) {
+    if (!tagged_face_cmp(&f[l], &f[l + 1])) {
       ++l;
       continue;
     }
@@ -139,8 +174,53 @@ static void init_bd(mesh3_s *mesh) {
     mesh->bdv[f[l].lf[0]] = true;
     mesh->bdv[f[l].lf[1]] = true;
     mesh->bdv[f[l].lf[2]] = true;
+    ++mesh->nbdf;
   }
 
+  // Traverse the sorted list again and pull out the boundary faces
+  // now that we know how many there are
+  mesh->bdf = malloc(mesh->nbdf*sizeof(tagged_face_s));
+  for (size_t l = 0, lf = 0; l < nf - 1; ++l) {
+    if (!tagged_face_cmp(&f[l], &f[l + 1])) {
+      ++l;
+      continue;
+    }
+    tagged_face_init(&mesh->bdf[lf++], f[l].lf, f[l].lc);
+  }
+
+  // Sort the faces so that we can quickly query whether a face is a
+  // boundary face or not.
+  qsort(mesh->bdf, mesh->nbdf, sizeof(tagged_face_s), (compar_t)tagged_face_cmp);
+
+  // Build a sorted array of all of the boundary edges, which are just
+  // the edges incident on the boundary faces. This array will have
+  // duplicates, so we'll have to prune these next.
+  edge_s *bde = malloc(3*mesh->nbdf*sizeof(edge_s));
+  for (size_t lf = 0, *l; lf < mesh->nbdf; ++lf) {
+    l = mesh->bdf[lf].lf;
+    bde[3*lf] = make_edge(l[0], l[1]);
+    bde[3*lf + 1] = make_edge(l[1], l[2]);
+    bde[3*lf + 2] = make_edge(l[2], l[0]);
+  }
+  qsort(bde, 3*mesh->nbdf, sizeof(edge_s), (compar_t)edge_cmp);
+
+  // Now, let's count the number of distinct boundary edges.
+  mesh->nbde = 0;
+  for (size_t l = 0; l < 3*mesh->nbdf; ++l) {
+    while (!edge_cmp(&bde[l], &bde[l + 1])) ++l;
+    ++mesh->nbde;
+  }
+
+  // Traverse the array again, copying over distinct boundary
+  // edges. Note: there's no need to sort mesh->bde, since it will
+  // already be sorted.
+  mesh->bde = malloc(mesh->nbde*sizeof(edge_s));
+  for (size_t l = 0, l_ = 0; l < 3*mesh->nbdf; ++l) {
+    while (!edge_cmp(&bde[l], &bde[l + 1])) ++l;
+    mesh->bde[l_++] = bde[l];
+  }
+
+  free(bde);
   free(f);
 }
 
@@ -547,4 +627,16 @@ bool *mesh3_get_bdv_ptr(mesh3_s *mesh) {
 
 bool mesh3_bdv(mesh3_s const *mesh, size_t i) {
   return mesh->bdv[i];
+}
+
+bool mesh3_bde(mesh3_s const *mesh, size_t const le[2]) {
+  edge_s e = make_edge(le[0], le[1]);
+  return bsearch(&e, mesh->bde, mesh->nbde, sizeof(edge_s),
+                 (compar_t)edge_cmp);
+}
+
+bool mesh3_bdf(mesh3_s const *mesh, size_t const lf[3]) {
+  tagged_face_s f = make_tagged_face(lf[0], lf[1], lf[2], NO_PARENT);
+  return bsearch(&f, mesh->bdf, mesh->nbdf, sizeof(tagged_face_s),
+                 (compar_t)tagged_face_cmp);
 }

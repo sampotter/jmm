@@ -7,7 +7,7 @@ import array
 
 from cython cimport Py_buffer
 
-from libc.stdlib cimport free, malloc
+from libc.stdlib cimport free, malloc, qsort
 from libc.string cimport memcpy
 
 from enum import Enum
@@ -103,6 +103,8 @@ cdef extern from "mesh3.h":
     void mesh3_ec(const mesh3 *mesh, size_t i, size_t j, size_t *ec)
     bool mesh3_bdc(const mesh3 *mesh, size_t i)
     bool mesh3_bdv(const mesh3 *mesh, size_t i)
+    bool mesh3_bde(const mesh3 *mesh, const size_t l[2])
+    bool mesh3_bdf(const mesh3 *mesh, const size_t l[3])
 
 
 cdef extern from "eik3.h":
@@ -479,6 +481,17 @@ class Dial:
         return np.asarray(self._dial.state)
 
 
+cdef int compar_size_t(const void *vp1, const void *vp2) nogil:
+    cdef size_t i = (<const size_t *>vp1)[0]
+    cdef size_t j = (<const size_t *>vp2)[0]
+    if i < j:
+        return -1
+    elif i > j:
+        return 1
+    else:
+        return 0
+
+
 cdef class Mesh3:
     cdef:
         mesh3 *mesh
@@ -533,6 +546,22 @@ cdef class Mesh3:
 
     def bdv(self, size_t i):
         return mesh3_bdv(self.mesh, i)
+
+    def bde(self, size_t i, size_t j):
+        cdef size_t l[2]
+        l[0] = i
+        l[1] = j
+        if l[1] < l[0]:
+            l[0], l[1] = l[1], l[0]
+        return mesh3_bde(self.mesh, l)
+
+    def bdf(self, size_t i, size_t j, size_t k):
+        cdef size_t l[3]
+        l[0] = i
+        l[1] = j
+        l[2] = k
+        qsort(l, 3, sizeof(size_t), compar_size_t)
+        return mesh3_bde(self.mesh, l)
 
 
 cdef class Jet3:
