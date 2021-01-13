@@ -12,10 +12,11 @@
 
 typedef struct {
   size_t le[2];
+  bool diff;
 } edge_s;
 
 edge_s make_edge(size_t l0, size_t l1) {
-  edge_s e = {.le = {l0, l1}};
+  edge_s e = {.le = {l0, l1}, .diff = false};
   if (l1 < l0) {
     SWAP(e.le[0], e.le[1]);
   }
@@ -127,6 +128,75 @@ static void init_vc(mesh3_s *mesh) {
   free(nvc);
 }
 
+static void get_op_edge(mesh3_s const *mesh, size_t lc, edge_s const *e,
+                        size_t l[2]) {
+  size_t lv[4];
+  mesh3_cv(mesh, lc, lv);
+  for (int i = 0, j = 0; i < 4; ++i) {
+    if (lv[i] == e->le[0] || lv[i] == e->le[1]) continue;
+    l[j++] = lv[i];
+  }
+}
+
+static dbl get_dihedral_angle(mesh3_s const *mesh, size_t lc, edge_s const *e) {
+  // Get edge endpoints
+  dbl const *x0 = mesh3_get_vert_ptr(mesh, e->le[0]);
+  dbl const *x1 = mesh3_get_vert_ptr(mesh, e->le[1]);
+
+  // Compute normalize direction vector along edge
+  dbl t[3];
+  dbl3_sub(x1, x0, t);
+  dbl3_normalize(t);
+
+  // Get indices of opposite edge for tetrahedron lc
+  size_t l[2];
+  get_op_edge(mesh, lc, e, l);
+
+  // Get corresponding vertices
+  dbl const *x2 = mesh3_get_vert_ptr(mesh, l[0]);
+  dbl const *x3 = mesh3_get_vert_ptr(mesh, l[1]);
+
+  dbl tmp[3], s, xs[3], t2[3], t3[3];
+
+  dbl3_sub(x2, x0, tmp);
+  s = dbl3_dot(t, tmp);
+  dbl3_saxpy(s, t, x0, xs);
+  dbl3_sub(x2, xs, t2);
+  dbl3_normalize(t2);
+
+  dbl3_sub(x3, x0, tmp);
+  s = dbl3_dot(t, tmp);
+  dbl3_saxpy(s, t, x0, xs);
+  dbl3_sub(x3, xs, t3);
+  dbl3_normalize(t3);
+
+  dbl t2_dot_t3 = dbl3_dot(t2, t3);
+
+  return acos(t2_dot_t3);
+}
+
+/**
+ * We want to check and see if this edge is a diffracting edge.  An
+ * edge is diffracting if its interior dihedral angle is greater than
+ * 180 degrees. So, we traverse the tetrahedra surrounding it, and sum of the angles they make with
+ */
+static bool edge_is_diff(mesh3_s const *mesh, edge_s *e) {
+  dbl const atol = 1e-14;
+
+  int nec = mesh3_nec(mesh, e->le[0], e->le[1]);
+  size_t *ec = malloc(nec*sizeof(size_t));
+  mesh3_ec(mesh, e->le[0], e->le[1], ec);
+
+  dbl angle_sum = 0;
+  for (int i = 0; i < nec; ++i) {
+    angle_sum += get_dihedral_angle(mesh, ec[i], e);
+  }
+
+  free(ec);
+
+  return angle_sum > PI + atol;
+}
+
 /**
  * In this function we figure out which cells (tetrahedra) and
  * vertices are on the boundary. This is slightly arbitrary. We
@@ -218,6 +288,10 @@ static void init_bd(mesh3_s *mesh) {
   for (size_t l = 0, l_ = 0; l < 3*mesh->nbdf; ++l) {
     while (!edge_cmp(&bde[l], &bde[l + 1])) ++l;
     mesh->bde[l_++] = bde[l];
+  }
+
+  for (size_t l = 0; l < mesh->nbde; ++l) {
+    mesh->bde[l].diff = edge_is_diff(mesh, &mesh->bde[l]);
   }
 
   free(bde);
@@ -639,4 +713,11 @@ bool mesh3_bdf(mesh3_s const *mesh, size_t const lf[3]) {
   tagged_face_s f = make_tagged_face(lf[0], lf[1], lf[2], NO_PARENT);
   return bsearch(&f, mesh->bdf, mesh->nbdf, sizeof(tagged_face_s),
                  (compar_t)tagged_face_cmp);
+}
+
+bool mesh3_is_diff_edge(mesh3_s const *mesh, size_t const le[2]) {
+  edge_s q = make_edge(le[0], le[1]);
+  edge_s const *e = bsearch(
+    &q, mesh->bde, mesh->nbde, sizeof(edge_s), (compar_t)edge_cmp);
+  return e && e->diff;
 }

@@ -52,6 +52,7 @@ bool *mesh3_get_bdv_ptr(mesh3_s *mesh);
 bool mesh3_bdv(mesh3_s const *mesh, size_t i);
 bool mesh3_bde(mesh3_s const *mesh, size_t const l[2]);
 bool mesh3_bdf(mesh3_s const *mesh, size_t const l[3]);
+bool mesh3_is_diff_edge(mesh3_s const *mesh, size_t const l[2]);
 
 #ifdef __cplusplus
 }
