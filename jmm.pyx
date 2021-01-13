@@ -562,7 +562,7 @@ cdef class Mesh3:
         l[1] = j
         l[2] = k
         qsort(l, 3, sizeof(size_t), compar_size_t)
-        return mesh3_bde(self.mesh, l)
+        return mesh3_bdf(self.mesh, l)
 
     def is_diff_edge(self, size_t i, size_t j):
         cdef size_t l[2]
