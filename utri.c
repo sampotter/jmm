@@ -26,6 +26,7 @@ struct utri {
   dbl Df;
 
   dbl x_minus_xb[3];
+  dbl L;
 };
 
 void utri_alloc(utri_s **utri) {
@@ -43,14 +44,14 @@ void utri_set_lambda(utri_s *utri, dbl lam) {
   dbl xb[3];
   dbl3_saxpy(lam, utri->x1_minus_x0, utri->x0, xb);
   dbl3_sub(utri->x, xb, utri->x_minus_xb);
-  dbl L = dbl3_norm(utri->x_minus_xb);
+  utri->L = dbl3_norm(utri->x_minus_xb);
 
-  dbl dL_dlam = -dbl3_dot(utri->x1_minus_x0, utri->x_minus_xb)/L;
+  dbl dL_dlam = -dbl3_dot(utri->x1_minus_x0, utri->x_minus_xb)/utri->L;
 
   dbl b[2] = {1 - lam, lam};
   dbl T = bb3(utri->Tc, b);
 
-  utri->f = T + L;
+  utri->f = T + utri->L;
 
   dbl a[2] = {-1, 1};
   dbl dT_dlam = dbb3(utri->Tc, b, a);
@@ -129,10 +130,11 @@ dbl utri_get_value(utri_s const *utri) {
 
 void utri_get_jet(utri_s const *utri, jet3 *jet) {
   jet->f = utri->f;
-  dbl L = dbl3_norm(utri->x_minus_xb);
-  jet->fx = utri->x_minus_xb[0]/L;
-  jet->fy = utri->x_minus_xb[1]/L;
-  jet->fz = utri->x_minus_xb[2]/L;
+  jet->fx = utri->x_minus_xb[0]/utri->L;
+  jet->fy = utri->x_minus_xb[1]/utri->L;
+  jet->fz = utri->x_minus_xb[2]/utri->L;
+}
+
 dbl utri_get_lag_mult(utri_s const *utri) {
   dbl const atol = 1e-15;
   if (utri->lam < atol) {
