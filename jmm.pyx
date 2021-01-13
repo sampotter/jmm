@@ -105,6 +105,7 @@ cdef extern from "mesh3.h":
     bool mesh3_bdv(const mesh3 *mesh, size_t i)
     bool mesh3_bde(const mesh3 *mesh, const size_t l[2])
     bool mesh3_bdf(const mesh3 *mesh, const size_t l[3])
+    bool mesh3_is_diff_edge(const mesh3 *mesh, const size_t l[2])
 
 
 cdef extern from "eik3.h":
@@ -562,6 +563,12 @@ cdef class Mesh3:
         l[2] = k
         qsort(l, 3, sizeof(size_t), compar_size_t)
         return mesh3_bde(self.mesh, l)
+
+    def is_diff_edge(self, size_t i, size_t j):
+        cdef size_t l[2]
+        l[0] = i
+        l[1] = j
+        return mesh3_is_diff_edge(self.mesh, l)
 
 
 cdef class Jet3:
