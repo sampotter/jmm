@@ -482,17 +482,6 @@ class Dial:
         return np.asarray(self._dial.state)
 
 
-cdef int compar_size_t(const void *vp1, const void *vp2) nogil:
-    cdef size_t i = (<const size_t *>vp1)[0]
-    cdef size_t j = (<const size_t *>vp2)[0]
-    if i < j:
-        return -1
-    elif i > j:
-        return 1
-    else:
-        return 0
-
-
 cdef class Mesh3:
     cdef:
         mesh3 *mesh
@@ -552,8 +541,6 @@ cdef class Mesh3:
         cdef size_t l[2]
         l[0] = i
         l[1] = j
-        if l[1] < l[0]:
-            l[0], l[1] = l[1], l[0]
         return mesh3_bde(self.mesh, l)
 
     def bdf(self, size_t i, size_t j, size_t k):
@@ -561,7 +548,6 @@ cdef class Mesh3:
         l[0] = i
         l[1] = j
         l[2] = k
-        qsort(l, 3, sizeof(size_t), compar_size_t)
         return mesh3_bdf(self.mesh, l)
 
     def is_diff_edge(self, size_t i, size_t j):
