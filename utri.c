@@ -133,4 +133,15 @@ void utri_get_jet(utri_s const *utri, jet3 *jet) {
   jet->fx = utri->x_minus_xb[0]/L;
   jet->fy = utri->x_minus_xb[1]/L;
   jet->fz = utri->x_minus_xb[2]/L;
+dbl utri_get_lag_mult(utri_s const *utri) {
+  dbl const atol = 1e-15;
+  if (utri->lam < atol) {
+    return utri->Df;
+  } else if (utri->lam > 1 - atol) {
+    return -utri->Df;
+  } else {
+    return 0;
+  }
+}
+
 }
