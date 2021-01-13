@@ -19,6 +19,11 @@ typedef struct {
  */
 void lin_comb_unit_vec_3(dbl const t_in[3][3], dbl const b[3], dbl t_out[3]);
 
+/**
+ * Check if four points are coplanar.
+ */
+bool points_are_coplanar(dbl const **x);
+
 #ifdef __cplusplus
 }
 #endif

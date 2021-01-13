@@ -105,12 +105,8 @@ void utetra_init(utetra_s *cf, dbl const x[3], dbl const Xt[3][3],
 bool utetra_is_degenerate(utetra_s const *cf) {
   // Check if the point being updated lies in the plane spanned by by
   // x0, x1, and x2. If it does, the update is degenerate.
-  dbl dX[3][3];
-  dbl3_sub(cf->Xt[0], cf->x, dX[0]);
-  dbl3_sub(cf->Xt[1], cf->x, dX[1]);
-  dbl3_sub(cf->Xt[2], cf->x, dX[2]);
-  dbl det = dbl33_det(dX);
-  return fabs(det) < 1e-15;
+  dbl const *x[4] = {cf->x, cf->Xt[0], cf->Xt[1], cf->Xt[2]};
+  return points_are_coplanar(x);
 }
 
 bool utetra_is_causal(utetra_s const *cf) {
