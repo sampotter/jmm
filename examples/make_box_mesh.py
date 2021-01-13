@@ -1,3 +1,4 @@
+import meshio
 import numpy as np
 
 verts = np.array([
@@ -26,4 +27,5 @@ faces = np.array([
     [3, 6, 2]
 ])
 
+meshio.write_points_cells('box.obj', verts, [(('triangle'), faces)])
 meshio.write_points_cells('box.off', verts, [(('triangle'), faces)])
