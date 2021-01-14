@@ -279,8 +279,14 @@ static void do_tetra_updates(eik3_s *eik, size_t l, size_t l0, size_t l1,
     utetra_solve(cf);
   }
 
+  // Sort the resulting tetrahedron updates. This sorts the update by
+  // their eikonal value.
   qsort(utetra, n, sizeof(utetra_s *), (compar_t)utetra_cmp);
 
+  // Traverse the sorted updates, looking for minimum updates. There
+  // may be multiple minimizers. In this case, we look further up in
+  // the order and check if the minimizers and minimizing arguments
+  // match.
   for (int i = 0; i < n; ++i) {
     cf = utetra[i];
     if (cf == NULL || utetra_get_value(cf) > eik->jet[l].f) {
@@ -395,18 +401,29 @@ cleanup:
  * points. We handle this case separately.
  */
 static void update_bd(eik3_s *eik, size_t l, size_t l0) {
+  // TODO: we should try to avoid wasting too much time figuring out
+  // which neighbors are point sources. For now, we just handle them
+  // as they come up, but ideally we should do this check *first*, and
+  // then proceed to non-point source updates...
+
   if (eik3_is_point_source(eik, l0)) {
     do_1pt_update(eik, l, l0);
     return;
   }
 
-  /**
-   * Find all adjacent faces.
-   */
+  // Find the adjacent faces
+  //
+  // TODO: we could compute this information on the fly from vc if we
+  // wanted to
   int nvf = mesh3_nvf(eik->mesh, l);
   size_t (*vf)[3] = malloc(3*nvf*sizeof(size_t)), *lf;
   mesh3_vf(eik->mesh, l, vf);
 
+  // Do adjacent two-point updates that are immersed in the boundary.
+  //
+  // TODO: ideally, we'd just coalesce this into the tetrahedron
+  // updates below with a suitable check for diffracting boundary
+  // solutions
   for (int i = 0; i < nvf; ++i) {
     lf = vf[i];
     do_2pt_bd_update(eik, l, lf[0], lf[1]);
