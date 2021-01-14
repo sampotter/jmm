@@ -159,7 +159,7 @@ static void do_1pt_update(eik3_s *eik, size_t l, size_t l0) {
   };
 }
 
-static bool do_2pt_updates(eik3_s *eik, size_t l, size_t l0, size_t *l1) {
+static bool find_l1(eik3_s *eik, size_t l, size_t l0, size_t *l1) {
   int nvv0 = mesh3_nvv(eik->mesh, l0);
   size_t *vv0 = malloc(nvv0*sizeof(size_t));
   mesh3_vv(eik->mesh, l0, vv0);
@@ -326,7 +326,7 @@ static void update(eik3_s *eik, size_t l, size_t l0) {
   }
 
   size_t l1;
-  if (!do_2pt_updates(eik, l, l0, &l1)) {
+  if (!find_l1(eik, l, l0, &l1)) {
     return;
   }
 
