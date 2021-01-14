@@ -250,7 +250,14 @@ static void do_tetra_update(eik3_s *eik, size_t l, size_t *L) {
   utetra_s *utetra;
   utetra_alloc(&utetra);
 
-  assert(!eik3_is_point_source(eik, l0));
+  assert(!(eik3_is_point_source(eik, l0) &&
+           eik3_is_point_source(eik, l1) &&
+           eik3_is_point_source(eik, l2)));
+
+  if (eik3_is_point_source(eik, l0)) {
+    do_1pt_update(eik, l, l0);
+    goto cleanup;
+  }
 
   if (eik3_is_point_source(eik, l1)) {
     do_1pt_update(eik, l, l1);
