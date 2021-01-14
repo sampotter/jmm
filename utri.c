@@ -146,4 +146,8 @@ dbl utri_get_lag_mult(utri_s const *utri) {
   }
 }
 
+void utri_get_point_on_ray(utri_s const *utri, dbl t, dbl xt[3]) {
+  dbl xlam[3];
+  dbl3_saxpy(utri->lam, utri->x1_minus_x0, utri->x0, xlam);
+  dbl3_saxpy(t/utri->L, utri->x_minus_xb, xlam, xt);
 }

@@ -23,6 +23,7 @@ void utri_get_bary_coords(utri_s const *utri, dbl b[2]);
 dbl utri_get_value(utri_s const *utri);
 void utri_get_jet(utri_s const *utri, jet3 *jet);
 dbl utri_get_lag_mult(utri_s const *utri);
+void utri_get_point_on_ray(utri_s const *utri, dbl t, dbl xt[3]);
 
 #ifdef __cplusplus
 }
