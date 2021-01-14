@@ -568,6 +568,7 @@ void eik3_add_valid(eik3_s *eik, size_t l, jet3 jet) {
 }
 
 bool eik3_is_point_source(eik3_s const *eik, size_t l) {
+  // TODO: requiring a VALID state here might be too stringent
   return eik->state[l] == VALID && isfinite(eik->jet[l].f)
     && isnan(eik->jet[l].fx) && isnan(eik->jet[l].fy) && isnan(eik->jet[l].fz);
 }
