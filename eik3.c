@@ -102,7 +102,7 @@ void eik3_init(eik3_s *eik, mesh3_s const *mesh) {
    * case, d=3. Even if this is an underestimate, well still reduce
    * the number of times the heap needs to be expanded at solve time.
    */
-  int capacity = (int) 3*cbrt(nverts);
+  int capacity = (int)3*cbrt(nverts);
 
   heap_alloc(&eik->heap);
   heap_init(eik->heap, capacity, value, setpos, (void *)eik);
