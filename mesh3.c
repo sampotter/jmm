@@ -252,7 +252,7 @@ static void init_bd(mesh3_s *mesh) {
   mesh->bdf = malloc(mesh->nbdf*sizeof(tagged_face_s));
   for (size_t l = 0, lf = 0; l < nf - 1; ++l) {
     if (!tagged_face_cmp(&f[l], &f[l + 1])) {
-      ++l;
+      ++l; // Increment here to skip equal pairs
       continue;
     }
     tagged_face_init(&mesh->bdf[lf++], f[l].lf, f[l].lc);
@@ -276,8 +276,9 @@ static void init_bd(mesh3_s *mesh) {
 
   // Now, let's count the number of distinct boundary edges.
   mesh->nbde = 0;
-  for (size_t l = 0; l < 3*mesh->nbdf; ++l) {
-    while (!edge_cmp(&bde[l], &bde[l + 1])) ++l;
+  for (size_t l = 0; l < 3*mesh->nbdf - 1; ++l) {
+    if  (!edge_cmp(&bde[l], &bde[l + 1]))
+      continue;
     ++mesh->nbde;
   }
 
@@ -285,8 +286,9 @@ static void init_bd(mesh3_s *mesh) {
   // edges. Note: there's no need to sort mesh->bde, since it will
   // already be sorted.
   mesh->bde = malloc(mesh->nbde*sizeof(edge_s));
-  for (size_t l = 0, l_ = 0; l < 3*mesh->nbdf; ++l) {
-    while (!edge_cmp(&bde[l], &bde[l + 1])) ++l;
+  for (size_t l = 0, l_ = 0; l < 3*mesh->nbdf - 1; ++l) {
+    if (!edge_cmp(&bde[l], &bde[l + 1]))
+      continue;
     mesh->bde[l_++] = bde[l];
   }
 
