@@ -10,6 +10,14 @@
 #include "mat.h"
 #include "util.h"
 
+bool point_in_face(size_t l, size_t const f[3]) {
+  return f[0] == l || f[1] == l || f[2] == l;
+}
+
+bool point_in_cell(size_t l, size_t const c[4]) {
+  return c[0] == l || c[1] == l || c[2] == l || c[3] == l;
+}
+
 typedef struct {
   size_t le[2];
   bool diff;

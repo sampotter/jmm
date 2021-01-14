@@ -7,6 +7,9 @@ extern "C" {
 #include "geom.h"
 #include "vec.h"
 
+bool point_in_face(size_t l, size_t const f[3]);
+bool point_in_cell(size_t l, size_t const c[4]);
+
 // Some ideas for improving the design of mesh3:
 //
 // - TODO: make it so that the verts/cells can be copied or not (in
