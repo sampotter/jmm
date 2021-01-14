@@ -19,11 +19,30 @@
 #include "utri.h"
 #include "vec.h"
 
+void par3_init_empty(par3_s *par) {
+  par->l[0] = par->l[1] = par->l[2] = NO_PARENT;
+  par->b[0] = par->b[1] = par->b[2] = NAN;
+}
+
+void par3_set(par3_s *par, size_t const *l, dbl const *b, int n) {
+  for (int i = 0; i < n; ++i) {
+    par->l[i] = l[i];
+    par->b[i] = b[i];
+  }
+}
+
+int par3_size(par3_s const *par) {
+  return (int)(par->l[0] != NO_PARENT)
+       + (int)(par->l[1] != NO_PARENT)
+       + (int)(par->l[2] != NO_PARENT);
+}
+
 struct eik3 {
   mesh3_s const *mesh;
   jet3 *jet;
   state_e *state;
   int *pos;
+  par3_s *par;
   heap_s *heap;
   int num_valid;
 };
@@ -70,6 +89,11 @@ void eik3_init(eik3_s *eik, mesh3_s const *mesh) {
     eik->pos[l] = NO_INDEX;
   }
 
+  eik->par = malloc(nverts*sizeof(par3_s));
+  for (size_t l = 0; l < nverts; ++l) {
+    par3_init_empty(&eik->par[l]);
+  }
+
   /**
    * When we compute the initial heap capacity, we want to estimate
    * the number of nodes that could comprise the expanding numerical
@@ -96,6 +120,9 @@ void eik3_deinit(eik3_s *eik) {
   free(eik->pos);
   eik->pos = NULL;
 
+  free(eik->par);
+  eik->par = NULL;
+
   heap_deinit(eik->heap);
   heap_dealloc(&eik->heap);
 }
@@ -113,6 +140,10 @@ static void do_1pt_update(eik3_s *eik, size_t l, size_t l0) {
   jet3 jet = solve_2pt_bvp(eik, l, l0);
   assert(jet.f <= eik->jet[l].f);
   eik->jet[l] = jet;
+  eik->par[l] = (par3_s) {
+    .l = {l0, NO_PARENT, NO_PARENT},
+    .b = {1, 0, 0}
+  };
 }
 
 static bool do_2pt_updates(eik3_s *eik, size_t l, size_t l0, size_t *l1) {
@@ -246,6 +277,8 @@ static void do_tetra_update(eik3_s *eik, size_t l, size_t *L) {
     utetra_get_jet(utetra, &jet);
     if (jet.f < eik->jet[l].f) {
       eik->jet[l] = jet;
+      memcpy(eik->par[l].l, L, 3*sizeof(size_t));
+      utetra_get_bary_coords(utetra, eik->par[l].b);
     }
   }
 
@@ -333,6 +366,10 @@ static void do_tetra_updates(eik3_s *eik, size_t l, size_t l0, size_t l1,
          utetra[i + 1] != NULL &&
          adjacent_utetra_are_optimal(cf, utetra[i + 1]))) {
       utetra_get_jet(cf, &eik->jet[l]);
+      eik->par[l].l[0] = l0;
+      eik->par[l].l[1] = l1;
+      eik->par[l].l[2] = NO_PARENT;
+      utetra_get_bary_coords(cf, eik->par[l].b);
       goto cleanup;
     }
   }
@@ -411,9 +448,20 @@ static void do_2pt_bd_update(eik3_s *eik, size_t l, size_t l0, size_t l1) {
   utri_alloc(&utri);
   utri_init_from_eik3(utri, eik, l, l0, l1);
   utri_solve(utri);
-  if (utri_get_value(utri) < eik->jet[l].f) {
-    utri_get_jet(utri, &eik->jet[l]);
-  }
+
+  if (utri_get_value(utri) >= eik->jet[l].f)
+    goto cleanup;
+
+  utri_get_jet(utri, &eik->jet[l]);
+  eik->par[l].l[0] = l0;
+  eik->par[l].l[1] = l1;
+  eik->par[l].l[2] = NO_PARENT;
+  utri_get_bary_coords(utri, eik->par[l].b);
+  eik->par[l].b[2] = 0;
+
+cleanup:
+  utri_dealloc(&utri);
+}
 }
 
 /**
@@ -575,4 +623,8 @@ jet3 *eik3_get_jet_ptr(eik3_s const *eik) {
 
 state_e *eik3_get_state_ptr(eik3_s const *eik) {
   return eik->state;
+}
+
+par3_s eik3_get_par(eik3_s const *eik, size_t l) {
+  return eik->par[l];
 }

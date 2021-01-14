@@ -8,6 +8,11 @@ extern "C" {
 
 typedef struct mesh3 mesh3_s;
 
+typedef struct par3 {
+  size_t l[3];
+  dbl b[3];
+} par3_s;
+
 /**
  * A structure managing a jet marching method solving the eikonal
  * equation in 3D on an unstructured tetrahedron mesh.
@@ -35,6 +40,7 @@ mesh3_s const *eik3_get_mesh(eik3_s const *eik);
 jet3 eik3_get_jet(eik3_s const *eik, size_t l);
 jet3 *eik3_get_jet_ptr(eik3_s const *eik);
 state_e *eik3_get_state_ptr(eik3_s const *eik);
+par3_s eik3_get_par(eik3_s const *eik, size_t l);
 
 #ifdef __cplusplus
 }
