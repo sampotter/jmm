@@ -444,7 +444,6 @@ static void do_2pt_bd_update(eik3_s *eik, size_t l, size_t l0, size_t l1) {
 cleanup:
   utri_dealloc(&utri);
 }
-}
 
 /**
  * Updating boundary points is much trickier than updating interior
