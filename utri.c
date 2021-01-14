@@ -151,3 +151,31 @@ void utri_get_point_on_ray(utri_s const *utri, dbl t, dbl xt[3]) {
   dbl3_saxpy(utri->lam, utri->x1_minus_x0, utri->x0, xlam);
   dbl3_saxpy(t/utri->L, utri->x_minus_xb, xlam, xt);
 }
+
+bool utri_update_ray_is_physical(utri_s const *utri, eik3_s const *eik,
+                                 size_t const l[2]) {
+  dbl const atol = 1e-14;
+
+  jet3 *jet = eik3_get_jet_ptr(eik);
+
+  dbl *t0 = &jet[l[0]].fx, *t1 = &jet[l[1]].fx;
+
+  // TODO: decide how to handle this case...
+  assert(fabs(dbl3_dot(t0, t1)) > atol);
+
+  // First, get plane spanned by jets at base of update.
+  dbl n[3];
+  dbl3_cross(t0, t1, n); // already normalized
+
+  // If the ray is in the plane spanned by the two jets, then it
+  // hasn't diffracted
+  //
+  // TODO: could we upgrade this requirement to "ray is in the cone"?
+  if (fabs(dbl3_dot(n, utri->x_minus_xb)) <= utri->L*atol)
+    return true;
+
+  // If the ray *isn't* in that plane, and the base of the update
+  // isn't a diffracting edge... we have a problem!
+  mesh3_s const *mesh = eik3_get_mesh(eik);
+  return mesh3_is_diff_edge(mesh, l);
+}

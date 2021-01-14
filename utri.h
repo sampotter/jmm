@@ -24,6 +24,8 @@ dbl utri_get_value(utri_s const *utri);
 void utri_get_jet(utri_s const *utri, jet3 *jet);
 dbl utri_get_lag_mult(utri_s const *utri);
 void utri_get_point_on_ray(utri_s const *utri, dbl t, dbl xt[3]);
+bool utri_update_ray_is_physical(utri_s const *utri, eik3_s const *eik,
+                                 size_t const l[2]);
 
 #ifdef __cplusplus
 }
