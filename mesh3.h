@@ -49,6 +49,10 @@ void mesh3_cc(mesh3_s const *mesh, size_t i, size_t *cc);
 void mesh3_cv(mesh3_s const *mesh, size_t i, size_t *cv);
 int mesh3_nec(mesh3_s const *mesh, size_t i, size_t j);
 void mesh3_ec(mesh3_s const *mesh, size_t i, size_t j, size_t *ec);
+int mesh3_nee(mesh3_s const *mesh, size_t const e[2]);
+void mesh3_ee(mesh3_s const *mesh, size_t const e[2], size_t (*ee)[2]);
+bool mesh3_cee(mesh3_s const *mesh, size_t c, size_t const e[2],
+               size_t e_out[2]);
 bool mesh3_cfv(mesh3_s const *mesh, size_t lc, size_t const lf[3], size_t *lv);
 bool mesh3_ccfv(mesh3_s const *mesh, size_t lc, size_t const lf[3],
                 size_t *lv_out);

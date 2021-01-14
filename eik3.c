@@ -195,68 +195,6 @@ static bool do_2pt_updates(eik3_s *eik, size_t l, size_t l0, size_t *l1) {
   return min_i1 != NO_INDEX;
 }
 
-static void get_opposite_cell_edge(mesh3_s const *mesh,
-                                   size_t c,
-                                   size_t l0, size_t l1,
-                                   size_t *l2, size_t *l3) {
-  size_t v[4];
-  mesh3_cv(mesh, c, v);
-  int k = 0;
-  for (int i = 0; i < 4; ++i) {
-    if (v[i] == l0 || v[i] == l1) {
-      continue;
-    }
-    if (k == 0) {
-      *l2 = v[i];
-      ++k;
-    } else if (k == 1) {
-      *l3 = v[i];
-      ++k;
-    } else {
-      assert(false);
-    }
-  }
-}
-
-static void sort_and_orient(size_t *l2, size_t *l3, int n) {
-  for (int i = 0; i < n; ++i) {
-    for (int j = i + 1; j < n; ++j) {
-      // We don't want any duplicate entries among the l2 or l3
-      // indices, but this can easily happen. This is the "orient"
-      // part of this function.
-      if (l2[j] == l2[i] || l3[j] == l3[i]) {
-        SWAP(l2[j], l3[j]);
-      }
-      if (l3[j] == l2[i]) {
-        SWAP(l2[i + 1], l2[j]);
-        SWAP(l3[i + 1], l3[j]);
-      }
-    }
-  }
-}
-
-static int get_l2_and_l3(eik3_s const *eik, size_t l0, size_t l1,
-                         size_t **l2_ptr, size_t **l3_ptr) {
-  int nec = mesh3_nec(eik->mesh, l0, l1);
-  size_t *ec = malloc(nec*sizeof(size_t));
-  mesh3_ec(eik->mesh, l0, l1, ec);
-
-  size_t *l2 = *l2_ptr = malloc(nec*sizeof(size_t));
-  size_t *l3 = *l3_ptr = malloc(nec*sizeof(size_t));
-
-  for (int i = 0; i < nec; ++i) {
-    size_t v[4];
-    mesh3_cv(eik->mesh, ec[i], v);
-    get_opposite_cell_edge(eik->mesh, ec[i], l0, l1, &l2[i], &l3[i]);
-  }
-
-  sort_and_orient(l2, l3, nec);
-
-  free(ec);
-
-  return nec;
-}
-
 static void do_tetra_update(eik3_s *eik, size_t l, size_t *L) {
   size_t l0 = L[0], l1 = L[1], l2 = L[2];
 
@@ -386,21 +324,25 @@ static void update(eik3_s *eik, size_t l, size_t l0) {
     return;
   }
 
+  // TODO: probably best to just simplify this, using "mesh3_ev"
+  // instead...
+  int nee = mesh3_nee(eik->mesh, (size_t[2]) {l0, l1});
+  size_t (*ee)[2] = malloc(nee*sizeof(size_t[2]));
+  mesh3_ee(eik->mesh, (size_t[2]) {l0, l1}, ee);
+
   // TODO: not using l3 right now, but might want to use it later if
   // we want to try out "volume updates"
-  size_t *l2, *l3;
-  int n = get_l2_and_l3(eik, l0, l1, &l2, &l3);
+  size_t *l2 = malloc(nee*sizeof(size_t));
+  for (int i = 0; i < nee; ++i)
+    l2[i] = ee[i][0];
 
   // TODO: use initial guess for lambda taken from `do_2pt_updates` to
   // use as a warm start in `do_tetra_updates`
-  do_tetra_updates(eik, l, l0, l1, l2, n);
+  do_tetra_updates(eik, l, l0, l1, l2, nee);
 
-  /**
-   * We also want to do any updates corresponding to valid faces
-   * surrounding l and including l0. These may have been missed when
-   * doing the preceding hierarchical update.
-   */
-
+  // Do any updates corresponding to valid faces surrounding l and
+  // including l0. These may have been missed when doing the preceding
+  // hierarchical update.
   int nvf = mesh3_nvf(eik->mesh, l);
   size_t (*vf)[3] = malloc(3*nvf*sizeof(size_t));
   mesh3_vf(eik->mesh, l, vf);
@@ -413,7 +355,7 @@ static void update(eik3_s *eik, size_t l, size_t l0) {
 
   free(vf);
   free(l2);
-  free(l3);
+  free(ee);
 }
 
 static void do_2pt_bd_update(eik3_s *eik, size_t l, size_t l0, size_t l1) {

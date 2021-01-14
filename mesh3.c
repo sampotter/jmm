@@ -697,6 +697,60 @@ void mesh3_ec(mesh3_s const *mesh, size_t i, size_t j, size_t *ec) {
   free(vcj);
 }
 
+bool mesh3_cee(mesh3_s const *mesh, size_t c, size_t const e[2],
+               size_t e_out[2]) {
+  size_t cv[4];
+  mesh3_cv(mesh, c, cv);
+  int k = 0;
+  for (int i = 0; i < 4; ++i) {
+    if (cv[i] == e[0] || cv[i] == e[1])
+      continue;
+    if (k < 2)
+      e_out[k++] = cv[i];
+    else
+      return false;
+  }
+  return true;
+}
+
+/**
+ * This function takes two chains of vertices corresponding to the
+ * edges of a loop and orients them so that one can traverse the loop
+ * in order.
+ */
+static void orient_chains(size_t (*e)[2], int n) {
+  for (int i = 0; i < n; ++i) {
+    for (int j = i + 1; j < n; ++j) {
+      // We don't want any duplicate entries among the l0 or l1
+      // indices, but this can easily happen. This is the "orient"
+      // part of this function.
+      if (e[j][0] == e[i][0] || e[j][1] == e[i][1]) {
+        SWAP(e[j][0], e[j][1]);
+      }
+      if (e[j][1] == e[i][0]) {
+        SWAP(e[i + 1][0], e[j][0]);
+        SWAP(e[i + 1][1], e[j][1]);
+      }
+    }
+  }
+}
+
+int mesh3_nee(mesh3_s const *mesh, size_t const e[2]) {
+  return mesh3_nec(mesh, e[0], e[1]);
+}
+
+void mesh3_ee(mesh3_s const *mesh, size_t const e[2], size_t (*ee)[2]) {
+  int nec = mesh3_nec(mesh, e[0], e[1]);
+  size_t *ec = malloc(nec*sizeof(size_t));
+  mesh3_ec(mesh, e[0], e[1], ec);
+
+  for (int i = 0; i < nec; ++i)
+    mesh3_cee(mesh, ec[i], e, ee[i]);
+  orient_chains(ee, nec);
+
+  free(ec);
+}
+
 bool mesh3_cfv(mesh3_s const *mesh, size_t lc, size_t const lf[3], size_t *lv) {
   size_t cv[4];
   mesh3_cv(mesh, lc, cv);
