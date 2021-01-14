@@ -697,6 +697,53 @@ void mesh3_ec(mesh3_s const *mesh, size_t i, size_t j, size_t *ec) {
   free(vcj);
 }
 
+bool mesh3_cfv(mesh3_s const *mesh, size_t lc, size_t const lf[3], size_t *lv) {
+  size_t cv[4];
+  mesh3_cv(mesh, lc, cv);
+  // First, check if the verts in lf actually belong to cv. If they
+  // don't, return false, since cfv no longer makes any sense.
+  for (int i = 0; i < 3; ++i)
+    if (!point_in_cell(lf[i], cv))
+      return false;
+  // Now, figure out which vertex isn't one of cv isn't one of lf, and
+  // set *lv to that vertex.
+  *lv = NO_PARENT;
+  for (int i = 0; i < 4; ++i) {
+    if (cv[i] == lf[0] || cv[i] == lf[1] || cv[i] == lf[2])
+      continue;
+    *lv = cv[i];
+    break;
+  }
+  assert(*lv != NO_PARENT);
+  return true;
+}
+
+bool mesh3_ccfv(mesh3_s const *mesh, size_t lc, size_t const lf[3],
+                size_t *lv_out) {
+  int ncc = mesh3_ncc(mesh, lc);
+  size_t *cc = malloc(ncc*sizeof(size_t));
+  mesh3_cc(mesh, lc, cc);
+  for (int i = 0; i < ncc; ++i)
+    if (mesh3_cfv(mesh, cc[i], lf, lv_out))
+      return true;
+  return false;
+}
+
+bool mesh3_cvf(mesh3_s const *mesh, size_t lc, size_t lv, size_t lf[3]) {
+  size_t cv[4];
+  mesh3_cv(mesh, lc, cv);
+  // First, check if lv is actually incident on lc
+  if (!point_in_cell(lv, cv))
+    return false;
+  // Now, copy the other vertices over to lf
+  int j = 0;
+  for (int i = 0; i < 4; ++i)
+    if (cv[i] != lv)
+      lf[j++] = cv[i];
+  assert(j == 3);
+  return true;
+}
+
 bool *mesh3_get_bdc_ptr(mesh3_s *mesh) {
   return mesh->bdc;
 }

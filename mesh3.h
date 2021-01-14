@@ -49,6 +49,10 @@ void mesh3_cc(mesh3_s const *mesh, size_t i, size_t *cc);
 void mesh3_cv(mesh3_s const *mesh, size_t i, size_t *cv);
 int mesh3_nec(mesh3_s const *mesh, size_t i, size_t j);
 void mesh3_ec(mesh3_s const *mesh, size_t i, size_t j, size_t *ec);
+bool mesh3_cfv(mesh3_s const *mesh, size_t lc, size_t const lf[3], size_t *lv);
+bool mesh3_ccfv(mesh3_s const *mesh, size_t lc, size_t const lf[3],
+                size_t *lv_out);
+bool mesh3_cvf(mesh3_s const *mesh, size_t lc, size_t lv, size_t lf[3]);
 bool *mesh3_get_bdc_ptr(mesh3_s *mesh);
 bool mesh3_bdc(mesh3_s const *mesh, size_t i);
 bool *mesh3_get_bdv_ptr(mesh3_s *mesh);
