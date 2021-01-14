@@ -3,7 +3,11 @@ import jmm
 import numpy as np
 import os
 import pyvista as pv
+import pyvistaqt as pvqt
 import skimage.morphology
+import time
+
+from PIL import Image
 
 from skimage.measure import marching_cubes
 
@@ -46,7 +50,7 @@ T = eik.transfer_solution_to_grid(grid)
 
 # Make movie
 
-levels = np.linspace(0.5, 18, 24)[1:-1]
+levels = np.linspace(0.75, 20, 30*24)[1:-1]
 
 def get_level_set_poly_data(level):
     selem = np.ones((3, 3, 3), dtype=np.intc)
@@ -58,20 +62,28 @@ def get_level_set_poly_data(level):
         np.concatenate([
             3*np.ones((F.shape[0], 1)), F], axis=1).astype(F.dtype))
 
-os.mkdir('frames')
-
-plotter = pv.Plotter()
-plotter.open_movie('room.mp4')
+plotter = pvqt.BackgroundPlotter()
 plotter.set_position((-20, 35, -20))
 plotter.set_viewup((0, 1, 0))
 plotter.set_focus((0, 0, 0))
-# plotter.enable_depth_peeling()
 
-for i, level in enumerate(levels):
-    plotter.clear()
-    plotter.add_mesh(surf_mesh, color='white', opacity=0.3)
-    plotter.add_mesh(get_level_set_poly_data(level), color='white')
-    plotter.write_frame()
-    print('wrote frame frames/%03d.png' % i)
+
+plotter.add_mesh(surf_mesh, color='white', opacity=0.3)
+plotter.add_mesh(get_level_set_poly_data(levels[0]), color='white')
+
+os.mkdir('frames')
+
+i = 0
+
+level = levels[i]
+plotter.clear()
+plotter.add_mesh(surf_mesh, color='white', opacity=0.3)
+plotter.add_mesh(get_level_set_poly_data(level), color='white')
+i += 1
+
+Image.fromarray(plotter.image).save('frames/%03d.png' % i)
+
+
+
 
 print('finished')
