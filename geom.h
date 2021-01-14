@@ -17,8 +17,8 @@ typedef struct {
  */
 bool points_are_coplanar(dbl const **x);
 
-bool ray_and_face_are_coplanar(mesh3_s const *mesh,
-                               size_t l0, size_t l1, size_t l2, dbl const *ray);
+bool ray_and_face_are_coplanar(mesh3_s const *mesh, size_t l0, size_t l1,
+                               size_t l2, dbl const *ray);
 
 #ifdef __cplusplus
 }

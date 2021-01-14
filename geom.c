@@ -14,8 +14,8 @@ bool points_are_coplanar(dbl const **x) {
   return fabs(det) < 1e-15;
 }
 
-bool ray_and_face_are_coplanar(mesh3_s const *mesh,
-                               size_t l0, size_t l1, size_t l2, dbl const *ray) {
+bool ray_and_face_are_coplanar(mesh3_s const *mesh, size_t l0, size_t l1,
+                               size_t l2, dbl const *ray) {
   dbl const *x[3] = {
     mesh3_get_vert_ptr(mesh, l0),
     mesh3_get_vert_ptr(mesh, l1),
