@@ -39,6 +39,7 @@ typedef enum state {
   BOUNDARY,
   ADJACENT_TO_BOUNDARY,
   NEW_VALID,
+  SHADOW
 } state_e;
 
 // #define FAR 'f'

@@ -30,6 +30,7 @@ bool eik3_is_point_source(eik3_s const *eik, size_t ind);
 bool eik3_is_far(eik3_s const *eik, size_t ind);
 bool eik3_is_trial(eik3_s const *eik, size_t ind);
 bool eik3_is_valid(eik3_s const *eik, size_t ind);
+bool eik3_is_shadow(eik3_s const *eik, size_t l);
 mesh3_s const *eik3_get_mesh(eik3_s const *eik);
 jet3 eik3_get_jet(eik3_s const *eik, size_t l);
 jet3 *eik3_get_jet_ptr(eik3_s const *eik);

@@ -21,7 +21,9 @@ cdef extern from "def.h":
         TRIAL
         VALID
         BOUNDARY
+        ADJACENT_TO_BOUNDARY
         NEW_VALID
+        SHADOW
     cdef enum stype:
         CONSTANT
         NUM_STYPE
@@ -423,6 +425,7 @@ class State(Enum):
     Boundary = 3
     AdjacentToBoundary = 4
     NewValid = 5
+    Shadow = 6
 
 
 class Dial:
@@ -637,6 +640,9 @@ cdef class Eik3:
 
     def is_valid(self, size_t ind):
         return eik3_is_valid(self.eik, ind)
+
+    def is_shadow(self, size_t ind):
+        return eik3_is_shadow(self.eik, ind)
 
     def transfer_solution_to_grid(self, Grid3 grid):
         cdef dbl[::1] y = np.empty((grid.size,), dtype=np.float64)

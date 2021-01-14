@@ -557,6 +557,10 @@ bool eik3_is_valid(eik3_s const *eik, size_t l) {
   return eik->state[l] == VALID;
 }
 
+bool eik3_is_shadow(eik3_s const *eik, size_t l) {
+  return eik->state[l] == SHADOW;
+}
+
 mesh3_s const *eik3_get_mesh(eik3_s const *eik) {
   return eik->mesh;
 }
