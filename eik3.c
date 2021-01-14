@@ -137,17 +137,20 @@ static bool can_update_from_face(eik3_s const *eik, size_t const l[3]) {
     can_update_from_point(eik, l[2]);
 }
 
-static jet3 solve_2pt_bvp(eik3_s const *eik, size_t l, size_t l0) {
+static void do_1pt_update(eik3_s *eik, size_t l, size_t l0) {
+  // Compute new jet for one point update
+  jet3 jet;
   dbl const *x = mesh3_get_vert_ptr(eik->mesh, l);
   dbl const *x0 = mesh3_get_vert_ptr(eik->mesh, l0);
-  dbl n0[3];
-  dbl3_sub(x, x0, n0);
-  dbl L = dbl3_normalize(n0);
-  return (jet3) {.f = L, .fx = n0[0], .fy = n0[1], .fz = n0[2]};
-}
+  dbl3_sub(x, x0, &jet.fx);
+  jet.f = dbl3_normalize(&jet.fx);
 
-static void do_1pt_update(eik3_s *eik, size_t l, size_t l0) {
-  jet3 jet = solve_2pt_bvp(eik, l, l0);
+  // Commit the update
+  //
+  // TODO: we assume here that if we're actually doing a one-point
+  // update "for keeps", we know that it's going to improve the
+  // solution. This may not be a great approach, but it's what we're
+  // doing for now...
   assert(jet.f <= eik->jet[l].f);
   eik->jet[l] = jet;
   eik->par[l] = (par3_s) {
