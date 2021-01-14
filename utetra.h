@@ -32,6 +32,8 @@ void utetra_get_jet(utetra_s const *cf, jet3 *jet);
 void utetra_get_lag_mults(utetra_s const *cf, dbl alpha[3]);
 int utetra_get_num_iter(utetra_s const *cf);
 bool utetra_has_interior_point_solution(utetra_s const *cf);
+int utetra_cmp(utetra_s const **h1, utetra_s const **h2);
+bool utetra_adj_are_optimal(utetra_s const *u1, utetra_s const *u2);
 
 #ifdef __cplusplus
 }

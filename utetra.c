@@ -315,3 +315,36 @@ bool utetra_has_interior_point_solution(utetra_s const *cf) {
   utetra_get_lag_mults(cf, alpha);
   return dbl3_maxnorm(alpha) <= 1e-15;
 }
+
+int utetra_cmp(utetra_s const **h1, utetra_s const **h2) {
+  utetra_s const *u1 = *h1;
+  utetra_s const *u2 = *h2;
+  if (u1 == NULL && u2 == NULL) {
+    return 0;
+  } else if (u2 == NULL) {
+    return -1;
+  } else if (u1 == NULL) {
+    return 1;
+  } else {
+    dbl const T1 = utetra_get_value(u1);
+    dbl const T2 = utetra_get_value(u2);
+    if (T1 < T2) {
+      return -1;
+    } else if (T1 > T2) {
+      return 1;
+    } else {
+      return 0;
+    }
+  }
+}
+
+bool utetra_adj_are_optimal(utetra_s const *u1, utetra_s const *u2) {
+  dbl const atol = 1e-15;
+  dbl lam1[2], lam2[2];
+  utetra_get_lambda(u1, lam1);
+  utetra_get_lambda(u2, lam2);
+  return fabs(lam1[0] - lam2[0]) <= atol
+    && fabs(lam1[1]) <= atol
+    && fabs(lam2[1]) <= atol
+    && fabs(utetra_get_value(u1) - utetra_get_value(u2)) <= atol;
+}

@@ -303,39 +303,6 @@ cleanup:
   utetra_dealloc(&utetra);
 }
 
-int compar_utetra(utetra_s const **cf1_handle, utetra_s const **cf2_handle) {
-  utetra_s const *cf1 = *cf1_handle;
-  utetra_s const *cf2 = *cf2_handle;
-  if (cf1 == NULL && cf2 == NULL) {
-    return 0;
-  } else if (cf2 == NULL) {
-    return -1;
-  } else if (cf1 == NULL) {
-    return 1;
-  } else {
-    dbl const T1 = utetra_get_value(cf1);
-    dbl const T2 = utetra_get_value(cf2);
-    if (T1 < T2) {
-      return -1;
-    } else if (T1 > T2) {
-      return 1;
-    } else {
-      return 0;
-    }
-  }
-}
-
-static bool adjacent_utetra_are_optimal(utetra_s const *cf1, utetra_s const *cf2) {
-  dbl const atol = 1e-15;
-  dbl lam1[2], lam2[2];
-  utetra_get_lambda(cf1, lam1);
-  utetra_get_lambda(cf2, lam2);
-  return fabs(lam1[0] - lam2[0]) <= atol
-    && fabs(lam1[1]) <= atol
-    && fabs(lam2[1]) <= atol
-    && fabs(utetra_get_value(cf1) - utetra_get_value(cf2)) <= atol;
-}
-
 static void do_tetra_updates(eik3_s *eik, size_t l, size_t l0, size_t l1,
                              size_t const *l2, int n) {
   assert(!eik3_is_point_source(eik, l0));
@@ -371,7 +338,7 @@ static void do_tetra_updates(eik3_s *eik, size_t l, size_t l0, size_t l1,
     utetra_solve(cf);
   }
 
-  qsort(utetra, n, sizeof(utetra_s *), (compar_t)compar_utetra);
+  qsort(utetra, n, sizeof(utetra_s *), (compar_t)utetra_cmp);
 
   for (int i = 0; i < n; ++i) {
     cf = utetra[i];
@@ -381,7 +348,7 @@ static void do_tetra_updates(eik3_s *eik, size_t l, size_t l0, size_t l1,
     if (utetra_has_interior_point_solution(cf) ||
         (i + 1 < n &&
          utetra[i + 1] != NULL &&
-         adjacent_utetra_are_optimal(cf, utetra[i + 1]))) {
+        utetra_adj_are_optimal(cf, utetra[i + 1])) {
       utetra_get_jet(cf, &eik->jet[l]);
       eik->par[l].l[0] = l0;
       eik->par[l].l[1] = l1;
