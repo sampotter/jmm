@@ -127,6 +127,16 @@ void eik3_deinit(eik3_s *eik) {
   heap_dealloc(&eik->heap);
 }
 
+static bool can_update_from_point(eik3_s const *eik, size_t l) {
+  return eik->state[l] == VALID || eik->state[l] == SHADOW;
+}
+
+static bool can_update_from_face(eik3_s const *eik, size_t const l[3]) {
+  return can_update_from_point(eik, l[0]) &&
+    can_update_from_point(eik, l[1]) &&
+    can_update_from_point(eik, l[2]);
+}
+
 static jet3 solve_2pt_bvp(eik3_s const *eik, size_t l, size_t l0) {
   dbl const *x = mesh3_get_vert_ptr(eik->mesh, l);
   dbl const *x0 = mesh3_get_vert_ptr(eik->mesh, l0);
@@ -158,7 +168,7 @@ static bool do_2pt_updates(eik3_s *eik, size_t l, size_t l0, size_t *l1) {
   int min_i1 = NO_INDEX;
   for (int i1 = 0; i1 < nvv0; ++i1) {
     size_t l1 = vv0[i1];
-    if (eik->state[l1] != VALID) {
+    if (!can_update_from_point(eik, l1)) {
       continue;
     }
     if (eik3_is_point_source(eik, l1)) {
@@ -338,7 +348,7 @@ static void do_tetra_updates(eik3_s *eik, size_t l, size_t l0, size_t l1,
 
   utetra_s *cf;
   for (int i = 0; i < n; ++i) {
-    if (eik->state[l2[i]] != VALID) {
+    if (!can_update_from_point(eik, l2[i])) {
       continue;
     }
     if (eik3_is_point_source(eik, l2[i])) {
@@ -425,10 +435,8 @@ static void update(eik3_s *eik, size_t l, size_t l0) {
   size_t (*vf)[3] = malloc(3*nvf*sizeof(size_t));
   mesh3_vf(eik->mesh, l, vf);
   for (int i = 0; i < nvf; ++i) {
-    if ((l0 == vf[i][0] || l0 == vf[i][1] || l0 == vf[i][2])
-        && eik->state[vf[i][0]] == VALID
-        && eik->state[vf[i][1]] == VALID
-        && eik->state[vf[i][2]] == VALID) {
+    if ((l0 == vf[i][0] || l0 == vf[i][1] || l0 == vf[i][2]) &&
+        can_update_from_face(eik, vf[i])) {
       do_tetra_update(eik, l, vf[i]);
     }
   }
@@ -500,10 +508,7 @@ static void update_bd(eik3_s *eik, size_t l, size_t l0) {
    */
   for (int i = 0; i < nvf; ++i) {
     lf = vf[i];
-    if ((l0 == lf[0] || l0 == lf[1] || l0 == lf[2])
-        && eik->state[lf[0]] == VALID
-        && eik->state[lf[1]] == VALID
-        && eik->state[lf[2]] == VALID) {
+    if (point_in_face(l0, lf) && can_update_from_face(eik, lf))
       do_tetra_update(eik, l, lf);
     }
   }
