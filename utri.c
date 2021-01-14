@@ -156,9 +156,52 @@ bool utri_update_ray_is_physical(utri_s const *utri, eik3_s const *eik,
                                  size_t const l[2]) {
   dbl const atol = 1e-14;
 
-  jet3 *jet = eik3_get_jet_ptr(eik);
+  mesh3_s const *mesh = eik3_get_mesh(eik);
+  jet3 const *jet = eik3_get_jet_ptr(eik);
 
-  dbl *t0 = &jet[l[0]].fx, *t1 = &jet[l[1]].fx;
+  /**
+   * First, we check if the ray is spuriously emanating from the
+   * boundary. We do this by finding the ray direction, and checking
+   * to see if the point just before the start of the ray is inside
+   * the mesh.
+   */
+
+  // TODO: we can accelerate this a bit by verifying that both l[0]
+  // and l[1] are boundary indices...
+
+  // Get a point just before the start of the ray
+  dbl t = -atol, xt[3];
+  utri_get_point_on_ray(utri, t, xt);
+
+  // Traverse the cells surrounding edge (l[0], l[1]), and verify that
+  // at least one of them contains the point xt.
+  int nec = mesh3_nec(mesh, l[0], l[1]);
+  size_t *ec = malloc(nec*sizeof(size_t));
+  mesh3_ec(mesh, l[0], l[1], ec);
+  bool found_containing_cell = false;
+  dbl b[4]; // TODO: unused... pass NULL instead...
+  for (int i = 0; i < nec; ++i) {
+    if (mesh3_dbl3_in_cell(mesh, ec[i], xt, b)) {
+      found_containing_cell = true;
+      break;
+    }
+  }
+  free(ec);
+
+  // If we didn't find a containing cell, we can conclude that the ray
+  // is unphysical!
+  if (!found_containing_cell)
+    return false;
+
+  /**
+   * Next, we want to check and see if the ray has bent
+   * unphysically. Since this is a two-point update, we just check
+   * whether the ray is in the plane spanned by the rays at the update
+   * vertices. If it isn't, we check to see whether the base of the
+   * update is a diffracting edge.
+   */
+
+  dbl const *t0 = &jet[l[0]].fx, *t1 = &jet[l[1]].fx;
 
   // TODO: decide how to handle this case...
   assert(fabs(dbl3_dot(t0, t1)) > atol);
@@ -176,6 +219,5 @@ bool utri_update_ray_is_physical(utri_s const *utri, eik3_s const *eik,
 
   // If the ray *isn't* in that plane, and the base of the update
   // isn't a diffracting edge... we have a problem!
-  mesh3_s const *mesh = eik3_get_mesh(eik);
   return mesh3_is_diff_edge(mesh, l);
 }
