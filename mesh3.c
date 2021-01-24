@@ -21,17 +21,13 @@ bool point_in_cell(size_t l, size_t const c[4]) {
 typedef struct {
   size_t le[2];
   bool diff;
-} edge_s;
+} diff_edge_s;
 
-edge_s make_edge(size_t l0, size_t l1) {
-  edge_s e = {.le = {l0, l1}, .diff = false};
-  if (l1 < l0) {
-    SWAP(e.le[0], e.le[1]);
-  }
-  return e;
-};
+diff_edge_s make_diff_edge(size_t l0, size_t l1) {
+  return (diff_edge_s) {.le = {MIN(l0, l1), MAX(l0, l1)}, .diff = false};
+}
 
-int edge_cmp(edge_s const *e1, edge_s const *e2) {
+int diff_edge_cmp(diff_edge_s const *e1, diff_edge_s const *e2) {
   int cmp = compar_size_t(&e1->le[0], &e2->le[0]);
   if (cmp != 0) {
     return cmp;
@@ -79,7 +75,7 @@ struct mesh3 {
   size_t nbdf;
   tagged_face_s *bdf;
   size_t nbde;
-  edge_s *bde;
+  diff_edge_s *bde;
 };
 
 void mesh3_alloc(mesh3_s **mesh) {
@@ -136,7 +132,7 @@ static void init_vc(mesh3_s *mesh) {
   free(nvc);
 }
 
-static void get_op_edge(mesh3_s const *mesh, size_t lc, edge_s const *e,
+static void get_op_edge(mesh3_s const *mesh, size_t lc, diff_edge_s const *e,
                         size_t l[2]) {
   size_t lv[4];
   mesh3_cv(mesh, lc, lv);
@@ -146,7 +142,7 @@ static void get_op_edge(mesh3_s const *mesh, size_t lc, edge_s const *e,
   }
 }
 
-static dbl get_dihedral_angle(mesh3_s const *mesh, size_t lc, edge_s const *e) {
+static dbl get_dihedral_angle(mesh3_s const *mesh, size_t lc, diff_edge_s const *e) {
   // Get edge endpoints
   dbl const *x0 = mesh3_get_vert_ptr(mesh, e->le[0]);
   dbl const *x1 = mesh3_get_vert_ptr(mesh, e->le[1]);
@@ -188,7 +184,7 @@ static dbl get_dihedral_angle(mesh3_s const *mesh, size_t lc, edge_s const *e) {
  * edge is diffracting if its interior dihedral angle is greater than
  * 180 degrees. So, we traverse the tetrahedra surrounding it, and sum of the angles they make with
  */
-static bool edge_is_diff(mesh3_s const *mesh, edge_s *e) {
+static bool edge_is_diff(mesh3_s const *mesh, diff_edge_s *e) {
   dbl const atol = 1e-14;
 
   int nec = mesh3_nec(mesh, e->le[0], e->le[1]);
@@ -273,19 +269,19 @@ static void init_bd(mesh3_s *mesh) {
   // Build a sorted array of all of the boundary edges, which are just
   // the edges incident on the boundary faces. This array will have
   // duplicates, so we'll have to prune these next.
-  edge_s *bde = malloc(3*mesh->nbdf*sizeof(edge_s));
+  diff_edge_s *bde = malloc(3*mesh->nbdf*sizeof(diff_edge_s));
   for (size_t lf = 0, *l; lf < mesh->nbdf; ++lf) {
     l = mesh->bdf[lf].lf;
-    bde[3*lf] = make_edge(l[0], l[1]);
-    bde[3*lf + 1] = make_edge(l[1], l[2]);
-    bde[3*lf + 2] = make_edge(l[2], l[0]);
+    bde[3*lf] = make_diff_edge(l[0], l[1]);
+    bde[3*lf + 1] = make_diff_edge(l[1], l[2]);
+    bde[3*lf + 2] = make_diff_edge(l[2], l[0]);
   }
-  qsort(bde, 3*mesh->nbdf, sizeof(edge_s), (compar_t)edge_cmp);
+  qsort(bde, 3*mesh->nbdf, sizeof(diff_edge_s), (compar_t)diff_edge_cmp);
 
   // Now, let's count the number of distinct boundary edges.
   mesh->nbde = 0;
   for (size_t l = 0; l < 3*mesh->nbdf - 1; ++l) {
-    if  (!edge_cmp(&bde[l], &bde[l + 1]))
+    if  (!diff_edge_cmp(&bde[l], &bde[l + 1]))
       continue;
     ++mesh->nbde;
   }
@@ -293,9 +289,9 @@ static void init_bd(mesh3_s *mesh) {
   // Traverse the array again, copying over distinct boundary
   // edges. Note: there's no need to sort mesh->bde, since it will
   // already be sorted.
-  mesh->bde = malloc(mesh->nbde*sizeof(edge_s));
+  mesh->bde = malloc(mesh->nbde*sizeof(diff_edge_s));
   for (size_t l = 0, l_ = 0; l < 3*mesh->nbdf - 1; ++l) {
-    if (!edge_cmp(&bde[l], &bde[l + 1]))
+    if (!diff_edge_cmp(&bde[l], &bde[l + 1]))
       continue;
     mesh->bde[l_++] = bde[l];
   }
@@ -815,9 +811,9 @@ bool mesh3_bdv(mesh3_s const *mesh, size_t i) {
 }
 
 bool mesh3_bde(mesh3_s const *mesh, size_t const le[2]) {
-  edge_s e = make_edge(le[0], le[1]);
-  return bsearch(&e, mesh->bde, mesh->nbde, sizeof(edge_s),
-                 (compar_t)edge_cmp);
+  diff_edge_s e = make_diff_edge(le[0], le[1]);
+  return bsearch(&e, mesh->bde, mesh->nbde, sizeof(diff_edge_s),
+                 (compar_t)diff_edge_cmp);
 }
 
 bool mesh3_bdf(mesh3_s const *mesh, size_t const lf[3]) {
@@ -827,9 +823,9 @@ bool mesh3_bdf(mesh3_s const *mesh, size_t const lf[3]) {
 }
 
 bool mesh3_is_diff_edge(mesh3_s const *mesh, size_t const le[2]) {
-  edge_s q = make_edge(le[0], le[1]);
-  edge_s const *e = bsearch(
-    &q, mesh->bde, mesh->nbde, sizeof(edge_s), (compar_t)edge_cmp);
+  diff_edge_s q = make_diff_edge(le[0], le[1]);
+  diff_edge_s const *e = bsearch(
+    &q, mesh->bde, mesh->nbde, sizeof(diff_edge_s), (compar_t)diff_edge_cmp);
   return e && e->diff;
 }
 
