@@ -832,3 +832,18 @@ bool mesh3_is_diff_edge(mesh3_s const *mesh, size_t const le[2]) {
     &q, mesh->bde, mesh->nbde, sizeof(edge_s), (compar_t)edge_cmp);
   return e && e->diff;
 }
+
+bool mesh3_vert_incident_on_diff_edge(mesh3_s const *mesh, size_t l) {
+  int nvv = mesh3_nvv(mesh, l);
+  size_t *vv = malloc(nvv*sizeof(size_t));
+  mesh3_vv(mesh, l, vv);
+
+  bool is_incident = false;
+  for (int i = 0; i < nvv; ++i)
+    if ((is_incident = mesh3_is_diff_edge(mesh, (size_t[2]) {l, vv[i]})))
+      break;
+
+  free(vv);
+
+  return is_incident;
+}
