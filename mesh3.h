@@ -7,6 +7,7 @@ extern "C" {
 #include "geom.h"
 #include "vec.h"
 
+bool face_in_cell(size_t const f[3], size_t const c[4]);
 bool point_in_face(size_t l, size_t const f[3]);
 bool point_in_cell(size_t l, size_t const c[4]);
 
@@ -40,6 +41,8 @@ void mesh3_get_cell_bbox(mesh3_s const *mesh, size_t i, rect3 *bbox);
 bool mesh3_dbl3_in_cell(mesh3_s const *mesh, size_t i, dbl const x[3], dbl b[4]);
 int mesh3_nvc(mesh3_s const *mesh, size_t i);
 void mesh3_vc(mesh3_s const *mesh, size_t i, size_t *vc);
+int mesh3_nve(mesh3_s const *mesh, size_t lv);
+void mesh3_ve(mesh3_s const *mesh, size_t lv, size_t (*ve)[2]);
 int mesh3_nvf(mesh3_s const *mesh, size_t i);
 void mesh3_vf(mesh3_s const *mesh, size_t i, size_t (*vf)[3]);
 int mesh3_nvv(mesh3_s const *mesh, size_t i);
@@ -51,6 +54,8 @@ int mesh3_nec(mesh3_s const *mesh, size_t i, size_t j);
 void mesh3_ec(mesh3_s const *mesh, size_t i, size_t j, size_t *ec);
 int mesh3_nee(mesh3_s const *mesh, size_t const e[2]);
 void mesh3_ee(mesh3_s const *mesh, size_t const e[2], size_t (*ee)[2]);
+int mesh3_nfc(mesh3_s const *mesh, size_t const f[3]);
+void mesh3_fc(mesh3_s const *mesh, size_t const f[3], size_t *fc);
 bool mesh3_cee(mesh3_s const *mesh, size_t c, size_t const e[2],
                size_t e_out[2]);
 bool mesh3_cfv(mesh3_s const *mesh, size_t lc, size_t const lf[3], size_t *lv);
@@ -65,6 +70,7 @@ bool mesh3_bde(mesh3_s const *mesh, size_t const l[2]);
 bool mesh3_bdf(mesh3_s const *mesh, size_t const l[3]);
 bool mesh3_is_diff_edge(mesh3_s const *mesh, size_t const l[2]);
 bool mesh3_vert_incident_on_diff_edge(mesh3_s const *mesh, size_t l);
+dbl mesh3_get_min_tetra_alt(mesh3_s const *mesh);
 
 #ifdef __cplusplus
 }

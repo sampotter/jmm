@@ -5,10 +5,17 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "array.h"
+#include "edge.h"
 #include "index.h"
 #include "macros.h"
 #include "mat.h"
 #include "util.h"
+
+bool face_in_cell(size_t const f[3], size_t const c[4]) {
+  return point_in_cell(f[0], c) && point_in_cell(f[1], c) &&
+    point_in_cell(f[2], c);
+}
 
 bool point_in_face(size_t l, size_t const f[3]) {
   return f[0] == l || f[1] == l || f[2] == l;
@@ -76,6 +83,9 @@ struct mesh3 {
   tagged_face_s *bdf;
   size_t nbde;
   diff_edge_s *bde;
+
+  // Geometric quantities
+  dbl min_tetra_alt; // The minimum of all tetrahedron altitudes in the mesh.
 };
 
 void mesh3_alloc(mesh3_s **mesh) {
@@ -304,6 +314,18 @@ static void init_bd(mesh3_s *mesh) {
   free(f);
 }
 
+static void compute_geometric_quantities(mesh3_s *mesh) {
+  // Compute minimum tetrahedron altitude
+  mesh->min_tetra_alt = INFINITY;
+  for (size_t l = 0; l < mesh->ncells; ++l) {
+    dbl x[4][3];
+    for (int i = 0; i < 4; ++i)
+      mesh3_copy_vert(mesh, mesh->cells->data[i], x[i]);
+    dbl h = min_tetra_altitude(x);
+    mesh->min_tetra_alt = fmin(mesh->min_tetra_alt, h);
+  }
+}
+
 void mesh3_init(mesh3_s *mesh,
                 dbl const *verts, size_t nverts,
                 size_t const *cells, size_t ncells) {
@@ -329,6 +351,8 @@ void mesh3_init(mesh3_s *mesh,
 
   init_vc(mesh);
   init_bd(mesh);
+
+  compute_geometric_quantities(mesh);
 }
 
 void mesh3_deinit(mesh3_s *mesh) {
@@ -452,6 +476,87 @@ void mesh3_vc(mesh3_s const *mesh, size_t i, size_t *vc) {
   int nvc = mesh3_nvc(mesh, i);
   size_t *vci = &mesh->vc[mesh->vc_offsets[i]];
   memcpy((void *)vc, (void *)vci, sizeof(size_t)*nvc);
+}
+
+static void get_opposite_edges(size_t const cv[4], size_t lv, edge_s edge[3]) {
+  size_t l[3];
+  for (int i = 0, j = 0; i < 4; ++i) {
+    if (cv[i] == lv)
+      continue;
+    l[j++] = cv[i];
+  }
+  edge[0] = make_edge(l[0], l[1]);
+  edge[1] = make_edge(l[1], l[2]);
+  edge[2] = make_edge(l[2], l[0]);
+}
+
+int mesh3_nve(mesh3_s const *mesh, size_t lv) {
+  array_s *edges;
+  array_alloc(&edges);
+  array_init(edges, sizeof(edge_s), /* capacity */ 8);
+
+  int nvc = mesh3_nvc(mesh, lv);
+  size_t *vc = malloc(sizeof(size_t)*nvc);
+  mesh3_vc(mesh, lv, vc);
+
+  size_t cv[4];
+
+  edge_s new_edges[3];
+  for (int i = 0; i < nvc; ++i) {
+    mesh3_cv(mesh, vc[i], cv);
+    get_opposite_edges(cv, lv, new_edges);
+    for (int j = 0; j < 3; ++j) {
+      if (array_contains(edges, &new_edges[j]))
+        continue;
+      array_append(edges, &new_edges[j]);
+    }
+  }
+
+  int nve = array_size(edges);
+
+  free(vc);
+
+  array_deinit(edges);
+  array_dealloc(&edges);
+
+  return nve;
+}
+
+void mesh3_ve(mesh3_s const *mesh, size_t lv, size_t (*ve)[2]) {
+  array_s *edges;
+  array_alloc(&edges);
+  array_init(edges, sizeof(edge_s), /* capacity */ 8);
+
+  int nvc = mesh3_nvc(mesh, lv);
+  size_t *vc = malloc(sizeof(size_t)*nvc);
+  mesh3_vc(mesh, lv, vc);
+
+  size_t cv[4];
+
+  edge_s new_edges[3];
+  for (int i = 0; i < nvc; ++i) {
+    mesh3_cv(mesh, vc[i], cv);
+    get_opposite_edges(cv, lv, new_edges);
+    for (int j = 0; j < 3; ++j) {
+      if (array_contains(edges, &new_edges[j]))
+        continue;
+      array_append(edges, &new_edges[j]);
+    }
+  }
+
+  int nve = array_size(edges);
+
+  edge_s edge;
+  for (int i = 0; i < nve; ++i) {
+    array_get(edges, i, &edge);
+    ve[i][0] = edge.l[0];
+    ve[i][1] = edge.l[1];
+  }
+
+  free(vc);
+
+  array_deinit(edges);
+  array_dealloc(&edges);
 }
 
 int mesh3_nvf(mesh3_s const *mesh, size_t l) {
@@ -747,6 +852,43 @@ void mesh3_ee(mesh3_s const *mesh, size_t const e[2], size_t (*ee)[2]) {
   free(ec);
 }
 
+int mesh3_nfc(mesh3_s const *mesh, size_t const f[3]) {
+  // We find the cells neighboring one of the vertices of the face and
+  // then determine which ones are adjacent to the rest of the
+  // vertices. It doesn't matter which vertex of `f` we use to do
+  // this.
+
+  int nvc = mesh3_nvc(mesh, f[0]);
+  size_t *vc = malloc(nvc*sizeof(size_t)), cv[4];
+  mesh3_vc(mesh, f[0], vc);
+
+  int nfc = 0;
+  for (int i = 0; i < nvc; ++i) {
+    mesh3_cv(mesh, vc[i], cv);
+    nfc += face_in_cell(f, cv);
+  }
+  assert(nfc == 1 || nfc == 2);
+
+  free(vc);
+
+  return nfc;
+}
+
+void mesh3_fc(mesh3_s const *mesh, size_t const f[3], size_t *fc) {
+  int nvc = mesh3_nvc(mesh, f[0]);
+  size_t *vc = malloc(nvc*sizeof(size_t)), cv[4];
+  mesh3_vc(mesh, f[0], vc);
+
+  int nfc = 0;
+  for (int i = 0; i < nvc; ++i) {
+    mesh3_cv(mesh, vc[i], cv);
+    if (face_in_cell(f, cv))
+      fc[nfc++] = vc[i];
+  }
+
+  free(vc);
+}
+
 bool mesh3_cfv(mesh3_s const *mesh, size_t lc, size_t const lf[3], size_t *lv) {
   size_t cv[4];
   mesh3_cv(mesh, lc, cv);
@@ -842,4 +984,8 @@ bool mesh3_vert_incident_on_diff_edge(mesh3_s const *mesh, size_t l) {
   free(vv);
 
   return is_incident;
+}
+
+dbl mesh3_get_min_tetra_alt(mesh3_s const *mesh) {
+  return mesh->min_tetra_alt;
 }
