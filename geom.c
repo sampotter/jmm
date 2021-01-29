@@ -77,3 +77,43 @@ bool adj_tetra_pair_is_convex(mesh3_s const *mesh, size_t l0,
 
   return b[0] > 0 && b[1] > 0 && b[2] > 0;
 }
+
+dbl min_tetra_altitude(dbl const x[4][3]) {
+  dbl n[3], dx[3][3];
+
+  dbl h = INFINITY, newh;
+
+  dbl3_sub(x[1], x[0], dx[0]);
+  dbl3_sub(x[2], x[0], dx[1]);
+  dbl3_sub(x[3], x[0], dx[2]);
+  dbl3_cross(dx[0], dx[1], n);
+  dbl3_normalize(n);
+  newh = fabs(dbl3_dot(n, dx[2]));
+  h = fmin(h, newh);
+
+  dbl3_sub(x[0], x[1], dx[0]);
+  dbl3_sub(x[2], x[1], dx[1]);
+  dbl3_sub(x[3], x[1], dx[2]);
+  dbl3_cross(dx[0], dx[1], n);
+  dbl3_normalize(n);
+  newh = fabs(dbl3_dot(n, dx[2]));
+  h = fmin(h, newh);
+
+  dbl3_sub(x[0], x[2], dx[0]);
+  dbl3_sub(x[1], x[2], dx[1]);
+  dbl3_sub(x[3], x[2], dx[2]);
+  dbl3_cross(dx[0], dx[1], n);
+  dbl3_normalize(n);
+  newh = fabs(dbl3_dot(n, dx[2]));
+  h = fmin(h, newh);
+
+  dbl3_sub(x[0], x[3], dx[0]);
+  dbl3_sub(x[1], x[3], dx[1]);
+  dbl3_sub(x[2], x[3], dx[2]);
+  dbl3_cross(dx[0], dx[1], n);
+  dbl3_normalize(n);
+  newh = fabs(dbl3_dot(n, dx[2]));
+  h = fmin(h, newh);
+
+  return h;
+}

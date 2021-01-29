@@ -35,6 +35,12 @@ dbl tri_area(dbl const x[3], dbl const y[3], dbl const z[3]);
 bool adj_tetra_pair_is_convex(mesh3_s const *mesh, size_t l0,
                               size_t const lf[3], size_t l1);
 
+/**
+ * Compute the minimum altitude of the tetrahedron with vertices given
+ * by `x`.
+ */
+dbl min_tetra_altitude(dbl const x[4][3]);
+
 #ifdef __cplusplus
 }
 #endif
