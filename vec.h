@@ -34,6 +34,7 @@ bool dbl3_is_zero(dbl const u[3]);
 dbl dbl3_maxnorm(dbl const u[3]);
 void dbl3_cross(dbl const u[3], dbl const v[3], dbl w[3]);
 dbl dbl3_sum(dbl const u[3]);
+void dbl3_negate(dbl u[3]);
 
 bool dbl4_nonneg(dbl const u[4]);
 dbl dbl4_sum(dbl const u[4]);

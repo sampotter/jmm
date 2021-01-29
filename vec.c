@@ -116,6 +116,12 @@ dbl dbl3_sum(dbl const u[3]) {
   return u[0] + u[1] + u[2];
 }
 
+void dbl3_negate(dbl u[3]) {
+  u[0] = -u[0];
+  u[1] = -u[1];
+  u[2] = -u[2];
+}
+
 bool dbl4_nonneg(dbl const u[4]) {
   return u[0] >= 0 && u[1] >= 0 && u[2] >= 0 && u[3] >= 0;
 }
