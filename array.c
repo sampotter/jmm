@@ -1,5 +1,6 @@
 #include "array.h"
 
+#include <assert.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -15,6 +16,7 @@ void array_alloc(array_s **arr) {
 }
 
 void array_dealloc(array_s **arr) {
+  assert(*arr != NULL);
   free(*arr);
   *arr = NULL;
 }
@@ -27,6 +29,7 @@ void array_init(array_s *arr, size_t eltsize, size_t capacity) {
 }
 
 void array_deinit(array_s *arr) {
+  assert(arr->data != NULL);
   free(arr->data);
   arr->data = NULL;
 }
@@ -41,13 +44,15 @@ size_t array_size(array_s const *arr) {
 
 size_t array_find(array_s const *arr, void const *elt) {
   char *ptr = arr->data;
-  for (size_t i = 0; i < arr->size; ++i) {
+  size_t i = 0;
+  for (i = 0; i < arr->size; ++i) {
     if (!memcmp(ptr, elt, arr->eltsize)) {
       return i;
     }
     ptr += arr->eltsize;
   }
-  return arr->size;
+  assert(i == arr->size);
+  return i;
 }
 
 bool array_contains(array_s const *arr, void const *elt) {
