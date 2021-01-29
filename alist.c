@@ -18,6 +18,7 @@ void alist_alloc(alist_s **lst) {
 }
 
 void alist_dealloc(alist_s **lst) {
+  assert(*lst != NULL);
   free(*lst);
   *lst = NULL;
 }
@@ -32,6 +33,7 @@ void alist_init(alist_s *lst, size_t keysize, size_t eltsize, size_t capacity) {
 }
 
 void alist_deinit(alist_s *lst) {
+  assert(lst->data != NULL);
   free(lst->data);
   lst->data = NULL;
 }
@@ -75,18 +77,20 @@ void alist_append(alist_s *lst, void const *key, void const *elt) {
   ++lst->size;
 }
 
-void alist_get_by_index(alist_s const *lst, size_t i, void *elt) {
+bool alist_get_by_index(alist_s const *lst, size_t i, void *elt) {
   if (i >= lst->size)
-    return;
+    return false;
   memcpy(elt, lst->data + lst->nodesize*i + lst->keysize, lst->eltsize);
+  return true;
 }
 
-void alist_get_by_key(alist_s const *lst, void const *key, void *elt) {
+bool alist_get_by_key(alist_s const *lst, void const *key, void *elt) {
   size_t i = alist_find(lst, key);
   assert(i <= lst->size);
   if (i == lst->size)
-    return;
+    return false;
   memcpy(elt, lst->data + lst->nodesize*i + lst->keysize, lst->eltsize);
+  return true;
 }
 
 void alist_set_by_index(alist_s *lst, size_t i, void const *elt) {
@@ -101,4 +105,19 @@ void alist_set_by_key(alist_s *lst, void const *key, void const *elt) {
     alist_append(lst, key, elt);
   else
     memcpy(lst->data + lst->nodesize*i + lst->keysize, elt, lst->eltsize);
+}
+
+bool alist_get_key(alist_s const *lst, size_t i, void *key) {
+  if (i >= lst->size)
+    return false;
+  memcpy(key, lst->data + i*lst->nodesize, lst->keysize);
+  return true;
+}
+
+bool alist_get_pair(alist_s const *lst, size_t i, void *key, void *elt) {
+  if (i >= lst->size)
+    return false;
+  memcpy(key, lst->data + i*lst->nodesize, lst->keysize);
+  memcpy(elt, lst->data + i*lst->nodesize + lst->keysize, lst->eltsize);
+  return true;
 }
