@@ -111,6 +111,9 @@ cdef extern from "mesh3.h":
 
 
 cdef extern from "eik3.h":
+    cdef struct par3:
+        size_t l[3]
+        dbl b[3]
     cdef struct eik3:
         pass
     void eik3_alloc(eik3 **eik)
@@ -128,6 +131,7 @@ cdef extern from "eik3.h":
     bool eik3_is_valid(const eik3 *eik, size_t ind)
     jet3 *eik3_get_jet_ptr(const eik3 *eik)
     state *eik3_get_state_ptr(const eik3 *eik)
+    par3 eik3_get_par(const eik3 *eik, size_t l)
 
 cdef extern from "utetra.h":
     cdef struct utetra:
@@ -587,6 +591,26 @@ cdef class Jet3:
         return self.jet.fz
 
 
+cdef class Parent3:
+    cdef:
+        par3 p
+
+    def __cinit__(self, par3 p):
+        self.p = p
+
+    @property
+    def l(self):
+        cdef size_t[:] l = np.empty((3,), dtype=np.uintp)
+        memcpy(&l[0], self.p.l, 3*sizeof(size_t))
+        return np.asarray(l)
+
+    @property
+    def b(self):
+        cdef dbl[:] b = np.empty((3,), dtype=np.float64)
+        memcpy(&b[0], self.p.b, 3*sizeof(dbl))
+        return np.asarray(b)
+
+
 cdef class Eik3:
     cdef:
         eik3 *eik
@@ -666,3 +690,7 @@ cdef class Eik3:
     @property
     def state(self):
         return np.asarray(self.state_view)
+
+    def get_parent(self, ind):
+        cdef par3 p = eik3_get_par(self.eik, ind)
+        return Parent3(p)
