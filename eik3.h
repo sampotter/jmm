@@ -38,6 +38,7 @@ jet3 eik3_get_jet(eik3_s const *eik, size_t l);
 jet3 *eik3_get_jet_ptr(eik3_s const *eik);
 state_e *eik3_get_state_ptr(eik3_s const *eik);
 par3_s eik3_get_par(eik3_s const *eik, size_t l);
+void eik3_get_DT(eik3_s const *eik, size_t l, dbl DT[3]);
 
 #ifdef __cplusplus
 }
