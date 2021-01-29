@@ -5,13 +5,10 @@ extern "C" {
 #endif
 
 #include "jet.h"
+#include "par.h"
 
 typedef struct mesh3 mesh3_s;
 
-typedef struct par3 {
-  size_t l[3];
-  dbl b[3];
-} par3_s;
 
 /**
  * A structure managing a jet marching method solving the eikonal

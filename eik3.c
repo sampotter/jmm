@@ -19,23 +19,7 @@
 #include "utri.h"
 #include "vec.h"
 
-void par3_init_empty(par3_s *par) {
-  par->l[0] = par->l[1] = par->l[2] = NO_PARENT;
-  par->b[0] = par->b[1] = par->b[2] = NAN;
-}
 
-void par3_set(par3_s *par, size_t const *l, dbl const *b, int n) {
-  for (int i = 0; i < n; ++i) {
-    par->l[i] = l[i];
-    par->b[i] = b[i];
-  }
-}
-
-int par3_size(par3_s const *par) {
-  return (int)(par->l[0] != NO_PARENT)
-       + (int)(par->l[1] != NO_PARENT)
-       + (int)(par->l[2] != NO_PARENT);
-}
 
 struct eik3 {
   mesh3_s const *mesh;

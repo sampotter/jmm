@@ -42,6 +42,7 @@ set (JMM_SRCS
   bucket.c
   cubic.c
   dial.c
+  edge.c
   edgemap.c
   eik.c
   eik_F3.c
@@ -58,6 +59,7 @@ set (JMM_SRCS
   mat.c
   mesh3.c
   opt.c
+  par.c
   utetra.c
   util.c
   utri.c
