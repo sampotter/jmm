@@ -7,6 +7,8 @@ extern "C" {
 #include <stdbool.h>
 #include <stddef.h>
 
+#define ARRAY_DEFAULT_CAPACITY 32
+
 typedef struct array array_s;
 
 void array_alloc(array_s **arr);
