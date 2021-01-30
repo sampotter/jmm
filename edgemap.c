@@ -100,3 +100,7 @@ void edgemap_filter(edgemap_s const *edgemap, edgemap_s *edgemap_out,
 
   edgemap_iter_dealloc(&iter);
 }
+
+void edgemap_clear(edgemap_s *edgemap) {
+  alist_clear(edgemap->lst);
+}

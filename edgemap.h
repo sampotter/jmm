@@ -30,6 +30,7 @@ bool edgemap_contains(edgemap_s const *edgemap, edge_s edge);
 size_t edgemap_size(edgemap_s const *edgemap);
 void edgemap_filter(edgemap_s const *edgemap, edgemap_s *edgemap_out,
                     edgemap_prop_t keep, void const *aux);
+void edgemap_clear(edgemap_s *edgemap);
 
 #ifdef __cplusplus
 }
