@@ -11,7 +11,6 @@
 #include <omp.h>
 #endif
 
-#include "alist.h"
 #include "array.h"
 #include "bb.h"
 #include "edgemap.h"
