@@ -27,6 +27,8 @@ struct utri {
 
   dbl x_minus_xb[3];
   dbl L;
+
+  size_t l, l0, l1;
 };
 
 void utri_alloc(utri_s **utri) {
@@ -82,6 +84,10 @@ void utri_init_from_eik3(utri_s *utri, eik3_s const *eik, size_t l,
 
   assert(jet3_is_finite(&jet[0]));
   assert(jet3_is_finite(&jet[1]));
+
+  utri->l = l;
+  utri->l0 = l0;
+  utri->l1 = l1;
 
   utri_init(utri, x, Xt, jet);
 }
@@ -166,31 +172,42 @@ bool utri_update_ray_is_physical(utri_s const *utri, eik3_s const *eik,
    * the mesh.
    */
 
+  // TODO: the following section where we check to see if the stuff
+  // below gives "an interior ray" can be wrapped up and reused for
+  // both this and the corresponding section in utetra.c...
+
   // TODO: we can accelerate this a bit by verifying that both l[0]
   // and l[1] are boundary indices...
 
-  // Get a point just before the start of the ray
-  dbl t = -atol, xt[3];
-  utri_get_point_on_ray(utri, t, xt);
+  // Get points just before and just after the start of the ray. We
+  // perturb forward and backward by one half of the minimum triangle
+  // altitude (taken of the entire mesh). This is to ensure that the
+  // perturbations are small enough to stay inside neighboring
+  // tetrahedra, but also large enough to take into consideration the
+  // characteristic length scale of the mesh.
+  dbl xm[3], xp[3], t = mesh3_get_min_tetra_alt(mesh)/2;
+  utri_get_point_on_ray(utri, -t/2, xm);
+  utri_get_point_on_ray(utri, t/2, xp);
+
+  bool xm_in_cell = false, xp_in_cell = false;
+  dbl b[4]; // TODO: unused... pass NULL instead...
 
   // Traverse the cells surrounding edge (l[0], l[1]), and verify that
   // at least one of them contains the point xt.
   int nec = mesh3_nec(mesh, l[0], l[1]);
   size_t *ec = malloc(nec*sizeof(size_t));
   mesh3_ec(mesh, l[0], l[1], ec);
-  bool found_containing_cell = false;
-  dbl b[4]; // TODO: unused... pass NULL instead...
   for (int i = 0; i < nec; ++i) {
-    if (mesh3_dbl3_in_cell(mesh, ec[i], xt, b)) {
-      found_containing_cell = true;
+    xm_in_cell |= mesh3_dbl3_in_cell(mesh, ec[i], xm, b);
+    xp_in_cell |= mesh3_dbl3_in_cell(mesh, ec[i], xp, b);
+    if (xm_in_cell && xp_in_cell)
       break;
-    }
   }
   free(ec);
 
   // If we didn't find a containing cell, we can conclude that the ray
   // is unphysical!
-  if (!found_containing_cell)
+  if (!xm_in_cell && !xp_in_cell)
     return false;
 
   /**
@@ -220,4 +237,51 @@ bool utri_update_ray_is_physical(utri_s const *utri, eik3_s const *eik,
   // If the ray *isn't* in that plane, and the base of the update
   // isn't a diffracting edge... we have a problem!
   return mesh3_is_diff_edge(mesh, l);
+}
+
+void utri_reset(utri_s *utri) {
+  utri->f = INFINITY;
+}
+
+int utri_cmp(utri_s const **h1, utri_s const **h2) {
+  utri_s const *u1 = *h1;
+  utri_s const *u2 = *h2;
+  if (u1 == NULL && u2 == NULL) {
+    return 0;
+  } else if (u2 == NULL) {
+    return -1;
+  } else if (u1 == NULL) {
+    return 1;
+  } else {
+    dbl T1 = u1->f, T2 = u2->f;
+    if (T1 < T2) {
+      return -1;
+    } else if (T1 > T2) {
+      return 1;
+    } else {
+      return 0;
+    }
+  }
+}
+
+bool utri_has_interior_point_solution(utri_s const *utri) {
+  dbl const atol = 1e-14;
+  return (atol < utri->lam && utri->lam < 1 - atol)
+    || fabs(utri_get_lag_mult(utri)) <= atol;
+}
+
+void utri_get_update_inds(utri_s const *utri, size_t l[2]) {
+  l[0] = utri->l0;
+  l[1] = utri->l1;
+}
+
+bool utris_yield_same_update(utri_s const *utri1, utri_s const *utri2) {
+  dbl const atol = 1e-14;
+
+  jet3 jet1, jet2;
+  utri_get_jet(utri1, &jet1);
+  utri_get_jet(utri2, &jet2);
+
+  return fabs(utri1->lam - utri2->lam) <= atol
+    && jet3_approx_eq(&jet1, &jet2, atol);
 }

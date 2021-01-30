@@ -26,6 +26,12 @@ dbl utri_get_lag_mult(utri_s const *utri);
 void utri_get_point_on_ray(utri_s const *utri, dbl t, dbl xt[3]);
 bool utri_update_ray_is_physical(utri_s const *utri, eik3_s const *eik,
                                  size_t const l[2]);
+void utri_reset(utri_s *utri);
+int utri_cmp(utri_s const **h1, utri_s const **h2);
+bool utri_has_interior_point_solution(utri_s const *utri);
+void utri_get_update_inds(utri_s const *utri, size_t l[2]);
+
+bool utris_yield_same_update(utri_s const *utri1, utri_s const *utri2);
 
 #ifdef __cplusplus
 }
