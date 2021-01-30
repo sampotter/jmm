@@ -121,3 +121,7 @@ bool alist_get_pair(alist_s const *lst, size_t i, void *key, void *elt) {
   memcpy(elt, lst->data + i*lst->nodesize + lst->keysize, lst->eltsize);
   return true;
 }
+
+void alist_clear(alist_s *lst) {
+  lst->size = 0;
+}
