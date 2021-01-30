@@ -60,10 +60,12 @@ Ensure (edgemap, basic_test) {
   assert_that(edge.l[1], is_equal_to(2));
   assert_that(value, is_equal_to(2));
 
-  assert_that(edgemap_iter_next(iter, &edge, &value), is_false);
+  assert_that(edgemap_iter_next(iter, &edge, &value));
   assert_that(edge.l[0], is_equal_to(1));
   assert_that(edge.l[1], is_equal_to(2));
   assert_that(value, is_equal_to(3));
+
+  assert_that(edgemap_iter_next(iter, &edge, &value), is_false);
 
   edgemap_iter_dealloc(&iter);
 
@@ -136,9 +138,21 @@ Ensure (edgemap, iter_test) {
   assert_that(edge.l[1], is_equal_to(94));
   assert_that(value, is_equal_to(0));
 
+  // added edge to shadow cutset: l0 = 11 (VALID), l1 = 94 (SHADOW), t = 0
+  assert_that(edgemap_iter_next(iter, &edge, &value));
+  assert_that(edge.l[0], is_equal_to(11));
+  assert_that(edge.l[1], is_equal_to(94));
+  assert_that(value, is_equal_to(0));
+
   // added edge to shadow cutset: l0 = 30 (VALID), l1 = 93 (SHADOW), t = 0
   assert_that(edgemap_iter_next(iter, &edge, &value));
   assert_that(edge.l[0], is_equal_to(30));
+  assert_that(edge.l[1], is_equal_to(93));
+  assert_that(value, is_equal_to(0));
+
+  // added edge to shadow cutset: l0 = 5 (VALID), l1 = 93 (SHADOW), t = 0
+  assert_that(edgemap_iter_next(iter, &edge, &value));
+  assert_that(edge.l[0], is_equal_to(5));
   assert_that(edge.l[1], is_equal_to(93));
   assert_that(value, is_equal_to(0));
 
@@ -148,40 +162,10 @@ Ensure (edgemap, iter_test) {
   assert_that(edge.l[1], is_equal_to(60));
   assert_that(value, is_equal_to(0));
 
-  // added edge to shadow cutset: l0 = 30 (VALID), l1 = 33 (SHADOW), t = 0
-  assert_that(edgemap_iter_next(iter, &edge, &value));
-  assert_that(edge.l[0], is_equal_to(30));
-  assert_that(edge.l[1], is_equal_to(33));
-  assert_that(value, is_equal_to(0));
-
-  // added edge to shadow cutset: l0 = 11 (VALID), l1 = 94 (SHADOW), t = 0
-  assert_that(edgemap_iter_next(iter, &edge, &value));
-  assert_that(edge.l[0], is_equal_to(11));
-  assert_that(edge.l[1], is_equal_to(94));
-  assert_that(value, is_equal_to(0));
-
-  // added edge to shadow cutset: l0 = 11 (VALID), l1 = 33 (SHADOW), t = 0
-  assert_that(edgemap_iter_next(iter, &edge, &value));
-  assert_that(edge.l[0], is_equal_to(11));
-  assert_that(edge.l[1], is_equal_to(33));
-  assert_that(value, is_equal_to(0));
-
-  // added edge to shadow cutset: l0 = 5 (VALID), l1 = 93 (SHADOW), t = 0
-  assert_that(edgemap_iter_next(iter, &edge, &value));
-  assert_that(edge.l[0], is_equal_to(5));
-  assert_that(edge.l[1], is_equal_to(93));
-  assert_that(value, is_equal_to(0));
-
   // added edge to shadow cutset: l0 = 5 (VALID), l1 = 60 (SHADOW), t = 0
   assert_that(edgemap_iter_next(iter, &edge, &value));
   assert_that(edge.l[0], is_equal_to(5));
   assert_that(edge.l[1], is_equal_to(60));
-  assert_that(value, is_equal_to(0));
-
-  // added edge to shadow cutset: l0 = 5 (VALID), l1 = 45 (SHADOW), t = 0
-  assert_that(edgemap_iter_next(iter, &edge, &value));
-  assert_that(edge.l[0], is_equal_to(5));
-  assert_that(edge.l[1], is_equal_to(45));
   assert_that(value, is_equal_to(0));
 
   // added edge to shadow cutset: l0 = 29 (VALID), l1 = 60 (SHADOW), t = 0.118576
@@ -190,11 +174,31 @@ Ensure (edgemap, iter_test) {
   assert_that(edge.l[1], is_equal_to(60));
   assert_that(value, is_equal_to(0.118576));
 
+  // added edge to shadow cutset: l0 = 5 (VALID), l1 = 45 (SHADOW), t = 0
+  assert_that(edgemap_iter_next(iter, &edge, &value));
+  assert_that(edge.l[0], is_equal_to(5));
+  assert_that(edge.l[1], is_equal_to(45));
+  assert_that(value, is_equal_to(0));
+
+  // added edge to shadow cutset: l0 = 30 (VALID), l1 = 33 (SHADOW), t = 0
+  assert_that(edgemap_iter_next(iter, &edge, &value));
+  assert_that(edge.l[0], is_equal_to(30));
+  assert_that(edge.l[1], is_equal_to(33));
+  assert_that(value, is_equal_to(0));
+
+  // added edge to shadow cutset: l0 = 11 (VALID), l1 = 33 (SHADOW), t = 0
+  assert_that(edgemap_iter_next(iter, &edge, &value));
+  assert_that(edge.l[0], is_equal_to(11));
+  assert_that(edge.l[1], is_equal_to(33));
+  assert_that(value, is_equal_to(0));
+
   // added edge to shadow cutset: l0 = 33 (SHADOW), l1 = 77 (VALID), t = 0.218488
-  assert_that(edgemap_iter_next(iter, &edge, &value), is_false);
+  assert_that(edgemap_iter_next(iter, &edge, &value));
   assert_that(edge.l[0], is_equal_to(33));
   assert_that(edge.l[1], is_equal_to(77));
   assert_that(value, is_equal_to(0.218488));
+
+  assert_that(edgemap_iter_next(iter, &edge, &value), is_false);
 
   edgemap_deinit(edgemap);
   edgemap_dealloc(&edgemap);
