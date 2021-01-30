@@ -107,10 +107,11 @@ void edgemap_filter(edgemap_s const *edgemap, edgemap_s *edgemap_out,
   edgemap_iter_init(iter, edgemap);
 
   edge_s edge;
-  void *elt = NULL;
-  while (edgemap_iter_next(iter, &edge, &elt))
-    if (keep(edge, &elt, aux))
-      edgemap_set(edgemap_out, edge, &elt);
+  void *elt = malloc(edgemap->eltsize);
+  while (edgemap_iter_next(iter, &edge, elt))
+    if (keep(edge, elt, aux))
+      edgemap_set(edgemap_out, edge, elt);
+  free(elt);
 
   edgemap_iter_dealloc(&iter);
 }
