@@ -912,11 +912,11 @@ void update_neighbors(eik3_s *eik, size_t l0, bool stage_neighbors) {
   free(nb);
 }
 
-static bool cutedge_is_incident_on_vertex(edge_s const *edge, void const * elt,
+static bool cutedge_is_incident_on_vertex(edge_s edge, void const * elt,
                                           void const *aux) {
   (void)elt;
   size_t l1 = *(size_t *)aux;
-  return edge->l[0] == l1 || edge->l[1] == l1;
+  return edge.l[0] == l1 || edge.l[1] == l1;
 }
 
 /**
