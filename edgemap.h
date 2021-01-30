@@ -27,6 +27,7 @@ bool edgemap_is_empty(edgemap_s const *edgemap);
 bool edgemap_get(edgemap_s const *edgemap, edge_s edge, void *elt);
 void edgemap_set(edgemap_s *edgemap, edge_s edge, void const *elt);
 bool edgemap_contains(edgemap_s const *edgemap, edge_s edge);
+bool edgemap_contains_value(edgemap_s const *edgemap, void const *elt);
 size_t edgemap_size(edgemap_s const *edgemap);
 void edgemap_filter(edgemap_s const *edgemap, edgemap_s *edgemap_out,
                     edgemap_prop_t keep, void const *aux);

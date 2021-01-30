@@ -2,6 +2,7 @@
 
 #include <assert.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "alist.h"
 
@@ -80,6 +81,19 @@ void edgemap_set(edgemap_s *edgemap, edge_s edge, void const *elt) {
 
 bool edgemap_contains(edgemap_s const *edgemap, edge_s edge) {
   return alist_contains(edgemap->lst, &edge);
+}
+
+bool edgemap_contains_value(edgemap_s const *edgemap, void const *elt) {
+  void *other_elt = malloc(edgemap->eltsize);
+  bool found;
+  for (size_t i = 0; i < alist_size(edgemap->lst); ++i) {
+    alist_get_by_index(edgemap->lst, i, other_elt);
+    found = !memcmp(elt, other_elt, edgemap->eltsize);
+    if (found)
+      break;
+  }
+  free(other_elt);
+  return found;
 }
 
 size_t edgemap_size(edgemap_s const *edgemap) {
