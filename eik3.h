@@ -7,8 +7,9 @@ extern "C" {
 #include "jet.h"
 #include "par.h"
 
-typedef struct mesh3 mesh3_s;
+typedef struct edgemap edgemap_s;
 
+typedef struct mesh3 mesh3_s;
 
 /**
  * A structure managing a jet marching method solving the eikonal
@@ -39,6 +40,7 @@ jet3 *eik3_get_jet_ptr(eik3_s const *eik);
 state_e *eik3_get_state_ptr(eik3_s const *eik);
 par3_s eik3_get_par(eik3_s const *eik, size_t l);
 void eik3_get_DT(eik3_s const *eik, size_t l, dbl DT[3]);
+edgemap_s const *eik3_get_cutset(eik3_s const *eik);
 
 #ifdef __cplusplus
 }

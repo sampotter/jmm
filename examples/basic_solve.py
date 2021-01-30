@@ -91,7 +91,7 @@ factoring radius (TODO: not currently being used)''', default=None)
                 num_fac += 1
         print('- number of nodes inside factoring radius: %d' % num_fac)
 
-    # raise Exception()
+    raise Exception()
 
     eik.solve()
 

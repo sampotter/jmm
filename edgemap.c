@@ -24,11 +24,52 @@ struct edgemap {
   alist_s *nodes;
 };
 
+struct edgemap_iter {
+  edgemap_s const *edgemap;
+  size_t i, j;
+  alist_s *node;
+};
+
+void edgemap_iter_alloc(edgemap_iter_s **iter) {
+  *iter = malloc(sizeof(edgemap_iter_s));
+}
+
+void edgemap_iter_dealloc(edgemap_iter_s **iter) {
+  assert(*iter != NULL);
+  free(*iter);
+  *iter = NULL;
+}
+
+void edgemap_iter_init(edgemap_iter_s *iter, edgemap_s const *edgemap) {
+  iter->edgemap = edgemap;
+  iter->i = iter->j = 0;
+  alist_get_by_index(iter->edgemap->nodes, iter->i, &iter->node);
+}
+
+bool edgemap_iter_next(edgemap_iter_s *iter, edge_s *edge, void *elt) {
+  if (iter->i == alist_size(iter->edgemap->nodes))
+    return false;
+
+  if (iter->j == alist_size(iter->node)) {
+    iter->j = 0;
+    return alist_get_by_index(iter->edgemap->nodes, ++iter->i, iter->node)
+      && edgemap_iter_next(iter, edge, elt);
+  }
+
+  alist_get_key(iter->edgemap->nodes, iter->i, &edge->l[0]);
+  alist_get_pair(iter->node, iter->j++, &edge->l[1], elt);
+
+  return iter->j < alist_size(iter->node)
+    || (iter->j == alist_size(iter->node) &&
+        iter->i < alist_size(iter->edgemap->nodes));
+}
+
 void edgemap_alloc(edgemap_s **edgemap) {
   *edgemap = malloc(sizeof(edgemap_s));
 }
 
 void edgemap_dealloc(edgemap_s **edgemap) {
+  assert(*edgemap != NULL);
   free(*edgemap);
   *edgemap = NULL;
 }
@@ -55,12 +96,19 @@ void edgemap_deinit(edgemap_s *edgemap) {
   alist_dealloc(&edgemap->nodes);
 }
 
-void edgemap_get(edgemap_s const *edgemap, edge_s edge, void *elt) {
+bool edgemap_is_empty(edgemap_s const *edgemap) {
+  return alist_is_empty(edgemap->nodes);
+}
+
+bool edgemap_get(edgemap_s const *edgemap, edge_s edge, void *elt) {
   alist_s *node;
-  if (!alist_contains(edgemap->nodes, &edge.l[0])) return;
+  if (!alist_contains(edgemap->nodes, &edge.l[0]))
+    return false;
   alist_get_by_key(edgemap->nodes, &edge.l[0], &node);
-  if (!alist_contains(edgemap->nodes, &edge.l[1])) return;
+  if (!alist_contains(node, &edge.l[1]))
+    return false;
   alist_get_by_key(node, &edge.l[1], elt);
+  return true;
 }
 
 void insert_node(edgemap_s *edgemap, size_t l0) {
@@ -85,4 +133,29 @@ bool edgemap_contains(edgemap_s const *edgemap, edge_s edge) {
     return false;
   alist_get_by_key(edgemap->nodes, &edge.l[0], &node);
   return alist_contains(node, &edge.l[1]);
+}
+
+size_t edgemap_size(edgemap_s const *edgemap) {
+  size_t size = 0;
+  alist_s *node;
+  for (size_t i = 0; i < alist_size(edgemap->nodes); ++i) {
+    alist_get_by_index(edgemap->nodes, i, &node);
+    size += alist_size(node);
+  }
+  return size;
+}
+
+void edgemap_filter(edgemap_s const *edgemap, edgemap_s *edgemap_out,
+                    edgemap_prop_t keep, void const *aux) {
+  edgemap_iter_s *iter;
+  edgemap_iter_alloc(&iter);
+  edgemap_iter_init(iter, edgemap);
+
+  edge_s edge;
+  void *elt = NULL;
+  while (edgemap_iter_next(iter, &edge, elt))
+    if (keep(edge, elt, aux))
+      edgemap_set(edgemap_out, edge, elt);
+
+  edgemap_iter_dealloc(&iter);
 }

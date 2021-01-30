@@ -12,20 +12,14 @@ set (CMAKE_XCODE_GENERATE_SCHEME TRUE)
 set (INSTALL_INCLUDE_DIR include)
 set (INSTALL_LIB_DIR lib)
 
-set (CMAKE_MODULE_PATH
-  "${CMAKE_SOURCE_DIR}/cmake/sanitizers-cmake/cmake"
-  ${CMAKE_MODULE_PATH}
-  )
-
-find_package (Sanitizers)
-
 find_package (OpenMP)
 if (NOT OpenMP_C_FOUND)
   message (WARNING "Failed to find OpenMP!")
 endif ()
 
-set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIC -Wall -Wextra -Werror -mavx")
-set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC -Wall -Wextra -Werror -mavx")
+set (EXTRA_FLAGS "${EXTRA_FLAGS} -fPIC -Wall -Wextra -Werror -mavx")
+set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${EXTRA_FLAGS}")
+set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${EXTRA_FLAGS}")
 
 set (JMM_PUBLIC_HEADERS
   def.h
@@ -77,7 +71,6 @@ endif ()
 if (OpenMP_C_FOUND)
   target_link_libraries (jmm PRIVATE OpenMP::OpenMP_C)
 endif ()
-add_sanitizers (jmm)
 target_include_directories (
   jmm INTERFACE
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
@@ -92,7 +85,6 @@ target_include_directories (
 add_executable (basic_solve examples/basic_solve.c)
 target_link_libraries (basic_solve jmm)
 target_include_directories (basic_solve PRIVATE jmm)
-add_sanitizers (basic_solve)
 set_property (
   TARGET basic_solve
   PROPERTY XCODE_SCHEME_ARGUMENTS
@@ -105,7 +97,6 @@ set_property (
 add_executable (transfer_solution examples/transfer_solution.c)
 target_link_libraries (transfer_solution jmm)
 target_include_directories (transfer_solution PRIVATE jmm)
-add_sanitizers (transfer_solution)
 
 #
 # Unit tests
@@ -136,7 +127,6 @@ if (BUILD_TESTS)
   target_include_directories (jmm_tests PRIVATE ${CGREEN_INCLUDE_DIRS})
   target_link_libraries (jmm_tests PRIVATE jmm)
   target_link_libraries (jmm_tests PRIVATE GSL::gsl)
-  add_sanitizers (jmm_tests)
 
   enable_testing ()
   add_test (NAME jmm COMMAND cgreen-runner $<TARGET_FILE_NAME:jmm_tests>)

@@ -72,6 +72,22 @@ cdef extern from "dial.h":
     dbl *dial3_get_xsrc_ptr(const dial3 *dial)
     state *dial3_get_state_ptr(const dial3 *dial)
 
+cdef extern from "edgemap.h":
+    cdef struct edge:
+        size_t l[2]
+    cdef struct edgemap_iter:
+        pass
+    cdef struct edgemap:
+        pass
+    edge mak_edge(size_t l0, size_t l1)
+    void edgemap_iter_alloc(edgemap_iter **iter)
+    void edgemap_iter_dealloc(edgemap_iter **iter)
+    void edgemap_iter_init(edgemap_iter *iter, const edgemap *edgemap)
+    bool edgemap_iter_has_next(const edgemap_iter *iter)
+    void edgemap_iter_get(const edgemap_iter *iter, edge *edge, void *elt)
+    void edgemap_iter_next(edgemap_iter *iter)
+    size_t edgemap_size(const edgemap *edgemap)
+
 cdef extern from "geom.h":
     ctypedef struct rect3:
         dbl min[3]
@@ -129,9 +145,12 @@ cdef extern from "eik3.h":
     bool eik3_is_far(const eik3 *eik, size_t ind)
     bool eik3_is_trial(const eik3 *eik, size_t ind)
     bool eik3_is_valid(const eik3 *eik, size_t ind)
+    bool eik3_is_shadow(const eik3 *eik, size_t l)
     jet3 *eik3_get_jet_ptr(const eik3 *eik)
     state *eik3_get_state_ptr(const eik3 *eik)
     par3 eik3_get_par(const eik3 *eik, size_t l)
+    const edgemap *eik3_get_cutset(const eik3 *eik)
+
 
 cdef extern from "utetra.h":
     cdef struct utetra:
@@ -694,3 +713,27 @@ cdef class Eik3:
     def get_parent(self, ind):
         cdef par3 p = eik3_get_par(self.eik, ind)
         return Parent3(p)
+
+    @property
+    def shadow_cutset(self):
+        cutset = dict()
+
+        cdef size_t cutset_size = edgemap_size(eik3_get_cutset(self.eik))
+        if cutset == 0:
+            return cutset
+
+        cdef edgemap_iter *iter
+        edgemap_iter_alloc(&iter)
+        edgemap_iter_init(iter, eik3_get_cutset(self.eik))
+
+        cdef edge e
+        cdef dbl t
+        cdef size_t i
+        for i in range(cutset_size):
+            edgemap_iter_get(iter, &e, &t)
+            cutset[e.l[0], e.l[1]] = t
+            edgemap_iter_next(iter)
+
+        edgemap_iter_dealloc(&iter)
+
+        return cutset
