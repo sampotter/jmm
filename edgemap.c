@@ -94,9 +94,9 @@ void edgemap_filter(edgemap_s const *edgemap, edgemap_s *edgemap_out,
 
   edge_s edge;
   void *elt = NULL;
-  while (edgemap_iter_next(iter, &edge, elt))
-    if (keep(edge, elt, aux))
-      edgemap_set(edgemap_out, edge, elt);
+  while (edgemap_iter_next(iter, &edge, &elt))
+    if (keep(edge, &elt, aux))
+      edgemap_set(edgemap_out, edge, &elt);
 
   edgemap_iter_dealloc(&iter);
 }
