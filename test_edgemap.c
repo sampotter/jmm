@@ -203,3 +203,82 @@ Ensure (edgemap, iter_test) {
   edgemap_deinit(edgemap);
   edgemap_dealloc(&edgemap);
 }
+
+bool edge_sum_is_even(edge_s edge, char const *c, void const *aux) {
+  (void)c;
+  (void)aux;
+  return (edge.l[0] + edge.l[1]) % 2 == 0;
+}
+
+bool char_matches(edge_s edge, char const *c, void const *aux) {
+  (void)edge;
+  (void)aux;
+  return *c == 'a' || *c == 'd' || *c == 'g' || *c == 'i';
+}
+
+bool id_filter_and_count(edge_s edge, char const *c, void const *aux) {
+  (void)edge;
+  (void)c;
+  ++*(int *)aux;
+  return true;
+}
+
+Ensure (edgemap, filter_works) {
+  edgemap_s *edgemap;
+  edgemap_alloc(&edgemap);
+  edgemap_init(edgemap, sizeof(char));
+
+  char value = 'a';
+  size_t l[2];
+  for (l[0] = 0; l[0] < 3; ++l[0]) {
+    for (l[1] = 0; l[1] < 3; ++l[1]) {
+      edgemap_set(edgemap, make_edge(l[0], l[1]), &value);
+      ++value;
+    }
+  }
+
+  assert_that(edgemap_size(edgemap), is_equal_to(6));
+
+  edgemap_s *filtered;
+  edgemap_alloc(&filtered);
+  edgemap_init(filtered, sizeof(char));
+
+  edgemap_filter(edgemap, filtered, (edgemap_prop_t)edge_sum_is_even, NULL);
+
+  assert_that(edgemap_contains(edgemap, make_edge(0, 0)));
+  assert_that(edgemap_contains(edgemap, make_edge(0, 2)));
+  assert_that(edgemap_contains(edgemap, make_edge(1, 1)));
+  assert_that(edgemap_contains(edgemap, make_edge(2, 2)));
+
+  edgemap_clear(filtered);
+  assert_that(edgemap_is_empty(filtered));
+
+  edgemap_filter(edgemap, filtered, (edgemap_prop_t)char_matches, NULL);
+  assert_that(edgemap_size(filtered), is_equal_to(4));
+
+  value = 'a';
+  assert_that(edgemap_contains_value(filtered, &value));
+
+  value = 'd';
+  assert_that(edgemap_contains_value(filtered, &value));
+
+  value = 'g';
+  assert_that(edgemap_contains_value(filtered, &value));
+
+  value = 'i';
+  assert_that(edgemap_contains_value(filtered, &value));
+
+  edgemap_clear(filtered);
+  assert_that(edgemap_is_empty(filtered));
+
+  int count = 0;
+  edgemap_filter(edgemap, filtered, (edgemap_prop_t)id_filter_and_count, &count);
+  assert_that(count, is_equal_to(edgemap_size(edgemap)));
+  assert_that(edgemap_size(filtered), is_equal_to(edgemap_size(edgemap)));
+
+  edgemap_deinit(filtered);
+  edgemap_dealloc(&filtered);
+
+  edgemap_deinit(edgemap);
+  edgemap_dealloc(&edgemap);
+}
