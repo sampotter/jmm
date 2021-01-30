@@ -4,8 +4,10 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "array.h"
 #include "bb.h"
 #include "eik3.h"
+#include "macros.h"
 #include "mat.h"
 #include "mesh3.h"
 #include "opt.h"
@@ -28,12 +30,14 @@ struct utetra {
   dbl Xt[3][3]; // X'
   dbl XtX[3][3]; // X'*X
 
-  dbl T[3];
+  dbl L, T[3];
 
   // B-coefs for 9-point triangle interpolation T on base of update
   dbl Tc[10];
 
   dbl x_minus_xb[3];
+
+  size_t lhat, l[3];
 
   int niter;
 };
@@ -45,6 +49,11 @@ void utetra_alloc(utetra_s **utetra) {
 void utetra_dealloc(utetra_s **utetra) {
   free(*utetra);
   *utetra = NULL;
+}
+
+void utetra_reset(utetra_s *cf) {
+  cf->niter = 0;
+  cf->f = INFINITY;
 }
 
 void utetra_init_from_eik3(utetra_s *cf, eik3_s const *eik,
@@ -71,6 +80,12 @@ void utetra_init_from_ptrs(utetra_s *cf, mesh3_s const *mesh, jet3 const *jet,
   assert(jet3_is_finite(&jet_[2]));
 
   utetra_init(cf, x, Xt, jet_);
+
+  cf->lhat = l;
+
+  cf->l[0] = l0;
+  cf->l[1] = l1;
+  cf->l[2] = l2;
 }
 
 void utetra_init(utetra_s *cf, dbl const x[3], dbl const Xt[3][3],
@@ -111,10 +126,6 @@ bool utetra_is_degenerate(utetra_s const *cf) {
 
 bool utetra_is_causal(utetra_s const *cf) {
   return cf->angles[0] >= 0 && cf->angles[1] >= 0 && cf->angles[2] >= 0;
-}
-
-void utetra_reset(utetra_s *cf) {
-  cf->niter = 0;
 }
 
 /**
@@ -159,7 +170,7 @@ void utetra_set_lambda(utetra_s *cf, dbl const lam[2]) {
 
   static dbl const atol = 1e-15;
 
-  dbl b[3], xb[3], tmp1[3], tmp2[3][3], L, DL[2], D2L[2][2], DT[2], D2T[2][2];
+  dbl b[3], xb[3], tmp1[3], tmp2[3][3], DL[2], D2L[2][2], DT[2], D2T[2][2];
   dbl tmp3[2];
 
   cf->lam[0] = lam[0];
@@ -175,11 +186,11 @@ void utetra_set_lambda(utetra_s *cf, dbl const lam[2]) {
 
   dbl33_dbl3_mul(cf->X, b, xb);
   dbl3_sub(cf->x, xb, cf->x_minus_xb);
-  L = dbl3_norm(cf->x_minus_xb);
-  assert(L > 0);
+  cf->L = dbl3_norm(cf->x_minus_xb);
+  assert(cf->L > 0);
 
   dbl33_dbl3_mul(cf->Xt, cf->x_minus_xb, tmp1);
-  dbl3_dbl_div(tmp1, -L, tmp1);
+  dbl3_dbl_div(tmp1, -cf->L, tmp1);
 
   DL[0] = dbl3_dot(a1, tmp1);
   DL[1] = dbl3_dot(a2, tmp1);
@@ -187,7 +198,7 @@ void utetra_set_lambda(utetra_s *cf, dbl const lam[2]) {
 
   dbl3_outer(tmp1, tmp1, tmp2);
   dbl33_sub(cf->XtX, tmp2, tmp2);
-  dbl33_dbl_div(tmp2, L, tmp2);
+  dbl33_dbl_div(tmp2, cf->L, tmp2);
 
   dbl33_dbl3_mul(tmp2, a1, tmp1);
   D2L[0][0] = dbl3_dot(tmp1, a1);
@@ -203,7 +214,7 @@ void utetra_set_lambda(utetra_s *cf, dbl const lam[2]) {
   D2T[1][0] = D2T[0][1] = d2bb3tri(cf->Tc, b, a1, a2);
   D2T[1][1] = d2bb3tri(cf->Tc, b, a2, a2);
 
-  cf->f = L + bb3tri(cf->Tc, b);
+  cf->f = cf->L + bb3tri(cf->Tc, b);
   assert(isfinite(cf->f));
 
   dbl2_add(DL, DT, cf->g);
@@ -262,10 +273,9 @@ void utetra_get_gradient(utetra_s const *cf, dbl g[2]) {
 
 void utetra_get_jet(utetra_s const *cf, jet3 *jet) {
   jet->f = cf->f;
-  dbl L = dbl3_norm(cf->x_minus_xb);
-  jet->fx = cf->x_minus_xb[0]/L;
-  jet->fy = cf->x_minus_xb[1]/L;
-  jet->fz = cf->x_minus_xb[2]/L;
+  jet->fx = cf->x_minus_xb[0]/cf->L;
+  jet->fy = cf->x_minus_xb[1]/cf->L;
+  jet->fz = cf->x_minus_xb[2]/cf->L;
 }
 
 /**
@@ -326,8 +336,7 @@ int utetra_cmp(utetra_s const **h1, utetra_s const **h2) {
   } else if (u1 == NULL) {
     return 1;
   } else {
-    dbl const T1 = utetra_get_value(u1);
-    dbl const T2 = utetra_get_value(u2);
+    dbl T1 = u1->f, T2 = u2->f;
     if (T1 < T2) {
       return -1;
     } else if (T1 > T2) {
@@ -347,4 +356,200 @@ bool utetra_adj_are_optimal(utetra_s const *u1, utetra_s const *u2) {
     && fabs(lam1[1]) <= atol
     && fabs(lam2[1]) <= atol
     && fabs(utetra_get_value(u1) - utetra_get_value(u2)) <= atol;
+}
+
+void utetra_get_point_on_ray(utetra_s const *utetra, dbl t, dbl xt[3]) {
+  // TODO: optimize this by using utetra->x instead of computing xb
+  dbl b[3], xb[3], L;
+  utetra_get_bary_coords(utetra, b);
+  dbl33_dbl3_mul(utetra->X, b, xb);
+  L = dbl3_norm(utetra->x_minus_xb);
+  dbl3_saxpy(t/L, utetra->x_minus_xb, xb, xt);
+}
+
+int utetra_get_interior_coefs(utetra_s const *utetra, bool I[3]) {
+  dbl const atol = 1e-14;
+  I[0] = utetra->lam[0] + utetra->lam[1] < 1 - atol;
+  I[1] = utetra->lam[0] > atol;
+  I[2] = utetra->lam[1] > atol;
+  return I[0] + I[1] + I[2];
+}
+
+bool utetra_update_ray_is_physical(utetra_s const *utetra, eik3_s const *eik) {
+  size_t const *l = utetra->l;
+
+  mesh3_s const *mesh = eik3_get_mesh(eik);
+
+  // TODO: it's pretty hard to say where this is what we want to do or
+  // not... let's see how it goes!
+  if (mesh3_bdf(mesh, l))
+    return false;
+
+  // TODO: the following section where we check to see if the stuff
+  // below gives "an interior ray" can be wrapped up and reused for
+  // both this and the corresponding section in utri.c...
+
+  /**
+   * First, check if the start of the ray is "in free space". To do
+   * this, we just check if we can a cell containing a point just
+   * ahead of and just behind the origin of the ray.
+   */
+
+  // Get points just before and just after the start of the ray. We
+  // perturb forward and backward by one half of the minimum triangle
+  // altitude (taken of the entire mesh). This is to ensure that the
+  // perturbations are small enough to stay inside neighboring
+  // tetrahedra, but also large enough to take into consideration the
+  // characteristic length scale of the mesh.
+  dbl xm[3], xp[3], t = mesh3_get_min_tetra_alt(mesh)/2;
+  utetra_get_point_on_ray(utetra, -t, xm);
+  utetra_get_point_on_ray(utetra, t, xp);
+
+  // Find the number and location of interior coefficients.
+  bool I[3];
+  utetra_get_interior_coefs(utetra, I);
+
+  bool xm_in_cell = false, xp_in_cell = false;
+
+  // dbl b[4]; // TODO: unused... pass NULL instead...
+
+  // int nc;
+  // size_t *c;
+  // if (k == 1) {
+  //   // Get active ind
+  //   int lact = l[0]*I[0] + l[1]*I[1] + l[2]*I[2];
+  //   // Find neighboring cells
+  //   nc = mesh3_nvc(mesh, lact);
+  //   c = malloc(nc*sizeof(size_t));
+  //   mesh3_vc(mesh, lact, c);
+  // } else if (k == 2) {
+  //   // Get active inds
+  //   int lact[2];
+  //   for (int i = 0, j = 0; i < 3; ++i)
+  //     if (I[i])
+  //       lact[j++] = l[i];
+  //   // Find neighboring cells
+  //   nc = mesh3_nec(mesh, lact[0], lact[1]);
+  //   c = malloc(nc*sizeof(size_t));
+  //   mesh3_ec(mesh, lact[0], lact[1], c);
+  // } else if (k == 3) {
+  //   // Find neighboring cells
+  //   nc = mesh3_nfc(mesh, l);
+  //   c = malloc(nc*sizeof(size_t));
+  //   mesh3_fc(mesh, l, c);
+  // } else {
+  //   assert(false);
+  // }
+
+  // for (int i = 0; i < nc; ++i) {
+  //   xm_in_cell |= mesh3_dbl3_in_cell(mesh, c[i], xm, b);
+  //   xp_in_cell |= mesh3_dbl3_in_cell(mesh, c[i], xp, b);
+  //   if (xm_in_cell && xp_in_cell)
+  //     break;
+  // }
+
+  // free(c);
+
+  array_s *cells;
+  array_alloc(&cells);
+  array_init(cells, sizeof(size_t), ARRAY_DEFAULT_CAPACITY);
+
+  int nvc;
+  size_t *vc;
+
+  for (int i = 0; i < 3; ++i) {
+    if (!I[i]) continue;
+
+    nvc = mesh3_nvc(mesh, l[i]);
+    vc = malloc(nvc*sizeof(size_t));
+    mesh3_vc(mesh, l[i], vc);
+
+    for (int j = 0; j < nvc; ++j)
+      if (!array_contains(cells, &vc[j]))
+        array_append(cells, &vc[j]);
+
+    free(vc);
+  }
+
+  dbl b[4];
+  size_t lc;
+  for (size_t i = 0; i < array_size(cells); ++i) {
+    array_get(cells, i, &lc);
+    xm_in_cell |= mesh3_dbl3_in_cell(mesh, lc, xm, b);
+    xp_in_cell |= mesh3_dbl3_in_cell(mesh, lc, xp, b);
+    if (xm_in_cell && xp_in_cell)
+      break;
+  }
+
+  // If we didn't find a containing cell, we can conclude that the ray
+  // is unphysical!
+  if (!xm_in_cell || !xp_in_cell)
+    return false;
+
+  /**
+   * Next, check and see if the point just before the end of the ray
+   * lies in a cell.
+   */
+
+  size_t lhat = utetra->lhat;
+
+  dbl xhatm[3];
+  dbl3_saxpy(-t/utetra->L, utetra->x_minus_xb, utetra->x, xhatm);
+
+  nvc = mesh3_nvc(mesh, lhat);
+  vc = malloc(nvc*sizeof(size_t));
+  mesh3_vc(mesh, lhat, vc);
+
+  bool xhatm_in_cell = false;
+  for (int i = 0; i < nvc; ++i) {
+    xhatm_in_cell = mesh3_dbl3_in_cell(mesh, vc[i], xhatm, b);
+    if (xhatm_in_cell)
+      break;
+  }
+
+  free(vc);
+
+  return xhatm_in_cell;
+}
+
+int utetra_get_num_interior_coefs(utetra_s const *utetra) {
+  dbl const atol = 1e-14;
+  return (utetra->lam[0] > atol) + (utetra->lam[1] > atol)
+    + (utetra->lam[0] + utetra->lam[1] < 1 - atol);
+}
+
+void utetra_get_update_inds(utetra_s const *utetra, size_t l[3]) {
+  memcpy(l, utetra->l, sizeof(size_t[3]));
+}
+
+bool utetras_yield_same_update(utetra_s const **utetra, int n) {
+  dbl const atol = 1e-14;
+
+  dbl b[2][3];
+  jet3 jet[2];
+
+  // Prefetch the first coords and jet
+  utetra_get_bary_coords(utetra[0], b[0]);
+  utetra_get_jet(utetra[0], &jet[0]);
+
+  for (int i = 1; i < n; ++i) {
+    // Get the next coords and jet
+    utetra_get_bary_coords(utetra[i], b[1]);
+    utetra_get_jet(utetra[i], &jet[1]);
+
+    // Check if the coords and jet agree up to `atol` and return early
+    // if they don't
+    if (fabs(b[0][0] - b[1][0]) > atol ||
+        fabs(b[0][1] - b[1][1]) > atol ||
+        fabs(b[0][2] - b[1][2]) > atol ||
+        !jet3_approx_eq(&jet[0], &jet[1], atol))
+      return false;
+
+    // Swap the coords and jet that we just fetched to make way for
+    // the next ones
+    for (int j = 0; j < 3; ++j) SWAP(b[0][j], b[1][j]);
+    SWAP(jet[0], jet[1]);
+  }
+
+  return true;
 }
