@@ -270,3 +270,137 @@ for L in Ls:
     L = np.concatenate([L, [l3]]).astype(int)
     print('L = [%d, %d, %d, %d]' % tuple(L))
     do_4point_update(L)
+
+
+mesh = pv.read('boxfac2/0.00333/box.1.vtk')
+V = mesh.points
+C = mesh.cells.reshape(mesh.cells.size//5, 5)[:, 1:]
+dV = np.concatenate([
+    V[C][:, 1, :] - V[C][:, 0, :],
+    V[C][:, 2, :] - V[C][:, 0, :],
+    V[C][:, 3, :] - V[C][:, 0, :]
+], axis=0)
+H = np.sqrt(np.sum(dV**2, axis=1))
+h = H.mean()
+print('avg. edge length: h = %f' % h)
+
+hs = np.array([0.270614, 0.179521, 0.124047, 0.082954, 0.057469, 0.038464, 0.026660])
+l2 = np.array([0.000773176, 0.000433334, 0.000339295, 0.000223934, 0.000129865, 5.09184e-05, 2.28107e-05])
+
+dlogh = np.log10(hs[1:]) - np.log10(hs[:-1])
+dloge = np.log10(l2[1:]) - np.log10(l2[:-1])
+
+print(dloge/dlogh)
+
+plt.figure(figsize=(3, 3))
+plt.loglog(hs, l2, marker='*')
+plt.ylabel(r'Error (Relative $\ell_2$)')
+plt.xlabel(r'$h$ (Average edge length)')
+plt.tight_layout()
+plt.show()
+
+
+
+# l, l0, l1, l2 = 33, 30, 11, 77
+l, l0, l1, l2 = 79, 40, 34, 82
+r = 0.05
+plotter = pvqt.BackgroundPlotter()
+plotter.add_mesh(surf_mesh, 'r', 'wireframe')
+plotter.add_mesh(pv.Sphere(0.75*r, points[indsrc]), color='white')
+if l: plotter.add_mesh(pv.Sphere(r, points[l]), color='red')
+if l0: plotter.add_mesh(pv.Sphere(r, points[l0]), color='blue')
+if l1: plotter.add_mesh(pv.Sphere(r, points[l1]), color='green')
+if l2: plotter.add_mesh(pv.Sphere(r, points[l2]), color='yellow')
+
+l = 81
+r = 0.05
+plotter = pvqt.BackgroundPlotter()
+plotter.add_mesh(surf_mesh, 'r', 'wireframe')
+plotter.add_mesh(pv.Sphere(r, points[indsrc]), color='white')
+plotter.add_mesh(pv.Sphere(r, points[l]), color='blue')
+centers, labels = [points[l]], [str(l)]
+for l0 in mesh.vv(l):
+    plotter.add_mesh(pv.Sphere(0.75*r, points[l0]), color='cyan')
+    centers.append(points[l0])
+    labels.append(str(l0))
+poly_data = pv.PolyData(centers + r*np.ones_like(centers))
+poly_data['labels'] = np.array(labels, dtype=str)
+plotter.add_point_labels(poly_data, 'labels', point_size=0, font_size=12)
+
+r = 0.05
+plotter = pvqt.BackgroundPlotter()
+plotter.add_mesh(surf_mesh, 'r', 'wireframe')
+plotter.add_mesh(pv.Sphere(r, points[indsrc]), color='red', opacity=0.5)
+for l in range(points.shape[0]):
+    color = 'blue' if not eik.is_diff(l) else 'yellow'
+    plotter.add_mesh(pv.Sphere(r/2, points[l]), color=color)
+plotter.add_mesh(pv.Sphere(r, points[81]), color='white', opacity=0.35)
+plotter.add_mesh(pv.Sphere(r, points[33]), color='pink', opacity=0.35)
+
+plotter = pvqt.BackgroundPlotter()
+
+l0 = 85
+while eik.peek() != l0:
+    eik.step()
+
+r = 0.05
+plotter.clear()
+plotter.background_color = (0.3, 0.3, 0.3)
+plotter.add_mesh(surf_mesh, 'r', 'wireframe')
+plotter.add_mesh(pv.Sphere(r, points[indsrc]), color='red', opacity=0.5)
+state_to_color = {
+    0: 'red', 1: 'yellow', 2: 'green', 3: None, 4: None, 5: None, 6: 'purple'}
+for l in range(points.shape[0]):
+    if eik.state[l] == 0:
+        continue
+    color = state_to_color[eik.state[l]]
+    plotter.add_mesh(pv.Sphere(r/2, points[l]), color=color)
+plotter.add_mesh(pv.Sphere(r, points[l0]), color='white', opacity=0.5)
+
+
+L = np.array([l for l, (_, y, _) in enumerate(points)
+              if y < 1 and not eik.is_shadow(l)])
+print(L[np.argsort([_[0] for _ in eik.jet[L]])])
+
+while True:
+    l = eik.step()
+    if points[l, 1] < 1 and eik.state[l] == jmm.State.Valid.value:
+        print('bad valid point')
+        break
+    if points[l, 1] >= 1 and eik.state[l] == jmm.State.Shadow.value:
+        print('bad shadow point')
+        break
+print(l)
+
+diff_edges = []
+for l0 in range(100):
+    for l1 in range(l0):
+        if mesh.is_diff_edge(l0, l1):
+            diff_edges.append((l0, l1))
+r = 0.05
+plotter = pvqt.BackgroundPlotter()
+plotter.add_mesh(surf_mesh, 'r', 'wireframe')
+plotter.add_mesh(pv.Sphere(r, points[indsrc]), color='red', opacity=0.75)
+for l0, l1 in diff_edges:
+    plotter.add_mesh(pv.Sphere(r/2, points[l0]), color='white', opacity=0.5)
+    plotter.add_mesh(pv.Sphere(r/2, points[l1]), color='white', opacity=0.5)
+    plotter.add_mesh(
+        pv.Cylinder((points[l0] + points[l1])/2, points[l1] - points[l0], r/4,
+                    np.linalg.norm(points[l1] - points[l0])),
+        color='white', opacity=0.5)
+
+
+def min_tet_alt(i):
+    P = points[cells[i]]
+    J = np.arange(4)
+    h = np.inf
+    for j in J:
+        I = np.setdiff1d(J, j)
+        pj, PI = P[j], P[I]
+        n = np.cross(PI[1] - PI[0], PI[2] - PI[0])
+        n /= np.linalg.norm(n)
+        hj = abs(n@(pj - PI[0]))
+        h = min(h, hj)
+    return h
+
+min_tet_alts = np.array([min_tet_alt(i) for i in range(cells.shape[0])])
