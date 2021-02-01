@@ -39,6 +39,8 @@ void dbl3_negate(dbl u[3]);
 bool dbl4_nonneg(dbl const u[4]);
 dbl dbl4_sum(dbl const u[4]);
 
+dbl dblN_mean(dbl const *x, size_t n);
+
 typedef struct {
   dbl x;
   dbl y;

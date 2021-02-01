@@ -130,6 +130,13 @@ dbl dbl4_sum(dbl const u[4]) {
   return u[0] + u[1] + u[2] + u[3];
 }
 
+dbl dblN_mean(dbl const *x, size_t n) {
+  dbl mean = 0;
+  for (size_t i = 0; i < n; ++i)
+    mean += x[i];
+  return mean/n;
+}
+
 void int3_add(int const p[3], int const q[3], int r[3]) {
   r[0] = p[0] + q[0];
   r[1] = p[1] + q[1];
