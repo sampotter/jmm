@@ -1138,6 +1138,7 @@ static void update_shadow_cutset(eik3_s *eik, size_t l0) {
 
     cutedge_s cutedge;
     cutedge.t = get_cut_edge_coef_and_surf_normal(eik, l0, l1, cutedge.n);
+    assert(0 <= cutedge.t && cutedge.t <= 1);
 
     // Reverse the coefficient here if necessary.
     edge = make_edge(l0, l1);
