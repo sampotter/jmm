@@ -48,3 +48,13 @@ int compar_size_t(size_t const *i, size_t const *j) {
     return 0;
   }
 }
+
+int signum(dbl x) {
+  if (x > 0) {
+    return 1;
+  } else if (x == 0) {
+    return 0;
+  } else {
+    return -1;
+  }
+}
