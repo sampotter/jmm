@@ -14,11 +14,11 @@ typedef struct utetra utetra_s;
 void utetra_alloc(utetra_s **cf);
 void utetra_dealloc(utetra_s **cf);
 void utetra_reset(utetra_s *cf);
-void utetra_init_from_eik3(utetra_s *cf, eik3_s const *eik,
+bool utetra_init_from_eik3(utetra_s *cf, eik3_s const *eik,
                            size_t l, size_t l0, size_t l1, size_t l2);
-void utetra_init_from_ptrs(utetra_s *cf, mesh3_s const *mesh, jet3 const *jet,
+bool utetra_init_from_ptrs(utetra_s *cf, mesh3_s const *mesh, jet3 const *jet,
                            size_t l, size_t l0, size_t l1, size_t l2);
-void utetra_init(utetra_s *cf, dbl const x[3], dbl const Xt[3][3],
+bool utetra_init(utetra_s *cf, dbl const x[3], dbl const Xt[3][3],
                  jet3 const jet[3]);
 bool utetra_is_degenerate(utetra_s const *cf);
 bool utetra_is_causal(utetra_s const *cf);

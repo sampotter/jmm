@@ -11,6 +11,7 @@
 #include "mat.h"
 #include "mesh3.h"
 #include "opt.h"
+#include "util.h"
 
 #define MAX_NITER 100
 
@@ -56,14 +57,14 @@ void utetra_reset(utetra_s *cf) {
   cf->f = INFINITY;
 }
 
-void utetra_init_from_eik3(utetra_s *cf, eik3_s const *eik,
+bool utetra_init_from_eik3(utetra_s *cf, eik3_s const *eik,
                            size_t l, size_t l0, size_t l1, size_t l2) {
   mesh3_s const *mesh = eik3_get_mesh(eik);
   jet3 const *jet = eik3_get_jet_ptr(eik);
-  utetra_init_from_ptrs(cf, mesh, jet, l, l0, l1, l2);
+  return utetra_init_from_ptrs(cf, mesh, jet, l, l0, l1, l2);
 }
 
-void utetra_init_from_ptrs(utetra_s *cf, mesh3_s const *mesh, jet3 const *jet,
+bool utetra_init_from_ptrs(utetra_s *cf, mesh3_s const *mesh, jet3 const *jet,
                            size_t l, size_t l0, size_t l1, size_t l2) {
   dbl x[3];
   mesh3_copy_vert(mesh, l, x);
@@ -79,16 +80,16 @@ void utetra_init_from_ptrs(utetra_s *cf, mesh3_s const *mesh, jet3 const *jet,
   assert(jet3_is_finite(&jet_[1]));
   assert(jet3_is_finite(&jet_[2]));
 
-  utetra_init(cf, x, Xt, jet_);
-
   cf->lhat = l;
 
   cf->l[0] = l0;
   cf->l[1] = l1;
   cf->l[2] = l2;
+
+  return utetra_init(cf, x, Xt, jet_);
 }
 
-void utetra_init(utetra_s *cf, dbl const x[3], dbl const Xt[3][3],
+bool utetra_init(utetra_s *cf, dbl const x[3], dbl const Xt[3][3],
                  jet3 const jet[3]) {
   memcpy(cf->x, x, 3*sizeof(dbl));
   memcpy(cf->Xt, Xt, 3*3*sizeof(dbl));
@@ -115,6 +116,25 @@ void utetra_init(utetra_s *cf, dbl const x[3], dbl const Xt[3][3],
   bb3tri_interp3(cf->T, &DT[0], cf->Xt, cf->Tc);
 
   cf->niter = 0;
+
+  // Compute the surface normal for the plane spanned by (x1 - x0, x2
+  // - x0), using DT[i] to determine its orientation. Return whether x
+  // is on the right side of this plane.
+  dbl n[3];
+  dbl dx[2][3];
+  dbl3_sub(cf->Xt[1], cf->Xt[0], dx[0]);
+  dbl3_sub(cf->Xt[2], cf->Xt[0], dx[1]);
+  dbl3_cross(dx[0], dx[1], n);
+  dbl3_normalize(n);
+  int sgn[3] = {
+    signum(dbl3_dot(DT[0], n)),
+    signum(dbl3_dot(DT[1], n)),
+    signum(dbl3_dot(DT[2], n))
+  };
+  if (sgn[0] == -1)
+    dbl3_negate(n);
+  dbl dot = -dbl3_dot(Xt_minus_x[0], n) > 0;
+  return dot > 0;
 }
 
 bool utetra_is_degenerate(utetra_s const *cf) {

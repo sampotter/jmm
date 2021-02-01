@@ -659,7 +659,8 @@ static void update(eik3_s *eik, size_t l, size_t l0) {
     utetra_reset(utetra[i]);
     if (eik3_is_point_source(eik, l1[i]) || eik3_is_point_source(eik, l2[i]))
       continue;
-    utetra_init_from_eik3(utetra[i], eik, l, l0, l1[i], l2[i]);
+    if (!utetra_init_from_eik3(utetra[i], eik, l, l0, l1[i], l2[i]))
+      continue;
     if (utetra_is_degenerate(utetra[i]))
       continue;
     utetra_set_lambda(utetra[i], (dbl[2]) {0, 0});
