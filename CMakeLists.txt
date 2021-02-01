@@ -30,7 +30,6 @@ set (JMM_PUBLIC_HEADERS
 set (JMM_SRCS
   alist.c
   array.c
-  bary.c
   bb.c
   bicubic.c
   bucket.c
