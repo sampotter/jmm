@@ -379,6 +379,12 @@ dbl const *mesh3_get_vert_ptr(mesh3_s const *mesh, size_t i) {
   return &mesh->verts[i].data[0];
 }
 
+void mesh3_get_vert_ptrs(mesh3_s const *mesh, size_t const *l, int n,
+                         dbl const **x) {
+  for (int i = 0; i < n; ++i)
+    x[i] = &mesh->verts[l[i]].data[0];
+}
+
 void mesh3_copy_vert(mesh3_s const *mesh, size_t i, dbl *v) {
   memcpy(v, &mesh->verts[i].data[0], 3*sizeof(dbl));
 }
