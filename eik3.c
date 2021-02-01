@@ -972,6 +972,55 @@ static void get_diff_edge_surf_normal(eik3_s const *eik, size_t l0, size_t l[2],
     dbl3_negate(n);
 }
 
+static void estimate_t_and_normal_from_cut_edges(eik3_s const *eik,
+                                                 size_t l0, size_t l1,
+                                                 edge_s const *edge,
+                                                 cutedge_s const *cutedge,
+                                                 int num_incident,
+                                                 dbl *that, dbl normal[3]) {
+  mesh3_s const *mesh = eik3_get_mesh(eik);
+
+  dbl *t = malloc(num_incident*sizeof(dbl));
+  dbl (*n)[3] = malloc(num_incident*sizeof(dbl[3]));
+
+  dbl const *x0, *y0;
+  dbl dx[3], dy[3], yt[3];
+  x0 = mesh3_get_vert_ptr(mesh, l0);
+  dbl3_sub(mesh3_get_vert_ptr(mesh, l1), x0, dx);
+
+  for (int i = 0; i < num_incident; ++i) {
+    // Get the location of the intersection between the shadow
+    // boundary and the current cut edge
+    y0 = mesh3_get_vert_ptr(mesh, edge[i].l[0]);
+    dbl3_sub(mesh3_get_vert_ptr(mesh, edge[i].l[1]), y0, dy);
+    dbl3_saxpy(cutedge[i].t, dy, y0, yt);
+
+    memcpy(n[i], cutedge[i].n, sizeof(dbl[3]));
+    t[i] = (dbl3_dot(n[i], yt) - dbl3_dot(n[i], x0))/dbl3_dot(n[i], dx);
+  }
+
+  /**
+   * To estimate t and the normal vector, we just compute the average
+   * over each normal and intersection point...
+   */
+  // TODO: we can probably come up with a smarter way to do this
+
+  *that = dblN_mean(t, num_incident);
+
+  normal[0] = normal[1] = normal[2] = 0;
+  for (int i = 0; i < num_incident; ++i) {
+    normal[0] += n[i][0];
+    normal[1] += n[i][1];
+    normal[2] += n[i][2];
+  }
+  normal[0] /= num_incident;
+  normal[1] /= num_incident;
+  normal[2] /= num_incident;
+
+  free(n);
+  free(t);
+}
+
 /**
  * Compute the coefficient for the new edge in shadow cutset. This is
  * a double t such that 0 <= t <= 1 and where the shadow boundary
@@ -1021,6 +1070,8 @@ static dbl get_cut_edge_coef_and_surf_normal(eik3_s const *eik,
     }
   }
 
+  dbl t;
+
   /**
    * "Inductive step": find all of the cutset edges on l1 (there
    * should be some!). They will be valid and should have a surface
@@ -1031,28 +1082,33 @@ static dbl get_cut_edge_coef_and_surf_normal(eik3_s const *eik,
   edgemap_alloc(&incident_cutedges);
   edgemap_init(incident_cutedges, sizeof(cutedge_s));
 
-  edgemap_filter(eik->cutset, incident_cutedges,
-                 (edgemap_prop_t)cutedge_is_incident_on_vertex, &l1);
+  // Filter out the edges that aren't incident on the SHADOW vertex
+  edgemap_filter(
+    eik->cutset, incident_cutedges,
+    (edgemap_prop_t)cutedge_is_incident_on_vertex, &l_shadow);
 
-  assert(!edgemap_is_empty(incident_cutedges));
+  int num_incident = edgemap_size(incident_cutedges);
+  assert(num_incident > 0);
 
   edgemap_iter_s *iter;
   edgemap_iter_alloc(&iter);
   edgemap_iter_init(iter, incident_cutedges);
 
-  edge_s edge;
-  cutedge_s cutedge;
-  while (edgemap_iter_next(iter, &edge, &cutedge)) {
-    assert(false);
-  }
+  edge_s *edge = malloc(num_incident*sizeof(edge_s));
+  cutedge_s *cutedge = malloc(num_incident*sizeof(cutedge_s));
+  for (int i = 0; i < num_incident; ++i)
+    edgemap_iter_next(iter, &edge[i], &cutedge[i]);
+  estimate_t_and_normal_from_cut_edges(
+    eik, l0, l1, edge, cutedge, num_incident, &t, normal);
 
+  free(edge);
+  free(cutedge);
   edgemap_iter_dealloc(&iter);
 
   edgemap_deinit(incident_cutedges);
   edgemap_dealloc(&incident_cutedges);
 
-  assert(false);
-  return -1;
+  return t;
 
   // par3_s par = eik3_get_par(eik, l0);
   // int npar = par3_size(&par);
