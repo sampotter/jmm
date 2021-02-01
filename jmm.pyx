@@ -72,21 +72,22 @@ cdef extern from "dial.h":
     dbl *dial3_get_xsrc_ptr(const dial3 *dial)
     state *dial3_get_state_ptr(const dial3 *dial)
 
-cdef extern from "edgemap.h":
+
+cdef extern from "edge.h":
     cdef struct edge:
         size_t l[2]
+    edge make_edge(size_t l0, size_t l1)
+
+
+cdef extern from "edgemap.h":
     cdef struct edgemap_iter:
         pass
     cdef struct edgemap:
         pass
-    edge mak_edge(size_t l0, size_t l1)
     void edgemap_iter_alloc(edgemap_iter **iter)
     void edgemap_iter_dealloc(edgemap_iter **iter)
     void edgemap_iter_init(edgemap_iter *iter, const edgemap *edgemap)
-    bool edgemap_iter_has_next(const edgemap_iter *iter)
-    void edgemap_iter_get(const edgemap_iter *iter, edge *edge, void *elt)
-    void edgemap_iter_next(edgemap_iter *iter)
-    size_t edgemap_size(const edgemap *edgemap)
+    bool edgemap_iter_next(edgemap_iter *iter, edge *edge, void *elt)
 
 cdef extern from "geom.h":
     ctypedef struct rect3:
@@ -126,10 +127,16 @@ cdef extern from "mesh3.h":
     bool mesh3_is_diff_edge(const mesh3 *mesh, const size_t l[2])
 
 
-cdef extern from "eik3.h":
+cdef extern from "par.h":
     cdef struct par3:
         size_t l[3]
         dbl b[3]
+
+
+cdef extern from "eik3.h":
+    cdef struct cutedge:
+        dbl t
+        dbl n[3]
     cdef struct eik3:
         pass
     void eik3_alloc(eik3 **eik)
@@ -630,6 +637,25 @@ cdef class Parent3:
         return np.asarray(b)
 
 
+cdef class Cutedge:
+    cdef:
+        dbl t
+        dbl[::1] n
+
+    def __cinit__(self, dbl t, dbl[::1] n):
+        self.t = t
+        self.n = np.empty((3,), dtype=np.float64)
+        self.n[:] = n[:]
+
+    @property
+    def t(self):
+        return self.t
+
+    @property
+    def n(self):
+        return np.asarray(self.n)
+
+
 cdef class Eik3:
     cdef:
         eik3 *eik
@@ -716,24 +742,14 @@ cdef class Eik3:
 
     @property
     def shadow_cutset(self):
+        cdef:
+            edgemap_iter *it
+            edge e
+            cutedge c
+        edgemap_iter_alloc(&it)
+        edgemap_iter_init(it, eik3_get_cutset(self.eik))
         cutset = dict()
-
-        cdef size_t cutset_size = edgemap_size(eik3_get_cutset(self.eik))
-        if cutset == 0:
-            return cutset
-
-        cdef edgemap_iter *iter
-        edgemap_iter_alloc(&iter)
-        edgemap_iter_init(iter, eik3_get_cutset(self.eik))
-
-        cdef edge e
-        cdef dbl t
-        cdef size_t i
-        for i in range(cutset_size):
-            edgemap_iter_get(iter, &e, &t)
-            cutset[e.l[0], e.l[1]] = t
-            edgemap_iter_next(iter)
-
-        edgemap_iter_dealloc(&iter)
-
+        while edgemap_iter_next(it, &e, &c):
+            cutset[e.l[0], e.l[1]] = Cutedge(c.t, <double[:3]>c.n)
+        edgemap_iter_dealloc(&it)
         return cutset

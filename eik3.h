@@ -11,6 +11,21 @@ typedef struct edgemap edgemap_s;
 
 typedef struct mesh3 mesh3_s;
 
+typedef struct cutedge {
+  /**
+   * A cofficient in [0, 1] such that x(t) = (1 - t)*x0 + t*x1 is the
+   * intersection between the shadow boundary and [x0, x1]. Here, x0
+   * and x1 correspond to indices (l0, l1) where l0 < l1 (how edges
+   * are stored internally).
+   */
+  dbl t;
+
+  /**
+   * The surface normal of the shadow boundary at x(t).
+   */
+  dbl n[3];
+} cutedge_s;
+
 /**
  * A structure managing a jet marching method solving the eikonal
  * equation in 3D on an unstructured tetrahedron mesh.
