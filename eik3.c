@@ -927,7 +927,11 @@ void update_neighbors(eik3_s *eik, size_t l0, bool stage_neighbors) {
   for (int i = 0; i < nnb; ++i) {
     if (eik->state[l = nb[i]] == TRIAL) {
       update(eik, l, l0);
-      adjust(eik, l);
+      adjust(eik, l); // TODO: we should avoid calling adjust
+                      // repeatedly here and above. Instead we should
+                      // use a flag to track which nodes actually had
+                      // their values change and then adjust before
+                      // finally returning from this function.
     }
   }
 
