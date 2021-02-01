@@ -42,6 +42,20 @@ dbl tri_area(dbl const x[3], dbl const y[3], dbl const z[3]) {
   return dbl3_norm(cp)/2;
 }
 
+void get_bary_coords_3d(dbl const *x[3], dbl const y[3], dbl b[3]) {
+  dbl dx[2][3];
+  dbl3_sub(x[1], x[0], dx[0]);
+  dbl3_sub(x[2], x[0], dx[1]);
+
+  dbl n[3];
+  dbl3_cross(dx[0], dx[1], n);
+  dbl area = dbl3_normalize(n)/2;
+
+  b[0] = tri_area(y, x[1], x[2])/area;
+  b[1] = tri_area(x[0], y, x[2])/area;
+  b[2] = tri_area(x[0], x[1], y)/area;
+}
+
 bool adj_tetra_pair_is_convex(mesh3_s const *mesh, size_t l0,
                               size_t const lf[3], size_t l1) {
   // Get vertex data from mesh

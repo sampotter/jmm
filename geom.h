@@ -27,6 +27,16 @@ bool ray_and_face_are_coplanar(mesh3_s const *mesh, size_t l0, size_t l1,
 dbl tri_area(dbl const x[3], dbl const y[3], dbl const z[3]);
 
 /**
+ * Assuming that x[0], x[1], and x[2] point to the vertices of a
+ * triangle in 3D, compute the barycentric coordinates of y with
+ * respect to x[0], x[1], and x[2], storing them in b. This assumes
+ * that y is roughly coplanar with x[0], x[1], and x[2], but will
+ * forge ahead and do the computation regardless of the exact
+ * geometry.
+ */
+void get_bary_coords_3d(dbl const *x[3], dbl const y[3], dbl b[3]);
+
+/**
  * Check if a pair of tetrahedra in `mesh` is convex. The tetrahedron
  * are required to share the face indexed by `lf`. The indices `l0`
  * and `l1` index the points on either side of the separating face
