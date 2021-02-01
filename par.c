@@ -3,7 +3,9 @@
 #include <assert.h>
 #include <math.h>
 
+#include "eik3.h"
 #include "macros.h"
+#include "mesh3.h"
 
 par3_s make_par3(size_t l[3], dbl b[3]) {
   par3_s par = {.l = {l[0], l[1], l[2]}, .b = {b[0], b[1], b[2]}};
@@ -44,4 +46,15 @@ int par3_size(par3_s const *par) {
   return (int)(par->l[0] != NO_PARENT)
        + (int)(par->l[1] != NO_PARENT)
        + (int)(par->l[2] != NO_PARENT);
+
+void par3_get_xb(par3_s const *par, eik3_s const *eik, dbl xb[3]) {
+  dbl const *x[3];
+  mesh3_get_vert_ptrs(eik3_get_mesh(eik), par->l, 3, x);
+
+  for (int i = 0; i < 3; ++i) {
+    xb[i] = 0;
+    for (int j = 0; j < 3; ++j) {
+      xb[i] += par->b[j]*x[j][i];
+    }
+  }
 }
