@@ -577,61 +577,6 @@ static void update(eik3_s *eik, size_t l, size_t l0) {
   }
 
   /**
-   * Next, we want to see if l0 is incident on any diffracting edges
-   * and do these updates (we assume that the only two-point updates
-   * that can be done are ones emanating from diffracting edges). Like
-   * below, we need to do all of the updates, sort them, and check for
-   * boundary cases with nonzero Lagrange multipliers.
-   */
-
-  array_s *l1_diff;
-  array_alloc(&l1_diff);
-  array_init(l1_diff, sizeof(size_t), ARRAY_DEFAULT_CAPACITY);
-
-  get_valid_incident_diff_edges(eik, l0, l1_diff);
-
-  int num_utri = array_size(l1_diff);
-  utri_s **utri = malloc(num_utri*sizeof(utri_s *));
-
-  // Do a triangle update for each diffracting edge and sort
-  for (int i = 0; i < num_utri; ++i) {
-    utri_alloc(&utri[i]);
-    utri_reset(utri[i]);
-    size_t l1;
-    array_get(l1_diff, i, &l1);
-    assert(!eik3_is_point_source(eik, l1));
-    utri_init_from_eik3(utri[i], eik, l, l0, l1);
-    utri_solve(utri[i]);
-  }
-  qsort(utri, num_utri, sizeof(utri_s *), (compar_t)utri_cmp);
-
-  // Try to commit a triangle update
-  for (int i = 0; i < num_utri; ++i) {
-    size_t L[2] = {l0, l1[i]};
-    if (!isfinite(utri_get_value(utri[i])))
-      break;
-    if (utri_has_interior_point_solution(utri[i])) {
-      if (utri_update_ray_is_physical(utri[i], eik, L) &&
-          commit_tri_update(eik, l, utri[i]))
-        break;
-    } else if (i + 1 < num_utri &&
-               utris_yield_same_update(utri[i], utri[i + 1]) &&
-               utri_update_ray_is_physical(utri[i], eik, L) &&
-               commit_tri_update(eik, l, utri[i])) {
-      break;
-    }
-  }
-
-  // Free triangle updates
-  for (int i = 0; i < num_utri; ++i)
-    utri_dealloc(&utri[i]);
-  free(utri);
-
-  // Free diff edge indices
-  array_deinit(l1_diff);
-  array_dealloc(&l1_diff);
-
-  /**
    * Now we move on to doing tetrahedron updates
    */
 
@@ -869,6 +814,91 @@ size_t eik3_peek(eik3_s const *eik) {
   return heap_front(eik->heap);
 }
 
+void do_diff_edge_updates_and_adjust(eik3_s *eik, size_t l0, size_t l1,
+                                     size_t *l0_nb, int l0_nnb) {
+  assert(!eik3_is_point_source(eik, l0));
+  assert(!eik3_is_point_source(eik, l1));
+
+  int l1_nnb = mesh3_nvv(eik->mesh, l1);
+  size_t *l1_nb = malloc(l1_nnb*sizeof(size_t));
+  mesh3_vv(eik->mesh, l1, l1_nb);
+
+  array_s *nb;
+  array_alloc(&nb);
+  array_init(nb, sizeof(size_t), ARRAY_DEFAULT_CAPACITY);
+
+  // TODO: should really do this work in the calling function, passing
+  // in a copy of the array each time...
+  for (int i = 0; i < l0_nnb; ++i)
+    if (eik3_is_trial(eik, l0_nb[i]))
+      array_append(nb, &l0_nb[i]);
+
+  for (int i = 0; i < l1_nnb; ++i)
+    if (eik3_is_trial(eik, l1_nb[i]) && !array_contains(nb, &l1_nb[i]))
+      array_append(nb, &l1_nb[i]);
+
+  int nnb = array_size(nb);
+  utri_s **utri = malloc(nnb*sizeof(utri_s *));
+
+  size_t l;
+
+  // Do a triangle update for each neighbor l of the diffracting edge
+  // (l0, l1) and sort the completed updates
+  for (int i = 0; i < nnb; ++i) {
+    utri_alloc(&utri[i]);
+    utri_reset(utri[i]);
+    array_get(nb, i, &l);
+    utri_init_from_eik3(utri[i], eik, l, l0, l1);
+    utri_solve(utri[i]);
+  }
+  qsort(utri, nnb, sizeof(utri_s *), (compar_t)utri_cmp);
+
+  // Try to commit the triangle updates
+  size_t L[2] = {l0, l1};
+  for (int i = 0; i < nnb; ++i) {
+    if (!isfinite(utri_get_value(utri[i])))
+      break;
+    array_get(nb, i, &l);
+    if (utri_has_interior_point_solution(utri[i])) {
+      if (utri_update_ray_is_physical(utri[i], eik, L) &&
+          commit_tri_update(eik, l, utri[i])) {
+        adjust(eik, l);
+        break;
+      }
+    } else if (i + 1 < nnb &&
+               utris_yield_same_update(utri[i], utri[i + 1]) &&
+               utri_update_ray_is_physical(utri[i], eik, L) &&
+               commit_tri_update(eik, l, utri[i])) {
+      adjust(eik, l);
+      break;
+    }
+  }
+
+  // Free triangle updates
+  for (int i = 0; i < nnb; ++i)
+    utri_dealloc(&utri[i]);
+  free(utri);
+
+  array_deinit(nb);
+  array_dealloc(&nb);
+}
+
+void do_all_diff_edge_updates_and_adjust(eik3_s *eik, size_t l0, size_t *l0_nb,
+                                         int l0_nnb) {
+  array_s *l1;
+  array_alloc(&l1);
+  array_init(l1, sizeof(size_t), ARRAY_DEFAULT_CAPACITY);
+
+  get_valid_incident_diff_edges(eik, l0, l1);
+
+  for (size_t i = 0; i < array_size(l1); ++i)
+    do_diff_edge_updates_and_adjust(
+      eik, l0, *(size_t *)array_get_ptr(l1, i), l0_nb, l0_nnb);
+
+  array_deinit(l1);
+  array_dealloc(&l1);
+}
+
 void update_neighbors(eik3_s *eik, size_t l0, bool stage_neighbors) {
   size_t l; // Node l is a neighbor of node l0
 
@@ -886,6 +916,12 @@ void update_neighbors(eik3_s *eik, size_t l0, bool stage_neighbors) {
       }
     }
   }
+
+  // Find newly VALID diffracting edges (l0, l1) and update all
+  // neighboring nodes---these are nodes neighboring *both* l0 and
+  // l1. If we don't look at all of these neighbors, we could miss
+  // important edge updates.
+  do_all_diff_edge_updates_and_adjust(eik, l0, nb, nnb);
 
   // Update neighboring nodes.
   for (int i = 0; i < nnb; ++i) {
