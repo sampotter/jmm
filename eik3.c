@@ -854,20 +854,19 @@ void do_diff_edge_updates_and_adjust(eik3_s *eik, size_t l0, size_t l1,
   qsort(utri, nnb, sizeof(utri_s *), (compar_t)utri_cmp);
 
   // Try to commit the triangle updates
-  size_t L[2] = {l0, l1};
   for (int i = 0; i < nnb; ++i) {
     if (!isfinite(utri_get_value(utri[i])))
       break;
     array_get(nb, i, &l);
     if (utri_has_interior_point_solution(utri[i])) {
-      if (utri_update_ray_is_physical(utri[i], eik, L) &&
+      if (utri_update_ray_is_physical(utri[i], eik) &&
           commit_tri_update(eik, l, utri[i])) {
         adjust(eik, l);
         break;
       }
     } else if (i + 1 < nnb &&
                utris_yield_same_update(utri[i], utri[i + 1]) &&
-               utri_update_ray_is_physical(utri[i], eik, L) &&
+               utri_update_ray_is_physical(utri[i], eik) &&
                commit_tri_update(eik, l, utri[i])) {
       adjust(eik, l);
       break;

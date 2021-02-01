@@ -158,12 +158,13 @@ void utri_get_point_on_ray(utri_s const *utri, dbl t, dbl xt[3]) {
   dbl3_saxpy(t/utri->L, utri->x_minus_xb, xlam, xt);
 }
 
-bool utri_update_ray_is_physical(utri_s const *utri, eik3_s const *eik,
-                                 size_t const l[2]) {
+bool utri_update_ray_is_physical(utri_s const *utri, eik3_s const *eik) {
   dbl const atol = 1e-14;
 
   mesh3_s const *mesh = eik3_get_mesh(eik);
   jet3 const *jet = eik3_get_jet_ptr(eik);
+
+  size_t l[2] = {utri->l0, utri->l1};
 
   /**
    * First, we check if the ray is spuriously emanating from the
