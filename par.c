@@ -43,9 +43,11 @@ void par3_set(par3_s *par, size_t const *l, dbl const *b, int n) {
 }
 
 int par3_size(par3_s const *par) {
-  return (int)(par->l[0] != NO_PARENT)
-       + (int)(par->l[1] != NO_PARENT)
-       + (int)(par->l[2] != NO_PARENT);
+  int size = (int)(par->l[0] != NO_PARENT) + (int)(par->l[1] != NO_PARENT)
+    + (int)(par->l[2] != NO_PARENT);
+  assert(size == 1 || size == 2 || size == 3);
+  return size;
+}
 
 void par3_get_xb(par3_s const *par, eik3_s const *eik, dbl xb[3]) {
   dbl const *x[3];
