@@ -542,6 +542,22 @@ void utetra_get_update_inds(utetra_s const *utetra, size_t l[3]) {
   memcpy(l, utetra->l, sizeof(size_t[3]));
 }
 
+bool utetra_has_shadow_solution(utetra_s const *utetra, eik3_s const *eik) {
+  dbl const atol = 1e-14;
+
+  dbl b[3];
+  utetra_get_bary_coords(utetra, b);
+
+  bool has_shadow_solution = true;
+
+  // Check if active => shadow
+  for (int i = 0; i < 3; ++i)
+    if (fabs(b[i]) > atol)
+      has_shadow_solution &= eik3_is_shadow(eik, utetra->l[i]);
+
+  return has_shadow_solution;
+}
+
 bool utetras_yield_same_update(utetra_s const **utetra, int n) {
   dbl const atol = 1e-14;
 
