@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "array.h"
 #include "bb.h"
 #include "eik3.h"
 #include "hybrid.h"
@@ -162,7 +163,6 @@ bool utri_update_ray_is_physical(utri_s const *utri, eik3_s const *eik) {
   dbl const atol = 1e-14;
 
   mesh3_s const *mesh = eik3_get_mesh(eik);
-  jet3 const *jet = eik3_get_jet_ptr(eik);
 
   size_t l[2] = {utri->l0, utri->l1};
 
@@ -190,54 +190,67 @@ bool utri_update_ray_is_physical(utri_s const *utri, eik3_s const *eik) {
   utri_get_point_on_ray(utri, -t/2, xm);
   utri_get_point_on_ray(utri, t/2, xp);
 
-  bool xm_in_cell = false, xp_in_cell = false;
-  dbl b[4]; // TODO: unused... pass NULL instead...
+  array_s *cells;
+  array_alloc(&cells);
+  array_init(cells, sizeof(size_t), ARRAY_DEFAULT_CAPACITY);
 
-  // Traverse the cells surrounding edge (l[0], l[1]), and verify that
-  // at least one of them contains the point xt.
-  int nec = mesh3_nec(mesh, l[0], l[1]);
-  size_t *ec = malloc(nec*sizeof(size_t));
-  mesh3_ec(mesh, l[0], l[1], ec);
-  for (int i = 0; i < nec; ++i) {
-    xm_in_cell |= mesh3_dbl3_in_cell(mesh, ec[i], xm, b);
-    xp_in_cell |= mesh3_dbl3_in_cell(mesh, ec[i], xp, b);
+  bool I[2] = {fabs(1 - utri->lam) > atol, fabs(utri->lam) > atol};
+
+  int nvc;
+  size_t *vc;
+
+  for (int i = 0; i < 3; ++i) {
+    if (!I[i]) continue;
+
+    nvc = mesh3_nvc(mesh, l[i]);
+    vc = malloc(nvc*sizeof(size_t));
+    mesh3_vc(mesh, l[i], vc);
+
+    for (int j = 0; j < nvc; ++j)
+      if (!array_contains(cells, &vc[j]))
+        array_append(cells, &vc[j]);
+
+    free(vc);
+  }
+
+  dbl b[4];
+  size_t lc;
+  bool xm_in_cell = false, xp_in_cell = false;
+  for (size_t i = 0; i < array_size(cells); ++i) {
+    array_get(cells, i, &lc);
+    xm_in_cell |= mesh3_dbl3_in_cell(mesh, lc, xm, b);
+    xp_in_cell |= mesh3_dbl3_in_cell(mesh, lc, xp, b);
     if (xm_in_cell && xp_in_cell)
       break;
   }
-  free(ec);
 
   // If we didn't find a containing cell, we can conclude that the ray
   // is unphysical!
-  if (!xm_in_cell && !xp_in_cell)
+  if (!xm_in_cell || !xp_in_cell)
     return false;
 
   /**
-   * Next, we want to check and see if the ray has bent
-   * unphysically. Since this is a two-point update, we just check
-   * whether the ray is in the plane spanned by the rays at the update
-   * vertices. If it isn't, we check to see whether the base of the
-   * update is a diffracting edge.
+   * Next, check and see if the point just before the end of the ray
+   * lies in a cell.
    */
 
-  dbl const *t0 = &jet[l[0]].fx, *t1 = &jet[l[1]].fx;
+  dbl xhatm[3];
+  dbl3_saxpy(-t/utri->L, utri->x_minus_xb, utri->x, xhatm);
 
-  // TODO: decide how to handle this case...
-  assert(fabs(dbl3_dot(t0, t1)) > atol);
+  nvc = mesh3_nvc(mesh, utri->l);
+  vc = malloc(nvc*sizeof(size_t));
+  mesh3_vc(mesh, utri->l, vc);
 
-  // First, get plane spanned by jets at base of update.
-  dbl n[3];
-  dbl3_cross(t0, t1, n); // already normalized
+  bool xhatm_in_cell = false;
+  for (int i = 0; i < nvc; ++i) {
+    xhatm_in_cell = mesh3_dbl3_in_cell(mesh, vc[i], xhatm, b);
+    if (xhatm_in_cell)
+      break;
+  }
 
-  // If the ray is in the plane spanned by the two jets, then it
-  // hasn't diffracted
-  //
-  // TODO: could we upgrade this requirement to "ray is in the cone"?
-  if (fabs(dbl3_dot(n, utri->x_minus_xb)) <= utri->L*atol)
-    return true;
+  free(vc);
 
-  // If the ray *isn't* in that plane, and the base of the update
-  // isn't a diffracting edge... we have a problem!
-  return mesh3_is_diff_edge(mesh, l);
+  return xhatm_in_cell;
 }
 
 void utri_reset(utri_s *utri) {
