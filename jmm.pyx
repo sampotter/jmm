@@ -131,6 +131,7 @@ cdef extern from "par.h":
     cdef struct par3:
         size_t l[3]
         dbl b[3]
+    int par3_size(const par3 *par)
 
 
 cdef extern from "eik3.h":
@@ -625,15 +626,19 @@ cdef class Parent3:
         self.p = p
 
     @property
+    def size(self):
+        return par3_size(&self.p)
+
+    @property
     def l(self):
-        cdef size_t[:] l = np.empty((3,), dtype=np.uintp)
-        memcpy(&l[0], self.p.l, 3*sizeof(size_t))
+        cdef size_t[:] l = np.empty((self.size,), dtype=np.uintp)
+        memcpy(&l[0], self.p.l, self.size*sizeof(size_t))
         return np.asarray(l)
 
     @property
     def b(self):
-        cdef dbl[:] b = np.empty((3,), dtype=np.float64)
-        memcpy(&b[0], self.p.b, 3*sizeof(dbl))
+        cdef dbl[:] b = np.empty((self.size,), dtype=np.float64)
+        memcpy(&b[0], self.p.b, self.size*sizeof(dbl))
         return np.asarray(b)
 
 
