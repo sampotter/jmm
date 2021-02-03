@@ -560,7 +560,6 @@ static bool cutedge_is_incident_on_vertex(edge_s edge, void const * elt,
   return edge.l[0] == l1 || edge.l[1] == l1;
 }
 
-#if 0
 bool should_be_in_shadow_zone(eik3_s const *eik, size_t l0, size_t l) {
   edgemap_s *incident_cutedges;
   edgemap_alloc(&incident_cutedges);
@@ -607,40 +606,6 @@ bool should_be_in_shadow_zone(eik3_s const *eik, size_t l0, size_t l) {
 
   return num_shadow_votes > 0;
 }
-#endif
-
-#if 0
-/**
- * We assume that `l0` is a node in the shadow zone. This function
- * first predicts whether the `TRIAL` node `l` is in the shadow
- * zone. If it is, we look for `FAR` neighbors of both `l0` and `l`
- * that also (seem!) to be in the shadow zone. We then "pull" updates
- * for these neighbors. This may happen recursively.
- */
-void pull_shadow_updates(eik3_s *eik, size_t l0, size_t l,
-                         bool check_shadow) {
-  assert(eik->state[l0] == SHADOW);
-  assert(eik->state[l] == TRIAL);
-
-  if (check_shadow && !should_be_in_shadow_zone(eik, l0, l))
-    return;
-
-  int nvv = mesh3_nvv(eik->mesh, l);
-  size_t *vv = malloc(nvv*sizeof(size_t));
-  mesh3_vv(eik->mesh, l, vv);
-
-  size_t l_;
-  for (int j = 0; j < nvv; ++j) {
-    if (eik->state[l_ = vv[j]] == FAR) {
-      eik->state[l_] = SHADOW;
-      // TODO: do this recursively!!!
-      update(eik, l_, l0);
-    }
-  }
-
-  free(vv);
-}
-#endif
 
 void do_diff_edge_updates_and_adjust(eik3_s *eik, size_t l0, size_t l1,
                                      size_t *l0_nb, int l0_nnb) {
@@ -736,20 +701,6 @@ void update_neighbors(eik3_s *eik, size_t l0) {
       }
     }
   }
-#if 0
-  else {
-    // When we update the TRIAL neighbors of a newly accepted SHADOW
-    // node, we want to make sure we have all the information we need
-    // to be able to do the update reasonably accurately. We don't
-    // stage the FAR neighbors of a newly accepted SHADOW node as a
-    // matter of course. Instead, we look for TRIAL neighbors and
-    // stage FAR nodes which are neighbors of the TRIAL neighbor *and*
-    // the newly accepted SHADOW node.
-    for (int i = 0; i < nnb; ++i)
-      if (eik->state[l = nb[i]] == TRIAL)
-        pull_shadow_updates(eik, l0, l, true);
-  }
-#endif
 
   // Find newly VALID diffracting edges (l0, l1) and update all
   // neighboring nodes---these are nodes neighboring *both* l0 and
@@ -1096,10 +1047,6 @@ size_t eik3_step(eik3_s *eik) {
   ++eik->num_valid;
 
   update_shadow_cutset(eik, l0);
-
-  // TODO: had `update_neighbors` before `update_shadow_cutset`, but
-  // trying this now, so that we can use info from the updated shadow
-  // cutset to decide when to reach back
   update_neighbors(eik, l0);
 
   return l0;
