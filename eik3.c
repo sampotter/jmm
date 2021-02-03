@@ -1041,7 +1041,7 @@ size_t eik3_step(eik3_s *eik) {
   assert(eik->state[l0] == TRIAL);
   heap_pop(eik->heap);
 
-  assert(jet3_is_finite(&eik->jet[l0]));
+  assert(isfinite(eik->jet[l0].f));
 
   eik->state[l0] = is_shadow(eik, l0) ? SHADOW : VALID;
   ++eik->num_valid;
