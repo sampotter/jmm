@@ -970,6 +970,24 @@ bool mesh3_bdf(mesh3_s const *mesh, size_t const lf[3]) {
                  (compar_t)tagged_face_cmp);
 }
 
+bool mesh3_is_edge(mesh3_s const *mesh, size_t const l[2]) {
+  int nvv = mesh3_nvv(mesh, l[0]);
+  size_t *vv = malloc(nvv*sizeof(size_t));
+  mesh3_vv(mesh, l[0], vv);
+
+  bool is_edge = false;
+  for (int i = 0; i < nvv; ++i) {
+    if (vv[i] == l[1]) {
+      is_edge = true;
+      break;
+    }
+  }
+
+  free(vv);
+
+  return is_edge;
+}
+
 bool mesh3_is_diff_edge(mesh3_s const *mesh, size_t const le[2]) {
   diff_edge_s q = make_diff_edge(le[0], le[1]);
   diff_edge_s const *e = bsearch(
