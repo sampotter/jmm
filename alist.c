@@ -117,8 +117,10 @@ bool alist_get_key(alist_s const *lst, size_t i, void *key) {
 bool alist_get_pair(alist_s const *lst, size_t i, void *key, void *elt) {
   if (i >= lst->size)
     return false;
-  memcpy(key, lst->data + i*lst->nodesize, lst->keysize);
-  memcpy(elt, lst->data + i*lst->nodesize + lst->keysize, lst->eltsize);
+  if (key != NULL)
+    memcpy(key, lst->data + i*lst->nodesize, lst->keysize);
+  if (elt != NULL)
+    memcpy(elt, lst->data + i*lst->nodesize + lst->keysize, lst->eltsize);
   return true;
 }
 
