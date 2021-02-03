@@ -6,7 +6,7 @@
 // th -> y
 // d2S_deta_dth -> Sxy
 //
-// should make reading and debugging this much simplerj
+// should make reading and debugging this much simpler
 //
 // TODO: also make the change:
 //

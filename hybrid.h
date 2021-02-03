@@ -6,7 +6,9 @@ extern "C" {
 
 #include "def.h"
 
-dbl hybrid(dbl (*f)(dbl, void *), dbl a, dbl b, void *context);
+typedef dbl (*hybrid_cost_func_t)(dbl, void*);
+
+dbl hybrid(hybrid_cost_func_t f, dbl a, dbl b, void *context);
 
 #ifdef __cplusplus
 }

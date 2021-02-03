@@ -1,5 +1,148 @@
 #include "vec.h"
 
+void dbl2_add(dbl u[2], dbl v[2], dbl w[2]) {
+  w[0] = u[0] + v[0];
+  w[1] = u[1] + v[1];
+}
+
+void dbl2_sub(dbl const *u, dbl const *v, dbl *w) {
+  w[0] = u[0] - v[0];
+  w[1] = u[1] - v[1];
+}
+
+dbl dbl2_dot(dbl const *u, dbl const *v) {
+  return u[0]*v[0] + u[1]*v[1];
+}
+
+void dbl2_negate(dbl u[2]) {
+  u[0] = -u[0];
+  u[1] = -u[1];
+}
+
+dbl dbl2_sum(dbl const u[2]) {
+  return u[0] + u[1];
+}
+
+void dbl2_saxpy(dbl a, dbl const x[2], dbl const y[2], dbl z[2]) {
+  z[0] = a*x[0] + y[0];
+  z[1] = a*x[1] + y[1];
+}
+
+dbl dbl2_dist(dbl const u[2], dbl const v[2]) {
+  dbl tmp[2] = {v[0] - u[0], v[1] - u[1]};
+  return sqrt(tmp[0]*tmp[0] + tmp[1]*tmp[1]);
+}
+
+dbl dbl2_norm(dbl const u[2]) {
+  return sqrt(u[0]*u[0] + u[1]*u[1]);
+}
+
+dbl dbl2_norm_sq(dbl const u[2]) {
+  return u[0]*u[0] + u[1]*u[1];
+}
+
+dbl dbl2_maxdist(dbl const u[2], dbl const v[2]) {
+  return fmax(fabs(v[0] - u[0]), fabs(v[1] - u[1]));
+}
+
+dbl dbl2_maxnorm(dbl const u[2]) {
+  return fmax(fabs(u[0]), fabs(u[1]));
+}
+
+bool dbl2_isfinite(dbl const u[2]) {
+  return isfinite(u[0]) && isfinite(u[1]);
+}
+
+void dbl3_add(dbl const u[3], dbl const v[3], dbl w[3]) {
+  w[0] = u[0] + v[0];
+  w[1] = u[1] + v[1];
+  w[2] = u[2] + v[2];
+}
+
+void dbl3_sub(dbl const *u, dbl const *v, dbl *w) {
+  w[0] = u[0] - v[0];
+  w[1] = u[1] - v[1];
+  w[2] = u[2] - v[2];
+}
+
+dbl dbl3_dot(dbl const *u, dbl const *v) {
+  return u[0]*v[0] + u[1]*v[1] + u[2]*v[2];
+}
+
+dbl dbl3_dist(dbl const u[3], dbl const v[3]) {
+  dbl tmp[3] = {v[0] - u[0], v[1] - u[1], v[2] - u[2]};
+  return sqrt(tmp[0]*tmp[0] + tmp[1]*tmp[1] + tmp[2]*tmp[2]);
+}
+
+dbl dbl3_norm(dbl const u[3]) {
+  return sqrt(u[0]*u[0] + u[1]*u[1] + u[2]*u[2]);
+}
+
+void dbl3_dbl_div(dbl u[3], dbl a, dbl v[3]) {
+  v[0] = u[0]/a;
+  v[1] = u[1]/a;
+  v[2] = u[2]/a;
+}
+
+dbl dbl3_normalize(dbl u[3]) {
+  dbl unorm = sqrt(u[0]*u[0] + u[1]*u[1] + u[2]*u[2]);
+  u[0] /= unorm;
+  u[1] /= unorm;
+  u[2] /= unorm;
+  return unorm;
+}
+
+void dbl3_saxpy(dbl a, dbl const x[3], dbl const y[3], dbl z[3]) {
+  z[0] = a*x[0] + y[0];
+  z[1] = a*x[1] + y[1];
+  z[2] = a*x[2] + y[2];
+}
+
+bool dbl3_is_zero(dbl const u[3]) {
+  return u[0] == 0 && u[1] == 0 && u[2] == 0;
+}
+
+dbl dbl3_maxnorm(dbl const u[3]) {
+  return fmax(fabs(u[0]), fmax(fabs(u[1]), fabs(u[2])));
+}
+
+void dbl3_cross(dbl const u[3], dbl const v[3], dbl w[3]) {
+  w[0] = u[1]*v[2] - u[2]*v[1];
+  w[1] = u[2]*v[0] - u[0]*v[2];
+  w[2] = u[0]*v[1] - u[1]*v[0];
+}
+
+dbl dbl3_sum(dbl const u[3]) {
+  return u[0] + u[1] + u[2];
+}
+
+void dbl3_negate(dbl u[3]) {
+  u[0] = -u[0];
+  u[1] = -u[1];
+  u[2] = -u[2];
+}
+
+bool dbl4_nonneg(dbl const u[4]) {
+  return u[0] >= 0 && u[1] >= 0 && u[2] >= 0 && u[3] >= 0;
+}
+
+dbl dbl4_sum(dbl const u[4]) {
+  return u[0] + u[1] + u[2] + u[3];
+}
+
+dbl dblN_mean(dbl const *x, size_t n) {
+  dbl mean = 0;
+  for (size_t i = 0; i < n; ++i)
+    mean += x[i];
+  return mean/n;
+}
+
+void int3_add(int const p[3], int const q[3], int r[3]) {
+  r[0] = p[0] + q[0];
+  r[1] = p[1] + q[1];
+  r[2] = p[2] + q[2];
+}
+
 dvec2 dvec2_zero() {
   return (dvec2) {0.0, 0.0};
 }
@@ -7,6 +150,14 @@ dvec2 dvec2_zero() {
 dvec2 dvec2_ccomb(dvec2 v0, dvec2 v1, dbl t) {
   dvec2 vt = {(1 - t)*v0.x + t*v1.x, (1 - t)*v0.y + t*v1.y};
   return vt;
+}
+
+dvec2 dvec2_from_ptr(dbl const *u) {
+  return (dvec2) {.x = u[0], .y = u[1]};
+}
+
+dbl dvec2_maxdist(dvec2 u, dvec2 v) {
+  return fmax(fabs(v.x - u.x), fabs(v.y - u.y));
 }
 
 dbl dvec2_dist(dvec2 v0, dvec2 v1) {
@@ -82,37 +233,118 @@ dvec2 dvec2_avg(dvec2 u, dvec2 v) {
   return (dvec2) {(u.x + v.x)/2, (u.y + v.y)/2};
 }
 
+dbl dvec2_sum(dvec2 u) {
+  return u.x + u.y;
+}
+
+dvec3 dvec3_add(dvec3 u, dvec3 v) {
+  return (dvec3) {.packed = _mm256_add_pd(u.packed, v.packed)};
+}
+
+dvec3 dvec3_dbl_div(dvec3 u, dbl a) {
+  dvec3 v;
+  v.packed = _mm256_broadcast_sd(&a);
+  v.packed = _mm256_div_pd(u.packed, v.packed);
+  return v;
+}
+
+dvec3 dvec3_dbl_mul(dvec3 u, dbl a) {
+  dvec3 v;
+  v.packed = _mm256_broadcast_sd(&a);
+  v.packed = _mm256_mul_pd(u.packed, v.packed);
+  return v;
+}
+
+dbl dvec3_dist(dvec3 u, dvec3 v) {
+  return dvec3_norm(dvec3_sub(u, v));
+}
+
+dbl dvec3_dist_sq(dvec3 u, dvec3 v) {
+  return dvec3_norm_sq(dvec3_sub(u, v));
+}
+
 dbl dvec3_dot(dvec3 u, dvec3 v) {
-  return u.x*v.x + u.y*v.y + u.z*v.z;
+  u.packed = _mm256_mul_pd(u.packed, v.packed);
+  return u.data[0] + u.data[1] + u.data[2];
+}
+
+dvec3 dvec3_infinity() {
+  return (dvec3) {
+    .data = {
+      INFINITY,
+      INFINITY,
+      INFINITY
+    }
+  };
+}
+
+dbl dvec3_maxdist(dvec3 u, dvec3 v) {
+  return dvec3_maxnorm(dvec3_sub(u, v));
 }
 
 dbl dvec3_maxnorm(dvec3 u) {
-  return fmax(fabs(u.x), fmax(fabs(u.y), fabs(u.z)));
+  return fmax(fabs(u.data[0]), fmax(fabs(u.data[1]), fabs(u.data[2])));
+}
+
+dvec3 dvec3_nan() {
+  return (dvec3) {
+    .data = {NAN, NAN, NAN}
+  };
 }
 
 dbl dvec3_norm(dvec3 u) {
-  return sqrt(u.x*u.x + u.y*u.y + u.z*u.z);
+  u.packed = _mm256_mul_pd(u.packed, u.packed);
+  return sqrt(u.data[0] + u.data[1] + u.data[2]);
+}
+
+dbl dvec3_norm_sq(dvec3 u) {
+  u.packed = _mm256_mul_pd(u.packed, u.packed);
+  return u.data[0] + u.data[1] + u.data[2];
 }
 
 dvec3 dvec3_normalized(dvec3 u) {
-  dbl r = dvec3_norm(u);
-  return (dvec3) {.x = u.x/r, .y = u.y/r, .z = u.z/r};
+  return dvec3_dbl_div(u, dvec3_norm(u));
 }
 
-dvec3 dvec3_saxpy(dbl a, dvec3 x, dvec3 y) {
-  return (dvec3) {
-    .x = a*x.x + y.x,
-    .y = a*x.y + y.y,
-    .z = a*x.z + y.z
-  };
+dvec3 dvec3_one() {
+  return (dvec3) {.data = {1, 1, 1}};
+}
+
+dvec3 dvec3_saxpy(dbl a, dvec3 u, dvec3 v) {
+  dvec3 w;
+  w.packed = _mm256_broadcast_sd(&a);
+  w.packed = _mm256_mul_pd(w.packed, u.packed);
+  w.packed = _mm256_add_pd(w.packed, v.packed);
+  return w;
 }
 
 dvec3 dvec3_sub(dvec3 u, dvec3 v) {
-  return (dvec3) {
-    .x = u.x - v.x,
-    .y = u.y - v.y,
-    .z = u.z - v.z
-  };
+  return (dvec3) {.packed = _mm256_sub_pd(u.packed, v.packed)};
+}
+
+dvec3 dvec3_zero() {
+  return (dvec3) {.data = {0, 0, 0}};
+}
+
+int dvec3_argmax(dvec3 u) {
+  dbl umax = -INFINITY;
+  int argmax;
+  for (int i = 0; i < 3; ++i) {
+    if (u.data[i] > umax) {
+      umax = u.data[i];
+      argmax = i;
+    }
+  }
+  return argmax;
+}
+
+void dvec3_normalize(dvec3 *u) {
+  dbl unorm = u->data[0]*u->data[0] + u->data[1]*u->data[1]
+    + u->data[2]*u->data[2];
+  unorm /= sqrt(unorm);
+  u->data[0] /= unorm;
+  u->data[1] /= unorm;
+  u->data[2] /= unorm;
 }
 
 dbl dvec4_dot(dvec4 v0, dvec4 v1) {
@@ -209,15 +441,56 @@ ivec2 ivec2_add(ivec2 p, ivec2 q) {
   return (ivec2) {p.i + q.i, p.j + q.j};
 }
 
+ivec3 ivec3_from_int3(int const p[3]) {
+  return (ivec3) {.data = {p[0], p[1], p[2]}};
+}
+
+ivec3 ivec3_add(ivec3 p, ivec3 q) {
+  return (ivec3) {
+    .data = {
+      p.data[0] + q.data[0],
+      p.data[1] + q.data[1],
+      p.data[2] + q.data[2]
+    }
+  };
+}
+
 int ivec3_prod(ivec3 p) {
-  return p.i*p.j*p.k;
+  return p.data[0]*p.data[1]*p.data[2];
+}
+
+dvec3 ivec3_dbl_mul(ivec3 p, dbl a) {
+  return (dvec3) {
+    .packed = _mm256_mul_pd(ivec3_to_dvec3(p).packed, _mm256_broadcast_sd(&a))
+  };
+}
+
+bool ivec3_equal(ivec3 p, ivec3 q) {
+  return p.data[0] == q.data[0] && p.data[1] == q.data[1] && p.data[2] == q.data[2];
 }
 
 ivec3 ivec3_int_div(ivec3 p, int q) {
-  return (ivec3) {.i = p.i/q, .j = p.j/q, .k = p.k/q};
+  return (ivec3) {.data = {p.data[0]/q, p.data[1]/q, p.data[2]/q}};
 }
 
 ivec2 dvec2_to_ivec2(dvec2 v) {
   ivec2 ij = {.i = (int)v.x, .j = (int)v.y};
   return ij;
+}
+
+ivec3 dvec3_to_ivec3(dvec3 x) {
+  return (ivec3) {
+    .data = {(int)x.data[0], (int)x.data[1], (int)x.data[2]}
+  };
+}
+
+dvec3 ivec3_to_dvec3(ivec3 p) {
+  return (dvec3) {
+    .data = {
+      (dbl) p.data[0],
+      (dbl) p.data[1],
+      (dbl) p.data[2],
+      (dbl) p.data[3]
+    }
+  };
 }

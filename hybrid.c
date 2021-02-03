@@ -2,7 +2,7 @@
 
 #include <math.h>
 
-#include "math.h"
+#include "util.h"
 
 dbl hybrid(dbl (*f)(dbl, void *), dbl a, dbl b, void *context) {
   dbl c, d, fa, fb, fc, fd, dm, df, ds, dd, tmp;
