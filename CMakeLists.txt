@@ -49,6 +49,7 @@ set (JMM_SRCS
   hybrid.c
   index.c
   jet.c
+  log.c
   mat.c
   mesh3.c
   opt.c
