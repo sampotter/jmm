@@ -515,7 +515,8 @@ static void update(eik3_s *eik, size_t l, size_t l0) {
   for (int i = 0; i < num_utetra; ++i) {
     if (!isfinite(utetra_get_value(utetra[i])))
       break;
-    if (utetra_has_interior_point_solution(utetra[i])) {
+    if (utetra_has_interior_point_solution(utetra[i]) ||
+        utetra_has_shadow_solution(utetra[i], eik)) {
       if (utetra_update_ray_is_physical(utetra[i], eik) &&
           commit_tetra_update(eik, l, utetra[i]))
         break;
