@@ -51,6 +51,10 @@ bool adj_tetra_pair_is_convex(mesh3_s const *mesh, size_t l0,
  */
 dbl min_tetra_altitude(dbl const x[4][3]);
 
+// Defined in triBoxOverlap.c. Code by Tomas Akenine-Moller. Checks
+// for an overlap between a box and a triangle.
+int triBoxOverlap(dbl boxcenter[3], dbl boxhalfsize[3], dbl triverts[3][3]);
+
 #ifdef __cplusplus
 }
 #endif
