@@ -5,7 +5,14 @@ check_ipo_supported (RESULT IPO_SUPPORTED)
 
 project (jmm LANGUAGES C CXX VERSION 0.1.1)
 
-option (BUILD_TESTS "Build unit tests")
+option (BUILD_DOCS "Build Sphinx documentation." OFF)
+option (BUILD_TESTS "Build unit tests" OFF)
+
+set (CMAKE_MODULE_PATH
+  "${CMAKE_CURRENT_SOURCE_DIR}/cmake"
+  "${CMAKE_CURRENT_SOURCE_DIR}/cmake/sanitizers-cmake/cmake"
+  ${CMAKE_MODULE_PATH}
+  )
 
 set (CMAKE_XCODE_GENERATE_SCHEME TRUE)
 
@@ -131,6 +138,53 @@ if (BUILD_TESTS)
 
   enable_testing ()
   add_test (NAME jmm COMMAND cgreen-runner $<TARGET_FILE_NAME:jmm_tests>)
+endif ()
+
+#
+# Build documentation
+#
+
+if (BUILD_DOCS)
+  find_package (Doxygen REQUIRED)
+  find_package (Sphinx REQUIRED)
+
+  set (DOXYGEN_INDEX_FILE ${CMAKE_CURRENT_BINARY_DIR}/html/index.html)
+  set (DOXYFILE_IN ${CMAKE_CURRENT_SOURCE_DIR}/Doxyfile.in)
+  set (DOXYFILE_OUT ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile)
+
+  set (SPHINX_SOURCE ${CMAKE_CURRENT_SOURCE_DIR})
+  set (SPHINX_BUILD ${CMAKE_CURRENT_BINARY_DIR})
+
+  configure_file (${DOXYFILE_IN} ${DOXYFILE_OUT} @ONLY)
+
+  add_custom_command(
+    OUTPUT ${DOXYGEN_INDEX_FILE}
+    DEPENDS ${JMM_PUBLIC_HEADERS}
+    COMMAND ${DOXYGEN_EXECUTABLE} ${DOXYFILE_OUT}
+    MAIN_DEPENDENCY ${DOXYFILE_OUT} ${DOXYFILE_IN}
+    COMMENT "Generating Doxygen documentation"
+    VERBATIM
+    )
+
+  configure_file (
+    ${CMAKE_CURRENT_SOURCE_DIR}/conf.py.in
+    ${CMAKE_CURRENT_BINARY_DIR}/conf.py
+    @ONLY
+    )
+
+  add_custom_target (
+    Sphinx ALL
+    COMMAND
+    ${SPHINX_EXECUTABLE}
+    -b html -Dbreathe_projects.CatCutifier=${CMAKE_CURRENT_BINARY_DIR}
+	-c ${CMAKE_CURRENT_BINARY_DIR}
+    ${CMAKE_CURRENT_SOURCE_DIR} # sourcedir
+	${CMAKE_CURRENT_BINARY_DIR} # outputdir
+    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+    COMMENT "Generating Sphinx documentation"
+    )
+
+  add_custom_target (Doxygen ALL DEPENDS ${DOXYGEN_INDEX_FILE})
 endif ()
 
 #
