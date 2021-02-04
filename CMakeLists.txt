@@ -28,37 +28,37 @@ set (JMM_PUBLIC_HEADERS
   )
 
 set (JMM_SRCS
-  alist.c
-  array.c
-  bb.c
-  bicubic.c
-  bucket.c
-  cubic.c
-  dial.c
-  edge.c
-  edgemap.c
-  eik.c
-  eik_F3.c
-  eik_F4.c
-  eik_S4.c
-  eik3.c
-  field.c
-  geom.c
-  grid3.c
-  heap.c
-  hybrid.c
-  index.c
-  jet.c
-  log.c
-  mat.c
-  mesh3.c
-  opt.c
-  par.c
-  utetra.c
-  util.c
-  utri.c
-  vec.c
-  xfer.c
+  src/alist.c
+  src/array.c
+  src/bb.c
+  src/bicubic.c
+  src/bucket.c
+  src/cubic.c
+  src/dial.c
+  src/edge.c
+  src/edgemap.c
+  src/eik.c
+  src/eik_F3.c
+  src/eik_F4.c
+  src/eik_S4.c
+  src/eik3.c
+  src/field.c
+  src/geom.c
+  src/grid3.c
+  src/heap.c
+  src/hybrid.c
+  src/index.c
+  src/jet.c
+  src/log.c
+  src/mat.c
+  src/mesh3.c
+  src/opt.c
+  src/par.c
+  src/utetra.c
+  src/util.c
+  src/utri.c
+  src/vec.c
+  src/xfer.c
   )
 
 add_library (jmm STATIC ${JMM_SRCS})
@@ -73,7 +73,7 @@ if (OpenMP_C_FOUND)
 endif ()
 target_include_directories (
   jmm INTERFACE
-  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>
   $<INSTALL_INTERFACE:${INSTALL_INCLUDE_DIR}/jmm>
   )
 
@@ -110,22 +110,23 @@ if (BUILD_TESTS)
   set (CGREEN_INCLUDE_DIRS "/usr/local/include")
 
   set (JMM_TESTS_SRCS
-    test_alist.c
-    test_array.c
-    test_bb3.c
-    test_bb3tri.c
-    test_bb3tet.c
-    test_edgemap.c
-    test_eik3.c
-    test_opt.c
-    test_mat.c
-    test_mesh3.c
-    test_utri.c
+    test/test_alist.c
+    test/test_array.c
+    test/test_bb3.c
+    test/test_bb3tri.c
+    test/test_bb3tet.c
+    test/test_edgemap.c
+    test/test_eik3.c
+    test/test_opt.c
+    test/test_mat.c
+    test/test_mesh3.c
+    test/test_utri.c
     )
   add_library (jmm_tests SHARED ${JMM_TESTS_SRCS})
   target_link_libraries (jmm_tests PRIVATE ${CGREEN_LIBRARY})
   target_include_directories (jmm_tests PRIVATE ${CGREEN_INCLUDE_DIRS})
   target_link_libraries (jmm_tests PRIVATE jmm)
+  target_include_directories (jmm_tests PRIVATE jmm)
   target_link_libraries (jmm_tests PRIVATE GSL::gsl)
 
   enable_testing ()

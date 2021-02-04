@@ -8,7 +8,7 @@ from Cython.Build import cythonize
 extensions = [
     Extension(
         'jmm',
-        ['jmm.pyx'],
+        ['src/jmm.pyx'],
         libraries=['jmm'],
         library_dirs=['./build']
     ),
