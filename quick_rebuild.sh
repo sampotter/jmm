@@ -1,4 +1,4 @@
-#!/usr/bin/env sh -v
+#!/usr/bin/env sh
 
 # This is a simple one-off script to quickly rebuild everything after
 # making some changes (anywhere!) in the code. The idea here is to
@@ -7,6 +7,7 @@
 # rebuilding. Right now, this is platform-specific and really only
 # appropriate for debugging.
 
+set -v
 cd build
 make -j || exit 1
 rm -r lib.macosx-10.15-x86_64-3.7
