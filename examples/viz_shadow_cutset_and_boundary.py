@@ -1,38 +1,18 @@
-tet_mesh = 'L/L.1.vtk'
-surf_mesh = pv.read('L.obj')
 #!/usr/bin/env python
 
-grid = pv.read(tet_mesh)
-points = grid.points.copy().astype(np.float64)
-cells = grid.cells.reshape(-1, 5)[:, 1:].copy().astype(np.uint64)
 
-plotter = pvqt.BackgroundPlotter()
+import pyvista as pv
 
-# l0 = 71 # 14
-# while eik.peek() != l0:
-#     eik.step()
-eik.solve()
-
-def plot_point(l, scale=1, color='white', opacity=1):
-    plotter.add_mesh(pv.Sphere(scale*r, points[l]),
-                     color=color, opacity=opacity)
-
-r = 0.05
-plotter.clear()
-plotter.background_color = (0.3, 0.3, 0.3)
-plotter.add_mesh(surf_mesh, 'r', 'wireframe')
-
-plot_point(indsrc, color='red', scale=0.6, opacity=0.5)
 
 state_to_color = {
-    0: 'red', 1: 'yellow', 2: 'green', 3: None, 4: None, 5: None, 6: 'purple'}
-for l in range(points.shape[0]):
-    if eik.state[l] == 0:
-        continue
-    color = state_to_color[eik.state[l]]
-    plot_point(l, scale=0.3, color=color)
+    0: 'red', 1: 'yellow', 2: 'green', 3: None, 4: None, 5: None, 6: 'purple'
+}
 
-h = 0.1
+
+def plot_point(l, scale=1, color='white', opacity=1):
+    plotter.add_mesh(
+        pv.Sphere(scale*r, points[l]), color=color, opacity=opacity)
+
 
 def plot_jet(l):
     x = points[l]
@@ -40,11 +20,6 @@ def plot_jet(l):
     DT = np.array([jet[1], jet[2], jet[3]])
     plotter.add_mesh(pv.Arrow(x, DT, scale=h), color='white', opacity=0.6)
 
-# plot_point(l0, opacity=0.5, scale=1.1)
-
-# for l, state in enumerate(eik.state):
-#     if state == jmm.State.Valid.value:
-#         plot_jet(l)
 
 def plot_cutset(plot_grad=True):
     for (m0, m1), cutedge in eik.shadow_cutset.items():
@@ -58,7 +33,7 @@ def plot_cutset(plot_grad=True):
         if plot_grad:
             plotter.add_mesh(pv.Arrow(pt, cutedge.n, scale=h),
                              color='white', opacity=0.6)
-plot_cutset(False)
+
 
 def plot_update(l0):
     par = eik.get_parent(l0)
@@ -76,18 +51,12 @@ def plot_update(l0):
     plotter.add_mesh(
         pv.Sphere(r/3, eik.get_parent(l0).b@points[eik.get_parent(l0).l]),
         color='red', opacity=0.6)
-# plot_update(l0)
 
-################################################################################
-# Let's quick try plotting the shadow boundary here...
-
-# Precompute the shadow cutset...
-
-cutset = eik.shadow_cutset
 
 def make_edge(l0, l1):
     assert l0 != l1
     return (min(l0, l1), max(l0, l1))
+
 
 def get_cut_coef(l0, l1):
     edge = make_edge(l0, l1)
@@ -96,17 +65,12 @@ def get_cut_coef(l0, l1):
         t = 1 - t
     return t
 
+
 def get_cut_point(l0, l1):
     t = get_cut_coef(l0, l1)
     x0, x1 = points[l0], points[l1]
     return (1 - t)*x0 + t*x1
 
-# First, find the tetrahedra bracketing dZ
-
-Lc = np.where(
-    (eik.state[cells] == jmm.State.Valid.value).any(1) &
-    (eik.state[cells] == jmm.State.Shadow.value).any(1)
-)[0]
 
 def get_verts_and_faces(c, f_offset, verbose=False):
     num_shadow = (eik.state[c] == jmm.State.Shadow.value).sum()
@@ -189,21 +153,67 @@ def get_verts_and_faces(c, f_offset, verbose=False):
     else:
         assert False
 
-verbose = False
 
-V, F = [], []
-for i, c in enumerate(cells[Lc]):
-    if verbose:
-        print(i, c)
-    v, f = get_verts_and_faces(c, f_offset=len(V), verbose=verbose)
-    V.extend(v)
-    F.extend(f)
-    if verbose:
-        print()
+if __name__ == '__main__':
+    indsrc = 36
 
-if V:
-    V = np.array(V)
-    F = np.array(F, dtype=int)
-    plotter.add_mesh(
-        pv.make_tri_mesh(V, F),
-        color='purple', opacity=0.5, show_edges=True)
+    tet_mesh = 'L/L.1.vtk'
+    surf_mesh = pv.read('L.obj')
+
+    grid = pv.read(tet_mesh)
+    points = grid.points.copy().astype(np.float64)
+    cells = grid.cells.reshape(-1, 5)[:, 1:].copy().astype(np.uintp)
+
+    mesh = jmm.Mesh3(verts, cells)
+
+    eik = jmm.Eik3(mesh)
+    eik.add_trial(indsrc, 0)
+    eik.solve()
+
+    r = 0.05
+
+    plotter = pvqt.BackgroundPlotter()
+    plotter.background_color = (0.6, 0.6, 0.6)
+    plotter.add_mesh(surf_mesh, 'r', 'wireframe')
+
+    plot_point(indsrc, color='red', scale=0.6, opacity=0.5)
+
+    for l in range(points.shape[0]):
+        if eik.state[l] == 0:
+            continue
+        color = state_to_color[eik.state[l]]
+        plot_point(l, scale=0.3, color=color)
+
+    h = 0.1
+
+    plot_cutset(False)
+
+    # plot_update(l0)
+
+    cutset = eik.shadow_cutset
+
+    # First, find the tetrahedra bracketing dZ
+
+    Lc = np.where(
+        (eik.state[cells] == jmm.State.Valid.value).any(1) &
+        (eik.state[cells] == jmm.State.Shadow.value).any(1)
+    )[0]
+
+    verbose = False
+
+    V, F = [], []
+    for i, c in enumerate(cells[Lc]):
+        if verbose:
+            print(i, c)
+        v, f = get_verts_and_faces(c, f_offset=len(V), verbose=verbose)
+        V.extend(v)
+        F.extend(f)
+        if verbose:
+            print()
+
+    if V:
+        V = np.array(V)
+        F = np.array(F, dtype=int)
+        plotter.add_mesh(
+            pv.make_tri_mesh(V, F),
+            color='purple', opacity=0.5, show_edges=True)
