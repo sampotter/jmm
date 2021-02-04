@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 import meshio
 import numpy as np
 

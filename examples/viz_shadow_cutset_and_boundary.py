@@ -1,5 +1,6 @@
 tet_mesh = 'L/L.1.vtk'
 surf_mesh = pv.read('L.obj')
+#!/usr/bin/env python
 
 grid = pv.read(tet_mesh)
 points = grid.points.copy().astype(np.float64)
