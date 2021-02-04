@@ -1,9 +1,102 @@
 #include "geom.h"
 
+#include <assert.h>
 #include <math.h>
 
 #include "mat.h"
 #include "mesh3.h"
+#include "vec.h"
+
+rect3 rect3_make_empty() {
+  rect3 rect;
+  dbl3_inf(rect.min);
+  dbl3_neginf(rect.max);
+  return rect;
+}
+
+void rect3_get_extent(rect3 const *rect, dbl extent[3]) {
+  dbl3_sub(rect->max, rect->min, extent);
+}
+
+void rect3_insert_point(rect3 *rect, dbl x[3]) {
+  dbl3_min(rect->min, x, rect->min);
+  dbl3_max(rect->max, x, rect->max);
+}
+
+dbl rect3_surface_area(rect3 const *rect) {
+  dbl extent[3];
+  rect3_get_extent(rect, extent);
+  return 2*dbl3_normsq(extent);
+}
+
+bool rect3_overlaps(rect3 const *r1, rect3 const *r2) {
+  if (r1->max[0] < r2->min[0] || r1->min[0] > r2->max[0]) return false;
+  if (r1->max[1] < r2->min[1] || r1->min[1] > r2->max[1]) return false;
+  if (r1->max[2] < r2->min[2] || r1->min[2] > r2->max[2]) return false;
+  return true;
+}
+
+bool ray3_intersects_rect3(ray3 const *ray, rect3 const *rect) {
+  dbl const atol = 1e-15;
+
+  dbl const *p = ray->org, *d = ray->dir;
+  dbl const *m = rect->min, *M = rect->max;
+
+  // TODO: handle this case
+  assert(fabs(d[0]) > atol && fabs(d[1]) > atol && fabs(d[2]) > atol);
+
+  dbl t, pt[3];
+
+  t = (m[0] - p[0])/d[0];
+  dbl3_saxpy(t, d, p, pt);
+  if (m[1] <= pt[1] && pt[1] <= M[1] && m[2] <= pt[2] && pt[2] <= M[2])
+    return true;
+
+  t = (M[0] - p[0])/d[0];
+  dbl3_saxpy(t, d, p, pt);
+  if (m[1] <= pt[1] && pt[1] <= M[1] && m[2] <= pt[2] && pt[2] <= M[2])
+    return true;
+
+  t = (m[1] - p[1])/d[1];
+  dbl3_saxpy(t, d, p, pt);
+  if (m[0] <= pt[0] && pt[0] <= M[0] && m[2] <= pt[2] && pt[2] <= M[2])
+    return true;
+
+  t = (M[1] - p[1])/d[1];
+  dbl3_saxpy(t, d, p, pt);
+  if (m[0] <= pt[0] && pt[0] <= M[0] && m[2] <= pt[2] && pt[2] <= M[2])
+    return true;
+
+  t = (m[2] - p[2])/d[2];
+  dbl3_saxpy(t, d, p, pt);
+  if (m[0] <= pt[0] && pt[0] <= M[0] && m[1] <= pt[1] && pt[1] <= M[1])
+    return true;
+
+  t = (M[2] - p[2])/d[2];
+  dbl3_saxpy(t, d, p, pt);
+  if (m[0] <= pt[0] && pt[0] <= M[0] && m[1] <= pt[1] && pt[1] <= M[1])
+    return true;
+
+  return false;
+}
+
+bool ray3_intersects_tri3(ray3 const *ray, tri3 const *tri, dbl *t) {
+  dbl const atol = 1e-15;
+
+  dbl dv[2][3], n[3];
+  dbl3_sub(tri->v[1], tri->v[0], dv[0]);
+  dbl3_sub(tri->v[2], tri->v[0], dv[1]);
+  dbl3_cross(dv[0], dv[1], n);
+  dbl3_normalize(n); // TODO: probably unnecessary
+
+  if (fabs(dbl3_dot(n, ray->dir)) < atol)
+    assert(false); // TODO: handle this case
+
+  *t = dbl3_dot(n, tri->v[0]) - dbl3_dot(n, ray->org);
+  *t /= dbl3_dot(n, ray->dir);
+
+  return *t >= 0;
+}
 
 bool points_are_coplanar(dbl const **x) {
   dbl dx[3][3];

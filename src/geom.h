@@ -12,6 +12,31 @@ typedef struct {
   dbl min[3], max[3];
 } rect3;
 
+rect3 rect3_make_empty();
+void rect3_get_extent(rect3 const *rect, dbl extent[3]);
+void rect3_insert_point(rect3 *rect, dbl x[3]);
+dbl rect3_surface_area(rect3 const *rect);
+bool rect3_overlaps(rect3 const *r1, rect3 const *r2);
+
+typedef struct {
+  dbl v[3][3];
+} tri3;
+
+typedef struct {
+  /**
+   * The origin of the ray.
+   */
+  dbl org[3];
+
+  /**
+   * The direction of the ray.
+   */
+  dbl dir[3];
+} ray3;
+
+bool ray3_intersects_rect3(ray3 const *ray, rect3 const *rect);
+bool ray3_intersects_tri3(ray3 const *ray, tri3 const *tri, dbl *t);
+
 /**
  * Check if four points are coplanar.
  */
