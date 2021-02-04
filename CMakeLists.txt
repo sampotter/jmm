@@ -22,9 +22,9 @@ set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${EXTRA_FLAGS}")
 set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${EXTRA_FLAGS}")
 
 set (JMM_PUBLIC_HEADERS
-  def.h
-  dial.h
-  eik3.h
+  src/def.h
+  src/dial.h
+  src/eik3.h
   )
 
 set (JMM_SRCS
