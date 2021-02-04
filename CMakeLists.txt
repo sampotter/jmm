@@ -58,9 +58,11 @@ set (JMM_SRCS
   src/jet.c
   src/log.c
   src/mat.c
+  src/mesh2.c
   src/mesh3.c
   src/opt.c
   src/par.c
+  src/rtree.c
   src/stats.c
   src/triBoxOverlap.c
   src/utetra.c
