@@ -78,6 +78,10 @@ dbl dbl3_norm(dbl const u[3]) {
   return sqrt(u[0]*u[0] + u[1]*u[1] + u[2]*u[2]);
 }
 
+dbl dbl3_normsq(dbl const u[3]) {
+  return u[0]*u[0] + u[1]*u[1] + u[2]*u[2];
+}
+
 void dbl3_dbl_div(dbl u[3], dbl a, dbl v[3]) {
   v[0] = u[0]/a;
   v[1] = u[1]/a;
@@ -120,6 +124,26 @@ void dbl3_negate(dbl u[3]) {
   u[0] = -u[0];
   u[1] = -u[1];
   u[2] = -u[2];
+}
+
+void dbl3_inf(dbl u[3]) {
+  u[0] = u[1] = u[2] = INFINITY;
+}
+
+void dbl3_neginf(dbl u[3]) {
+  u[0] = u[1] = u[2] = -INFINITY;
+}
+
+void dbl3_min(dbl const u[3], dbl const v[3], dbl w[3]) {
+  w[0] = fmin(u[0], v[0]);
+  w[1] = fmin(u[1], v[1]);
+  w[2] = fmin(u[2], v[2]);
+}
+
+void dbl3_max(dbl const u[3], dbl const v[3], dbl w[3]) {
+  w[0] = fmax(u[0], v[0]);
+  w[1] = fmax(u[1], v[1]);
+  w[2] = fmax(u[2], v[2]);
 }
 
 bool dbl4_nonneg(dbl const u[4]) {
