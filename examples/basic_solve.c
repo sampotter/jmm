@@ -3,7 +3,6 @@
 
 #include <eik3.h>
 #include <mesh3.h>
-#include <vec.h>
 
 #define R0 0.1
 
