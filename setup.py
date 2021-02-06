@@ -11,7 +11,7 @@ extensions = [
         ['src/jmm.pyx'],
         libraries=['jmm'],
         library_dirs=['./build']
-    ),
+    )
 ]
 
 setup(
