@@ -7,7 +7,7 @@ extern "C" {
 #include "def.h"
 
 typedef struct runstd {
-  uint64_t k;
+  size_t k;
   dbl M, Mprev;
   dbl S, Sprev;
 } runstd_s;

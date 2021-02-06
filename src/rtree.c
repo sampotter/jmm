@@ -53,9 +53,9 @@ void split_node_along_axis(mesh2_s const *mesh, size_t num_faces,
   // the ideas in R. Tibshirani's "Fast computation of the median by
   // successive binning").
   dbl binwidth = 2*sigma/NUM_BINS;
-  uint64_t bins[NUM_BINS];
-  uint64_t bincount = 0;
-  memset(bins, 0x0, NUM_BINS*sizeof(uint64_t));
+  size_t bins[NUM_BINS];
+  size_t bincount = 0;
+  memset(bins, 0x0, NUM_BINS*sizeof(size_t));
   for (size_t i = 0; i < num_faces; ++i) {
     dbl c = centroids[3*i + isplit] - mu;
     if (c < -sigma || c >= sigma) {
@@ -69,7 +69,7 @@ void split_node_along_axis(mesh2_s const *mesh, size_t num_faces,
     ++bincount;
   }
   dbl binmedian;
-  uint64_t cumsum = 0;
+  size_t cumsum = 0;
   for (size_t k = 0; k < NUM_BINS; ++k) {
     cumsum += bins[k];
     if (cumsum >= bincount/2) {
@@ -79,7 +79,7 @@ void split_node_along_axis(mesh2_s const *mesh, size_t num_faces,
   }
 
   // Find the number of triangles in each part of the split.
-  uint64_t count = 0;
+  size_t count = 0;
   for (size_t i = 0; i < num_faces; ++i) {
     if (centroids[3*i + isplit] <= binmedian) {
       ++count;

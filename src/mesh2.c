@@ -9,6 +9,13 @@
 #include "def.h"
 #include "log.h"
 
+struct mesh2 {
+  dbl *points;
+  size_t num_points;
+  size_t *faces;
+  size_t *num_faces;
+};
+
 void mesh2_init_from_binary_files(mesh2_s *mesh, char const *verts_path,
                                   char const *faces_path) {
   FILE *fp = NULL;
@@ -57,8 +64,8 @@ void mesh2_init_from_binary_files(mesh2_s *mesh, char const *verts_path,
   log_debug("%s size: %lu bytes", faces_path, size);
 
   mesh->faces = malloc(size);
-  mesh->num_faces = size/(3*sizeof(uint64_t));
-  fread(mesh->faces, 3*sizeof(uint64_t), mesh->num_faces, fp);
+  mesh->num_faces = size/(3*sizeof(size_t));
+  fread(mesh->faces, 3*sizeof(size_t), mesh->num_faces, fp);
 
   if (fclose(fp)) {
     perror("failed to close file");
@@ -88,7 +95,7 @@ size_t mesh2_get_num_faces(mesh2_s const *mesh) {
   return mesh->num_faces;
 }
 
-uint64_t *mesh2_get_faces_ptr(mesh2_s const *mesh) {
+size_t *mesh2_get_faces_ptr(mesh2_s const *mesh) {
   return mesh->faces;
 }
 
