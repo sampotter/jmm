@@ -1,191 +1,80 @@
-# cython: embedsignature=True
-# cython: language_level=3
-
 import numpy as np
 
 import array
+
+from enum import Enum
 
 from cython cimport Py_buffer
 
 from libc.stdlib cimport free, malloc, qsort
 from libc.string cimport memcpy
 
-from enum import Enum
+from defs cimport bool, error, state, stype
 
-ctypedef bint bool
+from bb cimport *
+from dial cimport *
+from edge cimport *
+from edgemap cimport *
+from grid3 cimport *
+from jet cimport *
+from mesh3 cimport *
+from par cimport *
+from utetra cimport *
+from xfer cimport *
 
-cdef extern from "def.h":
-    ctypedef double dbl
-    cdef enum state:
-        FAR
-        TRIAL
-        VALID
-        BOUNDARY
-        ADJACENT_TO_BOUNDARY
-        NEW_VALID
-        SHADOW
-    cdef enum stype:
-        CONSTANT
-        NUM_STYPE
-    cdef enum error:
-        SUCCESS
-        BAD_ARGUMENT
+class Stype(Enum):
+    Constant = 0
 
-cdef extern from "immintrin.h":
-    ctypedef double __m256d
+class State(Enum):
+    Far = 0
+    Trial = 1
+    Valid = 2
+    Boundary = 3
+    AdjacentToBoundary = 4
+    NewValid = 5
+    Shadow = 6
 
-cdef extern from "vec.h":
-    ctypedef struct dvec3:
-        dbl data[4]
-        __m256d packed
-    ctypedef struct dvec4:
-        dbl data[4]
-        __m256d packed
+cdef class ArrayView:
+    cdef:
+        bool readonly
+        int ndim
+        void *ptr
+        Py_ssize_t *shape
+        Py_ssize_t *strides
+        char *format
+        size_t itemsize
 
-cdef extern from "jet.h":
-    ctypedef struct jet3:
-        dbl f
-        dbl fx
-        dbl fy
-        dbl fz
+    def __cinit__(self, int ndim):
+        self.ndim = ndim
+        self.shape = <Py_ssize_t *>malloc(sizeof(Py_ssize_t)*ndim)
+        self.strides = <Py_ssize_t *> malloc(sizeof(Py_ssize_t)*ndim)
 
-cdef extern from "bb.h":
-    void bb3tet_interp3(const dbl f[4], const dbl Df[4][3], const dbl x[4][3], dbl c[20])
-    dbl bb3tet(const dbl c[20], const dbl b[4])
-    dbl dbb3tet(const dbl c[20], const dbl b[4], const dbl a[4])
-    dbl d2bb3tet(const dbl c[20], const dbl b[4], const dbl a[2][4])
+    def __dealloc__(self):
+        free(self.shape)
+        free(self.strides)
 
-cdef extern from "dial.h":
-    cdef struct dial3:
+    def __getbuffer__(self, Py_buffer *buf, int flags):
+        buf.buf = <char *>self.ptr
+        buf.format = self.format
+        buf.internal = NULL
+        buf.itemsize = self.itemsize
+        buf.len = self.size
+        buf.ndim = self.ndim
+        buf.obj = self
+        buf.readonly = self.readonly
+        buf.shape = self.shape
+        buf.strides = self.strides
+        buf.suboffsets = NULL
+
+    def __releasebuffer__(self, Py_buffer *buf):
         pass
-    void dial3_alloc(dial3 **dial)
-    error dial3_init(dial3 *dial, stype stype, const int *shape, dbl h)
-    void dial3_deinit(dial3 *dial)
-    void dial3_dealloc(dial3 **dial)
-    void dial3_add_point_source(dial3 *dial, const int *ind0, dbl T)
-    void dial3_add_boundary_points(dial3 *dial, const int *inds, size_t n)
-    bool dial3_step(dial3 *dial)
-    void dial3_solve(dial3 *dial)
-    dbl dial3_get_T(const dial3 *dial, int l)
-    void dial3_get_grad_T(const dial3 *dial, int l, dbl *grad_T)
-    dbl *dial3_get_Toff_ptr(const dial3 *dial)
-    dbl *dial3_get_xsrc_ptr(const dial3 *dial)
-    state *dial3_get_state_ptr(const dial3 *dial)
 
-
-cdef extern from "edge.h":
-    cdef struct edge:
-        size_t l[2]
-    edge make_edge(size_t l0, size_t l1)
-
-
-cdef extern from "edgemap.h":
-    cdef struct edgemap_iter:
-        pass
-    cdef struct edgemap:
-        pass
-    void edgemap_iter_alloc(edgemap_iter **iter)
-    void edgemap_iter_dealloc(edgemap_iter **iter)
-    void edgemap_iter_init(edgemap_iter *iter, const edgemap *edgemap)
-    bool edgemap_iter_next(edgemap_iter *iter, edge *edge, void *elt)
-
-cdef extern from "geom.h":
-    ctypedef struct rect3:
-        dbl min[3]
-        dbl max[3]
-
-cdef extern from "grid3.h":
-    cdef struct grid3:
-        int dim[3]
-        dbl min[3]
-        dbl h
-
-cdef extern from "mesh3.h":
-    cdef struct mesh3:
-        pass
-    void mesh3_alloc(mesh3 **mesh)
-    void mesh3_dealloc(mesh3 **mesh)
-    void mesh3_init(mesh3 *mesh,
-                    dbl *verts, size_t nverts,
-                    size_t *cells, size_t ncells)
-    void mesh3_deinit(mesh3 *mesh)
-    void mesh3_get_bbox(const mesh3 *mesh, rect3 *bbox)
-    size_t mesh3_nverts(const mesh3 *mesh)
-    int mesh3_nvc(const mesh3 *mesh, size_t i)
-    void mesh3_vc(const mesh3 *mesh, size_t i, size_t *vc)
-    int mesh3_nvv(const mesh3 *mesh, size_t i)
-    void mesh3_vv(const mesh3 *mesh, size_t i, size_t *vv)
-    int mesh3_ncc(const mesh3 *mesh, size_t i)
-    void mesh3_cc(const mesh3 *mesh, size_t i, size_t *cc)
-    void mesh3_cv(const mesh3 *mesh, size_t i, size_t *cv)
-    int mesh3_nec(const mesh3 *mesh, size_t i, size_t j)
-    void mesh3_ec(const mesh3 *mesh, size_t i, size_t j, size_t *ec)
-    bool mesh3_bdc(const mesh3 *mesh, size_t i)
-    bool mesh3_bdv(const mesh3 *mesh, size_t i)
-    bool mesh3_bde(const mesh3 *mesh, const size_t l[2])
-    bool mesh3_bdf(const mesh3 *mesh, const size_t l[3])
-    bool mesh3_is_diff_edge(const mesh3 *mesh, const size_t l[2])
-
-
-cdef extern from "par.h":
-    cdef struct par3:
-        size_t l[3]
-        dbl b[3]
-    int par3_size(const par3 *par)
-
-
-cdef extern from "eik3.h":
-    cdef struct cutedge:
-        dbl t
-        dbl n[3]
-    cdef struct eik3:
-        pass
-    void eik3_alloc(eik3 **eik)
-    void eik3_dealloc(eik3 **eik)
-    void eik3_init(eik3 *eik, const mesh3 *mesh)
-    void eik3_deinit(eik3 *eik)
-    size_t eik3_peek(const eik3 *eik)
-    size_t eik3_step(eik3 *eik)
-    void eik3_solve(eik3 *eik)
-    void eik3_add_trial(eik3 *eik, size_t ind, jet3 jet)
-    void eik3_add_valid(eik3 *eik, size_t ind, jet3 jet)
-    const mesh3 *eik3_get_mesh(const eik3 *eik)
-    bool eik3_is_far(const eik3 *eik, size_t ind)
-    bool eik3_is_trial(const eik3 *eik, size_t ind)
-    bool eik3_is_valid(const eik3 *eik, size_t ind)
-    bool eik3_is_shadow(const eik3 *eik, size_t l)
-    jet3 *eik3_get_jet_ptr(const eik3 *eik)
-    state *eik3_get_state_ptr(const eik3 *eik)
-    par3 eik3_get_par(const eik3 *eik, size_t l)
-    const edgemap *eik3_get_cutset(const eik3 *eik)
-
-
-cdef extern from "utetra.h":
-    cdef struct utetra:
-        pass
-    void utetra_alloc(utetra **cf)
-    void utetra_dealloc(utetra **cf)
-    void utetra_init_from_eik3(utetra *cf, const eik3 *eik,
-                              size_t l, size_t l0, size_t l1, size_t l2)
-    void utetra_init(utetra *cf, const dbl x[3], const dbl Xt[3][3],
-                     const jet3 jet[3])
-    bool utetra_is_degenerate(const utetra *cf)
-    bool utetra_is_causal(const utetra *cf)
-    void utetra_reset(utetra *cf)
-    void utetra_solve(utetra *cf)
-    void utetra_get_lambda(utetra *cf, dbl lam[2])
-    void utetra_set_lambda(utetra *cf, const dbl lam[2])
-    dbl utetra_get_value(const utetra *cf)
-    void utetra_get_gradient(const utetra *cf, dbl g[2])
-    void utetra_get_jet(const utetra *cf, jet3 *jet)
-    void utetra_get_lag_mults(const utetra *cf, dbl alpha[3])
-    int utetra_get_num_iter(const utetra *cf)
-
-
-cdef extern from "xfer.h":
-    void xfer(const mesh3 *mesh, const jet3 *jet, const grid3 *grid,
-              dbl *y)
-
+    @property
+    def size(self):
+        cdef Py_ssize_t size = 1
+        for i in range(self.ndim):
+            size *= self.shape[i]
+        return size
 
 cdef class Bb3Tet:
     cdef:
@@ -222,7 +111,6 @@ cdef class Bb3Tet:
         if a.size != 12 or a.shape[0] != 3 or a.shape[4] != 4:
             raise Exception('`a` must have shape (3, 4)')
         return d2bb3tet(self._c, &b[0], <const dbl (*)[4]>&a[0, 0])
-
 
 cdef class Grid3:
     cdef:
@@ -307,50 +195,6 @@ cdef class UpdateTetra:
 
     def get_num_iter(self):
         return utetra_get_num_iter(self._utetra)
-
-
-cdef class ArrayView:
-    cdef:
-        bool readonly
-        int ndim
-        void *ptr
-        Py_ssize_t *shape
-        Py_ssize_t *strides
-        char *format
-        size_t itemsize
-
-    def __cinit__(self, int ndim):
-        self.ndim = ndim
-        self.shape = <Py_ssize_t *>malloc(sizeof(Py_ssize_t)*ndim)
-        self.strides = <Py_ssize_t *> malloc(sizeof(Py_ssize_t)*ndim)
-
-    def __dealloc__(self):
-        free(self.shape)
-        free(self.strides)
-
-    def __getbuffer__(self, Py_buffer *buf, int flags):
-        buf.buf = <char *>self.ptr
-        buf.format = self.format
-        buf.internal = NULL
-        buf.itemsize = self.itemsize
-        buf.len = self.size
-        buf.ndim = self.ndim
-        buf.obj = self
-        buf.readonly = self.readonly
-        buf.shape = self.shape
-        buf.strides = self.strides
-        buf.suboffsets = NULL
-
-    def __releasebuffer__(self, Py_buffer *buf):
-        pass
-
-    @property
-    def size(self):
-        cdef Py_ssize_t size = 1
-        for i in range(self.ndim):
-            size *= self.shape[i]
-        return size
-
 
 cdef class _Dial3:
     cdef:
@@ -444,23 +288,7 @@ cdef class _Dial3:
     def state(self):
         return self.state_view
 
-
-class Stype(Enum):
-    Constant = 0
-
-
-class State(Enum):
-    Far = 0
-    Trial = 1
-    Valid = 2
-    Boundary = 3
-    AdjacentToBoundary = 4
-    NewValid = 5
-    Shadow = 6
-
-
 class Dial:
-
     def __init__(self, stype, shape, h):
         self.shape = shape
         self.h = h
@@ -514,7 +342,6 @@ class Dial:
     @property
     def state(self):
         return np.asarray(self._dial.state)
-
 
 cdef class Mesh3:
     cdef:
@@ -590,7 +417,6 @@ cdef class Mesh3:
         l[1] = j
         return mesh3_is_diff_edge(self.mesh, l)
 
-
 cdef class Jet3:
     cdef:
         jet3 jet
@@ -617,7 +443,6 @@ cdef class Jet3:
     def fz(self):
         return self.jet.fz
 
-
 cdef class Parent3:
     cdef:
         par3 p
@@ -641,7 +466,6 @@ cdef class Parent3:
         memcpy(&b[0], self.p.b, self.size*sizeof(dbl))
         return np.asarray(b)
 
-
 cdef class Cutedge:
     cdef:
         dbl t
@@ -659,7 +483,6 @@ cdef class Cutedge:
     @property
     def n(self):
         return np.asarray(self.n)
-
 
 cdef class Eik3:
     cdef:
