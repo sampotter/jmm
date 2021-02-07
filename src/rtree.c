@@ -261,7 +261,7 @@ bool rtree_query_bbox(rtree_s const *rtree, rect3 const *bbox) {
 }
 
 static bool intersect(rtree_s const *rtree, rtree_node_s const *node,
-                      ray3 const *ray, isect_s *isect) {
+                      ray3 const *ray, isect *isect) {
   if (!ray3_intersects_rect3(ray, &node->bbox))
     return false;
   if (node->type == RTREE_LEAF_NODE) {
@@ -297,6 +297,6 @@ static bool intersect(rtree_s const *rtree, rtree_node_s const *node,
   }
 }
 
-bool rtree_intersect(rtree_s const *rtree, ray3 const *ray, isect_s *isect) {
+bool rtree_intersect(rtree_s const *rtree, ray3 const *ray, isect *isect) {
   return intersect(rtree, rtree->root, ray, isect);
 }

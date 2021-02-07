@@ -8,7 +8,7 @@ extern "C" {
 
 typedef struct mesh2 mesh2_s;
 
-typedef struct isect {
+typedef struct {
   /**
    * The intersecting ray.
    */
@@ -24,7 +24,7 @@ typedef struct isect {
    * A pointer to the object intersecting the ray.
    */
   void *obj;
-} isect_s;
+} isect;
 
 typedef struct rtree_node rtree_node_s;
 
@@ -37,7 +37,7 @@ void rtree_deinit(rtree_s *rtree);
 rect3 rtree_get_bbox(rtree_s const *rtree);
 size_t rtree_get_num_leaf_nodes(rtree_s const *rtree);
 bool rtree_query_bbox(rtree_s const *rtree, rect3 const *bbox);
-bool rtree_intersect(rtree_s const *rtree, ray3 const *ray, isect_s *isect);
+bool rtree_intersect(rtree_s const *rtree, ray3 const *ray, isect *isect);
 
 #ifdef __cplusplus
 }
