@@ -9,11 +9,3 @@ cdef extern from "geom.h":
     ctypedef struct ray3:
         dbl org[3]
         dbl dir[3]
-
-cdef class Rect3:
-    cdef:
-        rect3 _rect
-
-cdef class Ray3:
-    cdef:
-        ray3 _ray

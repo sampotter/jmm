@@ -17,8 +17,10 @@ from edge cimport *
 from edgemap cimport *
 from grid3 cimport *
 from jet cimport *
+from mesh2 cimport *
 from mesh3 cimport *
 from par cimport *
+from rtree cimport *
 from utetra cimport *
 from xfer cimport *
 
@@ -77,8 +79,7 @@ cdef class ArrayView:
         return size
 
 cdef class Bb3Tet:
-    cdef:
-        dbl _c[20]
+    cdef dbl _c[20]
 
     def __cinit__(self, dbl[:] f, dbl[:, :] Df, dbl[:, :] x):
         if f.size != 4 or f.shape[0] != 4:
@@ -113,8 +114,7 @@ cdef class Bb3Tet:
         return d2bb3tet(self._c, &b[0], <const dbl (*)[4]>&a[0, 0])
 
 cdef class Grid3:
-    cdef:
-        grid3 _grid
+    cdef grid3 _grid
 
     def __cinit__(self, int[:] dim, dbl[:] xmin, dbl h):
         self._grid.dim[0] = dim[0]
@@ -135,9 +135,77 @@ cdef class Grid3:
                          self._grid.dim[1],
                          self._grid.dim[2]])
 
+cdef class Rect3:
+    cdef rect3 _rect
+
+    def __cinit__(self, rect3 rect):
+        self._rect = rect
+
+cdef class Ray3:
+    cdef ray3 _ray
+
+cdef class Mesh2:
+    cdef mesh2 *_mesh
+
+    def __cinit__(self, const char *verts_path, const char *faces_path):
+        mesh2_alloc(&self._mesh)
+        mesh2_init_from_binary_files(self._mesh, verts_path, faces_path)
+
+    def __dealloc__(self):
+        mesh2_deinit(self._mesh)
+        mesh2_dealloc(&self._mesh)
+
+    @property
+    def num_points(self):
+        return mesh2_get_num_points(self._mesh)
+
+    @property
+    def num_faces(self):
+        return mesh2_get_num_faces(self._mesh)
+
+    @property
+    def bounding_box(self):
+        return Rect3(mesh2_get_bounding_box(self._mesh))
+
+cdef class Isect:
+    cdef isect _isect
+
+cdef class Rtree:
+    '''An R-tree data structure, intended to be used for speeding up
+raytracing and other basic geometric queries. Right now, it can only
+be constructed from :class:`Mesh2` instances, but this limitation will
+be removed in the near future.
+
+    :param mesh: A triangle mesh stored as a :class:`Mesh2`
+        instance. An R-tree will be built for this mesh.
+    '''
+    cdef rtree *_rtree
+
+    def __cinit__(self, Mesh2 mesh):
+        rtree_alloc(&self._rtree)
+        rtree_init_from_tri_mesh(self._rtree, mesh._mesh)
+
+    def __dealloc__(self):
+        rtree_deinit(self._rtree)
+        rtree_dealloc(&self._rtree)
+
+    @property
+    def bounding_box(self):
+        return Rect3(rtree_get_bbox(self._rtree))
+
+    @property
+    def num_leaf_nodes(self):
+        return rtree_get_num_leaf_nodes(self._rtree)
+
+    def intersect(self, Ray3 ray):
+        cdef isect I
+        if rtree_intersect(self._rtree, &ray._ray, &I):
+            isect = Isect()
+            isect._isect = I
+            return isect
+
 cdef class UpdateTetra:
-    cdef:
-        utetra *_utetra
+    cdef utetra *_utetra
 
     def __cinit__(self, dbl[:] x, dbl[:, :] Xt, dbl[:] T, dbl[:, :] DT):
         cdef jet3 jet[3]
@@ -344,8 +412,7 @@ class Dial:
         return np.asarray(self._dial.state)
 
 cdef class Mesh3:
-    cdef:
-        mesh3 *mesh
+    cdef mesh3 *mesh
 
     def __cinit__(self, dbl[:, ::1] verts, size_t[:, ::1] cells):
         mesh3_alloc(&self.mesh)
@@ -418,8 +485,7 @@ cdef class Mesh3:
         return mesh3_is_diff_edge(self.mesh, l)
 
 cdef class Jet3:
-    cdef:
-        jet3 jet
+    cdef jet3 jet
 
     def __cinit__(self, dbl f, dbl fx, dbl fy, dbl fz):
         self.jet.f = f
@@ -444,26 +510,25 @@ cdef class Jet3:
         return self.jet.fz
 
 cdef class Parent3:
-    cdef:
-        par3 p
+    cdef par3 par
 
-    def __cinit__(self, par3 p):
-        self.p = p
+    def __cinit__(self, par3 par):
+        self.par = par
 
     @property
     def size(self):
-        return par3_size(&self.p)
+        return par3_size(&self.par)
 
     @property
     def l(self):
         cdef size_t[:] l = np.empty((self.size,), dtype=np.uintp)
-        memcpy(&l[0], self.p.l, self.size*sizeof(size_t))
+        memcpy(&l[0], self.par.l, self.size*sizeof(size_t))
         return np.asarray(l)
 
     @property
     def b(self):
         cdef dbl[:] b = np.empty((self.size,), dtype=np.float64)
-        memcpy(&b[0], self.p.b, self.size*sizeof(dbl))
+        memcpy(&b[0], self.par.b, self.size*sizeof(dbl))
         return np.asarray(b)
 
 cdef class Cutedge:

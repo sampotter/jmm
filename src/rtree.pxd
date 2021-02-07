@@ -1,10 +1,10 @@
 from defs cimport bool, dbl
-from geom cimport rect3, ray3, Ray3
+from geom cimport rect3, ray3
 from mesh2 cimport mesh2
 
 cdef extern from "rtree.h":
-    cdef struct isect:
-        ray3 ray
+    ctypedef struct isect:
+        const ray3 *ray
         dbl t
         void *obj
     cdef struct rtree_node:
@@ -19,11 +19,3 @@ cdef extern from "rtree.h":
     size_t rtree_get_num_leaf_nodes(const rtree *rtree)
     bool rtree_query_bbox(const rtree *rtree, const rect3 *bbox)
     bool rtree_intersect(const rtree *rtree, const ray3 *ray, isect *isect)
-
-cdef class Isect:
-    cdef:
-        isect _isect
-
-cdef class Rtree:
-    cdef:
-        rtree *_rtree
