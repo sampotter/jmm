@@ -13,8 +13,17 @@ struct mesh2 {
   dbl *points;
   size_t num_points;
   size_t *faces;
-  size_t *num_faces;
+  size_t num_faces;
 };
+
+void mesh2_alloc(mesh2_s **mesh) {
+  *mesh = malloc(sizeof(mesh2_s));
+}
+
+void mesh2_dealloc(mesh2_s **mesh) {
+  free(*mesh);
+  *mesh = NULL;
+}
 
 void mesh2_init_from_binary_files(mesh2_s *mesh, char const *verts_path,
                                   char const *faces_path) {
