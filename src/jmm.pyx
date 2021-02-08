@@ -168,7 +168,7 @@ direction*t`.
         memcpy(&self._ray.dir[0], &direction[0], 3*sizeof(dbl))
 
     @staticmethod
-    cdef new_from_ptr(const ray3 *ray):
+    cdef from_ptr(const ray3 *ray):
         cdef dbl[::1] org = np.array([ray.org[0], ray.org[1], ray.org[2]])
         cdef dbl[::1] dir = np.array([ray.dir[0], ray.dir[1], ray.dir[2]])
         return Ray3(org, dir)
@@ -207,7 +207,7 @@ cdef class Isect:
 
     def __repr__(self):
         cdef size_t l = (<size_t *>self._isect.obj)[0]
-        ray = Ray3.new_from_ptr(self._isect.ray)
+        ray = Ray3.from_ptr(self._isect.ray)
         return f'Isect(ray = {ray}, t = {self._isect.t}, l = {l})'
 
 cdef class Rtree:
