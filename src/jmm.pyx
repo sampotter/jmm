@@ -782,3 +782,11 @@ cdef class Eik3:
     def mesh(self):
         cdef mesh3 *mesh = eik3_get_mesh(self.eik)
         return Mesh3.from_ptr(mesh)
+
+    def get_bezier_tetra(self, size_t cell_ind):
+        vert_inds = self.mesh.cells[cell_ind]
+        jets = self.jet[vert_inds]
+        cdef dbl[::1] f = np.array([_[0] for _ in jets])
+        cdef dbl[:, ::1] Df = np.array([(_[1], _[2], _[3]) for _ in jets])
+        cdef dbl[:, ::1] x = self.mesh.verts[vert_inds]
+        return Bb3Tet(f, Df, x)
