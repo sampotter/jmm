@@ -37,7 +37,9 @@ void rtree_deinit(rtree_s *rtree);
 rect3 rtree_get_bbox(rtree_s const *rtree);
 size_t rtree_get_num_leaf_nodes(rtree_s const *rtree);
 bool rtree_query_bbox(rtree_s const *rtree, rect3 const *bbox);
-bool rtree_intersect(rtree_s const *rtree, ray3 const *ray, isect *isect);
+void rtree_intersect(rtree_s const *rtree, ray3 const *ray, isect *isect);
+void rtree_intersectN(rtree_s const *rtree, ray3 const *rays, isect *isects,
+                      size_t num_rays);
 
 #ifdef __cplusplus
 }

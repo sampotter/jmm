@@ -1,6 +1,8 @@
+import colorcet as cc
 import itertools as it
 import jmm
 import meshio
+import meshzoo
 import numpy as np
 
 from PIL import Image
@@ -21,16 +23,20 @@ def get_view_direction(left, front, up, phi, theta):
     return np.array([left, front, up]).T@ray
 
 if __name__ == '__main__':
-    trimesh = meshio.read('L.obj')
-    verts = trimesh.points.astype(np.float64).copy()
-    faces = trimesh.cells_dict['triangle'].astype(np.uintp).copy()
+    # trimesh = meshio.read('L.obj')
+    # verts = trimesh.points.astype(np.float64).copy()
+    # faces = trimesh.cells_dict['triangle'].astype(np.uintp).copy()
+
+    verts, faces = meshzoo.icosa_sphere(2)
+    faces = faces.astype(np.uintp)
+
     mesh = jmm.Mesh2(verts, faces)
     rtree = jmm.Rtree(mesh)
 
     print('R-tree bounding box: %s' % rtree.bounding_box)
 
     # Compute camera frame (front x left x up)
-    origin = np.array([1, 1, 5], dtype=np.float64)
+    origin = np.array([-10, 0, 0], dtype=np.float64)
     target = np.array([0, 0, 0], dtype=np.float64)
     front = target - origin
     front /= np.linalg.norm(front)
@@ -40,29 +46,46 @@ if __name__ == '__main__':
     up = np.cross(front, left)
     up /= np.linalg.norm(up)
 
-    ray = jmm.Ray3(origin, front)
-    isect = rtree.intersect(ray)
+    isect = rtree.intersect(origin, front)
     print(isect)
 
     print('left', left)
     print('front', front)
     print('up', up)
 
-    width = 640
-    height = 480
+    width = 256
+    height = 256
+    num_rays = width*height
 
-    Phi_deg = np.linspace(-15, 15, width)
-    Theta_deg = np.linspace(-7.5, 7.5, height)
+    Phi = np.deg2rad(np.linspace(-15, 15, width))
+    Theta = np.deg2rad(np.linspace(-15, 15, height))
+
+    orgs = np.outer(np.ones(num_rays), origin)
+    dirs = np.array([get_view_direction(left, front, up, phi, theta)
+                     for phi, theta in it.product(Phi, Theta)])
+
+    T, I = rtree.intersectN(orgs, dirs)
+    T = T.reshape(width, height)
+    I = I.reshape(width, height)
 
     img = Image.new('RGB', (width, height), 'white')
 
-    for (i, phi_deg), (j, theta_deg) in it.product(enumerate(Phi_deg),
-                                                   enumerate(Theta_deg)):
-        phi, theta = np.deg2rad(phi_deg), np.deg2rad(theta_deg)
-        direction = get_view_direction(left, front, up, phi, theta)
-        ray = jmm.Ray3(origin, direction)
-        isect = rtree.intersect(ray)
-        if isect is not None:
-            img.putpixel((i, j), (0, 0, 0, 0))
+    # Plot intersection distance
+    tmax = np.nanmax(T)
+    for i, j in it.product(range(width), range(height)):
+        t = T[i, j]
+        if np.isnan(t):
+            continue
+        rgba = tuple(int(np.round(255*_)) for _ in cc.cm.rainbow(t/tmax))
+        img.putpixel((i, j), rgba)
+
+    # # Plot index of intersected triangle
+    # imax = I[~np.isnan(T)].max()
+    # for i, j in it.product(range(width), range(height)):
+    #     i_ = I[i, j]
+    #     if np.isnan(T[i, j]):
+    #         continue
+    #     rgba = tuple(int(np.round(255*_)) for _ in cc.cm.rainbow(i_/imax))
+    #     img.putpixel((i, j), rgba)
 
     img.show()

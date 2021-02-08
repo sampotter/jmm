@@ -237,12 +237,48 @@ be removed in the near future.
     def num_leaf_nodes(self):
         return rtree_get_num_leaf_nodes(self._rtree)
 
-    def intersect(self, Ray3 ray):
-        cdef isect I
-        if rtree_intersect(self._rtree, &ray._ray, &I):
-            isect = Isect()
-            isect._isect = I
-            return isect
+    def intersect(self, dbl[::1] org, dbl[::1] dir):
+        cdef ray3 ray
+        memcpy(&ray.org[0], &org[0], 3*sizeof(dbl))
+        memcpy(&ray.dir[0], &dir[0], 3*sizeof(dbl))
+        cdef isect isect
+        rtree_intersect(self._rtree, &ray, &isect)
+        cdef size_t i = (<size_t *>isect.obj)[0]
+        return isect.t, i
+
+    def intersectN(self, dbl[:, ::1] orgs, dbl[:, ::1] dirs):
+        '''Trace rays specified by the rows of `orgs` and `dirs`, returning a
+        pair of arrays `T` and `I`, consisting of the intersection
+        parameters and indices of the intersected elements,
+        respectively.
+
+        '''
+        if orgs.ndim != 2 or orgs.shape[1] != 3:
+            raise Exception('`orgs` should be an (N, 3) array')
+        if dirs.ndim != 2 or dirs.shape[1] != 3:
+            raise Exception('`dirs` should be an (N, 3) array')
+        print(orgs.shape)
+        print(dirs.shape)
+        if orgs.shape[0] != dirs.shape[0] or orgs.shape[1] != dirs.shape[1]:
+            raise Exception('`orgs` and `dirs` arrays should have same shape')
+        cdef size_t num_rays = orgs.shape[0]
+        cdef ray3 *rays = <ray3 *>malloc(num_rays*sizeof(ray3))
+        cdef size_t i
+        for i in range(num_rays):
+            memcpy(rays[i].org, &orgs[i, 0], 3*sizeof(dbl))
+        for i in range(num_rays):
+            memcpy(rays[i].dir, &dirs[i, 0], 3*sizeof(dbl))
+        T = np.empty((num_rays,), dtype=np.float64)
+        I = np.empty((num_rays,), dtype=np.uintp)
+        cdef isect isect
+        isect.obj = malloc(sizeof(size_t))
+        for i in range(num_rays):
+            rtree_intersect(self._rtree, &rays[i], &isect)
+            T[i] = isect.t
+            I[i] = (<size_t *>isect.obj)[0]
+        free(isect.obj)
+        free(rays)
+        return T, I
 
 cdef class UpdateTetra:
     cdef utetra *_utetra

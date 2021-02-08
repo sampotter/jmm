@@ -297,6 +297,13 @@ static bool intersect(rtree_s const *rtree, rtree_node_s const *node,
   }
 }
 
-bool rtree_intersect(rtree_s const *rtree, ray3 const *ray, isect *isect) {
-  return intersect(rtree, rtree->root, ray, isect);
+void rtree_intersect(rtree_s const *rtree, ray3 const *ray, isect *isect) {
+  if (!intersect(rtree, rtree->root, ray, isect))
+    isect->t = NAN;
+}
+
+void rtree_intersectN(rtree_s const *rtree, ray3 const *rays, isect *isects,
+                      size_t num_rays) {
+  for (size_t i = 0; i < num_rays; ++i)
+    rtree_intersect(rtree, &rays[i], &isects[i]);
 }
