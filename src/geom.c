@@ -89,8 +89,11 @@ bool ray3_intersects_tri3(ray3 const *ray, tri3 const *tri, dbl *t) {
   dbl3_cross(dv[0], dv[1], n);
   dbl3_normalize(n); // TODO: probably unnecessary
 
+  // If the ray direction and triangle normal are orthogonal, then the
+  // triangle would appear infinitely thin to the ray, so just return
+  // false here.
   if (fabs(dbl3_dot(n, ray->dir)) < atol)
-    assert(false); // TODO: handle this case
+    return false;
 
   *t = dbl3_dot(n, tri->v[0]) - dbl3_dot(n, ray->org);
   *t /= dbl3_dot(n, ray->dir);
