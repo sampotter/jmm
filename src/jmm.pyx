@@ -147,9 +147,11 @@ cdef class Ray3:
 cdef class Mesh2:
     cdef mesh2 *_mesh
 
-    def __cinit__(self, const char *verts_path, const char *faces_path):
+    def __cinit__(self, dbl[:, ::1] verts, size_t[:, ::1] faces):
         mesh2_alloc(&self._mesh)
-        mesh2_init_from_binary_files(self._mesh, verts_path, faces_path)
+        cdef size_t nverts = verts.shape[0]
+        cdef size_t nfaces = faces.shape[0]
+        mesh2_init(self._mesh, &verts[0, 0], nverts, &faces[0, 0], nfaces)
 
     def __dealloc__(self):
         mesh2_deinit(self._mesh)

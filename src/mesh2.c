@@ -25,6 +25,17 @@ void mesh2_dealloc(mesh2_s **mesh) {
   *mesh = NULL;
 }
 
+void mesh2_init(mesh2_s *mesh, dbl const *verts, size_t nverts,
+                size_t const *faces, size_t nfaces) {
+  mesh->points = malloc(3*nverts*sizeof(dbl));
+  memcpy(mesh->points, verts, 3*nverts*sizeof(dbl));
+  mesh->num_points = nverts;
+
+  mesh->faces = malloc(3*nfaces*sizeof(size_t));
+  memcpy(mesh->faces, faces, 3*nfaces*sizeof(size_t));
+  mesh->num_faces = nfaces;
+}
+
 void mesh2_init_from_binary_files(mesh2_s *mesh, char const *verts_path,
                                   char const *faces_path) {
   FILE *fp = NULL;

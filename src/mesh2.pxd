@@ -6,7 +6,8 @@ cdef extern from "mesh2.h":
         pass
     void mesh2_alloc(mesh2 **mesh)
     void mesh2_dealloc(mesh2 **mesh)
-    void mesh2_init_from_binary_files(mesh2 *mesh, const char *verts_path, const char *faces_path)
+    void mesh2_init(mesh2 *mesh, const dbl *verts, size_t nverts,
+                    const size_t *faces, size_t nfaces)
     void mesh2_deinit(mesh2 *mesh)
     size_t mesh2_get_num_points(const mesh2 *mesh)
     dbl *mesh2_get_points_ptr(const mesh2 *mesh)

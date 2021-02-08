@@ -130,6 +130,7 @@ if (BUILD_TESTS)
     test/test_eik3.c
     test/test_opt.c
     test/test_mat.c
+    test/test_mesh2.c
     test/test_mesh3.c
     test/test_utri.c
     )

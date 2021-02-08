@@ -10,6 +10,8 @@ typedef struct mesh2 mesh2_s;
 
 void mesh2_alloc(mesh2_s **mesh);
 void mesh2_dealloc(mesh2_s **mesh);
+void mesh2_init(mesh2_s *mesh, dbl const *verts, size_t nverts,
+                size_t const *faces, size_t nfaces);
 void mesh2_init_from_binary_files(mesh2_s *mesh, char const *verts_path,
                                   char const *faces_path);
 void mesh2_deinit(mesh2_s *mesh);
