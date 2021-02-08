@@ -43,7 +43,7 @@ bool ray3_intersects_rect3(ray3 const *ray, rect3 const *rect) {
   dbl const *m = rect->min, *M = rect->max;
 
   // TODO: handle this case
-  assert(fabs(d[0]) > atol && fabs(d[1]) > atol && fabs(d[2]) > atol);
+  assert(fabs(d[0]) > atol || fabs(d[1]) > atol || fabs(d[2]) > atol);
 
   dbl t, pt[3];
 
