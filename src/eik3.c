@@ -25,7 +25,7 @@
 #include "vec.h"
 
 struct eik3 {
-  mesh3_s const *mesh;
+  mesh3_s *mesh;
   jet3 *jet;
   state_e *state;
   int *pos;
@@ -57,7 +57,7 @@ static void setpos(void *ptr, int l, int pos) {
   eik->pos[l] = pos;
 }
 
-void eik3_init(eik3_s *eik, mesh3_s const *mesh) {
+void eik3_init(eik3_s *eik, mesh3_s *mesh) {
   eik->mesh = mesh;
 
   size_t nverts = mesh3_nverts(mesh);
@@ -1104,7 +1104,7 @@ bool eik3_is_shadow(eik3_s const *eik, size_t l) {
   return eik->state[l] == SHADOW;
 }
 
-mesh3_s const *eik3_get_mesh(eik3_s const *eik) {
+mesh3_s *eik3_get_mesh(eik3_s const *eik) {
   return eik->mesh;
 }
 

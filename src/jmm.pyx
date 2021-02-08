@@ -777,3 +777,8 @@ cdef class Eik3:
             cutset[e.l[0], e.l[1]] = Cutedge(c.t, <double[:3]>c.n)
         edgemap_iter_dealloc(&it)
         return cutset
+
+    @property
+    def mesh(self):
+        cdef mesh3 *mesh = eik3_get_mesh(self.eik)
+        return Mesh3.from_ptr(mesh)
