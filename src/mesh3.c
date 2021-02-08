@@ -371,6 +371,14 @@ void mesh3_deinit(mesh3_s *mesh) {
   mesh->bdv = NULL;
 }
 
+dbl const *mesh3_get_verts_ptr(mesh3_s const *mesh) {
+  return &mesh->verts[0].data[0];
+}
+
+size_t const *mesh3_get_cells_ptr(mesh3_s const *mesh) {
+  return &mesh->cells[0].data[0];
+}
+
 dvec3 mesh3_get_vert(mesh3_s const *mesh, size_t i) {
   return mesh->verts[i];
 }

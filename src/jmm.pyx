@@ -488,17 +488,72 @@ class Dial:
         return np.asarray(self._dial.state)
 
 cdef class Mesh3:
-    cdef mesh3 *mesh
-
-    def __cinit__(self, dbl[:, ::1] verts, size_t[:, ::1] cells):
-        mesh3_alloc(&self.mesh)
-        cdef size_t nverts = verts.shape[0]
-        cdef size_t ncells = cells.shape[0]
-        mesh3_init(self.mesh, &verts[0, 0], nverts, &cells[0, 0], ncells)
+    cdef:
+        bool ptr_owner
+        mesh3 *mesh
+        ArrayView verts_view
+        ArrayView cells_view
 
     def __dealloc__(self):
-        mesh3_deinit(self.mesh)
-        mesh3_dealloc(&self.mesh)
+        if self.ptr_owner:
+            mesh3_deinit(self.mesh)
+            mesh3_dealloc(&self.mesh)
+
+    @staticmethod
+    def from_verts_and_cells(dbl[:, ::1] verts, size_t[:, ::1] cells):
+        mesh = Mesh3()
+        mesh.ptr_owner = True
+        mesh3_alloc(&mesh.mesh)
+        cdef size_t nverts = verts.shape[0]
+        cdef size_t ncells = cells.shape[0]
+        mesh3_init(mesh.mesh, &verts[0, 0], nverts, &cells[0, 0], ncells)
+        mesh._set_views()
+        return mesh
+
+    @staticmethod
+    cdef from_ptr(mesh3 *mesh_ptr):
+        mesh = Mesh3()
+        mesh.ptr_owner = False
+        mesh.mesh = mesh_ptr
+        mesh._set_views()
+        return mesh
+
+    @property
+    def num_verts(self):
+        return mesh3_nverts(self.mesh)
+
+    @property
+    def num_cells(self):
+        return mesh3_ncells(self.mesh)
+
+    cdef _set_views(self):
+        self.verts_view = ArrayView(2)
+        self.verts_view.readonly = True
+        self.verts_view.ptr = <void *>mesh3_get_verts_ptr(self.mesh)
+        self.verts_view.shape[0] = self.num_verts
+        self.verts_view.shape[1] = 3
+        self.verts_view.strides[0] = 4*sizeof(dbl)
+        self.verts_view.strides[1] = 1*sizeof(dbl)
+        self.verts_view.format = 'd'
+        self.verts_view.itemsize = sizeof(dbl)
+
+        self.cells_view = ArrayView(2)
+        self.cells_view.readonly = True
+        self.cells_view.ptr = <void *>mesh3_get_cells_ptr(self.mesh)
+        self.cells_view.shape[0] = self.num_cells
+        self.cells_view.shape[1] = 4
+        self.cells_view.strides[0] = 4*sizeof(size_t)
+        self.cells_view.strides[1] = 1*sizeof(size_t)
+        self.cells_view.format = 'L'
+        self.cells_view.itemsize = sizeof(size_t)
+
+    @property
+    def verts(self):
+        return np.asarray(self.verts_view)
+
+    @property
+    def cells(self):
+        return np.asarray(self.cells_view)
 
     def get_bbox(self):
         cdef rect3 bbox

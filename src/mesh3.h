@@ -5,6 +5,7 @@ extern "C" {
 #endif
 
 #include "geom.h"
+#include "index.h"
 #include "vec.h"
 
 bool face_in_cell(size_t const f[3], size_t const c[4]);
@@ -31,6 +32,8 @@ void mesh3_init(mesh3_s *mesh,
                 dbl const *verts, size_t nverts,
                 size_t const *cells, size_t ncells);
 void mesh3_deinit(mesh3_s *mesh);
+dbl const *mesh3_get_verts_ptr(mesh3_s const *mesh);
+size_t const *mesh3_get_cells_ptr(mesh3_s const *mesh);
 dvec3 mesh3_get_vert(mesh3_s const *mesh, size_t i);
 dbl const *mesh3_get_vert_ptr(mesh3_s const *mesh, size_t i);
 void mesh3_get_vert_ptrs(mesh3_s const *mesh, size_t const *l, int n, dbl const **x);
