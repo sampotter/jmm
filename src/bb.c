@@ -148,24 +148,24 @@
 #define TET0012 18
 #define TET0003 19
 
-void bb3_interp(dbl const f[2], dbl const Df[2], dbl const x[2], dbl c[4]) {
-  c[1] = (c[0] = f[0]) + Df[0]*(x[1] - x[0])/3;
-  c[2] = (c[3] = f[1]) + Df[1]*(x[0] - x[1])/3;
+void bb3_init_from_1d_data(bb3 *bb, dbl const f[2], dbl const Df[2], dbl const x[2]) {
+  bb->c[1] = (bb->c[0] = f[0]) + Df[0]*(x[1] - x[0])/3;
+  bb->c[2] = (bb->c[3] = f[1]) + Df[1]*(x[0] - x[1])/3;
 }
 
-void bb3_interp3(dbl const f[2], dbl const Df[2][3], dbl const x[2][3], dbl c[4]) {
+void bb3_init_from_3d_data(bb3 *bb, dbl const f[2], dbl const Df[2][3], dbl const x[2][3]) {
   dbl dx[3];
   dbl3_sub(x[1], x[0], dx);
-  c[1] = (c[0] = f[0]) + dbl3_dot(dx, Df[0])/3;
-  c[2] = (c[3] = f[1]) - dbl3_dot(dx, Df[1])/3;
+  bb->c[1] = (bb->c[0] = f[0]) + dbl3_dot(dx, Df[0])/3;
+  bb->c[2] = (bb->c[3] = f[1]) - dbl3_dot(dx, Df[1])/3;
 }
 
-dbl bb3(dbl const *c, dbl const *b) {
+dbl bb3_f(bb3 const *bb, dbl const *b) {
   dbl tmp[3];
 
-  tmp[0] = b[0]*c[0] + b[1]*c[1];
-  tmp[1] = b[0]*c[1] + b[1]*c[2];
-  tmp[2] = b[0]*c[2] + b[1]*c[3];
+  tmp[0] = b[0]*bb->c[0] + b[1]*bb->c[1];
+  tmp[1] = b[0]*bb->c[1] + b[1]*bb->c[2];
+  tmp[2] = b[0]*bb->c[2] + b[1]*bb->c[3];
 
   tmp[0] = b[0]*tmp[0] + b[1]*tmp[1];
   tmp[1] = b[0]*tmp[1] + b[1]*tmp[2];
@@ -173,12 +173,12 @@ dbl bb3(dbl const *c, dbl const *b) {
   return b[0]*tmp[0] + b[1]*tmp[1];
 }
 
-dbl dbb3(dbl const *c, dbl const *b, dbl const *a) {
+dbl bb3_df(bb3 const *bb, dbl const *b, dbl const *a) {
   dbl tmp[3];
 
-  tmp[0] = a[0]*c[0] + a[1]*c[1];
-  tmp[1] = a[0]*c[1] + a[1]*c[2];
-  tmp[2] = a[0]*c[2] + a[1]*c[3];
+  tmp[0] = a[0]*bb->c[0] + a[1]*bb->c[1];
+  tmp[1] = a[0]*bb->c[1] + a[1]*bb->c[2];
+  tmp[2] = a[0]*bb->c[2] + a[1]*bb->c[3];
 
   tmp[0] = b[0]*tmp[0] + b[1]*tmp[1];
   tmp[1] = b[0]*tmp[1] + b[1]*tmp[2];
@@ -186,12 +186,12 @@ dbl dbb3(dbl const *c, dbl const *b, dbl const *a) {
   return 3*(b[0]*tmp[0] + b[1]*tmp[1]);
 }
 
-dbl d2bb3(dbl const *c, dbl const *b, dbl const *a) {
+dbl bb3_d2f(bb3 const *bb, dbl const *b, dbl const *a) {
   dbl tmp[3];
 
-  tmp[0] = a[0]*c[0] + a[1]*c[1];
-  tmp[1] = a[0]*c[1] + a[1]*c[2];
-  tmp[2] = a[0]*c[2] + a[1]*c[3];
+  tmp[0] = a[0]*bb->c[0] + a[1]*bb->c[1];
+  tmp[1] = a[0]*bb->c[1] + a[1]*bb->c[2];
+  tmp[2] = a[0]*bb->c[2] + a[1]*bb->c[3];
 
   tmp[0] = a[0]*tmp[0] + a[1]*tmp[1];
   tmp[1] = a[0]*tmp[1] + a[1]*tmp[2];

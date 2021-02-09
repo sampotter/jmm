@@ -8,11 +8,15 @@ extern "C" {
 
 typedef struct mesh3 mesh3_s;
 
-void bb3_interp(dbl const f[2], dbl const Df[2], dbl const x[2], dbl c[4]);
-void bb3_interp3(dbl const f[2], dbl const Df[2][3], dbl const x[2][3], dbl c[4]);
-dbl bb3(dbl const *c, dbl const *b);
-dbl dbb3(dbl const *c, dbl const *b, dbl const *a);
-dbl d2bb3(dbl const *c, dbl const *b, dbl const *a);
+typedef struct {
+  dbl c[4];
+} bb3;
+
+void bb3_init_from_1d_data(bb3 *bb, dbl const f[2], dbl const Df[2], dbl const x[2]);
+void bb3_init_from_3d_data(bb3 *bb, dbl const f[2], dbl const Df[2][3], dbl const x[2][3]);
+dbl bb3_f(bb3 const *bb, dbl const *b);
+dbl bb3_df(bb3 const *bb, dbl const *b, dbl const *a);
+dbl bb3_d2f(bb3 const *bb, dbl const *b, dbl const *a);
 
 void bb3tri_interp3(dbl const f[3], dbl const Df[3][3], dbl const x[3][3], dbl c[10]);
 dbl bb3tri(dbl const *c, dbl const *b);
