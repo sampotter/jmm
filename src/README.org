@@ -1,4 +1,4 @@
-* `jmm/src`
+* Information about the ./src directory
 
 This is the directory containing the C and Cython source files for the
 low-level C API and the high-level Python API. A few comments about
