@@ -78,8 +78,8 @@ cdef class ArrayView:
             size *= self.shape[i]
         return size
 
-cdef class Bb3Tet:
-    cdef dbl _c[20]
+cdef class Bb33:
+    cdef bb33 _bb
 
     def __cinit__(self, dbl[:] f, dbl[:, :] Df, dbl[:, :] x):
         if f.size != 4 or f.shape[0] != 4:
@@ -88,30 +88,30 @@ cdef class Bb3Tet:
             raise Exception('`Df` must have shape (4, 3)')
         if x.size != 12 or x.shape[0] != 4 or x.shape[1] != 3:
             raise Exception('`x` must have shape (4, 3)')
-        bb3tet_interp3(
+        bb33_init_from_3d_data(
+            &self._bb,
             &f[0],
             <const dbl (*)[3]>&Df[0, 0],
-            <const dbl (*)[3]>&x[0, 0],
-            self._c)
+            <const dbl (*)[3]>&x[0, 0])
 
     def f(self, dbl[:] b):
         if b.size != 4 or b.shape[0] != 4:
             raise Exception('`b` must be a length 4 vector')
-        return bb3tet(self._c, &b[0])
+        return bb33_f(&self._bb, &b[0])
 
     def Df(self, dbl[:] b, dbl[:] a):
         if b.size != 4 or b.shape[0] != 4:
             raise Exception('`b` must be a length 4 vector')
         if a.size != 4 or a.shape[0] != 4:
             raise Exception('`a` must be a length 4 vector')
-        return dbb3tet(self._c, &b[0], &a[0])
+        return bb33_df(&self._bb, &b[0], &a[0])
 
     def D2f(self, dbl[:] b, dbl[:, :] a):
         if b.size != 4 or b.shape[0] != 4:
             raise Exception('`b` must be a length 4 vector')
         if a.size != 12 or a.shape[0] != 3 or a.shape[4] != 4:
             raise Exception('`a` must have shape (3, 4)')
-        return d2bb3tet(self._c, &b[0], <const dbl (*)[4]>&a[0, 0])
+        return bb33_d2f(&self._bb, &b[0], <const dbl (*)[4]>&a[0, 0])
 
 cdef class Grid3:
     cdef grid3 _grid
@@ -789,4 +789,4 @@ cdef class Eik3:
         cdef dbl[::1] f = np.array([_[0] for _ in jets])
         cdef dbl[:, ::1] Df = np.array([(_[1], _[2], _[3]) for _ in jets])
         cdef dbl[:, ::1] x = self.mesh.verts[vert_inds]
-        return Bb3Tet(f, Df, x)
+        return Bb33(f, Df, x)

@@ -14,7 +14,7 @@ typedef struct {
   dbl *y;
   grid3_s subgrid;
   int offset[3];
-  dbl c[20];
+  bb33 bb;
   size_t lc;
 } xfer_tetra_wkspc_t;
 
@@ -44,7 +44,7 @@ static void xfer_tetra(int const subgrid_ind[3], xfer_tetra_wkspc_t *wkspc) {
   dbl b[4];
   if (mesh3_dbl3_in_cell(wkspc->mesh, wkspc->lc, point, b)) {
     size_t l = ind2l3(dim, grid_ind);
-    dbl y = bb3tet(wkspc->c, b);
+    dbl y = bb33_f(&wkspc->bb, b);
     // If the grid value is NaN, just set it. Otherwise, set it to the
     // average of the new value and existing grid value. This is a bit
     // arbitrary, but if we're doing everything else right, it should
@@ -73,7 +73,7 @@ void xfer(mesh3_s const *mesh, jet3 const *jet, grid3_s const *grid, dbl *y) {
     rect3 bbox;
     mesh3_get_cell_bbox(mesh, wkspc.lc, &bbox);
     wkspc.subgrid = grid3_restrict_to_rect(grid, &bbox, wkspc.offset);
-    bb3tet_for_cell(mesh, jet, wkspc.lc, wkspc.c);
+    bb33_init_from_cell_and_jets(&wkspc.bb, mesh, jet, wkspc.lc);
     grid3_map(&wkspc.subgrid, (grid3_map_func_t)xfer_tetra, &wkspc);
   }
 }

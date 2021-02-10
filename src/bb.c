@@ -148,19 +148,19 @@
 #define TET0012 18
 #define TET0003 19
 
-void bb3_init_from_1d_data(bb3 *bb, dbl const f[2], dbl const Df[2], dbl const x[2]) {
+void bb31_init_from_1d_data(bb31 *bb, dbl const f[2], dbl const Df[2], dbl const x[2]) {
   bb->c[1] = (bb->c[0] = f[0]) + Df[0]*(x[1] - x[0])/3;
   bb->c[2] = (bb->c[3] = f[1]) + Df[1]*(x[0] - x[1])/3;
 }
 
-void bb3_init_from_3d_data(bb3 *bb, dbl const f[2], dbl const Df[2][3], dbl const x[2][3]) {
+void bb31_init_from_3d_data(bb31 *bb, dbl const f[2], dbl const Df[2][3], dbl const x[2][3]) {
   dbl dx[3];
   dbl3_sub(x[1], x[0], dx);
   bb->c[1] = (bb->c[0] = f[0]) + dbl3_dot(dx, Df[0])/3;
   bb->c[2] = (bb->c[3] = f[1]) - dbl3_dot(dx, Df[1])/3;
 }
 
-dbl bb3_f(bb3 const *bb, dbl const *b) {
+dbl bb31_f(bb31 const *bb, dbl const *b) {
   dbl tmp[3];
 
   tmp[0] = b[0]*bb->c[0] + b[1]*bb->c[1];
@@ -173,7 +173,7 @@ dbl bb3_f(bb3 const *bb, dbl const *b) {
   return b[0]*tmp[0] + b[1]*tmp[1];
 }
 
-dbl bb3_df(bb3 const *bb, dbl const *b, dbl const *a) {
+dbl bb31_df(bb31 const *bb, dbl const *b, dbl const *a) {
   dbl tmp[3];
 
   tmp[0] = a[0]*bb->c[0] + a[1]*bb->c[1];
@@ -186,7 +186,7 @@ dbl bb3_df(bb3 const *bb, dbl const *b, dbl const *a) {
   return 3*(b[0]*tmp[0] + b[1]*tmp[1]);
 }
 
-dbl bb3_d2f(bb3 const *bb, dbl const *b, dbl const *a) {
+dbl bb31_d2f(bb31 const *bb, dbl const *b, dbl const *a) {
   dbl tmp[3];
 
   tmp[0] = a[0]*bb->c[0] + a[1]*bb->c[1];
@@ -199,7 +199,9 @@ dbl bb3_d2f(bb3 const *bb, dbl const *b, dbl const *a) {
   return 3*(b[0]*tmp[0] + b[1]*tmp[1]);
 }
 
-void bb3tri_interp3(dbl const f[3], dbl const Df[3][3], dbl const x[3][3], dbl c[10]) {
+void bb32_init_from_3d_data(bb32 *bb, dbl const f[3], dbl const Df[3][3], dbl const x[3][3]) {
+  dbl *c = bb->c;
+
   c[TRI300] = f[0];
   c[TRI030] = f[1];
   c[TRI003] = f[2];
@@ -222,8 +224,10 @@ void bb3tri_interp3(dbl const f[3], dbl const Df[3][3], dbl const x[3][3], dbl c
     - (c[TRI300] + c[TRI030] + c[TRI003])/6;
 }
 
-dbl bb3tri(dbl const *c, dbl const *b) {
+dbl bb32_f(bb32 const *bb, dbl const *b) {
   dbl tmp[6];
+
+  dbl const *c = bb->c;
 
   tmp[TRI200] = b[TRI100]*c[TRI300] + b[TRI010]*c[TRI210] + b[TRI001]*c[TRI201];
   tmp[TRI110] = b[TRI100]*c[TRI210] + b[TRI010]*c[TRI120] + b[TRI001]*c[TRI111];
@@ -239,8 +243,10 @@ dbl bb3tri(dbl const *c, dbl const *b) {
   return b[TRI100]*tmp[TRI100] + b[TRI010]*tmp[TRI010] + b[TRI001]*tmp[TRI001];
 }
 
-dbl dbb3tri(dbl const *c, dbl const *b, dbl const *a) {
+dbl bb32_df(bb32 const *bb, dbl const *b, dbl const *a) {
   dbl tmp[6];
+
+  dbl const *c = bb->c;
 
   tmp[TRI200] = a[TRI100]*c[TRI300] + a[TRI010]*c[TRI210] + a[TRI001]*c[TRI201];
   tmp[TRI110] = a[TRI100]*c[TRI210] + a[TRI010]*c[TRI120] + a[TRI001]*c[TRI111];
@@ -256,8 +262,10 @@ dbl dbb3tri(dbl const *c, dbl const *b, dbl const *a) {
   return 3*(b[TRI100]*tmp[TRI100] + b[TRI010]*tmp[TRI010] + b[TRI001]*tmp[TRI001]);
 }
 
-dbl d2bb3tri(dbl const *c, dbl const *b, dbl const *a1, dbl const *a2) {
+dbl bb32_d2f(bb32 const *bb, dbl const *b, dbl const *a1, dbl const *a2) {
   dbl tmp[6];
+
+  dbl const *c = bb->c;
 
   tmp[TRI200] = a1[TRI100]*c[TRI300] + a1[TRI010]*c[TRI210] + a1[TRI001]*c[TRI201];
   tmp[TRI110] = a1[TRI100]*c[TRI210] + a1[TRI010]*c[TRI120] + a1[TRI001]*c[TRI111];
@@ -273,8 +281,10 @@ dbl d2bb3tri(dbl const *c, dbl const *b, dbl const *a1, dbl const *a2) {
   return 6*(b[TRI100]*tmp[TRI100] + b[TRI010]*tmp[TRI010] + b[TRI001]*tmp[TRI001]);
 }
 
-void bb3tet_interp3(dbl const f[4], dbl const Df[4][3], dbl const x[4][3], dbl c[20]) {
+void bb33_init_from_3d_data(bb33 *bb, dbl const f[4], dbl const Df[4][3], dbl const x[4][3]) {
   dbl dx[3];
+
+  dbl *c = bb->c;
 
   /**
    * Start by computing the Bezier ordinates for each vertex of the
@@ -341,8 +351,7 @@ void bb3tet_interp3(dbl const f[4], dbl const Df[4][3], dbl const x[4][3], dbl c
   // generalzation of the 9-parameter interpolant.)
 }
 
-void bb3tet_for_cell(mesh3_s const *mesh, jet3 const *jet, size_t lc,
-                     dbl c[20]) {
+void bb33_init_from_cell_and_jets(bb33 *bb, mesh3_s const *mesh, jet3 const *jet, size_t lc) {
   dbl y[4], Dy[4][3], x[4][3];
   size_t lv[4];
   mesh3_cv(mesh, lc, lv);
@@ -353,11 +362,13 @@ void bb3tet_for_cell(mesh3_s const *mesh, jet3 const *jet, size_t lc,
     Dy[i][2] = jet[lv[i]].fz;
     mesh3_copy_vert(mesh, lv[i], x[i]);
   }
-  bb3tet_interp3(y, Dy, x, c);
+  bb33_init_from_3d_data(bb, y, Dy, x);
 }
 
-dbl bb3tet(dbl const c[20], dbl const b[4]) {
+dbl bb33_f(bb33 const *bb, dbl const b[4]) {
   dbl tmp[10];
+
+  dbl const *c = bb->c;
 
   tmp[TET2000] = b[TET1000]*c[TET3000] + b[TET0100]*c[TET2100] + b[TET0010]*c[TET2010] + b[TET0001]*c[TET2001];
   tmp[TET1100] = b[TET1000]*c[TET2100] + b[TET0100]*c[TET1200] + b[TET0010]*c[TET1110] + b[TET0001]*c[TET1101];
@@ -378,8 +389,10 @@ dbl bb3tet(dbl const c[20], dbl const b[4]) {
   return b[TET1000]*tmp[TET1000] + b[TET0100]*tmp[TET0100] + b[TET0010]*tmp[TET0010] + b[TET0001]*tmp[TET0001];
 }
 
-dbl dbb3tet(dbl const c[20], dbl const b[4], dbl const a[4]) {
+dbl bb33_df(bb33 const *bb, dbl const b[4], dbl const a[4]) {
   dbl tmp[10];
+
+  dbl const *c = bb->c;
 
   tmp[TET2000] = a[TET1000]*c[TET3000] + a[TET0100]*c[TET2100] + a[TET0010]*c[TET2010] + a[TET0001]*c[TET2001];
   tmp[TET1100] = a[TET1000]*c[TET2100] + a[TET0100]*c[TET1200] + a[TET0010]*c[TET1110] + a[TET0001]*c[TET1101];
@@ -400,8 +413,10 @@ dbl dbb3tet(dbl const c[20], dbl const b[4], dbl const a[4]) {
   return 3*(b[TET1000]*tmp[TET1000] + b[TET0100]*tmp[TET0100] + b[TET0010]*tmp[TET0010] + b[TET0001]*tmp[TET0001]);
 }
 
-dbl d2bb3tet(dbl const c[20], dbl const b[4], dbl const a[2][4]) {
+dbl bb33_d2f(bb33 const *bb, dbl const b[4], dbl const a[2][4]) {
   dbl tmp[10];
+
+  dbl const *c = bb->c;
 
   tmp[TET2000] = a[0][TET1000]*c[TET3000] + a[0][TET0100]*c[TET2100] + a[0][TET0010]*c[TET2010] + a[0][TET0001]*c[TET2001];
   tmp[TET1100] = a[0][TET1000]*c[TET2100] + a[0][TET0100]*c[TET1200] + a[0][TET0010]*c[TET1110] + a[0][TET0001]*c[TET1101];

@@ -34,7 +34,7 @@ struct utetra {
   dbl L, T[3];
 
   // B-coefs for 9-point triangle interpolation T on base of update
-  dbl Tc[10];
+  bb32 bb_T;
 
   dbl x_minus_xb[3];
 
@@ -113,7 +113,7 @@ bool utetra_init(utetra_s *cf, dbl const x[3], dbl const Xt[3][3],
     DT[i][1] = jet[i].fy;
     DT[i][2] = jet[i].fz;
   }
-  bb3tri_interp3(cf->T, &DT[0], cf->Xt, cf->Tc);
+  bb32_init_from_3d_data(&cf->bb_T, cf->T, &DT[0], cf->Xt);
 
   cf->niter = 0;
 
@@ -227,14 +227,14 @@ void utetra_set_lambda(utetra_s *cf, dbl const lam[2]) {
   D2L[1][1] = dbl3_dot(tmp1, a2);
   assert(dbl22_isfinite(D2L));
 
-  DT[0] = dbb3tri(cf->Tc, b, a1);
-  DT[1] = dbb3tri(cf->Tc, b, a2);
+  DT[0] = bb32_df(&cf->bb_T, b, a1);
+  DT[1] = bb32_df(&cf->bb_T, b, a2);
 
-  D2T[0][0] = d2bb3tri(cf->Tc, b, a1, a1);
-  D2T[1][0] = D2T[0][1] = d2bb3tri(cf->Tc, b, a1, a2);
-  D2T[1][1] = d2bb3tri(cf->Tc, b, a2, a2);
+  D2T[0][0] = bb32_d2f(&cf->bb_T, b, a1, a1);
+  D2T[1][0] = D2T[0][1] = bb32_d2f(&cf->bb_T, b, a1, a2);
+  D2T[1][1] = bb32_d2f(&cf->bb_T, b, a2, a2);
 
-  cf->f = cf->L + bb3tri(cf->Tc, b);
+  cf->f = cf->L + bb32_f(&cf->bb_T, b);
   assert(isfinite(cf->f));
 
   dbl2_add(DL, DT, cf->g);

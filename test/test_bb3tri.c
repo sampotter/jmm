@@ -26,16 +26,16 @@ void get_conv_comb(dbl const x[3][3], dbl const lam[3], dbl y[3]) {
   }
 }
 
-Describe(bb3tri);
+Describe(bb32);
 
-BeforeEach(bb3tri) {
+BeforeEach(bb32) {
   double_absolute_tolerance_is(1e-15);
   double_relative_tolerance_is(1e-15);
 }
 
-AfterEach(bb3tri) {}
+AfterEach(bb32) {}
 
-Ensure (bb3tri, has_linear_precision) {
+Ensure (bb32, has_linear_precision) {
   gsl_rng *rng = gsl_rng_alloc(gsl_rng_mt19937);
 
   /**
@@ -69,8 +69,8 @@ Ensure (bb3tri, has_linear_precision) {
     }
   }
 
-  dbl c[10];
-  bb3tri_interp3(f, Df, x, c);
+  bb32 bb;
+  bb32_init_from_3d_data(&bb, f, Df, x);
 
   dbl lam[3], y[3];
   for (int i = 0; i < NUM_RANDOM_TRIALS; ++i) {
@@ -78,12 +78,12 @@ Ensure (bb3tri, has_linear_precision) {
     get_conv_comb(x, lam, y);
 
     dbl f_gt = dbl3_dot(A, y) + B;
-    dbl f_bb = bb3tri(c, lam);
+    dbl f_bb = bb32_f(&bb, lam);
     assert_that_double(f_gt, is_nearly_double(f_bb));
   }
 }
 
-Ensure (bb3tri, has_quadratic_precision) {
+Ensure (bb32, has_quadratic_precision) {
   gsl_rng *rng = gsl_rng_alloc(gsl_rng_mt19937);
 
   /**
@@ -126,8 +126,8 @@ Ensure (bb3tri, has_quadratic_precision) {
     Dq(A, b, x[i], Df[i]);
   }
 
-  dbl c[10];
-  bb3tri_interp3(f, Df, x, c);
+  bb32 bb;
+  bb32_init_from_3d_data(&bb, f, Df, x);
 
   dbl a[2][3] = {
     {-1, 1, 0},
@@ -158,7 +158,7 @@ Ensure (bb3tri, has_quadratic_precision) {
     lam[i] = 1;
 
     q_gt = q(A, b, d, x[i]);
-    q_bb = bb3tri(c, lam);
+    q_bb = bb32_f(&bb, lam);
 
     assert_that_double(q_gt, is_nearly_double(q_bb));
 
@@ -170,16 +170,16 @@ Ensure (bb3tri, has_quadratic_precision) {
     Dq_gt[0] = dbl3_dot(tmp, dx[0]);
     Dq_gt[1] = dbl3_dot(tmp, dx[1]);
 
-    Dq_bb[0] = dbb3tri(c, lam, a[0]);
-    Dq_bb[1] = dbb3tri(c, lam, a[1]);
+    Dq_bb[0] = bb32_df(&bb, lam, a[0]);
+    Dq_bb[1] = bb32_df(&bb, lam, a[1]);
 
     assert_that_double(Dq_gt[0], is_nearly_double(Dq_bb[0]));
     assert_that_double(Dq_gt[1], is_nearly_double(Dq_bb[1]));
 
-    D2q_bb[0][0] = d2bb3tri(c, lam, a[0], a[0]);
-    D2q_bb[1][0] = d2bb3tri(c, lam, a[1], a[0]);
-    D2q_bb[0][1] = d2bb3tri(c, lam, a[0], a[1]);
-    D2q_bb[1][1] = d2bb3tri(c, lam, a[1], a[1]);
+    D2q_bb[0][0] = bb32_d2f(&bb, lam, a[0], a[0]);
+    D2q_bb[1][0] = bb32_d2f(&bb, lam, a[1], a[0]);
+    D2q_bb[0][1] = bb32_d2f(&bb, lam, a[0], a[1]);
+    D2q_bb[1][1] = bb32_d2f(&bb, lam, a[1], a[1]);
 
     assert_that_double(D2q_gt[0][0], is_nearly_double(D2q_bb[0][0]));
     assert_that_double(D2q_gt[1][0], is_nearly_double(D2q_bb[1][0]));
@@ -196,7 +196,7 @@ Ensure (bb3tri, has_quadratic_precision) {
     get_conv_comb(x, lam, y);
 
     dbl q_gt = q(A, b, d, y);
-    dbl q_bb = bb3tri(c, lam);
+    dbl q_bb = bb32_f(&bb, lam);
 
     assert_that_double(q_gt, is_nearly_double(q_bb));
   }
@@ -204,7 +204,7 @@ Ensure (bb3tri, has_quadratic_precision) {
   gsl_rng_free(rng);
 }
 
-Ensure(bb3tri, works_for_simple_olim6_update) {
+Ensure(bb32, works_for_simple_olim6_update) {
   dbl f[3] = {1, 1, 1};
 
   dbl Df[3][3] = {
@@ -223,8 +223,6 @@ Ensure(bb3tri, works_for_simple_olim6_update) {
   dbl3_sub(x[1], x[0], dx[0]);
   dbl3_sub(x[2], x[0], dx[1]);
 
-  dbl c[10];
-
   dbl a[2][3] = {
     {-1, 1, 0},
     {-1, 0, 1}
@@ -236,26 +234,27 @@ Ensure(bb3tri, works_for_simple_olim6_update) {
     {dbl3_dot(dx[0], Df[2]), dbl3_dot(dx[1], Df[2])}
   };
 
-  bb3tri_interp3(f, Df, x, c);
+  bb32 bb;
+  bb32_init_from_3d_data(&bb, f, Df, x);
 
   {
     dbl b[3] = {1, 0, 0};
-    assert_that_double(bb3tri(c, b), is_nearly_double(1.0));
-    assert_that_double(dbb3tri(c, b, a[0]), is_nearly_double(Dfa[0][0]));
-    assert_that_double(dbb3tri(c, b, a[1]), is_nearly_double(Dfa[0][1]));
+    assert_that_double(bb32_f(&bb, b), is_nearly_double(1.0));
+    assert_that_double(bb32_df(&bb, b, a[0]), is_nearly_double(Dfa[0][0]));
+    assert_that_double(bb32_df(&bb, b, a[1]), is_nearly_double(Dfa[0][1]));
   }
 
   {
     dbl b[3] = {0, 1, 0};
-    assert_that_double(bb3tri(c, b), is_nearly_double(1.0));
-    assert_that_double(dbb3tri(c, b, a[0]), is_nearly_double(Dfa[1][0]));
-    assert_that_double(dbb3tri(c, b, a[1]), is_nearly_double(Dfa[1][1]));
+    assert_that_double(bb32_f(&bb, b), is_nearly_double(1.0));
+    assert_that_double(bb32_df(&bb, b, a[0]), is_nearly_double(Dfa[1][0]));
+    assert_that_double(bb32_df(&bb, b, a[1]), is_nearly_double(Dfa[1][1]));
   }
 
   {
     dbl b[3] = {0, 0, 1};
-    assert_that_double(bb3tri(c, b), is_nearly_double(1.0));
-    assert_that_double(dbb3tri(c, b, a[0]), is_nearly_double(Dfa[2][0]));
-    assert_that_double(dbb3tri(c, b, a[1]), is_nearly_double(Dfa[2][1]));
+    assert_that_double(bb32_f(&bb, b), is_nearly_double(1.0));
+    assert_that_double(bb32_df(&bb, b, a[0]), is_nearly_double(Dfa[2][0]));
+    assert_that_double(bb32_df(&bb, b, a[1]), is_nearly_double(Dfa[2][1]));
   }
 }

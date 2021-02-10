@@ -17,7 +17,7 @@ struct utri {
   dbl x1[3];
   dbl x1_minus_x0[3];
 
-  bb3 T;
+  bb31 T;
 
   dbl cos01;
 
@@ -52,12 +52,12 @@ void utri_set_lambda(utri_s *utri, dbl lam) {
   dbl dL_dlam = -dbl3_dot(utri->x1_minus_x0, utri->x_minus_xb)/utri->L;
 
   dbl b[2] = {1 - lam, lam};
-  dbl T = bb3_f(&utri->T, b);
+  dbl T = bb31_f(&utri->T, b);
 
   utri->f = T + utri->L;
 
   dbl a[2] = {-1, 1};
-  dbl dT_dlam = bb3_df(&utri->T, b, a);
+  dbl dT_dlam = bb31_df(&utri->T, b, a);
 
   utri->Df = dT_dlam + dL_dlam;
 }
@@ -111,7 +111,7 @@ void utri_init(utri_s *utri, dbl const x[3], dbl const Xt[2][3],
     {jet[0].fx, jet[0].fy, jet[0].fz},
     {jet[1].fx, jet[1].fy, jet[1].fz}
   };
-  bb3_init_from_3d_data(&utri->T, f, Df, Xt);
+  bb31_init_from_3d_data(&utri->T, f, Df, Xt);
 }
 
 bool utri_is_causal(utri_s const *utri) {

@@ -22,16 +22,16 @@
   xb[1] = b[0]*x[0][1] + b[1]*x[1][1] + b[2]*x[2][1] + b[3]*x[3][1];    \
   xb[2] = b[0]*x[0][2] + b[1]*x[1][2] + b[2]*x[2][2] + b[3]*x[3][2];
 
-Describe(bb3tet);
+Describe(bb33);
 
-BeforeEach(bb3tet) {
+BeforeEach(bb33) {
   double_absolute_tolerance_is(5e-15);
   double_relative_tolerance_is(1e-15);
 }
 
-AfterEach(bb3tet) {}
+AfterEach(bb33) {}
 
-Ensure (bb3tet, has_linear_precision) {
+Ensure (bb33, has_linear_precision) {
   gsl_rng *rng = gsl_rng_alloc(gsl_rng_mt19937);
 
   /**
@@ -66,20 +66,20 @@ Ensure (bb3tet, has_linear_precision) {
     }
   }
 
-  dbl c[20];
-  bb3tet_interp3(f, Df, x, c);
+  bb33 bb;
+  bb33_init_from_3d_data(&bb, f, Df, x);
 
   dbl f_gt, f_bb;
   for (int i = 0; i < NUM_RANDOM_TRIALS; ++i) {
     SET_UP_RANDOM_CONVEX_COMBINATION();
 
     f_gt = dbl3_dot(A, xb) + B;
-    f_bb = bb3tet(c, b);
+    f_bb = bb33_f(&bb, b);
     assert_that_double(f_gt, is_nearly_double(f_bb));
   }
 }
 
-Ensure (bb3tet, has_quadratic_precision) {
+Ensure (bb33, has_quadratic_precision) {
   gsl_rng *rng = gsl_rng_alloc(gsl_rng_mt19937);
 
   dbl qA[3][3];
@@ -117,8 +117,8 @@ Ensure (bb3tet, has_quadratic_precision) {
     Dq(qA, qB, x[i], Df[i]);
   }
 
-  dbl c[20];
-  bb3tet_interp3(f, Df, x, c);
+  bb33 bb;
+  bb33_init_from_3d_data(&bb, f, Df, x);
 
   dbl f_gt, f_bb, Df_gt, Df_bb, D2f_gt, D2f_bb;
 
@@ -131,7 +131,7 @@ Ensure (bb3tet, has_quadratic_precision) {
 
     // Check function values
     f_gt = q(qA, qB, qC, x[i]);
-    f_bb = bb3tet(c, b);
+    f_bb = bb33_f(&bb, b);
     assert_that_double(f_gt, is_nearly_double(f_bb));
 
     // Check directional derivatives
@@ -147,7 +147,7 @@ Ensure (bb3tet, has_quadratic_precision) {
       dbl3_sub(x[j], x[i], dx[0]);
 
       Df_gt = dbl3_dot(Dfi, dx[0]);
-      Df_bb = dbb3tet(c, b, a[0]);
+      Df_bb = bb33_df(&bb, b, a[0]);
       assert_that_double(Df_gt, is_nearly_double(Df_bb));
 
       // Check mixed directional derivatives
@@ -162,7 +162,7 @@ Ensure (bb3tet, has_quadratic_precision) {
         dbl3_sub(x[k], x[i], dx[1]);
 
         D2f_gt = dbl3_dot(tmp_, dx[1]);
-        D2f_bb = d2bb3tet(c, b, a);
+        D2f_bb = bb33_d2f(&bb, b, a);
         assert_that_double(D2f_gt, is_nearly_double(D2f_bb));
       }
     }
@@ -178,7 +178,7 @@ Ensure (bb3tet, has_quadratic_precision) {
 
     // Check function values
     f_gt = q(qA, qB, qC, xb);
-    f_bb = bb3tet(c, b);
+    f_bb = bb33_f(&bb, b);
     assert_that_double(f_gt, is_nearly_double(f_bb));
 
     Dq(qA, qB, xb, Dfb);
@@ -192,7 +192,7 @@ Ensure (bb3tet, has_quadratic_precision) {
         a[0][j] = 1;
         dbl3_sub(x[j], x[i], dx[0]);
         Df_gt = dbl3_dot(Dfb, dx[0]);
-        Df_bb = dbb3tet(c, b, a[0]);
+        Df_bb = bb33_df(&bb, b, a[0]);
         assert_that_double(Df_gt, is_nearly_double(Df_bb));
 
         dbl33_dbl3_mul(D2q, dx[0], tmp_);
@@ -206,7 +206,7 @@ Ensure (bb3tet, has_quadratic_precision) {
           a[1][k] = 1;
           dbl3_sub(x[k], x[i], dx[1]);
           D2f_gt = dbl3_dot(tmp_, dx[1]);
-          D2f_bb = d2bb3tet(c, b, a);
+          D2f_bb = bb33_d2f(&bb, b, a);
           assert_that_double(D2f_gt, is_nearly_double(D2f_bb));
         }
       }

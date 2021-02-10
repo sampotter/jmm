@@ -8,16 +8,16 @@
 
 #define NUM_RANDOM_TRIALS 10
 
-Describe(bb3);
+Describe(bb31);
 
-BeforeEach(bb3) {
+BeforeEach(bb31) {
   double_absolute_tolerance_is(1e-15);
   double_relative_tolerance_is(1e-15);
 }
 
-AfterEach(bb3) {}
+AfterEach(bb31) {}
 
-Ensure (bb3, has_quadratic_precision) {
+Ensure (bb31, has_quadratic_precision) {
   gsl_rng *rng = gsl_rng_alloc(gsl_rng_mt19937);
 
   /**
@@ -40,8 +40,8 @@ Ensure (bb3, has_quadratic_precision) {
    */
   dbl f[2] = {A*x[0]*x[0] + B*x[0] + C, A*x[1]*x[1] + B*x[1] + C};
   dbl Df[2] = {2*A*x[0] + B, 2*A*x[1] + B};
-  bb3 bb;
-  bb3_init_from_1d_data(&bb, f, Df, x);
+  bb31 bb;
+  bb31_init_from_1d_data(&bb, f, Df, x);
 
   /**
    * Do some random tests.
@@ -54,11 +54,11 @@ Ensure (bb3, has_quadratic_precision) {
     y = dbl2_dot(b, x);
 
     f_gt = A*y*y + B*y + C;
-    f_bb = bb3_f(&bb, b);
+    f_bb = bb31_f(&bb, b);
     assert_that_double(f_gt, is_nearly_double(f_bb));
 
     Df_gt = 2*A*y + B;
-    Df_bb = bb3_df(&bb, b, a)/(x[1] - x[0]);
+    Df_bb = bb31_df(&bb, b, a)/(x[1] - x[0]);
     assert_that_double(Df_gt, is_nearly_double(Df_bb));
   }
 
