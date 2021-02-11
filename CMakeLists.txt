@@ -104,6 +104,11 @@ set_property (
   "830"
   "${CMAKE_CURRENT_BINARY_DIR}/sphere_jets.bin")
 
+# raytracing
+add_executable (raytracing examples/raytracing.c)
+target_link_libraries (raytracing jmm)
+target_include_directories (raytracing PRIVATE jmm)
+
 # transfer_solution
 add_executable (transfer_solution examples/transfer_solution.c)
 target_link_libraries (transfer_solution jmm)
