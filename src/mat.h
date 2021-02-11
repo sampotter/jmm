@@ -17,10 +17,14 @@ void dbl33_add(dbl const A[3][3], dbl const B[3][3], dbl C[3][3]);
 void dbl33_mul(dbl A[3][3], dbl B[3][3], dbl C[3][3]);
 void dbl33_sub(dbl A[3][3], dbl B[3][3], dbl C[3][3]);
 void dbl33_dbl3_mul(dbl const A[3][3], dbl const x[3], dbl b[3]);
+void dbl33_dbl3_mul_inplace(dbl const A[3][3], dbl x[3]);
 void dbl33_transpose(dbl A[3][3]);
 void dbl33_transposed(dbl const A[3][3], dbl At[3][3]);
 void dbl33_dbl_div(dbl A[3][3], dbl a, dbl B[3][3]);
 dbl dbl33_det(dbl const A[3][3]);
+void dbl33_dbl3_solve(dbl const A[3][3], dbl const b[3], dbl x[3]);
+void dbl33_get_column(dbl const A[3][3], int i, dbl a[3]);
+void dbl33_set_column(dbl A[3][3], int i, dbl const a[3]);
 
 void dbl44_dbl4_solve(dbl const A[4][4], dbl const b[4], dbl x[4]);
 dbl dbl44_det(dbl const A[4][4]);

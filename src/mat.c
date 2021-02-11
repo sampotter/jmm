@@ -76,6 +76,11 @@ void dbl33_dbl3_mul(dbl const A[3][3], dbl const x[3], dbl b[3]) {
   }
 }
 
+void dbl33_dbl3_mul_inplace(dbl const A[3][3], dbl x[3]) {
+  dbl x_[3] = {x[0], x[1], x[2]};
+  dbl33_dbl3_mul(A, x_, x);
+}
+
 void dbl33_transpose(dbl A[3][3]) {
   SWAP(A[1][0], A[0][1]);
   SWAP(A[2][0], A[0][2]);
@@ -101,6 +106,32 @@ dbl dbl33_det(dbl const A[3][3]) {
   return A[0][0]*(A[1][1]*A[2][2] - A[1][2]*A[2][1])
        - A[0][1]*(A[1][0]*A[2][2] - A[1][2]*A[2][0])
        + A[0][2]*(A[1][0]*A[2][1] - A[1][1]*A[2][0]);
+}
+
+void dbl33_dbl3_solve(dbl const A[3][3], dbl const b[3], dbl x[3]) {
+  // TODO: bad---solving using Cramer's rule... need to implement
+  // pivoted LU instead
+  dbl det = dbl33_det(A);
+  dbl tmp[3], A_[3][3];
+  memcpy(A_, A, sizeof(dbl[3][3]));
+  for (int j = 0; j < 3; ++j) {
+    dbl33_get_column(A_, j, tmp);
+    dbl33_set_column(A_, j, b);
+    x[j] = dbl33_det(A_)/det;
+    dbl33_set_column(A_, j, tmp);
+  }
+}
+
+void dbl33_get_column(dbl const A[3][3], int i, dbl x[3]) {
+  x[0] = A[0][i];
+  x[1] = A[1][i];
+  x[2] = A[2][i];
+}
+
+void dbl33_set_column(dbl A[3][3], int i, dbl const x[3]) {
+  A[0][i] = x[0];
+  A[1][i] = x[1];
+  A[2][i] = x[2];
 }
 
 void dbl44_dbl4_solve(dbl const A[4][4], dbl const b[4], dbl x[4]) {
