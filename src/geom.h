@@ -17,6 +17,10 @@ typedef struct {
 } tri3;
 
 typedef struct {
+  dbl v[4][3];
+} tetra3;
+
+typedef struct {
   /**
    * The origin of the ray.
    */
@@ -37,6 +41,7 @@ bool rect3_occludes_ray3(rect3 const *rect, ray3 const *ray);
 
 bool ray3_intersects_rect3(ray3 const *ray, rect3 const *rect, dbl *t);
 bool ray3_intersects_tri3(ray3 const *ray, tri3 const *tri, dbl *t);
+bool ray3_intersects_tetra3(ray3 const *ray, tetra3 const *tetra, dbl *t);
 
 /**
  * Check if four points are coplanar.

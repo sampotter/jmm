@@ -2,6 +2,7 @@
 
 #include <assert.h>
 #include <math.h>
+#include <string.h>
 
 #include "mat.h"
 #include "mesh3.h"
@@ -145,6 +146,20 @@ bool ray3_intersects_tri3(ray3 const *ray, tri3 const *tri, dbl *t) {
   *t /= dbl3_dot(n, ray->dir);
 
   return *t >= 0;
+}
+
+bool ray3_intersects_tetra3(ray3 const *ray, tetra3 const *tetra, dbl *t) {
+  *t = INFINITY;
+  tri3 tri;
+  int J[4][3] = {{1, 2, 3}, {0, 2, 3}, {0, 1, 3}, {0, 1, 2}};
+  dbl s;
+  for (int i = 0; i < 4; ++i) {
+    for (int j = 0; j < 3; ++j)
+      memcpy(tri.v[j], tetra->v[J[i][j]], sizeof(dbl[3]));
+    if (ray3_intersects_tri3(ray, &tri, &s))
+      *t = fmin(*t, s);
+  }
+  return isfinite(*t);
 }
 
 bool points_are_coplanar(dbl const **x) {
