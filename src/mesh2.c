@@ -186,8 +186,8 @@ bool mesh2_tri_bbox_overlap(mesh2_s const *mesh, size_t i, rect3 const *bbox) {
 
 tri3 mesh2_get_tri(mesh2_s const *mesh, size_t i) {
   tri3 tri;
-  memcpy(tri.v[0], &mesh->points[3*mesh->faces[i]], sizeof(dbl[3]));
-  memcpy(tri.v[1], &mesh->points[3*mesh->faces[i] + 1], sizeof(dbl[3]));
-  memcpy(tri.v[2], &mesh->points[3*mesh->faces[i] + 2], sizeof(dbl[3]));
+  memcpy(tri.v[0], &mesh->points[3*mesh->faces[3*i]], sizeof(dbl[3]));
+  memcpy(tri.v[1], &mesh->points[3*mesh->faces[3*i + 1]], sizeof(dbl[3]));
+  memcpy(tri.v[2], &mesh->points[3*mesh->faces[3*i + 2]], sizeof(dbl[3]));
   return tri;
 }
