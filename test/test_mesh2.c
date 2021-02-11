@@ -47,3 +47,20 @@ Ensure (mesh2, get_num_points_works_for_cube) {
 
   TEAR_DOWN_MESH();
 }
+
+Ensure (mesh2, get_tri_works) {
+  SET_UP_CUBE_MESH();
+
+  tri3 tri = mesh2_get_tri(mesh, 0);
+  assert_that(tri.v[0][0], is_equal_to(0));
+  assert_that(tri.v[0][1], is_equal_to(0));
+  assert_that(tri.v[0][2], is_equal_to(0));
+  assert_that(tri.v[1][0], is_equal_to(0));
+  assert_that(tri.v[1][1], is_equal_to(0));
+  assert_that(tri.v[1][2], is_equal_to(1));
+  assert_that(tri.v[2][0], is_equal_to(0));
+  assert_that(tri.v[2][1], is_equal_to(1));
+  assert_that(tri.v[2][2], is_equal_to(0));
+
+  TEAR_DOWN_MESH();
+}
