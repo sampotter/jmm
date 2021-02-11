@@ -142,10 +142,32 @@ bool ray3_intersects_tri3(ray3 const *ray, tri3 const *tri, dbl *t) {
   if (fabs(dbl3_dot(n, ray->dir)) < atol)
     return false;
 
+  // First, compute the ray parameter---if it's negative, the triangle
+  // is behind the start of the ray and we can return early.
+  //
+  // TODO: should check if the ray lies in the same plane as the
+  // triangle... maybe this is automatically handled by the cases
+  // below...
   *t = dbl3_dot(n, tri->v[0]) - dbl3_dot(n, ray->org);
   *t /= dbl3_dot(n, ray->dir);
+  if (*t < 0)
+    return false;
 
-  return *t >= 0;
+  // Next, check if the ray points through the triangle
+  //
+  // TODO: redundant calculations happening here!
+  dbl lam[3];
+  dbl X[3][3];
+  dbl3_sub(tri->v[1], tri->v[0], X[0]);
+  dbl3_sub(tri->v[2], tri->v[0], X[1]);
+  dbl3_copy(tri->v[0], X[2]);
+  dbl33_transpose(X);
+
+  dbl xt[3];
+  dbl3_saxpy(*t, ray->dir, ray->org, xt);
+  dbl33_dbl3_solve(X, xt, lam);
+
+  return lam[0] >= 0 && lam[1] >= 0 && lam[0] + lam[1] <= 1;
 }
 
 bool ray3_intersects_tetra3(ray3 const *ray, tetra3 const *tetra, dbl *t) {
