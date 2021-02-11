@@ -1,10 +1,12 @@
 import colorcet as cc
 import itertools as it
 import jmm
+import matplotlib.pyplot as plt
 import meshio
 import meshzoo
 import numpy as np
 import embree
+import time
 
 from PIL import Image
 
@@ -24,11 +26,9 @@ def get_view_direction(left, front, up, phi, theta):
     return np.array([left, front, up]).T@ray
 
 if __name__ == '__main__':
-    # trimesh = meshio.read('L.obj')
-    # verts = trimesh.points.astype(np.float64).copy()
-    # faces = trimesh.cells_dict['triangle'].astype(np.uintp).copy()
+    plt.ion()
 
-    verts, faces = meshzoo.icosa_sphere(2)
+    verts, faces = meshzoo.icosa_sphere(8)
     faces = faces.astype(np.uintp)
 
     mesh = jmm.Mesh2(verts, faces)
@@ -65,11 +65,18 @@ if __name__ == '__main__':
     dirs = np.array([get_view_direction(left, front, up, phi, theta)
                      for phi, theta in it.product(Phi, Theta)])
 
+    t0 = time.time()
+
     T, I = rtree.intersectN(orgs, dirs)
     T = T.reshape(width, height)
-    I = I.reshape(width, height)
+    I = I.reshape(width, height).astype(np.float64)
+    I[np.isnan(T)] = np.nan
+
+    print('- our BVH elapsed time: %1.2f' % (time.time() - t0,))
 
     # Compare against python-embree
+
+    t0 = time.time()
 
     device = embree.Device()
     geometry = device.make_geometry(embree.GeometryType.Triangle)
@@ -97,53 +104,40 @@ if __name__ == '__main__':
     rayhit.geom_id[...] = embree.INVALID_GEOMETRY_ID
     scene.intersect1M(context, rayhit)
 
-    # Make groundtruth image
-
-    img_gt = Image.new('RGB', (width, height), 'white')
-
-    I_gt = rayhit.prim_id.reshape(width, height)
+    I_gt = rayhit.prim_id.reshape(width, height).astype(np.float64)
     T_gt = rayhit.tfar.reshape(width, height)
+    I_gt[~np.isfinite(T_gt)] = np.nan
 
-    # # Plot intersection distance
-    # tmax_gt = np.nanmax(T_gt)
-    # for i, j in it.product(range(width), range(height)):
-    #     t_gt = T_gt[i, j]
-    #     if ~np.isfinite(t_gt):
-    #         continue
-    #     rgba = tuple(int(np.round(255*_)) for _ in cc.cm.rainbow(t_gt/tmax_gt))
-    #     img_gt.putpixel((i, j), rgba)
+    print('- Embree elapsed time: %1.2f' % (time.time() - t0,))
 
-    # Plot index of intersected triangle
-    imax_gt = I_gt[np.isfinite(T_gt)].max()
-    for i, j in it.product(range(width), range(height)):
-        i_gt = I_gt[i, j]
-        if ~np.isfinite(T_gt[i, j]):
-            continue
-        rgba = tuple(int(np.round(255*_)) for _ in cc.cm.rainbow(i_gt/imax_gt))
-        img_gt.putpixel((i, j), rgba)
-
-    img_gt.show()
-
-    # Make image using our raytracer... (wip!)
-
-    img = Image.new('RGB', (width, height), 'white')
-
-    # # Plot intersection distance
-    # tmax = np.nanmax(T)
-    # for i, j in it.product(range(width), range(height)):
-    #     t = T[i, j]
-    #     if np.isnan(t):
-    #         continue
-    #     rgba = tuple(int(np.round(255*_)) for _ in cc.cm.rainbow(t/tmax))
-    #     img.putpixel((i, j), rgba)
-
-    # Plot index of intersected triangle
-    imax = I[~np.isnan(T)].max()
-    for i, j in it.product(range(width), range(height)):
-        i_ = I[i, j]
-        if np.isnan(T[i, j]):
-            continue
-        rgba = tuple(int(np.round(255*_)) for _ in cc.cm.rainbow(i_/imax))
-        img.putpixel((i, j), rgba)
-
-    img.show()
+    plt.figure(figsize=(10, 7))
+    plt.subplot(2, 3, 1)
+    plt.imshow(I_gt, cmap=cc.cm.rainbow)
+    plt.gca().set_aspect('equal')
+    plt.colorbar()
+    plt.subplot(2, 3, 4)
+    plt.imshow(T_gt, cmap=cc.cm.fire)
+    plt.gca().set_aspect('equal')
+    plt.colorbar()
+    plt.subplot(2, 3, 2)
+    plt.imshow(I, cmap=cc.cm.rainbow)
+    plt.gca().set_aspect('equal')
+    plt.colorbar()
+    plt.subplot(2, 3, 5)
+    plt.imshow(T, cmap=cc.cm.fire)
+    plt.gca().set_aspect('equal')
+    plt.colorbar()
+    plt.subplot(2, 3, 3)
+    E_I = I - I_gt
+    I_vmax = np.nanmax(abs(E_I))
+    plt.imshow(E_I, cmap=cc.cm.coolwarm, vmin=-I_vmax, vmax=I_vmax)
+    plt.gca().set_aspect('equal')
+    plt.colorbar()
+    plt.subplot(2, 3, 6)
+    E_T = T - T_gt
+    T_vmax = np.nanmax(abs(E_T))
+    plt.imshow(E_T, cmap=cc.cm.coolwarm, vmin=-T_vmax, vmax=T_vmax)
+    plt.gca().set_aspect('equal')
+    plt.colorbar()
+    plt.tight_layout()
+    plt.show()
