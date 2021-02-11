@@ -40,6 +40,7 @@ void dbl3_inf(dbl u[3]);
 void dbl3_neginf(dbl u[3]);
 void dbl3_min(dbl const u[3], dbl const v[3], dbl w[3]);
 void dbl3_max(dbl const u[3], dbl const v[3], dbl w[3]);
+void dbl3_copy(dbl const u[3], dbl v[3]);
 
 bool dbl4_nonneg(dbl const u[4]);
 dbl dbl4_sum(dbl const u[4]);
