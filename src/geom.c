@@ -36,7 +36,7 @@ bool rect3_overlaps(rect3 const *r1, rect3 const *r2) {
   return true;
 }
 
-bool ray3_intersects_rect3(ray3 const *ray, rect3 const *rect) {
+bool rect3_occludes_ray3(rect3 const *rect, ray3 const *ray) {
   dbl const atol = 1e-15;
 
   dbl const *p = ray->org, *d = ray->dir;
@@ -49,35 +49,81 @@ bool ray3_intersects_rect3(ray3 const *ray, rect3 const *rect) {
 
   t = (m[0] - p[0])/d[0];
   dbl3_saxpy(t, d, p, pt);
-  if (m[1] <= pt[1] && pt[1] <= M[1] && m[2] <= pt[2] && pt[2] <= M[2])
+  if (t >= 0 && m[1] <= pt[1] && pt[1] <= M[1] && m[2] <= pt[2] && pt[2] <= M[2])
     return true;
 
   t = (M[0] - p[0])/d[0];
   dbl3_saxpy(t, d, p, pt);
-  if (m[1] <= pt[1] && pt[1] <= M[1] && m[2] <= pt[2] && pt[2] <= M[2])
+  if (t >= 0 && m[1] <= pt[1] && pt[1] <= M[1] && m[2] <= pt[2] && pt[2] <= M[2])
     return true;
 
   t = (m[1] - p[1])/d[1];
   dbl3_saxpy(t, d, p, pt);
-  if (m[0] <= pt[0] && pt[0] <= M[0] && m[2] <= pt[2] && pt[2] <= M[2])
+  if (t >= 0 && m[0] <= pt[0] && pt[0] <= M[0] && m[2] <= pt[2] && pt[2] <= M[2])
     return true;
 
   t = (M[1] - p[1])/d[1];
   dbl3_saxpy(t, d, p, pt);
-  if (m[0] <= pt[0] && pt[0] <= M[0] && m[2] <= pt[2] && pt[2] <= M[2])
+  if (t >= 0 && m[0] <= pt[0] && pt[0] <= M[0] && m[2] <= pt[2] && pt[2] <= M[2])
     return true;
 
   t = (m[2] - p[2])/d[2];
   dbl3_saxpy(t, d, p, pt);
-  if (m[0] <= pt[0] && pt[0] <= M[0] && m[1] <= pt[1] && pt[1] <= M[1])
+  if (t >= 0 && m[0] <= pt[0] && pt[0] <= M[0] && m[1] <= pt[1] && pt[1] <= M[1])
     return true;
 
   t = (M[2] - p[2])/d[2];
   dbl3_saxpy(t, d, p, pt);
-  if (m[0] <= pt[0] && pt[0] <= M[0] && m[1] <= pt[1] && pt[1] <= M[1])
+  if (t >= 0 && m[0] <= pt[0] && pt[0] <= M[0] && m[1] <= pt[1] && pt[1] <= M[1])
     return true;
 
   return false;
+}
+
+bool ray3_intersects_rect3(ray3 const *ray, rect3 const *rect, dbl *t) {
+  dbl const atol = 1e-15;
+
+  dbl const *p = ray->org, *d = ray->dir;
+  dbl const *m = rect->min, *M = rect->max;
+
+  // TODO: handle this case
+  assert(fabs(d[0]) > atol || fabs(d[1]) > atol || fabs(d[2]) > atol);
+
+  dbl s, pt[3];
+
+  *t = INFINITY;
+
+  s = (m[0] - p[0])/d[0];
+  dbl3_saxpy(s, d, p, pt);
+  if (s >= 0 && m[1] <= pt[1] && pt[1] <= M[1] && m[2] <= pt[2] && pt[2] <= M[2])
+    *t = fmin(*t, s);
+
+  s = (M[0] - p[0])/d[0];
+  dbl3_saxpy(s, d, p, pt);
+  if (s >= 0 && m[1] <= pt[1] && pt[1] <= M[1] && m[2] <= pt[2] && pt[2] <= M[2])
+    *t = fmin(*t, s);
+
+  s = (m[1] - p[1])/d[1];
+  dbl3_saxpy(s, d, p, pt);
+  if (s >= 0 && m[0] <= pt[0] && pt[0] <= M[0] && m[2] <= pt[2] && pt[2] <= M[2])
+    *t = fmin(*t, s);
+
+  s = (M[1] - p[1])/d[1];
+  dbl3_saxpy(s, d, p, pt);
+  if (s >= 0 && m[0] <= pt[0] && pt[0] <= M[0] && m[2] <= pt[2] && pt[2] <= M[2])
+    *t = fmin(*t, s);
+
+  s = (m[2] - p[2])/d[2];
+  dbl3_saxpy(s, d, p, pt);
+  if (s >= 0 && m[0] <= pt[0] && pt[0] <= M[0] && m[1] <= pt[1] && pt[1] <= M[1])
+    *t = fmin(*t, s);
+
+  s = (M[2] - p[2])/d[2];
+  dbl3_saxpy(s, d, p, pt);
+  if (s >= 0 && m[0] <= pt[0] && pt[0] <= M[0] && m[1] <= pt[1] && pt[1] <= M[1])
+    *t = fmin(*t, s);
+
+  return *t >= 0;
 }
 
 bool ray3_intersects_tri3(ray3 const *ray, tri3 const *tri, dbl *t) {
