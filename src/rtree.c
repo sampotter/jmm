@@ -237,6 +237,7 @@ size_t rtree_get_num_leaf_nodes(rtree_s const *rtree) {
   return num_leaf_nodes;
 }
 
+// TODO: better to do this using a stack instead of recursively
 static bool query_bbox(rtree_node_s const *node, mesh2_s const *mesh,
                        rect3 const *bbox) {
   if (!rect3_overlaps(&node->bbox, bbox)) {
@@ -260,44 +261,47 @@ bool rtree_query_bbox(rtree_s const *rtree, rect3 const *bbox) {
   return query_bbox(rtree->root, rtree->mesh, bbox);
 }
 
+// TODO: better to do this using a stack instead of recursively
 static bool intersect(rtree_s const *rtree, rtree_node_s const *node,
                       ray3 const *ray, isect *isect) {
-  if (!ray3_intersects_rect3(ray, &node->bbox))
+  // TODO: remove (redundant)...
+  if (!rect3_occludes_ray3(&node->bbox, ray))
     return false;
+
   if (node->type == RTREE_LEAF_NODE) {
-    typedef struct {
-      dbl t;
-      size_t i;
-    } hit;
-    hit *hits = malloc(node->leaf_data.num_faces*sizeof(hit));
-    int num_hits = 0;
+    dbl t;
     for (size_t i = 0; i < node->leaf_data.num_faces; ++i) {
       size_t f = node->leaf_data.face_inds[i];
       tri3 tri = mesh2_get_tri(rtree->mesh, f);
-      if (ray3_intersects_tri3(ray, &tri, &hits[num_hits].t))
-        hits[num_hits++].i = f;
+      if (ray3_intersects_tri3(ray, &tri, &t) && 0 <= t && t < isect->t) {
+        isect->ray = ray;
+        isect->t = t;
+        *(size_t *)isect->obj = f;
+      }
     }
-    if (num_hits == 0) {
-      free(hits);
-      return false;
-    } else {
-      hit closest_hit = {.t = INFINITY};
-      for (int i = 0; i < num_hits; ++i)
-        if (hits[i].t < closest_hit.t)
-          closest_hit = hits[i];
-      isect->ray = ray;
-      isect->t = closest_hit.t;
-      *(size_t *)isect->obj = closest_hit.i;
-      free(hits);
-      return true;
-    }
+    return isfinite(isect->t);
+  }
+
+  dbl t[2];
+  ray3_intersects_rect3(ray, &node->children[0]->bbox, &t[0]);
+  ray3_intersects_rect3(ray, &node->children[1]->bbox, &t[1]);
+  if (isfinite(t[0]) && isfinite(t[1])) {
+    rtree_node_s *ch[2];
+    ch[0] = t[0] < t[1] ? node->children[0] : node->children[1];
+    ch[1] = t[0] < t[1] ? node->children[1] : node->children[0];
+      return intersect(rtree, ch[0], ray, isect)
+        || intersect(rtree, ch[1], ray, isect);
+  } else if (isfinite(t[0])) {
+    return intersect(rtree, node->children[0], ray, isect);
+  } else if (isfinite(t[1])) {
+    return intersect(rtree, node->children[1], ray, isect);
   } else {
-    return intersect(rtree, node->children[0], ray, isect)
-      || intersect(rtree, node->children[1], ray, isect);
+    return false;
   }
 }
 
 void rtree_intersect(rtree_s const *rtree, ray3 const *ray, isect *isect) {
+  isect->t = INFINITY;
   if (!intersect(rtree, rtree->root, ray, isect))
     isect->t = NAN;
 }
