@@ -161,6 +161,15 @@ dbl dblN_mean(dbl const *x, size_t n) {
   return mean/n;
 }
 
+void dblN_minmax(dbl const *x, size_t n, dbl *min, dbl *max) {
+  *min = INFINITY;
+  *max = -INFINITY;
+  for (size_t i = 0; i < n; ++i) {
+    *min = fmin(*min, x[i]);
+    *max = fmax(*max, x[i]);
+  }
+}
+
 void int3_add(int const p[3], int const q[3], int r[3]) {
   r[0] = p[0] + q[0];
   r[1] = p[1] + q[1];
