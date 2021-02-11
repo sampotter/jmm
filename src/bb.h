@@ -36,6 +36,7 @@ void bb33_init_from_cell_and_jets(bb33 *bb, mesh3_s const *mesh, jet3 const *jet
 dbl bb33_f(bb33 const *bb, dbl const b[4]);
 dbl bb33_df(bb33 const *bb, dbl const b[4], dbl const a[4]);
 dbl bb33_d2f(bb33 const *bb, dbl const b[4], dbl const a[2][4]);
+bool bb33_convex_hull_brackets_value(bb33 const *bb, dbl value);
 
 #ifdef __cplusplus
 }

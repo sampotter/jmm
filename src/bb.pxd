@@ -1,4 +1,4 @@
-from defs cimport dbl
+from defs cimport bool, dbl
 
 cdef extern from "bb.h":
     ctypedef struct bb33:
@@ -7,3 +7,4 @@ cdef extern from "bb.h":
     dbl bb33_f(const bb33 *bb, const dbl b[4])
     dbl bb33_df(const bb33 *bb, const dbl b[4], const dbl a[4])
     dbl bb33_d2f(const bb33 *bb, const dbl b[4], const dbl a[2][4])
+    bool bb33_convex_hull_brackets_value(const bb33 *bb, dbl value)

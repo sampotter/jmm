@@ -437,6 +437,12 @@ dbl bb33_d2f(bb33 const *bb, dbl const b[4], dbl const a[2][4]) {
   return 6*(b[TET1000]*tmp[TET1000] + b[TET0100]*tmp[TET0100] + b[TET0010]*tmp[TET0010] + b[TET0001]*tmp[TET0001]);
 }
 
+bool bb33_convex_hull_brackets_value(bb33 const *bb, dbl value) {
+  dbl min, max;
+  dblN_minmax(bb->c, 20, &min, &max);
+  return min <= value && value <= max;
+}
+
 // Local Variables:
 // column-enforce-column: 160
 // End:

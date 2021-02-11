@@ -113,6 +113,9 @@ cdef class Bb33:
             raise Exception('`a` must have shape (3, 4)')
         return bb33_d2f(&self._bb, &b[0], <const dbl (*)[4]>&a[0, 0])
 
+    def convex_hull_brackets_value(self, dbl value):
+        return bb33_convex_hull_brackets_value(&self._bb, value)
+
 cdef class Grid3:
     cdef grid3 _grid
 
