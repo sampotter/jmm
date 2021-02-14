@@ -8,6 +8,11 @@ extern "C" {
 
 typedef struct mesh2 mesh2_s;
 
+typedef struct mesh2_tri {
+  mesh2_s const *mesh;
+  size_t l; // index of triangle
+} mesh2_tri_s;
+
 void mesh2_alloc(mesh2_s **mesh);
 void mesh2_dealloc(mesh2_s **mesh);
 void mesh2_init(mesh2_s *mesh, dbl const *verts, size_t nverts,

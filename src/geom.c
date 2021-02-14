@@ -5,8 +5,27 @@
 #include <string.h>
 
 #include "mat.h"
+#include "mesh2.h"
 #include "mesh3.h"
 #include "vec.h"
+
+void tri3_get_centroid(tri3 const *tri, dbl c[3]) {
+  for (int j = 0; j < 3; ++j) {
+    c[j] = 0;
+    for (int i = 0; i < 3; ++i)
+      c[j] += tri->v[i][j];
+    c[j] /= 3;
+  }
+}
+
+void tetra3_get_centroid(tetra3 const *tetra, dbl c[3]) {
+  for (int j = 0; j < 3; ++j) {
+    c[j] = 0;
+    for (int i = 0; i < 4; ++i)
+      c[j] += tetra->v[i][j];
+    c[j] /= 4;
+  }
+}
 
 rect3 rect3_make_empty() {
   rect3 rect;
@@ -19,9 +38,40 @@ void rect3_get_extent(rect3 const *rect, dbl extent[3]) {
   dbl3_sub(rect->max, rect->min, extent);
 }
 
-void rect3_insert_point(rect3 *rect, dbl x[3]) {
+void rect3_get_centroid(rect3 const *rect, dbl centroid[3]) {
+  centroid[0] = (rect->min[0] + rect->max[0])/2;
+  centroid[1] = (rect->min[1] + rect->max[1])/2;
+  centroid[2] = (rect->min[2] + rect->max[2])/2;
+}
+
+void rect3_get_half_extent(rect3 const *rect, dbl half_extent[3]) {
+  half_extent[0] = (rect->max[0] - rect->min[0])/2;
+  half_extent[1] = (rect->max[1] - rect->min[1])/2;
+  half_extent[2] = (rect->max[2] - rect->min[2])/2;
+}
+
+void rect3_insert_point(rect3 *rect, dbl const x[3]) {
   dbl3_min(rect->min, x, rect->min);
   dbl3_max(rect->max, x, rect->max);
+}
+
+void rect3_insert_tri3(rect3 *rect, tri3 const *tri) {
+  for (int i = 0; i < 3; ++i) {
+    dbl3_min(rect->min, tri->v[i], rect->min);
+    dbl3_max(rect->max, tri->v[i], rect->max);
+  }
+}
+
+void rect3_insert_tetra3(rect3 *rect, tetra3 const *tetra) {
+  for (int i = 0; i < 4; ++i) {
+    dbl3_min(rect->min, tetra->v[i], rect->min);
+    dbl3_max(rect->max, tetra->v[i], rect->max);
+  }
+}
+
+void rect3_insert_mesh2_tri(rect3 *rect, mesh2_tri_s const *tri) {
+  tri3 tri_ = mesh2_get_tri(tri->mesh, tri->l);
+  rect3_insert_tri3(rect, &tri_);
 }
 
 dbl rect3_surface_area(rect3 const *rect) {

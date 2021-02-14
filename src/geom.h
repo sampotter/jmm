@@ -6,6 +6,7 @@ extern "C" {
 
 #include "def.h"
 
+typedef struct mesh2_tri mesh2_tri_s;
 typedef struct mesh3 mesh3_s;
 
 typedef struct {
@@ -16,9 +17,13 @@ typedef struct {
   dbl v[3][3];
 } tri3;
 
+void tri3_get_centroid(tri3 const *tri, dbl centroid[3]);
+
 typedef struct {
   dbl v[4][3];
 } tetra3;
+
+void tetra3_get_centroid(tetra3 const *tetra, dbl centroid[3]);
 
 typedef struct {
   /**
@@ -34,7 +39,12 @@ typedef struct {
 
 rect3 rect3_make_empty();
 void rect3_get_extent(rect3 const *rect, dbl extent[3]);
-void rect3_insert_point(rect3 *rect, dbl x[3]);
+void rect3_get_centroid(rect3 const *rect, dbl centroid[3]);
+void rect3_get_half_extent(rect3 const *rect, dbl half_extent[3]);
+void rect3_insert_point(rect3 *rect, dbl const x[3]);
+void rect3_insert_tri3(rect3 *rect, tri3 const *tri);
+void rect3_insert_tetra3(rect3 *rect, tetra3 const *tetra);
+void rect3_insert_mesh2_tri(rect3 *rect, mesh2_tri_s const *tri);
 dbl rect3_surface_area(rect3 const *rect);
 bool rect3_overlaps(rect3 const *r1, rect3 const *r2);
 bool rect3_occludes_ray3(rect3 const *rect, ray3 const *ray);
