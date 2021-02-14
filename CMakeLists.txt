@@ -62,6 +62,7 @@ set (JMM_SRCS
   src/mesh3.c
   src/opt.c
   src/par.c
+  src/pool.c
   src/rtree.c
   src/stats.c
   src/triBoxOverlap.c
