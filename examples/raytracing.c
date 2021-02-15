@@ -1964,7 +1964,8 @@ int main() {
 
   rtree_s *rtree;
   rtree_alloc(&rtree);
-  rtree_init_from_tri_mesh(rtree, mesh);
+  rtree_insert_mesh2(rtree, mesh);
+  rtree_build(rtree);
 
   dbl phi_deg_min = -15, phi_deg_max = 15;
   dbl theta_deg_min = -15, theta_deg_max = 15;
@@ -1988,7 +1989,6 @@ int main() {
 
   dbl phi, theta;
   isect isect;
-  isect.obj = malloc(sizeof(size_t));
   for (size_t i = 0; i < width; ++i) {
     phi = phi_deg_ptp*((dbl)i)/(width - 1) + phi_deg_min;
     phi *= PI/180;
@@ -1997,11 +1997,8 @@ int main() {
       theta *= PI/180;
       get_view_direction(left, front, up, phi, theta, ray.dir);
       rtree_intersect(rtree, &ray, &isect);
-      if (isnan(isect.t))
-        *(size_t *)isect.obj = num_faces;
     }
   }
-  free(isect.obj);
 
   rtree_deinit(rtree);
   rtree_dealloc(&rtree);

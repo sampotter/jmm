@@ -205,6 +205,38 @@ cdef class Mesh2:
     def bounding_box(self):
         return Rect3(mesh2_get_bounding_box(self._mesh))
 
+class RobjType(Enum):
+    Mesh2Tri = 0
+    Tri3 = 1
+    Tetra3 = 2
+
+cdef class Robj:
+    cdef const robj *_obj
+
+    @staticmethod
+    cdef from_ptr(const robj *obj):
+        robj = Robj()
+        robj._obj = obj
+        return robj
+
+    @property
+    def type(self):
+        return RobjType(robj_get_type(self._obj))
+
+    @property
+    def centroid(self):
+        cdef dbl[::1] p = np.empty((3,), dtype=np.float64)
+        robj_get_centroid(self._obj, &p[0])
+        return p
+
+    def overlaps_box(self, Rect3 box):
+        return robj_isects_bbox(self._obj, &box._rect)
+
+    def intersect(self, Ray3 ray):
+        cdef dbl t
+        cdef bool hit = robj_intersect(self._obj, &ray._ray, &t)
+        return hit, t
+
 cdef class Isect:
     cdef isect _isect
 
@@ -224,13 +256,17 @@ be removed in the near future.
     '''
     cdef rtree *_rtree
 
-    def __cinit__(self, Mesh2 mesh):
-        rtree_alloc(&self._rtree)
-        rtree_init_from_tri_mesh(self._rtree, mesh._mesh)
-
     def __dealloc__(self):
         rtree_deinit(self._rtree)
         rtree_dealloc(&self._rtree)
+
+    @staticmethod
+    def from_mesh2(self, Mesh2 mesh):
+        rtree = Rtree()
+        rtree_alloc(&rtree._rtree)
+        rtree_insert_mesh2(rtree._rtree, mesh._mesh)
+        rtree_build(rtree._rtree)
+        return rtree
 
     @property
     def bounding_box(self):
@@ -244,44 +280,9 @@ be removed in the near future.
         cdef ray3 ray
         memcpy(&ray.org[0], &org[0], 3*sizeof(dbl))
         memcpy(&ray.dir[0], &dir[0], 3*sizeof(dbl))
-        cdef isect isect
-        rtree_intersect(self._rtree, &ray, &isect)
-        cdef size_t i = (<size_t *>isect.obj)[0]
-        return isect.t, i
-
-    def intersectN(self, dbl[:, ::1] orgs, dbl[:, ::1] dirs):
-        '''Trace rays specified by the rows of `orgs` and `dirs`, returning a
-        pair of arrays `T` and `I`, consisting of the intersection
-        parameters and indices of the intersected elements,
-        respectively.
-
-        '''
-        if orgs.ndim != 2 or orgs.shape[1] != 3:
-            raise Exception('`orgs` should be an (N, 3) array')
-        if dirs.ndim != 2 or dirs.shape[1] != 3:
-            raise Exception('`dirs` should be an (N, 3) array')
-        print(orgs.shape)
-        print(dirs.shape)
-        if orgs.shape[0] != dirs.shape[0] or orgs.shape[1] != dirs.shape[1]:
-            raise Exception('`orgs` and `dirs` arrays should have same shape')
-        cdef size_t num_rays = orgs.shape[0]
-        cdef ray3 *rays = <ray3 *>malloc(num_rays*sizeof(ray3))
-        cdef size_t i
-        for i in range(num_rays):
-            memcpy(rays[i].org, &orgs[i, 0], 3*sizeof(dbl))
-        for i in range(num_rays):
-            memcpy(rays[i].dir, &dirs[i, 0], 3*sizeof(dbl))
-        T = np.empty((num_rays,), dtype=np.float64)
-        I = np.empty((num_rays,), dtype=np.uintp)
-        cdef isect isect
-        isect.obj = malloc(sizeof(size_t))
-        for i in range(num_rays):
-            rtree_intersect(self._rtree, &rays[i], &isect)
-            T[i] = isect.t
-            I[i] = (<size_t *>isect.obj)[0]
-        free(isect.obj)
-        free(rays)
-        return T, I
+        isect = Isect()
+        rtree_intersect(self._rtree, &ray, &isect._isect)
+        return isect
 
 cdef class UpdateTetra:
     cdef utetra *_utetra
