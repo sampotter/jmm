@@ -25,6 +25,10 @@ robj_type_e robj_get_type(robj_s const *obj) {
   return obj->type;
 }
 
+void const *robj_get_data(robj_s const *obj) {
+  return obj->data;
+}
+
 static void mesh2_tri_insert_into_bbox(mesh2_tri_s const *mesh_tri, rect3 *bbox) {
   rect3_insert_mesh2_tri(bbox, mesh_tri);
 }

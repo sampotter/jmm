@@ -17,6 +17,7 @@ typedef enum robj_type {
 typedef struct robj robj_s;
 
 robj_type_e robj_get_type(robj_s const *obj);
+void const *robj_get_data(robj_s const *obj);
 void robj_insert_into_bbox(robj_s const *obj, rect3 *bbox);
 void robj_get_centroid(robj_s const *obj, dbl c[3]);
 bool robj_isects_bbox(robj_s const *obj, rect3 const *bbox);

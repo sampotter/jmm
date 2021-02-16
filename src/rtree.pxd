@@ -17,6 +17,7 @@ cdef extern from "rtree.h":
         pass
 
     robj_type robj_get_type(const robj *obj)
+    const void *robj_get_data(const robj *obj)
     void robj_insert_into_bbox(const robj *obj, rect3 *bbox)
     void robj_get_centroid(const robj *obj, dbl c[3])
     bool robj_isects_bbox(const robj *obj, const rect3 *bbox)
