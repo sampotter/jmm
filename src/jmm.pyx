@@ -245,8 +245,9 @@ cdef class Robj:
 
     @property
     def centroid(self):
-        cdef dbl[::1] p = np.empty((3,), dtype=np.float64)
-        robj_get_centroid(self._obj, &p[0])
+        p = np.empty((3,), dtype=np.float64)
+        cdef dbl[::1] p_mv = p
+        robj_get_centroid(self._obj, &p_mv[0])
         return p
 
     def overlaps_box(self, Rect3 box):
