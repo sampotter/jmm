@@ -167,7 +167,6 @@ static bool is_shadow_p2(eik3_s const *eik, par3_s const *parent) {
 
 static bool is_shadow_p3(eik3_s const *eik, par3_s par, int num_shadow) {
   assert(par3_size(&par) == 3);
-  assert(num_shadow >= 0);
   assert(num_shadow <= 3);
 
   // Handle the easy cases first (if all the nodes are `SHADOW` or
@@ -544,7 +543,6 @@ cleanup:
 
 static void adjust(eik3_s *eik, size_t l) {
   assert(eik->state[l] == TRIAL);
-  assert(l >= 0);
   assert(l < mesh3_nverts(eik->mesh));
 
   heap_swim(eik->heap, eik->pos[l]);
