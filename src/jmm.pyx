@@ -565,14 +565,6 @@ cdef class Mesh3:
         mesh._set_views()
         return mesh
 
-    @property
-    def num_verts(self):
-        return mesh3_nverts(self.mesh)
-
-    @property
-    def num_cells(self):
-        return mesh3_ncells(self.mesh)
-
     cdef _set_views(self):
         self.verts_view = ArrayView(2)
         self.verts_view.readonly = True
@@ -593,6 +585,14 @@ cdef class Mesh3:
         self.cells_view.strides[1] = 1*sizeof(size_t)
         self.cells_view.format = 'L'
         self.cells_view.itemsize = sizeof(size_t)
+
+    @property
+    def num_verts(self):
+        return mesh3_nverts(self.mesh)
+
+    @property
+    def num_cells(self):
+        return mesh3_ncells(self.mesh)
 
     @property
     def verts(self):
