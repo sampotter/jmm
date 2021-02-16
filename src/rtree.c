@@ -406,7 +406,6 @@ static void refine_node_surface_area(rtree_s const *rtree, rnode_s *node) {
   size_t leaf_size = rnode_leaf_size(node);
   if (leaf_size <= rtree->leaf_thresh)
     return;
-  node->type = RNODE_TYPE_INTERNAL;
 
   // Compute centroids to compute the splits as well as determine the
   // membership of each triangle.
@@ -452,6 +451,9 @@ static void refine_node_surface_area(rtree_s const *rtree, rnode_s *node) {
     }
   }
   free(p); // Free centroids
+
+  // Make the current node an internal node.
+  node->type = RNODE_TYPE_INTERNAL;
 
   // Set children and recursively refine them.
   for (int i = 0; i < 2; ++i) {
