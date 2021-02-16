@@ -5,11 +5,12 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include <gc/gc.h>
+
 #include "def.h"
 #include "log.h"
 #include "macros.h"
 #include "mesh2.h"
-#include "pool.h"
 #include "stats.h"
 #include "vec.h"
 
@@ -349,15 +350,8 @@ void rnode_split_surface_area(rnode_s const *node,
 
 // Section: rtree_s
 
-/**
- * A default capacity for the memory pool used internally by the
- * R-tree for allocating objects.
- */
-#define RTREE_DEFAULT_POOL_CAPACITY 4096
-
 struct rtree {
   rnode_s root;
-  pool_s *pool;
   size_t leaf_thresh; // Maximum size of a leaf node
   rtree_split_strategy_e split_strategy;
 };
@@ -373,16 +367,10 @@ void rtree_dealloc(rtree_s **rtree) {
 
 void rtree_init(rtree_s *rtree) {
   rnode_init(&rtree->root, RNODE_TYPE_LEAF);
-
-  pool_alloc(&rtree->pool);
-  pool_init(rtree->pool, RTREE_DEFAULT_POOL_CAPACITY);
 }
 
 void rtree_deinit(rtree_s *rtree) {
   rnode_deinit(&rtree->root);
-
-  pool_deinit(rtree->pool);
-  pool_dealloc(&rtree->pool);
 }
 
 void rtree_insert_mesh2(rtree_s *rtree, mesh2_s const *mesh) {
@@ -391,7 +379,7 @@ void rtree_insert_mesh2(rtree_s *rtree, mesh2_s const *mesh) {
   size_t num_faces = mesh2_get_num_faces(mesh);
   robj_s obj = {.type = ROBJ_MESH2_TRI};
   for (size_t l = 0; l < num_faces; ++l) {
-    mesh2_tri_s *tri = pool_get(rtree->pool, sizeof(mesh2_tri_s));
+    mesh2_tri_s *tri = GC_MALLOC(sizeof(mesh2_tri_s));
     tri->mesh = mesh;
     tri->l = l;
     obj.data = tri;

@@ -14,6 +14,10 @@ set (CMAKE_MODULE_PATH
   ${CMAKE_MODULE_PATH}
   )
 
+# TODO: should do this in a more portable way... i.e. check for
+# MacPorts...
+include_directories (/opt/local/include)
+
 find_package (Sanitizers)
 
 set (CMAKE_XCODE_GENERATE_SCHEME TRUE)
@@ -25,6 +29,8 @@ find_package (OpenMP)
 if (NOT OpenMP_C_FOUND)
   message (WARNING "Failed to find OpenMP!")
 endif ()
+
+find_library (GC_LIBRARY gc)
 
 set (EXTRA_FLAGS "${EXTRA_FLAGS} -fPIC -Wall -Wextra -Werror -mavx")
 set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${EXTRA_FLAGS}")
@@ -64,7 +70,6 @@ set (JMM_SRCS
   src/mesh3.c
   src/opt.c
   src/par.c
-  src/pool.c
   src/rtree.c
   src/stats.c
   src/triBoxOverlap.c
@@ -79,6 +84,7 @@ add_library (jmm STATIC ${JMM_SRCS})
 if (IPO_SUPPORTED)
   set_property (TARGET jmm PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
 endif ()
+target_link_libraries (jmm PRIVATE ${GC_LIBRARY})
 if (UNIX)
   target_link_libraries (jmm PRIVATE m)
 endif ()

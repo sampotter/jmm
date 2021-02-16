@@ -9,8 +9,8 @@ extensions = [
     Extension(
         'jmm',
         ['src/jmm.pyx'],
-        libraries=['jmm'],
-        library_dirs=['./build']
+        libraries=['jmm', 'gc'],
+        library_dirs=['./build', '/opt/local/lib']
     )
 ]
 
