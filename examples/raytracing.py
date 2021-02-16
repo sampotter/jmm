@@ -30,8 +30,9 @@ if __name__ == '__main__':
 
     verts, faces = meshzoo.icosa_sphere(8)
     faces = faces.astype(np.uintp)
+    num_faces = faces.shape[0]
 
-    mesh = jmm.Mesh2(verts, faces)
+    mesh = jmm.Mesh2.from_verts_and_faces(verts, faces)
     rtree = jmm.Rtree.from_mesh2(mesh)
 
     print('R-tree bounding box: %s' % rtree.bounding_box)
