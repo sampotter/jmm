@@ -258,6 +258,16 @@ cdef class Robj:
         cdef bool hit = robj_intersect(self._obj, &ray._ray, &t)
         return hit, t
 
+    def astype(self, Class):
+        Classes = {Mesh2Tri}
+        if isinstance(Class, type):
+            if Class is Mesh2Tri:
+                return Mesh2Tri.from_robj_ptr(self._obj)
+            else:
+                raise Exception(f'`Class` should be one of: {Classes}')
+        else:
+            raise Exception(f'`Class` should be an instance of type')
+
 cdef class Isect:
     cdef isect _isect
 
