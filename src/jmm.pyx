@@ -210,6 +210,9 @@ class RobjType(Enum):
     Tri3 = 1
     Tetra3 = 2
 
+class RtreeSplitStrategy(Enum):
+    SurfaceArea = 0
+
 cdef class Robj:
     cdef const robj *_obj
 
@@ -259,11 +262,12 @@ be removed in the near future.
         rtree_dealloc(&self._rtree)
 
     @staticmethod
-    def from_mesh2(Mesh2 mesh):
+    def from_mesh2(Mesh2 mesh, leaf_thresh=32,
+                   split_strategy=RtreeSplitStrategy.SurfaceArea):
         rtree = Rtree()
         rtree_alloc(&rtree._rtree)
-        rtree_init(rtree._rtree)
-        rtree_insert_mesh2(rtree._rtree, mesh._mesh)
+        rtree_init(rtree._rtree, leaf_thresh, split_strategy.value)
+        rtree_insert_mesh2(rtree._rtree, mesh.mesh)
         rtree_build(rtree._rtree)
         return rtree
 

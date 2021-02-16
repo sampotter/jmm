@@ -368,8 +368,11 @@ void rtree_dealloc(rtree_s **rtree) {
   *rtree = NULL;
 }
 
-void rtree_init(rtree_s *rtree) {
+void rtree_init(rtree_s *rtree, size_t leaf_thresh,
+                rtree_split_strategy_e split_strategy) {
   rnode_init(&rtree->root, RNODE_TYPE_LEAF);
+  rtree->leaf_thresh = leaf_thresh;
+  rtree->split_strategy = split_strategy;
 }
 
 void rtree_deinit(rtree_s *rtree) {

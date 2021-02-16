@@ -12,6 +12,9 @@ cdef extern from "rtree.h":
         dbl t
         robj *obj
 
+    cdef enum rtree_split_strategy:
+        RTREE_SPLIT_STRATEGY_SURFACE_AREA
+
     cdef struct robj:
         pass
 
@@ -27,7 +30,8 @@ cdef extern from "rtree.h":
 
     void rtree_alloc(rtree **rtree)
     void rtree_dealloc(rtree **rtree)
-    void rtree_init(rtree *rtree)
+    void rtree_init(rtree *rtree, size_t leaf_thresh,
+                    rtree_split_strategy split_strategy)
     void rtree_deinit(rtree *rtree)
     void rtree_insert_mesh2(rtree *rtree, const mesh2 *mesh)
     void rtree_build(rtree *rtree)

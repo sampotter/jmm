@@ -1963,9 +1963,12 @@ int main() {
   mesh2_alloc(&mesh);
   mesh2_init(mesh, &verts[0][0], num_verts, &faces[0][0], num_faces);
 
+  size_t leaf_thresh = 32;
+  rtree_split_strategy_e split_strategy = RTREE_SPLIT_STRATEGY_SURFACE_AREA;
+
   rtree_s *rtree;
   rtree_alloc(&rtree);
-  rtree_init(rtree);
+  rtree_init(rtree, leaf_thresh, split_strategy);
   rtree_insert_mesh2(rtree, mesh);
   rtree_build(rtree);
 

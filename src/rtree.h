@@ -36,7 +36,7 @@ typedef struct {
   robj_s const *obj;
 } isect;
 
-typedef enum {
+typedef enum rtree_split_strategy {
   RTREE_SPLIT_STRATEGY_SURFACE_AREA
 } rtree_split_strategy_e;
 
@@ -50,7 +50,8 @@ typedef struct rtree rtree_s;
 
 void rtree_alloc(rtree_s **rtree);
 void rtree_dealloc(rtree_s **rtree);
-void rtree_init(rtree_s *rtree);
+void rtree_init(rtree_s *rtree, size_t leaf_thresh,
+                rtree_split_strategy_e split_strategy);
 void rtree_deinit(rtree_s *rtree);
 void rtree_insert_mesh2(rtree_s *rtree, mesh2_s const *mesh);
 void rtree_build(rtree_s *rtree);
