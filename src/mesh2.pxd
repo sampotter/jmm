@@ -4,6 +4,11 @@ from geom cimport *
 cdef extern from "mesh2.h":
     cdef struct mesh2:
         pass
+
+    cdef struct mesh2_tri:
+        mesh2 *mesh
+        size_t l
+
     void mesh2_alloc(mesh2 **mesh)
     void mesh2_dealloc(mesh2 **mesh)
     void mesh2_init(mesh2 *mesh, const dbl *verts, size_t nverts,
