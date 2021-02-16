@@ -68,10 +68,17 @@ if __name__ == '__main__':
 
     t0 = time.time()
 
-    T, I = rtree.intersectN(orgs, dirs)
+    T = np.empty((num_rays,), dtype=np.float64)
+    I = np.empty((num_rays,), dtype=np.float64)
+    for l, (org, dir_) in enumerate(zip(orgs, dirs)):
+        isect = rtree.intersect(org, dir_)
+        T[l] = isect.t if isect.hit else np.nan
+        if isect.hit:
+            I[l] = isect.obj.astype(jmm.Mesh2Tri).index
+        else:
+            I[l] = np.nan
     T = T.reshape(width, height)
-    I = I.reshape(width, height).astype(np.float64)
-    I[np.isnan(T)] = np.nan
+    I = I.reshape(width, height)
 
     print('- our BVH elapsed time: %1.2f' % (time.time() - t0,))
 
@@ -107,31 +114,35 @@ if __name__ == '__main__':
 
     I_gt = rayhit.prim_id.reshape(width, height).astype(np.float64)
     T_gt = rayhit.tfar.reshape(width, height)
+    T_gt[~np.isfinite(T_gt)] = np.nan
     I_gt[~np.isfinite(T_gt)] = np.nan
 
     print('- Embree elapsed time: %1.2f' % (time.time() - t0,))
 
+    T_min = min(np.nanmin(T_gt), np.nanmin(T))
+    T_max = max(np.nanmax(T_gt), np.nanmax(T))
+
     plt.figure(figsize=(10, 7))
     plt.subplot(2, 3, 1)
-    plt.imshow(I_gt, cmap=cc.cm.rainbow)
+    plt.imshow(I_gt, cmap=cc.cm.glasbey, interpolation='none')
     plt.gca().set_aspect('equal')
     plt.colorbar()
     plt.subplot(2, 3, 4)
-    plt.imshow(T_gt, cmap=cc.cm.fire)
+    plt.imshow(T_gt, cmap=cc.cm.bmw, vmin=T_min, vmax=T_max)
     plt.gca().set_aspect('equal')
     plt.colorbar()
     plt.subplot(2, 3, 2)
-    plt.imshow(I, cmap=cc.cm.rainbow)
+    plt.imshow(I, cmap=cc.cm.glasbey, interpolation='none')
     plt.gca().set_aspect('equal')
     plt.colorbar()
     plt.subplot(2, 3, 5)
-    plt.imshow(T, cmap=cc.cm.fire)
+    plt.imshow(T, cmap=cc.cm.bmw, vmin=T_min, vmax=T_max)
     plt.gca().set_aspect('equal')
     plt.colorbar()
     plt.subplot(2, 3, 3)
     E_I = I - I_gt
-    I_vmax = np.nanmax(abs(E_I))
-    plt.imshow(E_I, cmap=cc.cm.coolwarm, vmin=-I_vmax, vmax=I_vmax)
+    plt.imshow((E_I != 0).astype(np.float64), cmap=cc.cm.fire_r,
+               interpolation='none')
     plt.gca().set_aspect('equal')
     plt.colorbar()
     plt.subplot(2, 3, 6)
