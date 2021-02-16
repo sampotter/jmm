@@ -198,29 +198,76 @@ cdef class Mesh2Tri:
         return self._tri.l
 
 cdef class Mesh2:
-    cdef mesh2 *_mesh
-
-    def __cinit__(self, dbl[:, ::1] verts, size_t[:, ::1] faces):
-        mesh2_alloc(&self._mesh)
-        cdef size_t nverts = verts.shape[0]
-        cdef size_t nfaces = faces.shape[0]
-        mesh2_init(self._mesh, &verts[0, 0], nverts, &faces[0, 0], nfaces)
+    cdef:
+        bool ptr_owner
+        mesh2 *mesh
+        ArrayView verts_view
+        ArrayView faces_view
 
     def __dealloc__(self):
-        mesh2_deinit(self._mesh)
-        mesh2_dealloc(&self._mesh)
+        if self.ptr_owner:
+            mesh2_deinit(self.mesh)
+            mesh2_dealloc(&self.mesh)
+
+    @staticmethod
+    def from_verts_and_faces(dbl[:, ::1] verts, size_t[:, ::1] faces):
+        mesh = Mesh2()
+        mesh.ptr_owner = True
+        mesh2_alloc(&mesh.mesh)
+        cdef size_t nverts = verts.shape[0]
+        cdef size_t nfaces = faces.shape[0]
+        mesh2_init(mesh.mesh, &verts[0, 0], nverts, &faces[0, 0], nfaces)
+        mesh._set_views()
+        return mesh
+
+    @staticmethod
+    cdef from_ptr(const mesh2 *mesh_ptr):
+        mesh = Mesh2()
+        mesh.ptr_owner = False
+        mesh.mesh = <mesh2 *>mesh_ptr
+        mesh._set_views()
+        return mesh
+
+    cdef _set_views(self):
+        self.verts_view = ArrayView(2)
+        self.verts_view.readonly = True
+        self.verts_view.ptr = <void *>mesh2_get_points_ptr(self.mesh)
+        self.verts_view.shape[0] = self.num_verts
+        self.verts_view.shape[1] = 3
+        self.verts_view.strides[0] = 3*sizeof(dbl)
+        self.verts_view.strides[1] = 1*sizeof(dbl)
+        self.verts_view.format = 'd'
+        self.verts_view.itemsize = sizeof(dbl)
+
+        self.faces_view = ArrayView(2)
+        self.faces_view.readonly = True
+        self.faces_view.ptr = <void *>mesh2_get_faces_ptr(self.mesh)
+        self.faces_view.shape[0] = self.num_faces
+        self.faces_view.shape[1] = 3
+        self.faces_view.strides[0] = 3*sizeof(size_t)
+        self.faces_view.strides[1] = 1*sizeof(size_t)
+        self.faces_view.format = 'L'
+        self.faces_view.itemsize = sizeof(size_t)
 
     @property
-    def num_points(self):
-        return mesh2_get_num_points(self._mesh)
+    def num_verts(self):
+        return mesh2_get_num_points(self.mesh)
 
     @property
     def num_faces(self):
-        return mesh2_get_num_faces(self._mesh)
+        return mesh2_get_num_faces(self.mesh)
+
+    @property
+    def verts(self):
+        return np.asarray(self.verts_view)
+
+    @property
+    def faces(self):
+        return np.asarray(self.faces_view)
 
     @property
     def bounding_box(self):
-        return Rect3(mesh2_get_bounding_box(self._mesh))
+        return Rect3(mesh2_get_bounding_box(self.mesh))
 
 class RobjType(Enum):
     Mesh2Tri = 0
