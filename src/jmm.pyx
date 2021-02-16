@@ -179,6 +179,23 @@ direction*t`.
     def __repr__(self):
         return f'Ray3(origin={self._ray.org}, direction={self._ray.dir})'
 
+cdef class Mesh2Tri:
+    cdef mesh2_tri *_tri
+
+    @staticmethod
+    cdef from_robj_ptr(const robj *obj):
+        tri = Mesh2Tri()
+        tri._tri = <mesh2_tri *>robj_get_data(obj)
+        return tri
+
+    @property
+    def mesh(self):
+        return Mesh2.from_ptr(self._tri.mesh)
+
+    @property
+    def index(self):
+        return self._tri.l
+
 cdef class Mesh2:
     cdef mesh2 *_mesh
 
