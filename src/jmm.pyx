@@ -6,6 +6,7 @@ from enum import Enum
 
 from cython cimport Py_buffer
 
+from libc.math cimport isfinite
 from libc.stdlib cimport free, malloc, qsort
 from libc.string cimport memcpy
 
@@ -261,6 +262,18 @@ cdef class Isect:
 
     def __repr__(self):
         return f'Isect(t = {self.t}, obj = {self.obj})'
+
+    @property
+    def hit(self):
+        return isfinite(self._isect.t)
+
+    @property
+    def t(self):
+        return self._isect.t
+
+    @property
+    def obj(self):
+        return Robj.from_ptr(self._isect.obj)
 
 cdef class Rtree:
     '''An R-tree data structure, intended to be used for speeding up
