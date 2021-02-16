@@ -1,4 +1,5 @@
 #include <math.h>
+#include <stdio.h>
 
 #include <mat.h>
 #include <mesh2.h>
@@ -1964,6 +1965,7 @@ int main() {
 
   rtree_s *rtree;
   rtree_alloc(&rtree);
+  rtree_init(rtree);
   rtree_insert_mesh2(rtree, mesh);
   rtree_build(rtree);
 
@@ -1987,8 +1989,11 @@ int main() {
   dbl3_cross(front, left, up);
   dbl3_normalize(up);
 
+  dbl *t = malloc(width*height*sizeof(dbl));
+
   dbl phi, theta;
   isect isect;
+  size_t k = 0;
   for (size_t i = 0; i < width; ++i) {
     phi = phi_deg_ptp*((dbl)i)/(width - 1) + phi_deg_min;
     phi *= PI/180;
@@ -1997,8 +2002,15 @@ int main() {
       theta *= PI/180;
       get_view_direction(left, front, up, phi, theta, ray.dir);
       rtree_intersect(rtree, &ray, &isect);
+      t[k++] = isect.t;
     }
   }
+
+  FILE *fp = fopen("raytracing_t.bin", "wb");
+  fwrite(t, sizeof(dbl), width*height, fp);
+  fclose(fp);
+
+  free(t);
 
   rtree_deinit(rtree);
   rtree_dealloc(&rtree);

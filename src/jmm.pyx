@@ -261,9 +261,10 @@ be removed in the near future.
         rtree_dealloc(&self._rtree)
 
     @staticmethod
-    def from_mesh2(self, Mesh2 mesh):
+    def from_mesh2(Mesh2 mesh):
         rtree = Rtree()
         rtree_alloc(&rtree._rtree)
+        rtree_init(rtree._rtree)
         rtree_insert_mesh2(rtree._rtree, mesh._mesh)
         rtree_build(rtree._rtree)
         return rtree

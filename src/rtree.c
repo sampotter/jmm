@@ -386,6 +386,8 @@ void rtree_deinit(rtree_s *rtree) {
 }
 
 void rtree_insert_mesh2(rtree_s *rtree, mesh2_s const *mesh) {
+  rnode_s *node = &rtree->root;
+  assert(node->type == RNODE_TYPE_LEAF);
   size_t num_faces = mesh2_get_num_faces(mesh);
   robj_s obj = {.type = ROBJ_MESH2_TRI};
   for (size_t l = 0; l < num_faces; ++l) {
@@ -393,7 +395,9 @@ void rtree_insert_mesh2(rtree_s *rtree, mesh2_s const *mesh) {
     tri->mesh = mesh;
     tri->l = l;
     obj.data = tri;
+    rnode_append_robj(node, obj);
   }
+  rnode_recompute_bbox(node);
 }
 
 static void refine_node_surface_area(rtree_s const *rtree, rnode_s *node) {

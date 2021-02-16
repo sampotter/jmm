@@ -14,6 +14,8 @@ set (CMAKE_MODULE_PATH
   ${CMAKE_MODULE_PATH}
   )
 
+find_package (Sanitizers)
+
 set (CMAKE_XCODE_GENERATE_SCHEME TRUE)
 
 set (INSTALL_INCLUDE_DIR include)
@@ -95,6 +97,7 @@ target_include_directories (
 
 # basic_solve
 add_executable (basic_solve examples/basic_solve.c)
+add_sanitizers (basic_solve)
 target_link_libraries (basic_solve jmm)
 target_include_directories (basic_solve PRIVATE jmm)
 set_property (
@@ -107,11 +110,13 @@ set_property (
 
 # raytracing
 add_executable (raytracing examples/raytracing.c)
+add_sanitizers (raytracing)
 target_link_libraries (raytracing jmm)
 target_include_directories (raytracing PRIVATE jmm)
 
 # transfer_solution
 add_executable (transfer_solution examples/transfer_solution.c)
+add_sanitizers (transfer_solution)
 target_link_libraries (transfer_solution jmm)
 target_include_directories (transfer_solution PRIVATE jmm)
 
@@ -141,6 +146,7 @@ if (BUILD_TESTS)
     test/test_utri.c
     )
   add_library (jmm_tests SHARED ${JMM_TESTS_SRCS})
+  add_sanitizers (jmm_tests)
   target_link_libraries (jmm_tests PRIVATE ${CGREEN_LIBRARY})
   target_include_directories (jmm_tests PRIVATE ${CGREEN_INCLUDE_DIRS})
   target_link_libraries (jmm_tests PRIVATE jmm)

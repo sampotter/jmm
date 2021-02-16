@@ -32,7 +32,7 @@ if __name__ == '__main__':
     faces = faces.astype(np.uintp)
 
     mesh = jmm.Mesh2(verts, faces)
-    rtree = jmm.Rtree(mesh)
+    rtree = jmm.Rtree.from_mesh2(mesh)
 
     print('R-tree bounding box: %s' % rtree.bounding_box)
 
