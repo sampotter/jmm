@@ -9,7 +9,6 @@ cdef extern from "rtree.h":
         ROBJ_TETRA3
 
     ctypedef struct isect:
-        const ray3 *ray
         dbl t
         robj *obj
 

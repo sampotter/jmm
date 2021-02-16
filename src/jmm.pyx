@@ -241,9 +241,7 @@ cdef class Isect:
     cdef isect _isect
 
     def __repr__(self):
-        cdef size_t l = (<size_t *>self._isect.obj)[0]
-        ray = Ray3.from_ptr(self._isect.ray)
-        return f'Isect(ray = {ray}, t = {self._isect.t}, l = {l})'
+        return f'Isect(t = {self.t}, obj = {self.obj})'
 
 cdef class Rtree:
     '''An R-tree data structure, intended to be used for speeding up

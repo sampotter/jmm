@@ -241,7 +241,6 @@ static bool rnode_intersect(rnode_s const *node, ray3 const *ray, isect *isect) 
     for (size_t i = 0; i < node->leaf_data.size; ++i) {
       obj = &node->leaf_data.obj[i];
       if (robj_intersect(obj, ray, &t) && 0 <= t && t < isect->t) {
-        isect->ray = ray;
         isect->t = t;
         isect->obj = obj;
       }

@@ -25,11 +25,6 @@ bool robj_intersect(robj_s const *obj, ray3 const *ray, dbl *t);
 
 typedef struct {
   /**
-   * The intersecting ray.
-   */
-  ray3 const *ray;
-
-  /**
    * The intersection parameter: i.e., a scalar such that location of
    * the intersection is `ray->org + t*ray->dir`.
    */
