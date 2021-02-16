@@ -177,8 +177,7 @@ direction*t`.
         return Ray3(org, dir)
 
     def __repr__(self):
-        return f'Ray3(origin=%s, direction=%s)' % (
-            tuple(self._ray.org), tuple(self._ray.dir))
+        return f'Ray3(origin={self._ray.org}, direction={self._ray.dir})'
 
 cdef class Mesh2:
     cdef mesh2 *_mesh
