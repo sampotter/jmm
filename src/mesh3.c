@@ -107,7 +107,6 @@ static void init_vc(mesh3_s *mesh) {
   for (size_t i = 0; i < mesh->ncells; ++i) {
     for (int j = 0; j < 4; ++j) {
       size_t k = mesh->cells[i].data[j];
-      assert(k >= 0);
       assert(k < mesh->nverts);
       ++nvc[k];
     }
