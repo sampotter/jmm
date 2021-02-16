@@ -134,7 +134,6 @@ if (BUILD_TESTS)
   find_library (CGREEN_LIBRARY cgreen HINTS /usr/local/lib)
   find_package (GSL REQUIRED)
 
-  message ("${CGREEN_LIBRARY}")
   set (CGREEN_INCLUDE_DIRS "/usr/local/include")
 
   set (JMM_TESTS_SRCS
