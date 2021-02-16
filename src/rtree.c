@@ -328,6 +328,9 @@ void rnode_split_surface_area(rnode_s const *node,
       ++child_size[0];
   child_size[1] = leaf_size - child_size[0];
 
+  assert(child_size[0] != 0);
+  assert(child_size[1] != 0);
+
   // Allocate space for the two child nodes
   for (int i = 0; i < 2; ++i) {
     child[i] = malloc(sizeof(rnode_s));
