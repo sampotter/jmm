@@ -28,7 +28,7 @@ def get_view_direction(left, front, up, phi, theta):
 if __name__ == '__main__':
     plt.ion()
 
-    verts, faces = meshzoo.icosa_sphere(8)
+    verts, faces = meshzoo.icosa_sphere(20)
     faces = faces.astype(np.uintp)
     num_faces = faces.shape[0]
 
@@ -48,19 +48,11 @@ if __name__ == '__main__':
     up = np.cross(front, left)
     up /= np.linalg.norm(up)
 
-    isect = rtree.intersect(origin, front)
-    print(isect)
+    w, h = 640, 480
+    num_rays = w*h
 
-    print('left', left)
-    print('front', front)
-    print('up', up)
-
-    width = 256
-    height = 256
-    num_rays = width*height
-
-    Phi = np.deg2rad(np.linspace(-15, 15, width))
-    Theta = np.deg2rad(np.linspace(-15, 15, height))
+    Theta = np.deg2rad(np.linspace(-15*w/h, 15*w/h, w))
+    Phi = np.deg2rad(np.linspace(-15, 15, h))
 
     orgs = np.outer(np.ones(num_rays), origin)
     dirs = np.array([get_view_direction(left, front, up, phi, theta)
@@ -77,10 +69,10 @@ if __name__ == '__main__':
             I[l] = isect.obj.astype(jmm.Mesh2Tri).index
         else:
             I[l] = np.nan
-    T = T.reshape(width, height)
-    I = I.reshape(width, height)
+    T = T.reshape(h, w)
+    I = I.reshape(h, w)
 
-    print('- our BVH elapsed time: %1.2f' % (time.time() - t0,))
+    print('Our BVH elapsed time: %1.2f' % (time.time() - t0,))
 
     # Compare against python-embree
 
@@ -112,44 +104,55 @@ if __name__ == '__main__':
     rayhit.geom_id[...] = embree.INVALID_GEOMETRY_ID
     scene.intersect1M(context, rayhit)
 
-    I_gt = rayhit.prim_id.reshape(width, height).astype(np.float64)
-    T_gt = rayhit.tfar.reshape(width, height)
+    I_gt = rayhit.prim_id.reshape(h, w).astype(np.float64)
+    T_gt = rayhit.tfar.reshape(h, w)
     T_gt[~np.isfinite(T_gt)] = np.nan
     I_gt[~np.isfinite(T_gt)] = np.nan
 
-    print('- Embree elapsed time: %1.2f' % (time.time() - t0,))
+    print('Embree elapsed time: %1.2f' % (time.time() - t0,))
 
     T_min = min(np.nanmin(T_gt), np.nanmin(T))
     T_max = max(np.nanmax(T_gt), np.nanmax(T))
 
-    plt.figure(figsize=(10, 7))
+    plt.figure(figsize=(13, 6))
+
     plt.subplot(2, 3, 1)
     plt.imshow(I_gt, cmap=cc.cm.glasbey, interpolation='none')
     plt.gca().set_aspect('equal')
-    plt.colorbar()
+    plt.title('Hit index (Embree)')
+
     plt.subplot(2, 3, 4)
     plt.imshow(T_gt, cmap=cc.cm.bmw, vmin=T_min, vmax=T_max)
     plt.gca().set_aspect('equal')
     plt.colorbar()
+    plt.title('Hit distance (Embree)')
+
     plt.subplot(2, 3, 2)
     plt.imshow(I, cmap=cc.cm.glasbey, interpolation='none')
     plt.gca().set_aspect('equal')
-    plt.colorbar()
+    plt.title("Hit index (jmm's R-tree)")
+
     plt.subplot(2, 3, 5)
     plt.imshow(T, cmap=cc.cm.bmw, vmin=T_min, vmax=T_max)
     plt.gca().set_aspect('equal')
     plt.colorbar()
+    plt.title("Hit distance (jmm's R-tree)")
+
     plt.subplot(2, 3, 3)
     E_I = I - I_gt
     plt.imshow((E_I != 0).astype(np.float64), cmap=cc.cm.fire_r,
                interpolation='none')
     plt.gca().set_aspect('equal')
-    plt.colorbar()
+    plt.title('Hit indices equal? (mask)')
+
     plt.subplot(2, 3, 6)
     E_T = T - T_gt
     T_vmax = np.nanmax(abs(E_T))
     plt.imshow(E_T, cmap=cc.cm.coolwarm, vmin=-T_vmax, vmax=T_vmax)
     plt.gca().set_aspect('equal')
     plt.colorbar()
+    plt.title('Hit distance error (jmm - Embree)')
+
     plt.tight_layout()
+
     plt.show()
