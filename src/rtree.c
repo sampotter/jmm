@@ -228,11 +228,7 @@ static bool rnode_query_bbox(rnode_s const *node, rect3 const *bbox) {
 }
 
 // TODO: better to do this using a stack instead of recursively
-static bool rnode_intersect(rnode_s const *node, ray3 const *ray, isect *isect) {
-  // TODO: remove (redundant)...
-  if (!rect3_occludes_ray3(&node->bbox, ray))
-    return false;
-
+static void rnode_intersect(rnode_s const *node, ray3 const *ray, isect *isect) {
   // If the node is a leaf node, intersect each of the contained
   // objects.
   if (node->type == RNODE_TYPE_LEAF) {
@@ -245,7 +241,7 @@ static bool rnode_intersect(rnode_s const *node, ray3 const *ray, isect *isect) 
         isect->obj = obj;
       }
     }
-    return isfinite(isect->t);
+    return;
   }
 
   // Intersect the bounding boxes of the two child nodes.
@@ -261,13 +257,10 @@ static bool rnode_intersect(rnode_s const *node, ray3 const *ray, isect *isect) 
     SWAP(child[0], child[1]);
   }
 
-  // Intersect the child nodes in sorted order, returning early if we
-  // find an intersection. Finally, return false if we don't manage to
-  // intersect anything.
+  // Intersect the child nodes in sorted order.
   for (int i = 0; i < 2; ++i)
-    if (isfinite(t[i]) && rnode_intersect(child[i], ray, isect))
-      return true;
-  return false;
+    if (isfinite(t[i]) && t[i] < isect->t)
+      rnode_intersect(child[i], ray, isect);
 }
 
 /**
@@ -501,8 +494,7 @@ bool rtree_query_bbox(rtree_s const *rtree, rect3 const *bbox) {
 
 void rtree_intersect(rtree_s const *rtree, ray3 const *ray, isect *isect) {
   isect->t = INFINITY;
-  if (!rnode_intersect(&rtree->root, ray, isect))
-    isect->t = NAN;
+  rnode_intersect(&rtree->root, ray, isect);
 }
 
 void rtree_intersectN(rtree_s const *rtree, ray3 const *ray, size_t n,
