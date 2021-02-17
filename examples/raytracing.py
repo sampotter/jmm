@@ -10,20 +10,7 @@ import time
 
 from PIL import Image
 
-def get_view_direction(left, front, up, phi, theta):
-    ray = np.array([0, 1, 0])
-    # Rotate by phi around z/up axis
-    ray = np.array([
-        [ np.cos(phi), np.sin(phi), 0],
-        [-np.sin(phi), np.cos(phi), 0],
-        [          0,            0, 1]
-    ])@ray
-    ray = np.array([
-        [1,              0,             0],
-        [0,  np.cos(theta), np.sin(theta)],
-        [0, -np.sin(theta), np.cos(theta)],
-    ])@ray
-    return np.array([left, front, up]).T@ray
+from common import get_camera_basis, get_view_direction
 
 if __name__ == '__main__':
     plt.ion()
@@ -40,19 +27,19 @@ if __name__ == '__main__':
     # Compute camera frame (front x left x up)
     origin = np.array([-4, 0, 0], dtype=np.float64)
     target = np.array([0, 0, 0], dtype=np.float64)
-    front = target - origin
-    front /= np.linalg.norm(front)
     up = np.array([0, 0, 1])
-    left = np.cross(up, front)
-    left /= np.linalg.norm(left)
-    up = np.cross(front, left)
-    up /= np.linalg.norm(up)
+    left, front, up = get_camera_basis(origin, target, up)
 
+    # Camera parameters
+    s = w/h # aspect ratio
+    fov_y = 30 # vertical field of view
+
+    # Image size
     w, h = 640, 480
     num_rays = w*h
 
-    Theta = np.deg2rad(np.linspace(-15*w/h, 15*w/h, w))
-    Phi = np.deg2rad(np.linspace(-15, 15, h))
+    Theta = np.deg2rad(np.linspace(-s*fov_y/2, s*fov_y/2, w))
+    Phi = np.deg2rad(np.linspace(-fov_y/2, fov_y/2, h))
 
     orgs = np.outer(np.ones(num_rays), origin)
     dirs = np.array([get_view_direction(left, front, up, phi, theta)
