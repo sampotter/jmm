@@ -366,8 +366,14 @@ void rnode_split_surface_area(rnode_s const *node,
       ++child_size[0];
   child_size[1] = leaf_size - child_size[0];
 
-  assert(child_size[0] != 0);
-  assert(child_size[1] != 0);
+  // If either of the children are empty, we found a degenerate split
+  // (all of the nodes lie in an axis-aligned plane). We want to rule
+  // out one of these splits, so we set these children to NULL and
+  // return.
+  if (child_size[0] == 0 || child_size[1] == 0) {
+    child[0] = child[1] = NULL;
+    return false;
+  }
 
   // Allocate space for the two child nodes
   for (int i = 0; i < 2; ++i) {
@@ -390,6 +396,8 @@ void rnode_split_surface_area(rnode_s const *node,
   // won't change.
   rnode_recompute_bbox(child[0]);
   rnode_recompute_bbox(child[1]);
+
+  return true;
 }
 
 // Section: rtree_s
@@ -487,9 +495,9 @@ static void refine_node_surface_area(rtree_s const *rtree, rnode_s *node) {
   // split along the way.
   dbl surf_area[3] = {0, 0, 0};
   for (int d = 0; d < 3; ++d) {
-    rnode_split_surface_area(node, p, d, child[d]);
-    for (int i = 0; i < 2; ++i)
-      surf_area[d] += rect3_surface_area(&child[d][i]->bbox);
+    if (rnode_split_surface_area(node, p, d, child[d]))
+      for (int i = 0; i < 2; ++i)
+        surf_area[d] += rect3_surface_area(&child[d][i]->bbox);
   }
 
   // The best split is the one with the minimum sum of surface areas
@@ -497,7 +505,7 @@ static void refine_node_surface_area(rtree_s const *rtree, rnode_s *node) {
   int dmin;
   dbl min_surf_area = INFINITY;
   for (int d = 0; d < 3; ++d) {
-    if (surf_area[d] < min_surf_area) {
+    if (0 < surf_area[d] && surf_area[d] < min_surf_area) {
       min_surf_area = surf_area[d];
       dmin = d;
     }
@@ -519,6 +527,7 @@ static void refine_node_surface_area(rtree_s const *rtree, rnode_s *node) {
   // Set children and recursively refine them.
   for (int i = 0; i < 2; ++i) {
     node->child[i] = child[dmin][i];
+    assert(node->child[i] != NULL);
     refine_node_surface_area(rtree, node->child[i]);
   }
 }
