@@ -78,6 +78,8 @@ struct mesh3 {
   size_t ncells;
   size_t *vc;
   size_t *vc_offsets;
+
+  bool has_bd_info;
   bool *bdc;
   bool *bdv;
   size_t nbdf;
@@ -328,7 +330,8 @@ static void compute_geometric_quantities(mesh3_s *mesh) {
 
 void mesh3_init(mesh3_s *mesh,
                 dbl const *verts, size_t nverts,
-                size_t const *cells, size_t ncells) {
+                size_t const *cells, size_t ncells,
+                bool compute_bd_info) {
   size_t k = 0;
 
   mesh->verts = malloc(sizeof(dvec3)*nverts);
@@ -350,7 +353,10 @@ void mesh3_init(mesh3_s *mesh,
   mesh->ncells = ncells;
 
   init_vc(mesh);
-  init_bd(mesh);
+
+  mesh->has_bd_info = compute_bd_info;
+  if (compute_bd_info)
+    init_bd(mesh);
 
   compute_geometric_quantities(mesh);
 }
@@ -968,29 +974,39 @@ bool mesh3_cvf(mesh3_s const *mesh, size_t lc, size_t lv, size_t lf[3]) {
   return true;
 }
 
+bool mesh3_has_bd_info(mesh3_s const *mesh) {
+  return mesh->has_bd_info;
+}
+
 bool *mesh3_get_bdc_ptr(mesh3_s *mesh) {
+  assert(mesh->has_bd_info);
   return mesh->bdc;
 }
 
 bool mesh3_bdc(mesh3_s const *mesh, size_t i) {
+  assert(mesh->has_bd_info);
   return mesh->bdc[i];
 }
 
 bool *mesh3_get_bdv_ptr(mesh3_s *mesh) {
+  assert(mesh->has_bd_info);
   return mesh->bdv;
 }
 
 bool mesh3_bdv(mesh3_s const *mesh, size_t i) {
+  assert(mesh->has_bd_info);
   return mesh->bdv[i];
 }
 
 bool mesh3_bde(mesh3_s const *mesh, size_t const le[2]) {
+  assert(mesh->has_bd_info);
   diff_edge_s e = make_diff_edge(le[0], le[1]);
   return bsearch(&e, mesh->bde, mesh->nbde, sizeof(diff_edge_s),
                  (compar_t)diff_edge_cmp);
 }
 
 bool mesh3_bdf(mesh3_s const *mesh, size_t const lf[3]) {
+  assert(mesh->has_bd_info);
   tagged_face_s f = make_tagged_face(lf[0], lf[1], lf[2], NO_PARENT);
   return bsearch(&f, mesh->bdf, mesh->nbdf, sizeof(tagged_face_s),
                  (compar_t)tagged_face_cmp);
@@ -1015,6 +1031,7 @@ bool mesh3_is_edge(mesh3_s const *mesh, size_t const l[2]) {
 }
 
 bool mesh3_is_diff_edge(mesh3_s const *mesh, size_t const le[2]) {
+  assert(mesh->has_bd_info);
   diff_edge_s q = make_diff_edge(le[0], le[1]);
   diff_edge_s const *e = bsearch(
     &q, mesh->bde, mesh->nbde, sizeof(diff_edge_s), (compar_t)diff_edge_cmp);
@@ -1022,6 +1039,8 @@ bool mesh3_is_diff_edge(mesh3_s const *mesh, size_t const le[2]) {
 }
 
 bool mesh3_vert_incident_on_diff_edge(mesh3_s const *mesh, size_t l) {
+  assert(mesh->has_bd_info);
+
   int nvv = mesh3_nvv(mesh, l);
   size_t *vv = malloc(nvv*sizeof(size_t));
   mesh3_vv(mesh, l, vv);
@@ -1046,6 +1065,8 @@ dbl mesh3_get_min_tetra_alt(mesh3_s const *mesh) {
  * destroyed by the caller.
  */
 mesh2_s *mesh3_get_surface_mesh(mesh3_s const *mesh) {
+  assert(mesh->has_bd_info);
+
   // TODO: Right now we're just splatting the relevant vertices and
   // faces into a new mesh2. It wouldn't be too difficult to compress
   // the vertex array. An even cooler thing to do would be to only

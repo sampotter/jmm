@@ -91,7 +91,7 @@ Ensure(eik3, tetra_works_for_olim18_122_update) {
     /**
      * Create a mesh consisting of a single tetrahedron for this update
      */
-    mesh3_init(mesh, verts_perm, 4, cells_perm, 1);
+    mesh3_init(mesh, verts_perm, 4, cells_perm, 1, true);
 
     /**
      * Get jets for vertex data
@@ -176,7 +176,7 @@ Ensure(eik3, tetra_works_for_olim18_222_update) {
 
   mesh3_s *mesh;
   mesh3_alloc(&mesh);
-  mesh3_init(mesh, verts, 4, cells, 1);
+  mesh3_init(mesh, verts, 4, cells, 1, true);
 
   dbl lambda[2] = {1./3, 1./3};
 
@@ -339,7 +339,7 @@ Ensure(eik3, tetra_works_for_olim26_updates) {
     /**
      * Create a mesh consisting of a single tetrahedron for this update
      */
-    mesh3_init(mesh, verts_perm, 4, cells_perm, 1);
+    mesh3_init(mesh, verts_perm, 4, cells_perm, 1, true);
 
     /**
      * Get jets for vertex data

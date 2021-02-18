@@ -672,13 +672,15 @@ cdef class Mesh3:
             mesh3_dealloc(&self.mesh)
 
     @staticmethod
-    def from_verts_and_cells(dbl[:, ::1] verts, size_t[:, ::1] cells):
+    def from_verts_and_cells(dbl[:, ::1] verts, size_t[:, ::1] cells,
+                             compute_bd_info=True):
         mesh = Mesh3()
         mesh.ptr_owner = True
         mesh3_alloc(&mesh.mesh)
         cdef size_t nverts = verts.shape[0]
         cdef size_t ncells = cells.shape[0]
-        mesh3_init(mesh.mesh, &verts[0, 0], nverts, &cells[0, 0], ncells)
+        mesh3_init(mesh.mesh, &verts[0, 0], nverts, &cells[0, 0], ncells,
+                   compute_bd_info)
         mesh._set_views()
         return mesh
 
@@ -762,19 +764,31 @@ cdef class Mesh3:
         mesh3_ec(self.mesh, i, j, &ec[0])
         return np.asarray(ec)
 
+    @property
+    def has_bd_info(self):
+        return mesh3_has_bd_info(self.mesh)
+
     def bdc(self, size_t i):
+        if not self.has_bd_info:
+            raise Exception("mesh wasn't built with boundary info");
         return mesh3_bdc(self.mesh, i)
 
     def bdv(self, size_t i):
+        if not self.has_bd_info:
+            raise Exception("mesh wasn't built with boundary info");
         return mesh3_bdv(self.mesh, i)
 
     def bde(self, size_t i, size_t j):
+        if not self.has_bd_info:
+            raise Exception("mesh wasn't built with boundary info");
         cdef size_t l[2]
         l[0] = i
         l[1] = j
         return mesh3_bde(self.mesh, l)
 
     def bdf(self, size_t i, size_t j, size_t k):
+        if not self.has_bd_info:
+            raise Exception("mesh wasn't built with boundary info");
         cdef size_t l[3]
         l[0] = i
         l[1] = j
@@ -782,12 +796,16 @@ cdef class Mesh3:
         return mesh3_bdf(self.mesh, l)
 
     def is_diff_edge(self, size_t i, size_t j):
+        if not self.has_bd_info:
+            raise Exception("mesh wasn't built with boundary info");
         cdef size_t l[2]
         l[0] = i
         l[1] = j
         return mesh3_is_diff_edge(self.mesh, l)
 
     def get_surface_mesh(self):
+        if not self.has_bd_info:
+            raise Exception("mesh wasn't built with boundary info");
         cdef mesh2 *surface_mesh = mesh3_get_surface_mesh(self.mesh)
         return Mesh2.from_ptr(surface_mesh, ptr_owner=True)
 

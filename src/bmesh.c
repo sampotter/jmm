@@ -90,7 +90,7 @@ bmesh33_s *bmesh33_get_level_bmesh(bmesh33_s const *bmesh, dbl level) {
   }
 
   mesh3_alloc((mesh3_s **)&level_bmesh->mesh);
-  mesh3_init((mesh3_s *)level_bmesh->mesh, verts, lv, cells, lc);
+  mesh3_init((mesh3_s *)level_bmesh->mesh, verts, lv, cells, lc, false);
 
   level_bmesh->mesh_owner = true;
   level_bmesh->num_cells = mesh3_ncells(level_bmesh->mesh);

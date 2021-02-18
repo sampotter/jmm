@@ -27,7 +27,7 @@ AfterEach(mesh3) {}
   };                                            \
   mesh3_s *mesh;                                \
   mesh3_alloc(&mesh);                           \
-  mesh3_init(mesh, verts, 8, cells, 5);
+  mesh3_init(mesh, verts, 8, cells, 5, true);
 
 #define TEAR_DOWN_MESH()                        \
   mesh3_deinit(mesh);                           \

@@ -37,7 +37,8 @@ void mesh3_alloc(mesh3_s **mesh);
 void mesh3_dealloc(mesh3_s **mesh);
 void mesh3_init(mesh3_s *mesh,
                 dbl const *verts, size_t nverts,
-                size_t const *cells, size_t ncells);
+                size_t const *cells, size_t ncells,
+                bool compute_bd_info);
 void mesh3_deinit(mesh3_s *mesh);
 dbl const *mesh3_get_verts_ptr(mesh3_s const *mesh);
 size_t const *mesh3_get_cells_ptr(mesh3_s const *mesh);
@@ -75,6 +76,7 @@ bool mesh3_cfv(mesh3_s const *mesh, size_t lc, size_t const lf[3], size_t *lv);
 bool mesh3_ccfv(mesh3_s const *mesh, size_t lc, size_t const lf[3],
                 size_t *lv_out);
 bool mesh3_cvf(mesh3_s const *mesh, size_t lc, size_t lv, size_t lf[3]);
+bool mesh3_has_bd_info(mesh3_s const *mesh);
 bool *mesh3_get_bdc_ptr(mesh3_s *mesh);
 bool mesh3_bdc(mesh3_s const *mesh, size_t i);
 bool *mesh3_get_bdv_ptr(mesh3_s *mesh);
