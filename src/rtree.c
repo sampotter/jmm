@@ -234,9 +234,21 @@ void rnode_recompute_bbox(rnode_s *node) {
 void rnode_grow(rnode_s *node) {
   assert(node->type == RNODE_TYPE_LEAF);
   assert(node->leaf_data.capacity > 0);
+
   node->leaf_data.capacity *= 2;
-  node->leaf_data.obj = realloc(
-    node->leaf_data.obj, node->leaf_data.capacity*sizeof(robj_s));
+
+  // Instead of using realloc here, we do things manually... This is
+  // in order to fix a bug where the Boehm GC intercedes are frees
+  // everything while realloc is being called! I observed this bug on
+  // macOS on 2/17/21. I'm not sure how prevalent this is, or whether
+  // this GC should be compatible with realloc. At any rate, this
+  // seems to work for now. Ultimately, we need to replace the GC with
+  // a memory pool.
+  robj_s *new_obj = malloc(node->leaf_data.capacity*sizeof(robj_s));
+  for (size_t i = 0; i < node->leaf_data.size; ++i)
+    new_obj[i] = node->leaf_data.obj[i];
+  free(node->leaf_data.obj);
+  node->leaf_data.obj = new_obj;
 }
 
 void rnode_append_robj(rnode_s *node, robj_s obj) {
