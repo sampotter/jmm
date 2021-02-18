@@ -468,6 +468,11 @@ bool utetra_update_ray_is_physical(utetra_s const *utetra, eik3_s const *eik) {
       break;
   }
 
+  // Free the space used for the adjacent cells since we're done with
+  // it now
+  array_deinit(cells);
+  array_dealloc(&cells);
+
   // If we didn't find a containing cell, we can conclude that the ray
   // is unphysical!
   if (!xm_in_cell || !xp_in_cell)
