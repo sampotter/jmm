@@ -78,13 +78,15 @@ bmesh33_s *bmesh33_get_level_bmesh(bmesh33_s const *bmesh, dbl level) {
   // we're trading off memory use for simplicity. Later on we can come
   // back and optimize this. While we're doing this, we also copy over
   // Bezier tetra data so that we don't have to recompute it.
-  size_t lv = 0, lc = 0;
+  size_t lv = 0, lc = 0, cv[4], j = 0;
   for (size_t l = 0; l < bmesh->num_cells; ++l) {
     if (!brack[l]) continue;
     level_bmesh->bb[lc] = bmesh->bb[l]; // Copy Bezier tetra data
-    mesh3_cv(bmesh->mesh, l, &cells[4*lc]);
-    for (int i = 0; i < 4; ++i)
-      mesh3_copy_vert(bmesh->mesh, cells[4*lc + i], &verts[4*3*lc + 3*i]);
+    mesh3_cv(bmesh->mesh, l, cv); // Grab the inds for this cell
+    for (int i = 0; i < 4; ++i) {
+      mesh3_copy_vert(bmesh->mesh, cv[i], &verts[4*3*lc + 3*i]);
+      cells[4*lc + i] = j++; // Splat new vert inds into `cells`
+    }
     lv += 4;
     ++lc;
   }
