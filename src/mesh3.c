@@ -366,15 +366,23 @@ void mesh3_deinit(mesh3_s *mesh) {
   free(mesh->cells);
   free(mesh->vc);
   free(mesh->vc_offsets);
-  free(mesh->bdc);
-  free(mesh->bdv);
 
   mesh->verts = NULL;
   mesh->cells = NULL;
   mesh->vc = NULL;
   mesh->vc_offsets = NULL;
-  mesh->bdc = NULL;
-  mesh->bdv = NULL;
+
+  if (mesh->has_bd_info) {
+    free(mesh->bdc);
+    free(mesh->bdv);
+    free(mesh->bdf);
+    free(mesh->bde);
+
+    mesh->bdc = NULL;
+    mesh->bdv = NULL;
+    mesh->bdf = NULL;
+    mesh->bde = NULL;
+  }
 }
 
 dbl const *mesh3_get_verts_ptr(mesh3_s const *mesh) {
