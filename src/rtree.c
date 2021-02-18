@@ -5,13 +5,12 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include <gc/gc.h>
-
 #include "def.h"
 #include "log.h"
 #include "macros.h"
 #include "mesh2.h"
 #include "mesh3.h"
+#include "pool.h"
 #include "stats.h"
 #include "vec.h"
 
@@ -237,18 +236,8 @@ void rnode_grow(rnode_s *node) {
 
   node->leaf_data.capacity *= 2;
 
-  // Instead of using realloc here, we do things manually... This is
-  // in order to fix a bug where the Boehm GC intercedes are frees
-  // everything while realloc is being called! I observed this bug on
-  // macOS on 2/17/21. I'm not sure how prevalent this is, or whether
-  // this GC should be compatible with realloc. At any rate, this
-  // seems to work for now. Ultimately, we need to replace the GC with
-  // a memory pool.
-  robj_s *new_obj = malloc(node->leaf_data.capacity*sizeof(robj_s));
-  for (size_t i = 0; i < node->leaf_data.size; ++i)
-    new_obj[i] = node->leaf_data.obj[i];
-  free(node->leaf_data.obj);
-  node->leaf_data.obj = new_obj;
+  node->leaf_data.obj = realloc(
+    node->leaf_data.obj, node->leaf_data.capacity*sizeof(robj_s));
 }
 
 void rnode_append_robj(rnode_s *node, robj_s obj) {
@@ -413,10 +402,14 @@ bool rnode_split_surface_area(rnode_s const *node, dbl const (*p)[3], int d,
 
 // Section: rtree_s
 
+#define RTREE_POOL_INITIAL_CAPACITY 4096
+
 struct rtree {
   rnode_s root;
   size_t leaf_thresh; // Maximum size of a leaf node
   rtree_split_strategy_e split_strategy;
+  pool_s *pool;
+  bool pool_owner;
 };
 
 void rtree_alloc(rtree_s **rtree) {
@@ -433,10 +426,19 @@ void rtree_init(rtree_s *rtree, size_t leaf_thresh,
   rnode_init(&rtree->root, RNODE_TYPE_LEAF);
   rtree->leaf_thresh = leaf_thresh;
   rtree->split_strategy = split_strategy;
+
+  pool_alloc(&rtree->pool);
+  pool_init(rtree->pool, RTREE_POOL_INITIAL_CAPACITY);
+  rtree->pool_owner = true;
 }
 
 void rtree_deinit(rtree_s *rtree) {
   rnode_deinit(&rtree->root);
+
+  if (rtree->pool_owner) {
+    pool_deinit(rtree->pool);
+    pool_dealloc(&rtree->pool);
+  }
 }
 
 rtree_s *rtree_copy(rtree_s const *rtree) {
@@ -444,6 +446,9 @@ rtree_s *rtree_copy(rtree_s const *rtree) {
   rnode_copy_deep(&rtree->root, &copy->root);
   copy->leaf_thresh = rtree->leaf_thresh;
   copy->split_strategy = rtree->split_strategy;
+  copy->pool = rtree->pool;
+  copy->pool_owner = false; // The original rtree is responsible for
+                            // freeing the pool
   return copy;
 }
 
@@ -453,7 +458,7 @@ void rtree_insert_mesh2(rtree_s *rtree, mesh2_s const *mesh) {
   size_t num_faces = mesh2_get_num_faces(mesh);
   robj_s obj = {.type = ROBJ_MESH2_TRI};
   for (size_t l = 0; l < num_faces; ++l) {
-    mesh2_tri_s *tri = GC_MALLOC(sizeof(mesh2_tri_s));
+    mesh2_tri_s *tri = pool_get(rtree->pool, sizeof(mesh2_tri_s));
     tri->mesh = mesh;
     tri->l = l;
     obj.data = tri;
@@ -468,7 +473,7 @@ void rtree_insert_mesh3(rtree_s *rtree, mesh3_s const *mesh) {
   size_t num_cells = mesh3_ncells(mesh);
   robj_s obj = {.type = ROBJ_MESH3_TETRA};
   for (size_t l = 0; l < num_cells; ++l) {
-    mesh3_tetra_s *tetra = GC_MALLOC(sizeof(mesh3_tetra_s));
+    mesh3_tetra_s *tetra = pool_get(rtree->pool, sizeof(mesh3_tetra_s));
     tetra->mesh = mesh;
     tetra->l = l;
     obj.data = tetra;
