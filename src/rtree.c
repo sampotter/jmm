@@ -193,6 +193,8 @@ void rnode_init(rnode_s *node, rnode_type_e type) {
 }
 
 void rnode_deinit(rnode_s *node) {
+  if (node == NULL)
+    return;
   if (node->type == RNODE_TYPE_INTERNAL) {
     for (int ch = 0; ch < 2; ++ch) {
       rnode_deinit(node->child[ch]);
@@ -202,6 +204,23 @@ void rnode_deinit(rnode_s *node) {
     free(node->leaf_data.obj);
     node->leaf_data.size = 0;
     node->leaf_data.capacity = 0;
+  }
+}
+
+void rnode_copy_deep(rnode_s const *node, rnode_s *copy) {
+  copy->bbox = node->bbox;
+  copy->type = node->type;
+  if (node->type == RNODE_TYPE_INTERNAL) {
+    for (int i = 0; i < 2; ++i) {
+      copy->child[i] = malloc(sizeof(rnode_s));
+      rnode_copy_deep(node->child[i], copy->child[i]);
+    }
+  } else if (node->type == RNODE_TYPE_LEAF) {
+    size_t nbytes = node->leaf_data.size*sizeof(robj_s);
+    copy->leaf_data.obj = malloc(nbytes);
+    memcpy(copy->leaf_data.obj, node->leaf_data.obj, nbytes);
+    copy->leaf_data.size = node->leaf_data.size;
+    copy->leaf_data.capacity = node->leaf_data.capacity;
   }
 }
 
@@ -399,6 +418,14 @@ void rtree_init(rtree_s *rtree, size_t leaf_thresh,
 
 void rtree_deinit(rtree_s *rtree) {
   rnode_deinit(&rtree->root);
+}
+
+rtree_s *rtree_copy(rtree_s const *rtree) {
+  rtree_s *copy = malloc(sizeof(rtree_s));
+  rnode_copy_deep(&rtree->root, &copy->root);
+  copy->leaf_thresh = rtree->leaf_thresh;
+  copy->split_strategy = rtree->split_strategy;
+  return copy;
 }
 
 void rtree_insert_mesh2(rtree_s *rtree, mesh2_s const *mesh) {

@@ -34,6 +34,7 @@ cdef extern from "rtree.h":
     void rtree_init(rtree *rtree, size_t leaf_thresh,
                     rtree_split_strategy split_strategy)
     void rtree_deinit(rtree *rtree)
+    rtree *rtree_copy(const rtree *rtree)
     void rtree_insert_mesh2(rtree *rtree, const mesh2 *mesh)
     void rtree_insert_mesh3(rtree *rtree, const mesh3 *mesh)
     void rtree_build(rtree *rtree)

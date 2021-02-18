@@ -54,6 +54,7 @@ void rtree_dealloc(rtree_s **rtree);
 void rtree_init(rtree_s *rtree, size_t leaf_thresh,
                 rtree_split_strategy_e split_strategy);
 void rtree_deinit(rtree_s *rtree);
+rtree_s *rtree_copy(rtree_s const *rtree);
 void rtree_insert_mesh2(rtree_s *rtree, mesh2_s const *mesh);
 void rtree_insert_mesh3(rtree_s *rtree, mesh3_s const *mesh);
 void rtree_build(rtree_s *rtree);

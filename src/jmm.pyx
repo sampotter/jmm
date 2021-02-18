@@ -366,6 +366,10 @@ be removed in the near future.
     def num_leaf_nodes(self):
         return rtree_get_num_leaf_nodes(self._rtree)
 
+    def copy(self):
+        cdef rtree *rtree = rtree_copy(self._rtree)
+        return Rtree.from_ptr(rtree, ptr_owner=True)
+
     def intersect(self, dbl[::1] org, dbl[::1] dir):
         cdef ray3 ray
         memcpy(&ray.org[0], &org[0], 3*sizeof(dbl))
