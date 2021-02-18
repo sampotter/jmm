@@ -8,6 +8,8 @@ extern "C" {
 #include "index.h"
 #include "vec.h"
 
+typedef struct mesh2 mesh2_s;
+
 bool face_in_cell(size_t const f[3], size_t const c[4]);
 bool point_in_face(size_t l, size_t const f[3]);
 bool point_in_cell(size_t l, size_t const c[4]);
@@ -83,6 +85,7 @@ bool mesh3_is_edge(mesh3_s const *mesh, size_t const l[2]);
 bool mesh3_is_diff_edge(mesh3_s const *mesh, size_t const l[2]);
 bool mesh3_vert_incident_on_diff_edge(mesh3_s const *mesh, size_t l);
 dbl mesh3_get_min_tetra_alt(mesh3_s const *mesh);
+mesh2_s *mesh3_get_surface_mesh(mesh3_s const *mesh);
 
 #ifdef __cplusplus
 }

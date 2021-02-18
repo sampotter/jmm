@@ -221,9 +221,9 @@ cdef class Mesh2:
         return mesh
 
     @staticmethod
-    cdef from_ptr(const mesh2 *mesh_ptr):
+    cdef from_ptr(const mesh2 *mesh_ptr, ptr_owner=False):
         mesh = Mesh2()
-        mesh.ptr_owner = False
+        mesh.ptr_owner = ptr_owner
         mesh.mesh = <mesh2 *>mesh_ptr
         mesh._set_views()
         return mesh
@@ -712,6 +712,10 @@ cdef class Mesh3:
         l[0] = i
         l[1] = j
         return mesh3_is_diff_edge(self.mesh, l)
+
+    def get_surface_mesh(self):
+        cdef mesh2 *surface_mesh = mesh3_get_surface_mesh(self.mesh)
+        return Mesh2.from_ptr(surface_mesh, ptr_owner=True)
 
 cdef class Jet3:
     cdef jet3 jet

@@ -1,6 +1,6 @@
 from defs cimport bool, dbl
-
 from geom cimport rect3
+from mesh2 cimport mesh2
 
 cdef extern from "mesh3.h":
     cdef struct mesh3:
@@ -30,3 +30,4 @@ cdef extern from "mesh3.h":
     bool mesh3_bde(const mesh3 *mesh, const size_t l[2])
     bool mesh3_bdf(const mesh3 *mesh, const size_t l[3])
     bool mesh3_is_diff_edge(const mesh3 *mesh, const size_t l[2])
+    mesh2 *mesh3_get_surface_mesh(const mesh3 *mesh)

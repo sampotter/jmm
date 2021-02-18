@@ -10,6 +10,7 @@
 #include "index.h"
 #include "macros.h"
 #include "mat.h"
+#include "mesh2.h"
 #include "util.h"
 
 bool face_in_cell(size_t const f[3], size_t const c[4]) {
@@ -1036,4 +1037,42 @@ bool mesh3_vert_incident_on_diff_edge(mesh3_s const *mesh, size_t l) {
 
 dbl mesh3_get_min_tetra_alt(mesh3_s const *mesh) {
   return mesh->min_tetra_alt;
+}
+
+/**
+ * Create and return a new mesh2 consisting of the boundary of the
+ * tetrahedron mesh stored in `mesh`. The returned mesh must be
+ * destroyed by the caller.
+ */
+mesh2_s *mesh3_get_surface_mesh(mesh3_s const *mesh) {
+  // TODO: Right now we're just splatting the relevant vertices and
+  // faces into a new mesh2. It wouldn't be too difficult to compress
+  // the vertex array. An even cooler thing to do would be to only
+  // create a faces array which references the vertex array in the
+  // generating mesh3. But at that point, we're probably looking at
+  // smart pointers, so we'll hold off on that for now.
+
+  // Grab all of the referenced vertices and splat them into a new
+  // array. There will be duplicate vertices!
+  dbl *verts = malloc(3*mesh->nbdf*sizeof(dbl[3]));
+  for (size_t lf = 0; lf < mesh->nbdf; ++lf)
+    for (int i = 0; i < 3; ++i)
+      for (int j = 0; j < 3; ++j)
+        verts[3*(3*lf + i) + j] = mesh->verts[mesh->bdf[lf].lf[i]].data[j];
+
+  // The faces array is very easy to construct at this point---it's
+  // just an array of 3*nbdf size_t's, filled with the values 0, ...,
+  // 3*mesh->nbdf - 1.
+  size_t *faces = malloc(mesh->nbdf*sizeof(size_t[3]));
+  for (size_t lf = 0; lf < 3*mesh->nbdf; ++lf)
+    faces[lf] = lf;
+
+  mesh2_s *surface_mesh;
+  mesh2_alloc(&surface_mesh);
+  mesh2_init(surface_mesh, verts, 3*mesh->nbdf, faces, mesh->nbdf);
+
+  free(faces);
+  free(verts);
+
+  return surface_mesh;
 }
