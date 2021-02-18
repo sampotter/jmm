@@ -317,9 +317,8 @@ static void rnode_intersect(rnode_s const *node, ray3 const *ray, isect *isect) 
 
 // TODO: factor this out as a particular "split strategy"
 static
-void rnode_split_surface_area(rnode_s const *node,
-                                   dbl const (*p)[3], int d,
-                                   rnode_s *child[2]) {
+bool rnode_split_surface_area(rnode_s const *node, dbl const (*p)[3], int d,
+                              rnode_s *child[2]) {
   size_t leaf_size = rnode_leaf_size(node);
 
   // Compute the mean and standard deviation of the centroids
