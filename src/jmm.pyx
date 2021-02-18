@@ -13,6 +13,7 @@ from libc.string cimport memcpy
 from defs cimport bool, error, state, stype
 
 from bb cimport *
+from bmesh cimport *
 from dial cimport *
 from edge cimport *
 from edgemap cimport *
@@ -116,6 +117,45 @@ cdef class Bb33:
 
     def convex_hull_brackets_value(self, dbl value):
         return bb33_convex_hull_brackets_value(&self._bb, value)
+
+cdef class Bmesh33:
+    cdef:
+        bool ptr_owner
+        bmesh33 *bmesh
+
+    def __dealloc__(self):
+        if self.ptr_owner:
+            bmesh33_deinit(self.bmesh)
+            bmesh33_dealloc(&self.bmesh)
+
+    @staticmethod
+    def from_eik3(Eik3 eik):
+        bmesh = Bmesh33()
+        bmesh.ptr_owner = True
+        bmesh33_alloc(&bmesh.bmesh)
+        cdef const mesh3 *mesh = eik3_get_mesh(eik.eik)
+        cdef const jet3 *jet = eik3_get_jet_ptr(eik.eik)
+        bmesh33_init_from_mesh3_and_jets(bmesh.bmesh, mesh, jet)
+        return bmesh
+
+    @staticmethod
+    cdef from_ptr(bmesh33 *bmesh_ptr, ptr_owner=False):
+        bmesh = Bmesh33()
+        bmesh.ptr_owner = ptr_owner
+        bmesh.bmesh = bmesh_ptr
+        return bmesh
+
+    @property
+    def num_cells(self):
+        return bmesh33_num_cells(self.bmesh)
+
+    @property
+    def mesh(self):
+        return Mesh3.from_ptr(<mesh3 *>bmesh33_get_mesh_ptr(self.bmesh))
+
+    def get_level_bmesh(self, dbl level):
+        return Bmesh33.from_ptr(
+            bmesh33_get_level_bmesh(self.bmesh, level), ptr_owner=True)
 
 cdef class Grid3:
     cdef grid3 _grid

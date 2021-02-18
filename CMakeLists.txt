@@ -47,6 +47,7 @@ set (JMM_SRCS
   src/array.c
   src/bb.c
   src/bicubic.c
+  src/bmesh.c
   src/bucket.c
   src/cubic.c
   src/dial.c
@@ -125,6 +126,12 @@ add_executable (transfer_solution examples/transfer_solution.c)
 add_sanitizers (transfer_solution)
 target_link_libraries (transfer_solution jmm)
 target_include_directories (transfer_solution PRIVATE jmm)
+
+# viz_error_using_raytracing
+add_executable (viz_error_using_raytracing examples/viz_error_using_raytracing.c)
+add_sanitizers (viz_error_using_raytracing)
+target_link_libraries (viz_error_using_raytracing jmm)
+target_include_directories (viz_error_using_raytracing PRIVATE jmm)
 
 #
 # Unit tests
