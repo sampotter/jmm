@@ -500,6 +500,7 @@ bool mesh3_dbl3_in_cell(mesh3_s const *mesh, size_t lc, dbl const x[3],
 }
 
 int mesh3_nvc(mesh3_s const *mesh, size_t i) {
+  assert(i < mesh->ncells);
   return mesh->vc_offsets[i + 1] - mesh->vc_offsets[i];
 }
 

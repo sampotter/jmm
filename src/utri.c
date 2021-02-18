@@ -199,7 +199,7 @@ bool utri_update_ray_is_physical(utri_s const *utri, eik3_s const *eik) {
   int nvc;
   size_t *vc;
 
-  for (int i = 0; i < 3; ++i) {
+  for (int i = 0; i < 2; ++i) {
     if (!I[i]) continue;
 
     nvc = mesh3_nvc(mesh, l[i]);
