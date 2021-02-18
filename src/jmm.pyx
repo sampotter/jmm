@@ -342,18 +342,34 @@ be removed in the near future.
     :param mesh: A triangle mesh stored as a :class:`Mesh2`
         instance. An R-tree will be built for this mesh.
     '''
-    cdef rtree *_rtree
+    cdef:
+        bool ptr_owner
+        rtree *_rtree
+
+    def __cinit__(self, leaf_thresh=32,
+                  split_strategy=RtreeSplitStrategy.SurfaceArea,
+                  should_alloc_and_init=True):
+        if should_alloc_and_init:
+            self.ptr_owner = True
+            rtree_alloc(&self._rtree)
+            rtree_init(self._rtree, leaf_thresh, split_strategy.value)
 
     def __dealloc__(self):
-        rtree_deinit(self._rtree)
-        rtree_dealloc(&self._rtree)
+        if self.ptr_owner:
+            rtree_deinit(self._rtree)
+            rtree_dealloc(&self._rtree)
+
+    @staticmethod
+    cdef from_ptr(rtree *rtree_ptr, ptr_owner=False):
+        rtree = Rtree(should_alloc_and_init=False)
+        rtree.ptr_owner = ptr_owner
+        rtree._rtree = rtree_ptr
+        return rtree
 
     @staticmethod
     def from_mesh2(Mesh2 mesh, leaf_thresh=32,
-                   split_strategy=RtreeSplitStrategy.SurfaceArea):
-        rtree = Rtree()
-        rtree_alloc(&rtree._rtree)
-        rtree_init(rtree._rtree, leaf_thresh, split_strategy.value)
+                  split_strategy=RtreeSplitStrategy.SurfaceArea):
+        rtree = Rtree(leaf_thresh, split_strategy)
         rtree_insert_mesh2(rtree._rtree, mesh.mesh)
         rtree_build(rtree._rtree)
         return rtree
@@ -369,6 +385,24 @@ be removed in the near future.
     def copy(self):
         cdef rtree *rtree = rtree_copy(self._rtree)
         return Rtree.from_ptr(rtree, ptr_owner=True)
+
+    cdef insert_mesh2(self, Mesh2 mesh):
+        rtree_insert_mesh2(self._rtree, mesh.mesh)
+
+    cdef insert_mesh3(self, Mesh3 mesh):
+        rtree_insert_mesh3(self._rtree, mesh.mesh)
+
+    def insert(self, obj):
+        Classes = {'Mesh2', 'Mesh3'}
+        if isinstance(obj, Mesh2):
+            self.insert_mesh2(obj)
+        elif isinstance(obj, Mesh3):
+            self.insert_mesh3(obj)
+        else:
+            raise Exception(f'obj should be an instance of: {Classes}')
+
+    def build(self):
+        rtree_build(self._rtree)
 
     def intersect(self, dbl[::1] org, dbl[::1] dir):
         cdef ray3 ray
