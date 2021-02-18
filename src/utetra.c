@@ -91,6 +91,10 @@ bool utetra_init_from_ptrs(utetra_s *cf, mesh3_s const *mesh, jet3 const *jet,
 
 bool utetra_init(utetra_s *cf, dbl const x[3], dbl const Xt[3][3],
                  jet3 const jet[3]) {
+  // Initialize lambda with a dummy value so that we can check for bad
+  // accesses later
+  cf->lam[0] = cf->lam[1] = NAN;
+
   memcpy(cf->x, x, 3*sizeof(dbl));
   memcpy(cf->Xt, Xt, 3*3*sizeof(dbl));
 
@@ -180,6 +184,7 @@ void utetra_solve(utetra_s *cf) {
 }
 
 void utetra_get_lambda(utetra_s const *cf, dbl lam[2]) {
+  assert(!isnan(cf->lam[0]) && !isnan(cf->lam[1]));
   lam[0] = cf->lam[0];
   lam[1] = cf->lam[1];
 }
@@ -277,6 +282,7 @@ void utetra_set_lambda(utetra_s *cf, dbl const lam[2]) {
 }
 
 void utetra_get_bary_coords(utetra_s const *cf, dbl b[3]) {
+  assert(!isnan(cf->lam[0]) && !isnan(cf->lam[1]));
   b[0] = 1 - cf->lam[0] - cf->lam[1];
   b[1] = cf->lam[0];
   b[2] = cf->lam[1];
