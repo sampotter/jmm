@@ -7,6 +7,7 @@ extern "C" {
 #include "def.h"
 
 typedef struct mesh2_tri mesh2_tri_s;
+typedef struct mesh3_tetra mesh3_tetra_s;
 typedef struct mesh3 mesh3_s;
 
 typedef struct {
@@ -45,6 +46,7 @@ void rect3_insert_point(rect3 *rect, dbl const x[3]);
 void rect3_insert_tri3(rect3 *rect, tri3 const *tri);
 void rect3_insert_tetra3(rect3 *rect, tetra3 const *tetra);
 void rect3_insert_mesh2_tri(rect3 *rect, mesh2_tri_s const *tri);
+void rect3_insert_mesh3_tetra(rect3 *rect, mesh3_tetra_s const *tetra);
 dbl rect3_surface_area(rect3 const *rect);
 bool rect3_overlaps(rect3 const *r1, rect3 const *r2);
 bool rect3_occludes_ray3(rect3 const *rect, ray3 const *ray);

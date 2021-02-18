@@ -10,6 +10,7 @@ typedef struct mesh2 mesh2_s;
 
 typedef enum robj_type {
   ROBJ_MESH2_TRI,
+  ROBJ_MESH3_TETRA,
   ROBJ_TRI3,
   ROBJ_TETRA3
 } robj_type_e;
@@ -54,6 +55,7 @@ void rtree_init(rtree_s *rtree, size_t leaf_thresh,
                 rtree_split_strategy_e split_strategy);
 void rtree_deinit(rtree_s *rtree);
 void rtree_insert_mesh2(rtree_s *rtree, mesh2_s const *mesh);
+void rtree_insert_mesh3(rtree_s *rtree, mesh3_s const *mesh);
 void rtree_build(rtree_s *rtree);
 rect3 rtree_get_bbox(rtree_s const *rtree);
 size_t rtree_get_num_leaf_nodes(rtree_s const *rtree);

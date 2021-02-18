@@ -74,6 +74,11 @@ void rect3_insert_mesh2_tri(rect3 *rect, mesh2_tri_s const *tri) {
   rect3_insert_tri3(rect, &tri_);
 }
 
+void rect3_insert_mesh3_tetra(rect3 *rect, mesh3_tetra_s const *tetra) {
+  tetra3 tetra_ = mesh3_get_tetra(tetra->mesh, tetra->l);
+  rect3_insert_tetra3(rect, &tetra_);
+}
+
 dbl rect3_surface_area(rect3 const *rect) {
   dbl extent[3];
   rect3_get_extent(rect, extent);

@@ -1,6 +1,7 @@
 from defs cimport bool, dbl
 from geom cimport rect3, ray3
 from mesh2 cimport mesh2
+from mesh3 cimport mesh3
 
 cdef extern from "rtree.h":
     cdef enum robj_type:
@@ -34,6 +35,7 @@ cdef extern from "rtree.h":
                     rtree_split_strategy split_strategy)
     void rtree_deinit(rtree *rtree)
     void rtree_insert_mesh2(rtree *rtree, const mesh2 *mesh)
+    void rtree_insert_mesh3(rtree *rtree, const mesh3 *mesh)
     void rtree_build(rtree *rtree)
     rect3 rtree_get_bbox(const rtree *rtree)
     size_t rtree_get_num_leaf_nodes(const rtree *rtree)

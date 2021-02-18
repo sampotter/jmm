@@ -26,6 +26,11 @@ bool point_in_cell(size_t l, size_t const c[4]);
 
 typedef struct mesh3 mesh3_s;
 
+typedef struct mesh3_tetra {
+  mesh3_s const *mesh;
+  size_t l; // index of tetrahedron
+} mesh3_tetra_s;
+
 void mesh3_alloc(mesh3_s **mesh);
 void mesh3_dealloc(mesh3_s **mesh);
 void mesh3_init(mesh3_s *mesh,
@@ -38,6 +43,8 @@ dvec3 mesh3_get_vert(mesh3_s const *mesh, size_t i);
 dbl const *mesh3_get_vert_ptr(mesh3_s const *mesh, size_t i);
 void mesh3_get_vert_ptrs(mesh3_s const *mesh, size_t const *l, int n, dbl const **x);
 void mesh3_copy_vert(mesh3_s const *mesh, size_t i, dbl *v);
+tetra3 mesh3_get_tetra(mesh3_s const *mesh, size_t lc);
+void mesh3_get_centroid(mesh3_s const *mesh, size_t lc, dbl centroid[3]);
 size_t mesh3_ncells(mesh3_s const *mesh);
 size_t mesh3_nverts(mesh3_s const *mesh);
 void mesh3_get_bbox(mesh3_s const *mesh, rect3 *bbox);

@@ -396,6 +396,23 @@ void mesh3_copy_vert(mesh3_s const *mesh, size_t i, dbl *v) {
   memcpy(v, &mesh->verts[i].data[0], 3*sizeof(dbl));
 }
 
+tetra3 mesh3_get_tetra(mesh3_s const *mesh, size_t lc) {
+  tetra3 tetra;
+  for (int i = 0; i < 4; ++i)
+    mesh3_copy_vert(mesh, mesh->cells[lc].data[i], tetra.v[i]);
+  return tetra;
+}
+
+void mesh3_get_centroid(mesh3_s const *mesh, size_t lc, dbl c[3]) {
+  tetra3 tetra = mesh3_get_tetra(mesh, lc);
+  for (int j = 0; j < 3; ++j) {
+    c[j] = 0;
+    for (int i = 0; i < 4; ++i)
+      c[j] += tetra.v[i][j];
+    c[j] /= 4;
+  }
+}
+
 size_t mesh3_ncells(mesh3_s const *mesh) {
   return mesh->ncells;
 }
