@@ -360,6 +360,9 @@ static void do_2pt_bd_updates(eik3_s *eik, size_t l, size_t l0) {
     }
   }
 
+  for (int i = 0; i < nve; ++i)
+    utri_dealloc(&utri[i]);
+
   free(utri);
   free(ve);
 }
