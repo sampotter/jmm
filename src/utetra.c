@@ -437,45 +437,6 @@ bool utetra_update_ray_is_physical(utetra_s const *utetra, eik3_s const *eik) {
 
   bool xm_in_cell = false, xp_in_cell = false;
 
-  // dbl b[4]; // TODO: unused... pass NULL instead...
-
-  // int nc;
-  // size_t *c;
-  // if (k == 1) {
-  //   // Get active ind
-  //   int lact = l[0]*I[0] + l[1]*I[1] + l[2]*I[2];
-  //   // Find neighboring cells
-  //   nc = mesh3_nvc(mesh, lact);
-  //   c = malloc(nc*sizeof(size_t));
-  //   mesh3_vc(mesh, lact, c);
-  // } else if (k == 2) {
-  //   // Get active inds
-  //   int lact[2];
-  //   for (int i = 0, j = 0; i < 3; ++i)
-  //     if (I[i])
-  //       lact[j++] = l[i];
-  //   // Find neighboring cells
-  //   nc = mesh3_nec(mesh, lact[0], lact[1]);
-  //   c = malloc(nc*sizeof(size_t));
-  //   mesh3_ec(mesh, lact[0], lact[1], c);
-  // } else if (k == 3) {
-  //   // Find neighboring cells
-  //   nc = mesh3_nfc(mesh, l);
-  //   c = malloc(nc*sizeof(size_t));
-  //   mesh3_fc(mesh, l, c);
-  // } else {
-  //   assert(false);
-  // }
-
-  // for (int i = 0; i < nc; ++i) {
-  //   xm_in_cell |= mesh3_dbl3_in_cell(mesh, c[i], xm, b);
-  //   xp_in_cell |= mesh3_dbl3_in_cell(mesh, c[i], xp, b);
-  //   if (xm_in_cell && xp_in_cell)
-  //     break;
-  // }
-
-  // free(c);
-
   array_s *cells;
   array_alloc(&cells);
   array_init(cells, sizeof(size_t), ARRAY_DEFAULT_CAPACITY);
