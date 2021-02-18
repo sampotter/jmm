@@ -575,9 +575,13 @@ bool utetras_yield_same_update(utetra_s const **utetra, int n) {
   utetra_get_jet(utetra[0], &jet[0]);
 
   for (int i = 1; i < n; ++i) {
-    // Get the next coords and jet
-    utetra_get_bary_coords(utetra[i], b[1]);
+    // Get the next jet and check that it's finite
     utetra_get_jet(utetra[i], &jet[1]);
+    if (!jet3_is_finite(&jet[1]))
+      return false;
+
+    // Get the next coords
+    utetra_get_bary_coords(utetra[i], b[1]);
 
     // Check if the coords and jet agree up to `atol` and return early
     // if they don't
