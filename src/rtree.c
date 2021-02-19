@@ -365,38 +365,19 @@ bool rnode_split_surface_area(rnode_s const *node, dbl const (*p)[3], int d,
     }
   }
 
-  // Find the number of triangles in each part of the split so that we
-  // can allocate space for them
-  size_t child_size[2] = {[0] = 0};
-  for (size_t i = 0; i < leaf_size; ++i)
-    if (p[i][d] <= binmedian)
-      ++child_size[0];
-  child_size[1] = leaf_size - child_size[0];
-
-  // If either of the children are empty, we found a degenerate split
-  // (all of the nodes lie in an axis-aligned plane). We want to rule
-  // out one of these splits, so we set these children to NULL and
-  // return.
-  if (child_size[0] == 0 || child_size[1] == 0) {
-    child[0] = child[1] = NULL;
-    return false;
-  }
-
-  // Allocate space for the two child nodes
-  for (int i = 0; i < 2; ++i) {
-    child[i] = malloc(sizeof(rnode_s));
-    child[i]->type = RNODE_TYPE_LEAF;
-    child[i]->leaf_data.size = child_size[i];
-    child[i]->leaf_data.obj = malloc(child_size[i]*sizeof(robj_s));
-  }
-
-  // Traverse the parent node objects and separate them based on which
-  // side of the binmedian their centroid is on
-  size_t j[2] = {0, 0};
+  // Separate the objects in the leaf node being split into the two
+  // children depending on which side of the median the centroid of
+  // each objects lies.
   for (size_t i = 0; i < leaf_size; ++i) {
-    int c = (size_t)(p[i][d] > binmedian);
-    child[c]->leaf_data.obj[j[c]++] = node->leaf_data.obj[i];
+    int j = binmedian < p[i][d];
+    rnode_append_robj(child[j], node->leaf_data.obj[i]);
   }
+
+  // Check whether either of the children are empty at this point. If
+  // they are, return false to signal that we shouldn't use this
+  // split.
+  if (rnode_empty(child[0]) || rnode_empty(child[1]))
+    return false;
 
   // Recompute the bounding boxes of the children. This is fine to do
   // now, because when we split these nodes, their bounding boxes
@@ -404,6 +385,7 @@ bool rnode_split_surface_area(rnode_s const *node, dbl const (*p)[3], int d,
   rnode_recompute_bbox(child[0]);
   rnode_recompute_bbox(child[1]);
 
+  // Everything should be aboveboard at this point.
   return true;
 }
 
