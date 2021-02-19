@@ -1,4 +1,8 @@
 language: c
 compiler: gcc
+
+before_install:
+  - sudo apt-get -y install libgsl0-dev
+
 script:
   - ./quick_build.sh
