@@ -202,6 +202,7 @@ void rnode_deinit(rnode_s *node) {
     }
   } else if (node->type == RNODE_TYPE_LEAF) {
     free(node->leaf_data.obj);
+    node->leaf_data.obj = NULL;
     node->leaf_data.size = 0;
     node->leaf_data.capacity = 0;
   }
