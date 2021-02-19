@@ -222,11 +222,12 @@ void rnode_copy_deep(rnode_s const *node, rnode_s *copy) {
       rnode_copy_deep(node->child[i], copy->child[i]);
     }
   } else if (node->type == RNODE_TYPE_LEAF) {
-    size_t nbytes = node->leaf_data.size*sizeof(robj_s);
-    copy->leaf_data.obj = malloc(nbytes);
-    memcpy(copy->leaf_data.obj, node->leaf_data.obj, nbytes);
-    copy->leaf_data.size = node->leaf_data.size;
-    copy->leaf_data.capacity = node->leaf_data.capacity;
+    size_t size = node->leaf_data.size;
+    size_t capacity = node->leaf_data.capacity;
+    copy->leaf_data.obj = malloc(capacity*sizeof(robj_s));
+    memcpy(copy->leaf_data.obj, node->leaf_data.obj, size*sizeof(robj_s));
+    copy->leaf_data.size = size;
+    copy->leaf_data.capacity = capacity;
   }
 }
 
