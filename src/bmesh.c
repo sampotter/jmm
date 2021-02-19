@@ -100,6 +100,7 @@ bmesh33_s *bmesh33_get_level_bmesh(bmesh33_s const *bmesh, dbl level) {
 
   free(cells);
   free(verts);
+  free(brack);
 
   return level_bmesh;
 }
