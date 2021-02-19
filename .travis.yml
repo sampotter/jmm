@@ -4,5 +4,9 @@ compiler: gcc
 before_install:
   - sudo apt-get -y install libgsl0-dev
 
+before_script:
+  - git clone https://github.com/sampotter/cgreen
+  - cd cgreen; make; sudo make install
+
 script:
   - ./quick_build.sh
