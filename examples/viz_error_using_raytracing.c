@@ -87,6 +87,9 @@ int main(int argc, char *argv[]) {
   rtree_deinit(level_rtree);
   rtree_dealloc(&level_rtree);
 
+  bmesh33_deinit(level_bmesh);
+  bmesh33_dealloc(&level_bmesh);
+
   /**
    * Teardown
    */
