@@ -30,13 +30,13 @@ if __name__ == '__main__':
     up = np.array([0, 0, 1])
     left, front, up = get_camera_basis(origin, target, up)
 
-    # Camera parameters
-    s = w/h # aspect ratio
-    fov_y = 30 # vertical field of view
-
     # Image size
     w, h = 640, 480
     num_rays = w*h
+
+    # Camera parameters
+    s = w/h # aspect ratio
+    fov_y = 30 # vertical field of view
 
     Theta = np.deg2rad(np.linspace(-s*fov_y/2, s*fov_y/2, w))
     Phi = np.deg2rad(np.linspace(-fov_y/2, fov_y/2, h))
