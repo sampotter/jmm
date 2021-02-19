@@ -388,7 +388,7 @@ static int get_update_tri_fan(eik3_s const *eik, size_t l0, size_t **l1, size_t 
   // 3. return if we didn't find any triangles we can update from
 
   if (ntri == 0)
-    return ntri;
+    goto cleanup;
 
   // 4. allocate some space for the l1 and l2 indices that we're going
   // to pull out of these update triangles
@@ -410,6 +410,7 @@ static int get_update_tri_fan(eik3_s const *eik, size_t l0, size_t **l1, size_t 
 
   // 6. clean up and return
 
+cleanup:
   free(updateable_tri);
   free(ve);
 
