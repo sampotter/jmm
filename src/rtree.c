@@ -208,6 +208,11 @@ void rnode_deinit(rnode_s *node) {
   }
 }
 
+bool rnode_empty(rnode_s const *node) {
+  assert(node->type == RNODE_TYPE_LEAF);
+  return node->leaf_data.size == 0;
+}
+
 void rnode_copy_deep(rnode_s const *node, rnode_s *copy) {
   copy->bbox = node->bbox;
   copy->type = node->type;
