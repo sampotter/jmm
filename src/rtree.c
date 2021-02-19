@@ -537,8 +537,10 @@ static void refine_node_surface_area(rtree_s const *rtree, rnode_s *node) {
   }
   free(p); // Free centroids
 
-  // Make the current node an internal node.
+  // Make the current node an internal node and free the data for
+  // unsplit leaf node that we're now replacing.
   node->type = RNODE_TYPE_INTERNAL;
+  free(node->leaf_data.obj);
 
   // Set children and recursively refine them.
   for (int i = 0; i < 2; ++i) {
