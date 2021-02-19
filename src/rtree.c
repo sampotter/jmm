@@ -507,7 +507,7 @@ static void refine_node_surface_area(rtree_s const *rtree, rnode_s *node) {
 
   // The best split is the one with the minimum sum of surface areas
   // (i.e., using the "surface area heuristic")
-  int dmin;
+  int dmin = NO_INDEX;
   dbl min_surf_area = INFINITY;
   for (int d = 0; d < 3; ++d) {
     if (0 < surf_area[d] && surf_area[d] < min_surf_area) {
@@ -515,6 +515,7 @@ static void refine_node_surface_area(rtree_s const *rtree, rnode_s *node) {
       dmin = d;
     }
   }
+  assert(0 <= dmin && dmin < 3);
 
   // Free data for unused splits
   for (int d = 0; d < 3; ++d) {
