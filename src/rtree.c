@@ -382,8 +382,8 @@ bool rnode_split_surface_area(rnode_s const *node, dbl const (*p)[3], int d,
   // Recompute the bounding boxes of the children. This is fine to do
   // now, because when we split these nodes, their bounding boxes
   // won't change.
-  rnode_recompute_bbox(child[0]);
-  rnode_recompute_bbox(child[1]);
+  for (int j = 0; j < 2; ++j)
+    rnode_recompute_bbox(child[j]);
 
   // Everything should be aboveboard at this point.
   return true;
