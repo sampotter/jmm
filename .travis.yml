@@ -6,7 +6,7 @@ before_install:
 
 before_script:
   - git clone https://github.com/sampotter/cgreen
-  - cd cgreen; make; sudo make install
+  - cd cgreen; make; sudo make install; cd -
 
 script:
   - ./quick_build.sh
