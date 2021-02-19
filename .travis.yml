@@ -3,6 +3,7 @@ compiler: gcc
 
 before_install:
   - sudo apt-get -y install libgsl0-dev
+  - sudo apt-get -y install python3-venv
 
 before_script:
   - git clone https://github.com/sampotter/cgreen
