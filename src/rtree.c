@@ -197,6 +197,7 @@ void rnode_deinit(rnode_s *node) {
   if (node->type == RNODE_TYPE_INTERNAL) {
     for (int ch = 0; ch < 2; ++ch) {
       rnode_deinit(node->child[ch]);
+      free(node->child[ch]);
       node->child[ch] = NULL;
     }
   } else if (node->type == RNODE_TYPE_LEAF) {
