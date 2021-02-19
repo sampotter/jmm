@@ -1,3 +1,5 @@
+[[https://travis-ci.com/sampotter/jmm.svg?branch=bvh]]
+
 * libjmm
 
   This is a C library implementing a variety of *jet marching methods*
