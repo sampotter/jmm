@@ -1,4 +1,4 @@
-#!/usr/bin/env sh
+#!/usr/bin/env bash
 
 if [[ "$OSTYPE" == "linux-gnu"* ]]; then
     C_COMPILER=clang
