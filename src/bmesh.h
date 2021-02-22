@@ -4,9 +4,8 @@
 extern "C" {
 #endif
 
+#include "common.h"
 #include "jet.h"
-
-typedef struct mesh3 mesh3_s;
 
 typedef struct bmesh33 bmesh33_s;
 

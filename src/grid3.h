@@ -4,13 +4,14 @@
 extern "C" {
 #endif
 
+#include "common.h"
 #include "geom.h"
 
-typedef struct grid3 {
+struct grid3 {
   int dim[3];
   dbl min[3];
   dbl h;
-} grid3_s;
+};
 
 typedef void (*grid3_map_func_t)(int const [3], void *);
 

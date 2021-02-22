@@ -24,6 +24,13 @@
 #include "utri.h"
 #include "vec.h"
 
+/**
+ * A structure managing a jet marching method solving the eikonal
+ * equation in 3D on an unstructured tetrahedron mesh.
+ *
+ * NOTE: this is just for s = 1 at the moment. Will extend this to
+ * handle s != later.
+ */
 struct eik3 {
   mesh3_s *mesh;
   jet3 *jet;

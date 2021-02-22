@@ -4,14 +4,13 @@
 extern "C" {
 #endif
 
+#include "common.h"
 #include "geom.h"
 
-typedef struct mesh2 mesh2_s;
-
-typedef struct mesh2_tri {
+struct mesh2_tri {
   mesh2_s const *mesh;
   size_t l; // index of triangle
-} mesh2_tri_s;
+};
 
 void mesh2_alloc(mesh2_s **mesh);
 void mesh2_dealloc(mesh2_s **mesh);

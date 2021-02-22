@@ -4,11 +4,10 @@
 extern "C" {
 #endif
 
+#include "common.h"
 #include "geom.h"
 #include "index.h"
 #include "vec.h"
-
-typedef struct mesh2 mesh2_s;
 
 bool face_in_cell(size_t const f[3], size_t const c[4]);
 bool point_in_face(size_t l, size_t const f[3]);
@@ -26,12 +25,10 @@ bool point_in_cell(size_t l, size_t const c[4]);
 // - TODO: write generator-style functions which will elements from
 //   e.g. mesh3_vc one-at-a-time
 
-typedef struct mesh3 mesh3_s;
-
-typedef struct mesh3_tetra {
+struct mesh3_tetra {
   mesh3_s const *mesh;
   size_t l; // index of tetrahedron
-} mesh3_tetra_s;
+};
 
 void mesh3_alloc(mesh3_s **mesh);
 void mesh3_dealloc(mesh3_s **mesh);

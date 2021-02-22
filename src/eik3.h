@@ -4,12 +4,9 @@
 extern "C" {
 #endif
 
+#include "common.h"
 #include "jet.h"
 #include "par.h"
-
-typedef struct edgemap edgemap_s;
-
-typedef struct mesh3 mesh3_s;
 
 typedef struct cutedge {
   /**
@@ -25,15 +22,6 @@ typedef struct cutedge {
    */
   dbl n[3];
 } cutedge_s;
-
-/**
- * A structure managing a jet marching method solving the eikonal
- * equation in 3D on an unstructured tetrahedron mesh.
- *
- * NOTE: this is just for s = 1 at the moment. Will extend this to
- * handle s != later.
- */
-typedef struct eik3 eik3_s;
 
 void eik3_alloc(eik3_s **eik);
 void eik3_dealloc(eik3_s **eik);

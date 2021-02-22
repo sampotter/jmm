@@ -7,9 +7,9 @@ extern "C" {
 #include <stdbool.h>
 #include <stddef.h>
 
+#include "common.h"
 #include "edge.h"
 
-typedef struct edgemap edgemap_s;
 typedef struct edgemap_iter edgemap_iter_s;
 
 typedef bool (* edgemap_prop_t)(edge_s, void const *, void const *);

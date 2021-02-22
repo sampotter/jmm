@@ -4,11 +4,8 @@
 extern "C" {
 #endif
 
+#include "common.h"
 #include "def.h"
-
-typedef struct mesh2_tri mesh2_tri_s;
-typedef struct mesh3_tetra mesh3_tetra_s;
-typedef struct mesh3 mesh3_s;
 
 typedef struct {
   dbl min[3], max[3];

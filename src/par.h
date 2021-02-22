@@ -4,9 +4,8 @@
 extern "C" {
 #endif
 
+#include "common.h"
 #include "def.h"
-
-typedef struct eik3 eik3_s;
 
 typedef struct par3 {
   size_t l[3];
