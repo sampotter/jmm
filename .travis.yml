@@ -10,9 +10,6 @@ before_script:
   - cd cgreen; make; sudo make install; cd -
   - python3 -m venv .
   - source bin/activate
-  - echo XXX
-  - python -c "from distutils import sysconfig; print(sysconfig.get_config_vars('CC', 'CXX', 'OPT', 'CFLAGS', 'BASECFLAGS', 'LDFLAGS', 'CCSHARED', 'LDSHARED', 'SO'))"
-  - echo XXX
   - pip install cython
 
 script:
