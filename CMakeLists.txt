@@ -28,11 +28,6 @@ set (CMAKE_XCODE_GENERATE_SCHEME TRUE)
 set (INSTALL_INCLUDE_DIR include)
 set (INSTALL_LIB_DIR lib)
 
-find_package (OpenMP)
-if (NOT OpenMP_C_FOUND)
-  message (WARNING "Failed to find OpenMP!")
-endif ()
-
 set (EXTRA_FLAGS "${EXTRA_FLAGS} -fPIC -Wall -Wextra -Werror -mavx")
 set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${EXTRA_FLAGS}")
 set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${EXTRA_FLAGS}")
@@ -89,9 +84,6 @@ if (IPO_SUPPORTED)
 endif ()
 if (UNIX)
   target_link_libraries (jmm PRIVATE m)
-endif ()
-if (OpenMP_C_FOUND)
-  target_link_libraries (jmm PRIVATE OpenMP::OpenMP_C)
 endif ()
 target_include_directories (
   jmm INTERFACE
