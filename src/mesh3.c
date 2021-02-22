@@ -251,7 +251,7 @@ static void init_bd(mesh3_s *mesh) {
   // After sorting, we can tell if a face is duplicated by checking
   // whether it's equal to the succeeding face in `f`. If there's a
   // duplicate, we update the relevant boundary information.
-  for (size_t l = 0; l < nf - 1; ++l) {
+  for (size_t l = 0; l < nf; ++l) {
     if (!tagged_face_cmp(&f[l], &f[l + 1])) {
       ++l;
       continue;
@@ -266,7 +266,7 @@ static void init_bd(mesh3_s *mesh) {
   // Traverse the sorted list again and pull out the boundary faces
   // now that we know how many there are
   mesh->bdf = malloc(mesh->nbdf*sizeof(tagged_face_s));
-  for (size_t l = 0, lf = 0; l < nf - 1; ++l) {
+  for (size_t l = 0, lf = 0; l < nf; ++l) {
     if (!tagged_face_cmp(&f[l], &f[l + 1])) {
       ++l; // Increment here to skip equal pairs
       continue;
@@ -292,7 +292,7 @@ static void init_bd(mesh3_s *mesh) {
 
   // Now, let's count the number of distinct boundary edges.
   mesh->nbde = 0;
-  for (size_t l = 0; l < 3*mesh->nbdf - 1; ++l) {
+  for (size_t l = 0; l < 3*mesh->nbdf; ++l) {
     if  (!diff_edge_cmp(&bde[l], &bde[l + 1]))
       continue;
     ++mesh->nbde;
@@ -302,7 +302,7 @@ static void init_bd(mesh3_s *mesh) {
   // edges. Note: there's no need to sort mesh->bde, since it will
   // already be sorted.
   mesh->bde = malloc(mesh->nbde*sizeof(diff_edge_s));
-  for (size_t l = 0, l_ = 0; l < 3*mesh->nbdf - 1; ++l) {
+  for (size_t l = 0, l_ = 0; l < 3*mesh->nbdf; ++l) {
     if (!diff_edge_cmp(&bde[l], &bde[l + 1]))
       continue;
     mesh->bde[l_++] = bde[l];
@@ -514,7 +514,7 @@ bool mesh3_dbl3_in_cell(mesh3_s const *mesh, size_t lc, dbl const x[3],
 }
 
 int mesh3_nvc(mesh3_s const *mesh, size_t i) {
-  assert(i < mesh->ncells);
+  assert(i < mesh->nverts);
   return mesh->vc_offsets[i + 1] - mesh->vc_offsets[i];
 }
 
@@ -1006,11 +1006,19 @@ bool mesh3_bdv(mesh3_s const *mesh, size_t i) {
   return mesh->bdv[i];
 }
 
+size_t mesh3_nbde(mesh3_s const *mesh) {
+  return mesh->nbde;
+}
+
 bool mesh3_bde(mesh3_s const *mesh, size_t const le[2]) {
   assert(mesh->has_bd_info);
   diff_edge_s e = make_diff_edge(le[0], le[1]);
   return bsearch(&e, mesh->bde, mesh->nbde, sizeof(diff_edge_s),
                  (compar_t)diff_edge_cmp);
+}
+
+size_t mesh3_nbdf(mesh3_s const *mesh) {
+  return mesh->nbdf;
 }
 
 bool mesh3_bdf(mesh3_s const *mesh, size_t const lf[3]) {

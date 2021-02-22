@@ -258,6 +258,24 @@ Ensure (mesh3, ec_works_for_cube) {
   TEAR_DOWN_MESH();
 }
 
+Ensure (mesh3, nbde_works_for_cube) {
+  SET_UP_CUBE_MESH();
+
+  size_t nbde = mesh3_nbde(mesh);
+  assert_that(nbde, is_equal_to(18));
+
+  TEAR_DOWN_MESH();
+}
+
+Ensure (mesh3, nbdf_works_for_cube) {
+  SET_UP_CUBE_MESH();
+
+  size_t nbdf = mesh3_nbdf(mesh);
+  assert_that(nbdf, is_equal_to(12));
+
+  TEAR_DOWN_MESH();
+}
+
 Ensure (mesh3, bdc_works_for_cube) {
   SET_UP_CUBE_MESH();
 
