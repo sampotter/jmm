@@ -8,10 +8,11 @@ before_install:
 before_script:
   - git clone https://github.com/sampotter/cgreen
   - cd cgreen; make; sudo make install; cd -
+  - sudo ldconfig # ...
   - python3 -m venv .
   - source bin/activate
   - pip install cython
 
 script:
   - ./quick_build.sh
-  - PATH="./cgreen/build/tools:$PATH" ./quick_test.sh
+  - ./quick_test.sh
