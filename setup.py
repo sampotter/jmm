@@ -10,7 +10,9 @@ extensions = [
         'jmm',
         ['src/jmm.pyx'],
         libraries=['jmm'],
-        library_dirs=['./build']
+        extra_compile_args=['-std=c99'],
+        library_dirs=['./build'],
+        language='c'
     )
 ]
 
