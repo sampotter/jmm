@@ -6,6 +6,7 @@ check_ipo_supported (RESULT IPO_SUPPORTED)
 project (jmm LANGUAGES C VERSION 0.1.1)
 
 set (CMAKE_C_STANDARD 99)
+set (CMAKE_C_STANDARD_REQUIRED TRUE)
 
 option (BUILD_DOCS "Build Sphinx documentation." OFF)
 option (BUILD_TESTS "Build unit tests" OFF)
