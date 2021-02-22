@@ -3,7 +3,7 @@ cmake_minimum_required (VERSION 3.12)
 include (CheckIPOSupported)
 check_ipo_supported (RESULT IPO_SUPPORTED)
 
-project (jmm LANGUAGES C CXX VERSION 0.1.1)
+project (jmm LANGUAGES C VERSION 0.1.1)
 
 option (BUILD_DOCS "Build Sphinx documentation." OFF)
 option (BUILD_TESTS "Build unit tests" OFF)
