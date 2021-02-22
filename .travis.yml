@@ -10,7 +10,6 @@ before_script:
   - cd cgreen; make; sudo make install; cd -
   - python3 -m venv .
   - source bin/activate
-  - pip install --upgrade pip
   - pip install cython
 
 script:
