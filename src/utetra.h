@@ -4,10 +4,8 @@
 extern "C" {
 #endif
 
+#include "common.h"
 #include "jet.h"
-
-typedef struct eik3 eik3_s;
-typedef struct mesh3 mesh3_s;
 
 typedef struct utetra utetra_s;
 

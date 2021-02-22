@@ -7,11 +7,10 @@ extern "C" {
 #include <stdbool.h>
 
 #include "bicubic.h"
+#include "common.h"
 #include "heap.h"
 #include "jet.h"
 #include "vec.h"
-
-typedef struct field2 field2_s;
 
 typedef struct eik eik_s;
 

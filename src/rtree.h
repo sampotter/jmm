@@ -4,9 +4,8 @@
 extern "C" {
 #endif
 
+#include "common.h"
 #include "geom.h"
-
-typedef struct mesh2 mesh2_s;
 
 typedef enum robj_type {
   ROBJ_MESH2_TRI,

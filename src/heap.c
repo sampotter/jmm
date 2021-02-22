@@ -4,14 +4,14 @@
 #include <math.h>
 #include <stdlib.h>
 
-typedef struct heap {
+struct heap {
   int capacity;
   int size;
   int* inds;
   value_f value;
   setpos_f setpos;
   void *context;
-} heap_s;
+};
 
 void heap_alloc(heap_s **heap) {
   *heap = malloc(sizeof(heap_s));
