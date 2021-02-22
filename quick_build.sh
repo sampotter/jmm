@@ -41,5 +41,7 @@ make -j || exit 1
 mv compile_commands.json ..
 cd ..
 python setup.py build_ext || exit 1
-pip uninstall -y jmm
+if pip list | grep jmm > /dev/null; then
+    pip uninstall -y jmm
+fi
 python setup.py install || exit 1
