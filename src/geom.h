@@ -38,7 +38,7 @@ typedef struct {
   dbl dir[3];
 } ray3;
 
-rect3 rect3_make_empty();
+rect3 rect3_make_empty(void);
 void rect3_get_extent(rect3 const *rect, dbl extent[3]);
 void rect3_get_centroid(rect3 const *rect, dbl centroid[3]);
 void rect3_get_half_extent(rect3 const *rect, dbl half_extent[3]);

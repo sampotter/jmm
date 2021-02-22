@@ -27,7 +27,7 @@ void tetra3_get_centroid(tetra3 const *tetra, dbl c[3]) {
   }
 }
 
-rect3 rect3_make_empty() {
+rect3 rect3_make_empty(void) {
   rect3 rect;
   dbl3_inf(rect.min);
   dbl3_neginf(rect.max);

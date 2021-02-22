@@ -55,7 +55,7 @@ typedef struct {
 
 void int3_add(int const p[3], int const q[3], int r[3]);
 
-dvec2 dvec2_zero();
+dvec2 dvec2_zero(void);
 dvec2 dvec2_ccomb(dvec2 v0, dvec2 v1, dbl t);
 dvec2 dvec2_from_ptr(dbl const *u);
 dbl dvec2_maxdist(dvec2 u, dvec2 v);
@@ -89,17 +89,17 @@ dvec3 dvec3_dbl_mul(dvec3 u, dbl a);
 dbl dvec3_dist(dvec3 u, dvec3 v);
 dbl dvec3_dist_sq(dvec3 u, dvec3 v);
 dbl dvec3_dot(dvec3 u, dvec3 v);
-dvec3 dvec3_infinity();
+dvec3 dvec3_infinity(void);
 dbl dvec3_maxdist(dvec3 u, dvec3 v);
 dbl dvec3_maxnorm(dvec3 u);
-dvec3 dvec3_nan();
+dvec3 dvec3_nan(void);
 dbl dvec3_norm(dvec3 u);
 dbl dvec3_norm_sq(dvec3 u);
 dvec3 dvec3_normalized(dvec3 u);
-dvec3 dvec3_one();
+dvec3 dvec3_one(void);
 dvec3 dvec3_saxpy(dbl a, dvec3 x, dvec3 y);
 dvec3 dvec3_sub(dvec3 u, dvec3 v);
-dvec3 dvec3_zero();
+dvec3 dvec3_zero(void);
 int dvec3_argmax(dvec3 u);
 void dvec3_normalize(dvec3 *u);
 
@@ -122,9 +122,9 @@ dvec4 dvec4_dbl_div(dvec4 u, dbl a);
 dvec4 dvec4_m(dbl x);
 dvec4 dvec4_dm(dbl x);
 dvec4 dvec4_d2m(dbl x);
-dvec4 dvec4_e1();
-dvec4 dvec4_one();
-dvec4 dvec4_iota();
+dvec4 dvec4_e1(void);
+dvec4 dvec4_one(void);
+dvec4 dvec4_iota(void);
 
 typedef struct {
   int i;

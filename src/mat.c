@@ -317,7 +317,7 @@ dbl dmat33_det(dmat33 const *A) {
 
 #undef a
 
-dmat33 dmat33_eye() {
+dmat33 dmat33_eye(void) {
   dmat33 I;
   memset(&I, 0x0, sizeof(dmat33));
   I.rows[0].data[0] = 1;

@@ -182,7 +182,7 @@ void int3_add(int const p[3], int const q[3], int r[3]) {
   r[2] = p[2] + q[2];
 }
 
-dvec2 dvec2_zero() {
+dvec2 dvec2_zero(void) {
   return (dvec2) {0.0, 0.0};
 }
 
@@ -307,7 +307,7 @@ dbl dvec3_dot(dvec3 u, dvec3 v) {
   return u.data[0] + u.data[1] + u.data[2];
 }
 
-dvec3 dvec3_infinity() {
+dvec3 dvec3_infinity(void) {
   return (dvec3) {
     .data = {
       INFINITY,
@@ -325,7 +325,7 @@ dbl dvec3_maxnorm(dvec3 u) {
   return fmax(fabs(u.data[0]), fmax(fabs(u.data[1]), fabs(u.data[2])));
 }
 
-dvec3 dvec3_nan() {
+dvec3 dvec3_nan(void) {
   return (dvec3) {
     .data = {NAN, NAN, NAN}
   };
@@ -345,7 +345,7 @@ dvec3 dvec3_normalized(dvec3 u) {
   return dvec3_dbl_div(u, dvec3_norm(u));
 }
 
-dvec3 dvec3_one() {
+dvec3 dvec3_one(void) {
   return (dvec3) {.data = {1, 1, 1}};
 }
 
@@ -361,7 +361,7 @@ dvec3 dvec3_sub(dvec3 u, dvec3 v) {
   return (dvec3) {.packed = _mm256_sub_pd(u.packed, v.packed)};
 }
 
-dvec3 dvec3_zero() {
+dvec3 dvec3_zero(void) {
   return (dvec3) {.data = {0, 0, 0}};
 }
 
@@ -449,7 +449,7 @@ dvec4 dvec4_d2m(dbl x) {
   };
 }
 
-dvec4 dvec4_e1() {
+dvec4 dvec4_e1(void) {
   dvec4 e1;
   e1.data[0] = 1.0;
   e1.data[1] = 0.0;
@@ -458,7 +458,7 @@ dvec4 dvec4_e1() {
   return e1;
 }
 
-dvec4 dvec4_one() {
+dvec4 dvec4_one(void) {
   dvec4 one;
   one.data[0] = 1.0;
   one.data[1] = 1.0;
@@ -467,7 +467,7 @@ dvec4 dvec4_one() {
   return one;
 }
 
-dvec4 dvec4_iota() {
+dvec4 dvec4_iota(void) {
   dvec4 iota;
   iota.data[0] = 0.0;
   iota.data[1] = 1.0;
