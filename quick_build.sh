@@ -6,10 +6,22 @@ else
     C_COMPILER=" "
 fi
 
-BUILD_TYPE=Debug
-SANITIZE_ADDRESS=OFF
-SANITIZE_MEMORY=OFF
-SANITIZE_UNDEFINED=OFF
+: ${BUILD_TYPE:=Debug}
+: ${SANITIZE_ADDRESS:=OFF}
+: ${SANITIZE_MEMORY:=OFF}
+: ${SANITIZE_UNDEFINED:=OFF}
+
+is_on_or_off() {
+    case $2 in
+        (ON|OFF) ;;
+        (*) printf >&2 "$1 should be ON or OFF, got $2 instead\n";
+            exit 1 ;;
+    esac
+}
+
+is_on_or_off SANITIZE_ADDRESS "${SANITIZE_ADDRESS}"
+is_on_or_off SANITIZE_MEMORY "${SANITIZE_MEMORY}"
+is_on_or_off SANITIZE_UNDEFINED "${SANITIZE_UNDEFINED}"
 
 echo "C_COMPILER:         ${C_COMPILER}"
 echo "BUILD_TYPE:         ${BUILD_TYPE}"
