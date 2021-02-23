@@ -18,6 +18,7 @@ void dbl33_mul(dbl A[3][3], dbl B[3][3], dbl C[3][3]);
 void dbl33_sub(dbl A[3][3], dbl B[3][3], dbl C[3][3]);
 void dbl33_dbl3_mul(dbl const A[3][3], dbl const x[3], dbl b[3]);
 void dbl33_dbl3_mul_inplace(dbl const A[3][3], dbl x[3]);
+void dbl33_dbl3_nmul(dbl const A[3][3], dbl const x[3], dbl b[3]);
 void dbl33_transpose(dbl A[3][3]);
 void dbl33_transposed(dbl const A[3][3], dbl At[3][3]);
 void dbl33_dbl_div(dbl A[3][3], dbl a, dbl B[3][3]);

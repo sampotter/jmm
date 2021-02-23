@@ -81,6 +81,11 @@ void dbl33_dbl3_mul_inplace(dbl const A[3][3], dbl x[3]) {
   dbl33_dbl3_mul(A, x_, x);
 }
 
+void dbl33_dbl3_nmul(dbl const A[3][3], dbl const x[3], dbl b[3]) {
+  for (int i = 0; i < 3; ++i)
+    b[i] = dbl3_ndot(A[i], x);
+}
+
 void dbl33_transpose(dbl A[3][3]) {
   SWAP(A[1][0], A[0][1]);
   SWAP(A[2][0], A[0][2]);

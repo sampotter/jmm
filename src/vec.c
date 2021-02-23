@@ -156,6 +156,10 @@ void dbl3_copy(dbl const u[3], dbl v[3]) {
   v[2] = u[2];
 }
 
+dbl dbl3_ndot(dbl const u[3], dbl const v[3]) {
+  return dblN_ndot(u, v, 3); // TODO: inline and optimize me!
+}
+
 bool dbl4_nonneg(dbl const u[4]) {
   return u[0] >= 0 && u[1] >= 0 && u[2] >= 0 && u[3] >= 0;
 }

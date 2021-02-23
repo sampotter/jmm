@@ -3,6 +3,8 @@
 #include "mesh3.h"
 #include "vec.h"
 
+#define TRI000 0
+
 /**
  * [0] [1]
  * [2]
@@ -206,79 +208,118 @@ void bb32_init_from_3d_data(bb32 *bb, dbl const f[3], dbl const Df[3][3], dbl co
   c[TRI030] = f[1];
   c[TRI003] = f[2];
 
-  dbl tmp[3];
+  dbl tmp[6];
 
   dbl3_sub(x[TRI010], x[TRI100], tmp);
-  c[TRI210] = c[TRI300] + dbl3_dot(Df[TRI100], tmp)/3;
-  c[TRI120] = c[TRI030] - dbl3_dot(Df[TRI010], tmp)/3;
+  c[TRI210] = c[TRI300] + dblN_ndot(Df[TRI100], tmp, 3)/3;
+  c[TRI120] = c[TRI030] - dblN_ndot(Df[TRI010], tmp, 3)/3;
 
   dbl3_sub(x[TRI001], x[TRI100], tmp);
-  c[TRI201] = c[TRI300] + dbl3_dot(Df[TRI100], tmp)/3;
-  c[TRI102] = c[TRI003] - dbl3_dot(Df[TRI001], tmp)/3;
+  c[TRI201] = c[TRI300] + dblN_ndot(Df[TRI100], tmp, 3)/3;
+  c[TRI102] = c[TRI003] - dblN_ndot(Df[TRI001], tmp, 3)/3;
 
   dbl3_sub(x[TRI001], x[TRI010], tmp);
-  c[TRI021] = c[TRI030] + dbl3_dot(Df[TRI010], tmp)/3;
-  c[TRI012] = c[TRI003] - dbl3_dot(Df[TRI001], tmp)/3;
+  c[TRI021] = c[TRI030] + dblN_ndot(Df[TRI010], tmp, 3)/3;
+  c[TRI012] = c[TRI003] - dblN_ndot(Df[TRI001], tmp, 3)/3;
 
-  c[TRI111] = (c[TRI210] + c[TRI201] + c[TRI120] + c[TRI021] + c[TRI012] + c[TRI102])/4
-    - (c[TRI300] + c[TRI030] + c[TRI003])/6;
+  tmp[0] = c[TRI210];
+  tmp[1] = c[TRI201];
+  tmp[2] = c[TRI120];
+  tmp[3] = c[TRI021];
+  tmp[4] = c[TRI012];
+  tmp[5] = c[TRI102];
+  c[TRI111] = dblN_nsum(tmp, 6)/4;
+
+  tmp[0] = c[TRI300];
+  tmp[1] = c[TRI030];
+  tmp[2] = c[TRI003];
+  c[TRI111] -= dblN_nsum(tmp, 3)/6;
+}
+
+static void bb32_reduce1(dbl const *in1, dbl const *in2, dbl *out) {
+  dbl tmp[3];
+
+  tmp[0] = in1[TRI100]*in2[TRI300];
+  tmp[1] = in1[TRI010]*in2[TRI210];
+  tmp[2] = in1[TRI001]*in2[TRI201];
+  out[TRI200] = dblN_nsum(tmp, 3);
+
+  tmp[0] = in1[TRI100]*in2[TRI210];
+  tmp[1] = in1[TRI010]*in2[TRI120];
+  tmp[2] = in1[TRI001]*in2[TRI111];
+  out[TRI110] = dblN_nsum(tmp, 3);
+
+  tmp[0] = in1[TRI100]*in2[TRI120];
+  tmp[1] = in1[TRI010]*in2[TRI030];
+  tmp[2] = in1[TRI001]*in2[TRI021];
+  out[TRI020] = dblN_nsum(tmp, 3);
+
+  tmp[0] = in1[TRI100]*in2[TRI201];
+  tmp[1] = in1[TRI010]*in2[TRI111];
+  tmp[2] = in1[TRI001]*in2[TRI102];
+  out[TRI101] = dblN_nsum(tmp, 3);
+
+  tmp[0] = in1[TRI100]*in2[TRI111];
+  tmp[1] = in1[TRI010]*in2[TRI021];
+  tmp[2] = in1[TRI001]*in2[TRI012];
+  out[TRI011] = dblN_nsum(tmp, 3);
+
+  tmp[0] = in1[TRI100]*in2[TRI102];
+  tmp[1] = in1[TRI010]*in2[TRI012];
+  tmp[2] = in1[TRI001]*in2[TRI003];
+  out[TRI002] = dblN_nsum(tmp, 3);
+}
+
+static void bb32_reduce2(dbl const *in1, dbl const *in2, dbl *out) {
+  dbl tmp[3];
+
+  tmp[0] = in1[TRI100]*in2[TRI200];
+  tmp[1] = in1[TRI010]*in2[TRI110];
+  tmp[2] = in1[TRI001]*in2[TRI101];
+  out[TRI100] = dblN_nsum(tmp, 3);
+
+  tmp[0] = in1[TRI100]*in2[TRI110];
+  tmp[1] = in1[TRI010]*in2[TRI020];
+  tmp[2] = in1[TRI001]*in2[TRI011];
+  out[TRI010] = dblN_nsum(tmp, 3);
+
+  tmp[0] = in1[TRI100]*in2[TRI101];
+  tmp[1] = in1[TRI010]*in2[TRI011];
+  tmp[2] = in1[TRI001]*in2[TRI002];
+  out[TRI001] = dblN_nsum(tmp, 3);
+}
+
+static void bb32_reduce3(dbl const *in1, dbl const *in2, dbl *out) {
+  dbl tmp[3];
+
+  tmp[0] = in1[TRI100]*in2[TRI100];
+  tmp[1] = in1[TRI010]*in2[TRI010];
+  tmp[2] = in1[TRI001]*in2[TRI001];
+  out[TRI000] = dblN_nsum(tmp, 3);
 }
 
 dbl bb32_f(bb32 const *bb, dbl const *b) {
   dbl tmp[6];
-
-  dbl const *c = bb->c;
-
-  tmp[TRI200] = b[TRI100]*c[TRI300] + b[TRI010]*c[TRI210] + b[TRI001]*c[TRI201];
-  tmp[TRI110] = b[TRI100]*c[TRI210] + b[TRI010]*c[TRI120] + b[TRI001]*c[TRI111];
-  tmp[TRI020] = b[TRI100]*c[TRI120] + b[TRI010]*c[TRI030] + b[TRI001]*c[TRI021];
-  tmp[TRI101] = b[TRI100]*c[TRI201] + b[TRI010]*c[TRI111] + b[TRI001]*c[TRI102];
-  tmp[TRI011] = b[TRI100]*c[TRI111] + b[TRI010]*c[TRI021] + b[TRI001]*c[TRI012];
-  tmp[TRI002] = b[TRI100]*c[TRI102] + b[TRI010]*c[TRI012] + b[TRI001]*c[TRI003];
-
-  tmp[TRI100] = b[TRI100]*tmp[TRI200] + b[TRI010]*tmp[TRI110] + b[TRI001]*tmp[TRI101];
-  tmp[TRI010] = b[TRI100]*tmp[TRI110] + b[TRI010]*tmp[TRI020] + b[TRI001]*tmp[TRI011];
-  tmp[TRI001] = b[TRI100]*tmp[TRI101] + b[TRI010]*tmp[TRI011] + b[TRI001]*tmp[TRI002];
-
-  return b[TRI100]*tmp[TRI100] + b[TRI010]*tmp[TRI010] + b[TRI001]*tmp[TRI001];
+  bb32_reduce1(b, bb->c, tmp);
+  bb32_reduce2(b, tmp, tmp);
+  bb32_reduce3(b, tmp, tmp);
+  return tmp[TRI000];
 }
 
 dbl bb32_df(bb32 const *bb, dbl const *b, dbl const *a) {
   dbl tmp[6];
-
-  dbl const *c = bb->c;
-
-  tmp[TRI200] = a[TRI100]*c[TRI300] + a[TRI010]*c[TRI210] + a[TRI001]*c[TRI201];
-  tmp[TRI110] = a[TRI100]*c[TRI210] + a[TRI010]*c[TRI120] + a[TRI001]*c[TRI111];
-  tmp[TRI020] = a[TRI100]*c[TRI120] + a[TRI010]*c[TRI030] + a[TRI001]*c[TRI021];
-  tmp[TRI101] = a[TRI100]*c[TRI201] + a[TRI010]*c[TRI111] + a[TRI001]*c[TRI102];
-  tmp[TRI011] = a[TRI100]*c[TRI111] + a[TRI010]*c[TRI021] + a[TRI001]*c[TRI012];
-  tmp[TRI002] = a[TRI100]*c[TRI102] + a[TRI010]*c[TRI012] + a[TRI001]*c[TRI003];
-
-  tmp[TRI100] = b[TRI100]*tmp[TRI200] + b[TRI010]*tmp[TRI110] + b[TRI001]*tmp[TRI101];
-  tmp[TRI010] = b[TRI100]*tmp[TRI110] + b[TRI010]*tmp[TRI020] + b[TRI001]*tmp[TRI011];
-  tmp[TRI001] = b[TRI100]*tmp[TRI101] + b[TRI010]*tmp[TRI011] + b[TRI001]*tmp[TRI002];
-
-  return 3*(b[TRI100]*tmp[TRI100] + b[TRI010]*tmp[TRI010] + b[TRI001]*tmp[TRI001]);
+  bb32_reduce1(a, bb->c, tmp);
+  bb32_reduce2(b, tmp, tmp);
+  bb32_reduce3(b, tmp, tmp);
+  return 3*tmp[TRI000];
 }
 
 dbl bb32_d2f(bb32 const *bb, dbl const *b, dbl const *a1, dbl const *a2) {
   dbl tmp[6];
-
-  dbl const *c = bb->c;
-
-  tmp[TRI200] = a1[TRI100]*c[TRI300] + a1[TRI010]*c[TRI210] + a1[TRI001]*c[TRI201];
-  tmp[TRI110] = a1[TRI100]*c[TRI210] + a1[TRI010]*c[TRI120] + a1[TRI001]*c[TRI111];
-  tmp[TRI020] = a1[TRI100]*c[TRI120] + a1[TRI010]*c[TRI030] + a1[TRI001]*c[TRI021];
-  tmp[TRI101] = a1[TRI100]*c[TRI201] + a1[TRI010]*c[TRI111] + a1[TRI001]*c[TRI102];
-  tmp[TRI011] = a1[TRI100]*c[TRI111] + a1[TRI010]*c[TRI021] + a1[TRI001]*c[TRI012];
-  tmp[TRI002] = a1[TRI100]*c[TRI102] + a1[TRI010]*c[TRI012] + a1[TRI001]*c[TRI003];
-
-  tmp[TRI100] = a2[TRI100]*tmp[TRI200] + a2[TRI010]*tmp[TRI110] + a2[TRI001]*tmp[TRI101];
-  tmp[TRI010] = a2[TRI100]*tmp[TRI110] + a2[TRI010]*tmp[TRI020] + a2[TRI001]*tmp[TRI011];
-  tmp[TRI001] = a2[TRI100]*tmp[TRI101] + a2[TRI010]*tmp[TRI011] + a2[TRI001]*tmp[TRI002];
-
-  return 6*(b[TRI100]*tmp[TRI100] + b[TRI010]*tmp[TRI010] + b[TRI001]*tmp[TRI001]);
+  bb32_reduce1(a1, bb->c, tmp);
+  bb32_reduce2(a2, tmp, tmp);
+  bb32_reduce3(b, tmp, tmp);
+  return 6*tmp[TRI000];
 }
 
 void bb33_init_from_3d_data(bb33 *bb, dbl const f[4], dbl const Df[4][3], dbl const x[4][3]) {
@@ -302,33 +343,33 @@ void bb33_init_from_3d_data(bb33 *bb, dbl const f[4], dbl const Df[4][3], dbl co
 
   // 1 <-> 2
   dbl3_sub(x[TET0100], x[TET1000], dx);
-  c[TET2100] = c[TET3000] + dbl3_dot(Df[TET1000], dx)/3;
-  c[TET1200] = c[TET0300] - dbl3_dot(Df[TET0100], dx)/3;
+  c[TET2100] = c[TET3000] + dblN_ndot(Df[TET1000], dx, 3)/3;
+  c[TET1200] = c[TET0300] - dblN_ndot(Df[TET0100], dx, 3)/3;
 
   // 1 <-> 3
   dbl3_sub(x[TET0010], x[TET1000], dx);
-  c[TET2010] = c[TET3000] + dbl3_dot(Df[TET1000], dx)/3;
-  c[TET1020] = c[TET0030] - dbl3_dot(Df[TET0010], dx)/3;
+  c[TET2010] = c[TET3000] + dblN_ndot(Df[TET1000], dx, 3)/3;
+  c[TET1020] = c[TET0030] - dblN_ndot(Df[TET0010], dx, 3)/3;
 
   // 1 <-> 4
   dbl3_sub(x[TET0001], x[TET1000], dx);
-  c[TET2001] = c[TET3000] + dbl3_dot(Df[TET1000], dx)/3;
-  c[TET1002] = c[TET0003] - dbl3_dot(Df[TET0001], dx)/3;
+  c[TET2001] = c[TET3000] + dblN_ndot(Df[TET1000], dx, 3)/3;
+  c[TET1002] = c[TET0003] - dblN_ndot(Df[TET0001], dx, 3)/3;
 
   // 2 <-> 3
   dbl3_sub(x[TET0010], x[TET0100], dx);
-  c[TET0210] = c[TET0300] + dbl3_dot(Df[TET0100], dx)/3;
-  c[TET0120] = c[TET0030] - dbl3_dot(Df[TET0010], dx)/3;
+  c[TET0210] = c[TET0300] + dblN_ndot(Df[TET0100], dx, 3)/3;
+  c[TET0120] = c[TET0030] - dblN_ndot(Df[TET0010], dx, 3)/3;
 
   // 2 <-> 4
   dbl3_sub(x[TET0001], x[TET0100], dx);
-  c[TET0201] = c[TET0300] + dbl3_dot(Df[TET0100], dx)/3;
-  c[TET0102] = c[TET0003] - dbl3_dot(Df[TET0001], dx)/3;
+  c[TET0201] = c[TET0300] + dblN_ndot(Df[TET0100], dx, 3)/3;
+  c[TET0102] = c[TET0003] - dblN_ndot(Df[TET0001], dx, 3)/3;
 
   // 3 <-> 4
   dbl3_sub(x[TET0001], x[TET0010], dx);
-  c[TET0021] = c[TET0030] + dbl3_dot(Df[TET0010], dx)/3;
-  c[TET0012] = c[TET0003] - dbl3_dot(Df[TET0001], dx)/3;
+  c[TET0021] = c[TET0030] + dblN_ndot(Df[TET0010], dx, 3)/3;
+  c[TET0012] = c[TET0003] - dblN_ndot(Df[TET0001], dx, 3)/3;
 
   /**
    * Finally, compute Bezier ordinates in the center of each
@@ -348,7 +389,7 @@ void bb33_init_from_3d_data(bb33 *bb, dbl const f[4], dbl const Df[4][3], dbl co
     - (c[TET0300] + c[TET0030] + c[TET0003])/6;
 
   // (We're done---there are no interior Bezier ordinates for the 3D
-  // generalzation of the 9-parameter interpolant.)
+  // generalization of the 9-parameter interpolant.)
 }
 
 void bb33_init_from_cell_and_jets(bb33 *bb, mesh3_s const *mesh, jet3 const *jet, size_t lc) {
