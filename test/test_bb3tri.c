@@ -37,10 +37,6 @@ BeforeEach(bb32) {
 AfterEach(bb32) {}
 
 Ensure (bb32, has_linear_precision) {
-  int *test = malloc(10*sizeof(int));
-  printf("%p\n", test);
-  test[11] = 1;
-
   gsl_rng *rng = gsl_rng_alloc(gsl_rng_mt19937);
 
   /**
