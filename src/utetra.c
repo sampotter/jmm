@@ -181,8 +181,13 @@ void utetra_step(utetra_s *cf) {
  * called, so that `cf` is currently at `lam`.
  */
 void utetra_solve(utetra_s *cf) {
-  for (cf->niter = 0; cf->niter < 20; ++cf->niter)
-    utetra_step(cf);
+  // I think we're actually supposed to use cf->g here instead of
+  // cf->p, but maybe cf->p is more appropriate for constraint
+  // Newton's method, since it takes into account the constraints
+  // while cf->p doesn't.
+  dbl const atol = 1e-15, rtol = 1e-15, tol = rtol*dbl2_norm(cf->p) + atol;
+  do utetra_step(cf);
+  while (dbl2_norm(cf->p) > tol);
 }
 
 void utetra_get_lambda(utetra_s const *cf, dbl lam[2]) {
