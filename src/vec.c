@@ -1,5 +1,9 @@
 #include "vec.h"
 
+#include <assert.h>
+
+#include "macros.h"
+
 void dbl2_add(dbl u[2], dbl v[2], dbl w[2]) {
   w[0] = u[0] + v[0];
   w[1] = u[1] + v[1];
@@ -174,6 +178,23 @@ void dblN_minmax(dbl const *x, size_t n, dbl *min, dbl *max) {
     *min = fmin(*min, x[i]);
     *max = fmax(*max, x[i]);
   }
+}
+
+/**
+ * Neumaier sum of N doubles (see
+ * https://en.wikipedia.org/wiki/Kahan_summation_algorithm).
+ */
+dbl dblN_nsum(dbl const *x, size_t n) {
+  volatile dbl sum = 0, c = 0, t;
+  for (size_t i = 0; i < n; ++i) {
+    t = sum + x[i];
+    if (fabs(sum) < fabs(x[i]))
+      c += (x[i] - t) + sum;
+    else
+      c += (sum - t) + x[i];
+    sum = t;
+  }
+  return sum + c;
 }
 
 void int3_add(int const p[3], int const q[3], int r[3]) {

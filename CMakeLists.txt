@@ -149,6 +149,7 @@ if (BUILD_TESTS)
     test/test_mesh2.c
     test/test_mesh3.c
     test/test_utri.c
+    test/test_vec.c
     )
   add_library (jmm_tests SHARED ${JMM_TESTS_SRCS})
   add_sanitizers (jmm_tests)
