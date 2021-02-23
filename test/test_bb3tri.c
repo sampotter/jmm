@@ -4,6 +4,7 @@
 #include <gsl/gsl_rng.h>
 
 #include "bb.h"
+#include "macros.h"
 #include "mat.h"
 #include "util.h"
 #include "vec.h"
@@ -257,4 +258,39 @@ Ensure(bb32, works_for_simple_olim6_update) {
     assert_that_double(bb32_df(&bb, b, a[0]), is_nearly_double(Dfa[2][0]));
     assert_that_double(bb32_df(&bb, b, a[1]), is_nearly_double(Dfa[2][1]));
   }
+}
+
+Ensure(bb32, df_is_symmetric) {
+  gsl_rng *rng = gsl_rng_alloc(gsl_rng_mt19937);
+
+  bb32 bb = {
+    .c = {
+      1, 0.66666666666666674, 0.66666666666666674, 1, 0.66666666666666674,
+      0.50000000000000022, 0.66666666666666674, 0.66666666666666674,
+      0.66666666666666674, 1}
+  };
+
+  dbl b[3], df[2], a[2][3] = {{-1, 1, 0}, {-1, 0, 1}};
+
+  get_random_lambda(rng, b);
+
+  b[0] = 0.33333333339841881;
+  b[1] = 0.33333333320316222;
+  b[2] = 0.33333333339841892;
+
+  df[0] = bb32_df(&bb, b, a[0]);
+  SWAP(b[1], b[2]);
+  SWAP(a[0][1], a[0][2]);
+  df[1] = bb32_df(&bb, b, a[0]);
+  SWAP(b[1], b[2]);
+  SWAP(a[0][1], a[0][2]);
+  assert_that_double(df[0], is_nearly_double(df[1]));
+
+  df[0] = bb32_df(&bb, b, a[1]);
+  SWAP(b[1], b[2]);
+  SWAP(a[1][1], a[1][2]);
+  df[1] = bb32_df(&bb, b, a[1]);
+  SWAP(b[1], b[2]);
+  SWAP(a[1][1], a[1][2]);
+  assert_that_double(df[0], is_nearly_double(df[1]));
 }
