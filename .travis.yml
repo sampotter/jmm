@@ -1,8 +1,15 @@
 language: c
+os:
+  - linux
+  - osx
 compiler:
   - clang
   - gcc
-
+dist:
+  - xenial
+  - bionic
+  - precise
+  - trusty
 before_install:
   - sudo apt-get -y install libgsl0-dev
   - sudo apt-get -y install python3-venv
