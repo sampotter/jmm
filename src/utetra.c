@@ -1,6 +1,7 @@
 #include "utetra.h"
 
 #include <assert.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -152,35 +153,35 @@ bool utetra_is_causal(utetra_s const *cf) {
   return cf->angles[0] >= 0 && cf->angles[1] >= 0 && cf->angles[2] >= 0;
 }
 
+void utetra_step(utetra_s *cf) {
+  dbl const c1 = 1e-2;
+  dbl lam1[2], f, c1_times_g_dot_p, beta;
+
+  // Get values for current iterate
+  dbl lam[2] = {cf->lam[0], cf->lam[1]};
+  dbl p[2] = {cf->p[0], cf->p[1]};
+  f = cf->f;
+
+  // Do backtracking line search
+  beta = 1;
+  c1_times_g_dot_p = c1*dbl2_dot(p, cf->g);
+  dbl2_saxpy(beta, p, lam, lam1);
+  utetra_set_lambda(cf, lam1);
+  while (cf->f > f + beta*c1_times_g_dot_p) {
+    beta /= 2;
+    dbl2_saxpy(beta, p, lam, lam1);
+    utetra_set_lambda(cf, lam1);
+  }
+}
+
 /**
  * Do a tetrahedron update starting at `lam`, writing the result to
  * `jet`. This assumes that `utetra_set_lambda` has already been
  * called, so that `cf` is currently at `lam`.
  */
 void utetra_solve(utetra_s *cf) {
-  //dbl const rtol = 1e-15;
-  //dbl const atol = 5e-15;
-
-  dbl const c1 = 1e-2;
-  dbl lam[2], lam1[2], p[2], f, c1_times_g_dot_p, beta;
-
-  for (cf->niter = 0; cf->niter < 20; ++cf->niter) {
-    // Get values for current iterate
-    lam[0] = cf->lam[0]; lam[1] = cf->lam[1];
-    p[0] = cf->p[0]; p[1] = cf->p[1];
-    f = cf->f;
-
-    // Do backtracking line search
-    beta = 1;
-    c1_times_g_dot_p = c1*dbl2_dot(p, cf->g);
-    dbl2_saxpy(beta, p, lam, lam1);
-    utetra_set_lambda(cf, lam1);
-    while (cf->f > f + beta*c1_times_g_dot_p) {
-      beta /= 2;
-      dbl2_saxpy(beta, p, lam, lam1);
-      utetra_set_lambda(cf, lam1);
-    }
-  };
+  for (cf->niter = 0; cf->niter < 20; ++cf->niter)
+    utetra_step(cf);
 }
 
 void utetra_get_lambda(utetra_s const *cf, dbl lam[2]) {
