@@ -24,7 +24,8 @@ void get_gt_jet(dbl const xsrc[3], dbl const x[3], jet3 *jet) {
 Describe(eik3);
 
 BeforeEach(eik3) {
-  significant_figures_for_assert_double_are(15);
+  double_absolute_tolerance_is(1e-15);
+  double_relative_tolerance_is(1e-15);
 }
 
 AfterEach(eik3) {}
@@ -109,7 +110,7 @@ Ensure(eik3, tetra_works_for_olim18_122_update) {
       utetra_set_lambda(cf, lam_verts[perm[i][j]]);
       dbl L = dbl3_dist(&verts_perm[3*j], &verts[9]);
       dbl f = jet[j].f + L;
-      assert_that_double(utetra_get_value(cf), is_equal_to_double(f));
+      assert_that_double(utetra_get_value(cf), is_nearly_double(f));
     }
 
     /**
@@ -134,13 +135,13 @@ Ensure(eik3, tetra_works_for_olim18_122_update) {
       if (fabs(lam[0]) < 1e-15) {
         assert_that(fabs(lam_gt[i][0]) < 1e-15);
       } else {
-        assert_that_double(lam[0], is_equal_to_double(lam_gt[i][0]));
+        assert_that_double(lam[0], is_nearly_double(lam_gt[i][0]));
       }
 
       if (fabs(lam[1]) < 1e-15) {
         assert_that(fabs(lam_gt[i][1]) < 1e-15);
       } else {
-        assert_that_double(lam[1], is_equal_to_double(lam_gt[i][1]));
+        assert_that_double(lam[1], is_nearly_double(lam_gt[i][1]));
       }
 
       utetra_reset(cf);
@@ -196,12 +197,12 @@ Ensure(eik3, tetra_works_for_olim18_222_update) {
   utetra_set_lambda(cf, lambda);
   utetra_solve(cf);
   utetra_get_jet(cf, &newjet);
-  assert_that_double(lambda[0], is_equal_to_double(1./3));
-  assert_that_double(lambda[0], is_equal_to_double(1./3));
-  assert_that_double(jet_gt.f, is_equal_to_double(newjet.f));
-  assert_that_double(jet_gt.fx, is_equal_to_double(newjet.fx));
-  assert_that_double(jet_gt.fy, is_equal_to_double(newjet.fy));
-  assert_that_double(jet_gt.fz, is_equal_to_double(newjet.fz));
+  assert_that_double(lambda[0], is_nearly_double(1./3));
+  assert_that_double(lambda[0], is_nearly_double(1./3));
+  assert_that_double(jet_gt.f, is_nearly_double(newjet.f));
+  assert_that_double(jet_gt.fx, is_nearly_double(newjet.fx));
+  assert_that_double(jet_gt.fy, is_nearly_double(newjet.fy));
+  assert_that_double(jet_gt.fz, is_nearly_double(newjet.fz));
   assert_that(utetra_get_num_iter(cf), is_equal_to(0));
   utetra_reset(cf);
 
@@ -211,12 +212,12 @@ Ensure(eik3, tetra_works_for_olim18_222_update) {
   utetra_solve(cf);
   utetra_get_lambda(cf, lambda);
   utetra_get_jet(cf, &newjet);
-  assert_that_double(lambda[0], is_equal_to_double(1./3));
-  assert_that_double(lambda[1], is_equal_to_double(1./3));
-  assert_that_double(jet_gt.f, is_equal_to_double(newjet.f));
-  assert_that_double(jet_gt.fx, is_equal_to_double(newjet.fx));
-  assert_that_double(jet_gt.fy, is_equal_to_double(newjet.fy));
-  assert_that_double(jet_gt.fz, is_equal_to_double(newjet.fz));
+  assert_that_double(lambda[0], is_nearly_double(1./3));
+  assert_that_double(lambda[1], is_nearly_double(1./3));
+  assert_that_double(jet_gt.f, is_nearly_double(newjet.f));
+  assert_that_double(jet_gt.fx, is_nearly_double(newjet.fx));
+  assert_that_double(jet_gt.fy, is_nearly_double(newjet.fy));
+  assert_that_double(jet_gt.fz, is_nearly_double(newjet.fz));
   assert_that(utetra_get_num_iter(cf), is_less_than(10));
   utetra_reset(cf);
 
@@ -226,12 +227,12 @@ Ensure(eik3, tetra_works_for_olim18_222_update) {
   utetra_solve(cf);
   utetra_get_lambda(cf, lambda);
   utetra_get_jet(cf, &newjet);
-  assert_that_double(lambda[0], is_equal_to_double(1./3));
-  assert_that_double(lambda[1], is_equal_to_double(1./3));
-  assert_that_double(jet_gt.f, is_equal_to_double(newjet.f));
-  assert_that_double(jet_gt.fx, is_equal_to_double(newjet.fx));
-  assert_that_double(jet_gt.fy, is_equal_to_double(newjet.fy));
-  assert_that_double(jet_gt.fz, is_equal_to_double(newjet.fz));
+  assert_that_double(lambda[0], is_nearly_double(1./3));
+  assert_that_double(lambda[1], is_nearly_double(1./3));
+  assert_that_double(jet_gt.f, is_nearly_double(newjet.f));
+  assert_that_double(jet_gt.fx, is_nearly_double(newjet.fx));
+  assert_that_double(jet_gt.fy, is_nearly_double(newjet.fy));
+  assert_that_double(jet_gt.fz, is_nearly_double(newjet.fz));
   assert_that(utetra_get_num_iter(cf), is_less_than(10));
   utetra_reset(cf);
 
@@ -241,12 +242,12 @@ Ensure(eik3, tetra_works_for_olim18_222_update) {
   utetra_solve(cf);
   utetra_get_lambda(cf, lambda);
   utetra_get_jet(cf, &newjet);
-  assert_that_double(lambda[0], is_equal_to_double(1./3));
-  assert_that_double(lambda[1], is_equal_to_double(1./3));
-  assert_that_double(jet_gt.f, is_equal_to_double(newjet.f));
-  assert_that_double(jet_gt.fx, is_equal_to_double(newjet.fx));
-  assert_that_double(jet_gt.fy, is_equal_to_double(newjet.fy));
-  assert_that_double(jet_gt.fz, is_equal_to_double(newjet.fz));
+  assert_that_double(lambda[0], is_nearly_double(1./3));
+  assert_that_double(lambda[1], is_nearly_double(1./3));
+  assert_that_double(jet_gt.f, is_nearly_double(newjet.f));
+  assert_that_double(jet_gt.fx, is_nearly_double(newjet.fx));
+  assert_that_double(jet_gt.fy, is_nearly_double(newjet.fy));
+  assert_that_double(jet_gt.fz, is_nearly_double(newjet.fz));
   assert_that(utetra_get_num_iter(cf), is_less_than(10));
   utetra_reset(cf);
 
@@ -263,8 +264,8 @@ Ensure(eik3, tetra_works_for_olim18_222_update) {
     utetra_get_lambda(cf, lambda);
     utetra_get_jet(cf, &newjet);
 
-    assert_that_double(lambda[0], is_equal_to_double(1./3));
-    assert_that_double(lambda[1], is_equal_to_double(1./3));
+    assert_that_double(lambda[0], is_nearly_double(1./3));
+    assert_that_double(lambda[1], is_nearly_double(1./3));
 
     assert_that(utetra_get_num_iter(cf), is_less_than(10));
 
@@ -357,7 +358,7 @@ Ensure(eik3, tetra_works_for_olim26_updates) {
       utetra_set_lambda(cf, lam_gt[2*j]);
       dbl L = dbl3_dist(&verts_perm[3*j], &verts[9]);
       dbl f = jet[j].f + L;
-      assert_that_double(utetra_get_value(cf), is_equal_to_double(f));
+      assert_that_double(utetra_get_value(cf), is_nearly_double(f));
     }
 
     /**
@@ -382,13 +383,13 @@ Ensure(eik3, tetra_works_for_olim26_updates) {
       if (fabs(lam[0]) < 1e-15) {
         assert_that(fabs(lam_gt[i][0]) < 1e-15);
       } else {
-        assert_that_double(lam[0], is_equal_to_double(lam_gt[i][0]));
+        assert_that_double(lam[0], is_nearly_double(lam_gt[i][0]));
       }
 
       if (fabs(lam[1]) < 1e-15) {
         assert_that(fabs(lam_gt[i][1]) < 1e-15);
       } else {
-        assert_that_double(lam[1], is_equal_to_double(lam_gt[i][1]));
+        assert_that_double(lam[1], is_nearly_double(lam_gt[i][1]));
       }
 
       utetra_reset(cf);
