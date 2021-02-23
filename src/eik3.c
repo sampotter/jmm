@@ -789,15 +789,6 @@ static void estimate_t_and_normal_from_cut_edges(eik3_s const *eik,
     t[i] = (dbl3_dot(n[i], yt) - dbl3_dot(n[i], x0))/dbl3_dot(n[i], dx);
   }
 
-  // printf("\n"
-  //        "estimate_t_and_normal_from_cut_edges(%lu, %lu)\n"
-  //        "\tl0\tl1\tt (in)\tn[0]\tn[1]\tn[2]\tt (out)\n",
-  //        l0, l1);
-  // for (int i = 0; i < num_incident; ++i)
-  //   printf("\t%lu\t%lu\t%1.3f\t%1.3f\t%1.3f\t%1.3f\t%1.3f\n",
-  //          edge[i].l[0], edge[i].l[1], cutedge[i].t, cutedge[i].n[0],
-  //          cutedge[i].n[1], cutedge[i].n[2], t[i]);
-
   /**
    * To estimate t and the normal vector, we just compute the average
    * over each normal and intersection point...
@@ -815,10 +806,6 @@ static void estimate_t_and_normal_from_cut_edges(eik3_s const *eik,
   normal[0] /= num_incident;
   normal[1] /= num_incident;
   normal[2] /= num_incident;
-
-  // printf("=> normal = (%1.3f, %1.3f, %1.3f), t = %1.3f\n"
-  //        "\n",
-  //        normal[0], normal[1], normal[2], *that);
 
   free(n);
   free(t);
@@ -1033,12 +1020,6 @@ static void update_shadow_cutset(eik3_s *eik, size_t l0) {
 
     edge = make_edge(l0, l1);
     assert(!edgemap_contains(eik->cutset, edge));
-
-    printf("added shadow cutset edge: l0 = %lu (%s), l1 = %lu (%s), t = %g, ",
-           edge.l[0], eik->state[edge.l[0]] == VALID ? "VALID" : "SHADOW",
-           edge.l[1], eik->state[edge.l[1]] == VALID ? "VALID" : "SHADOW",
-           cutedge.t);
-    printf("n = (%f, %f, %f)\n", cutedge.n[0], cutedge.n[1], cutedge.n[2]);
 
     edgemap_set(eik->cutset, edge, &cutedge);
   }

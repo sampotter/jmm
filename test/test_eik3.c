@@ -312,13 +312,8 @@ Ensure(eik3, olim18_222_is_symmetric) {
   dbl lam[2][2];
 
   for (int k = 0; k < 10; ++k) {
-    printf("k = %d\n", k);
-
     for (int i = 0; i < 2; ++i)
       utetra_get_lambda(cf[i], lam[i]);
-
-    printf("  (%0.16g, %0.16g)\n", lam[0][0], lam[0][1]);
-    printf("  (%0.16g, %0.16g)\n", lam[1][0], lam[1][1]);
 
     assert_that_double(lam[0][0], is_nearly_double(lam[1][1]));
     assert_that_double(lam[1][0], is_nearly_double(lam[0][1]));
