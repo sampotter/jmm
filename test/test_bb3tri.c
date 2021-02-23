@@ -30,8 +30,8 @@ void get_conv_comb(dbl const x[3][3], dbl const lam[3], dbl y[3]) {
 Describe(bb32);
 
 BeforeEach(bb32) {
-  double_absolute_tolerance_is(1e-15);
-  double_relative_tolerance_is(1e-15);
+  double_absolute_tolerance_is(2.5e-15);
+  double_relative_tolerance_is(2.5e-15);
 }
 
 AfterEach(bb32) {}
