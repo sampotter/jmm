@@ -154,7 +154,8 @@ bool utetra_is_causal(utetra_s const *cf) {
 }
 
 void utetra_step(utetra_s *cf) {
-  dbl const c1 = 1e-2;
+  dbl const atol = 1e-15, c1 = 1e-2;
+
   dbl lam1[2], f, c1_times_g_dot_p, beta;
 
   // Get values for current iterate
@@ -167,7 +168,7 @@ void utetra_step(utetra_s *cf) {
   c1_times_g_dot_p = c1*dbl2_dot(p, cf->g);
   dbl2_saxpy(beta, p, lam, lam1);
   utetra_set_lambda(cf, lam1);
-  while (cf->f > f + beta*c1_times_g_dot_p) {
+  while (cf->f > f + beta*c1_times_g_dot_p + atol) {
     beta /= 2;
     dbl2_saxpy(beta, p, lam, lam1);
     utetra_set_lambda(cf, lam1);
