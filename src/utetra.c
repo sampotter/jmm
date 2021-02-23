@@ -197,6 +197,10 @@ void utetra_get_lambda(utetra_s const *cf, dbl lam[2]) {
 }
 
 void utetra_set_lambda(utetra_s *cf, dbl const lam[2]) {
+  // TODO: question... would it make more sense to use different
+  // vectors for a1 and a2? This choice seems to result in a lot of
+  // numerical instability. For now I'm fixing this by replacing sums
+  // and dot products involving a1 or a2 with the Neumaier equivalent.
   static dbl a1[3] = {-1, 1, 0};
   static dbl a2[3] = {-1, 0, 1};
 
