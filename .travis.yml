@@ -1,5 +1,7 @@
 language: c
-compiler: gcc
+compiler:
+  - clang
+  - gcc
 
 before_install:
   - sudo apt-get -y install libgsl0-dev
