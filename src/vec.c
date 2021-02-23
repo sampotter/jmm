@@ -181,6 +181,23 @@ void dblN_minmax(dbl const *x, size_t n, dbl *min, dbl *max) {
 }
 
 /**
+ * Dot product implemented using a Neumaier sum (see `dblN_nsum`).
+ */
+dbl dblN_ndot(dbl const *x, dbl const *y, size_t n) {
+  volatile dbl sum = 0, c = 0, t, z;
+  for (size_t i = 0; i < n; ++i) {
+    z = x[i]*y[i];
+    t = sum + z;
+    if (fabs(sum) < fabs(z))
+      c += (z - t) + sum;
+    else
+      c += (sum - t) + z;
+    sum = t;
+  }
+  return sum + c;
+}
+
+/**
  * Neumaier sum of N doubles (see
  * https://en.wikipedia.org/wiki/Kahan_summation_algorithm).
  */

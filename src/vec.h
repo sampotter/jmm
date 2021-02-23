@@ -47,6 +47,7 @@ dbl dbl4_sum(dbl const u[4]);
 
 dbl dblN_mean(dbl const *x, size_t n);
 void dblN_minmax(dbl const *x, size_t n, dbl *min, dbl *max);
+dbl dblN_ndot(dbl const *x, dbl const *y, size_t n);
 dbl dblN_nsum(dbl const *x, size_t n);
 
 typedef struct {

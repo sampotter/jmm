@@ -49,3 +49,35 @@ Ensure(vec, dblN_nsum_works_on_bad_bb32_df_example) {
   assert_that(nsum[0], is_equal_to(nsum[4]));
   assert_that(nsum[0], is_equal_to(nsum[5]));
 }
+
+Ensure(vec, dblN_ndot_works_on_bad_bb32_df_example) {
+  dbl x[3] = {
+    -0.16666666669920935,
+     0.16666666663412383,
+    -3.2542760153297934E-11
+  };
+  dbl y[3] = {
+    0.33333333339841881,
+    0.33333333320316222,
+    0.33333333339841892
+  };
+  int perm[6][3] = {
+    {0, 1, 2}, {0, 2, 1},
+    {1, 0, 2}, {2, 0, 1},
+    {1, 2, 0}, {2, 1, 0}
+  };
+  dbl xperm[3], yperm[3], ndot[6];
+  for (int i = 0; i < 6; ++i) {
+    for (int j = 0; j < 3; ++j) {
+      xperm[j] = x[perm[i][j]];
+      yperm[j] = y[perm[i][j]];
+    }
+    ndot[i] = dblN_ndot(xperm, yperm, 3);
+  }
+  // See comment in `dblN_nsum_works_on_bad_bb32_df_example`.
+  assert_that(ndot[0], is_equal_to(ndot[1]));
+  assert_that(ndot[0], is_equal_to(ndot[2]));
+  assert_that(ndot[0], is_equal_to(ndot[3]));
+  assert_that(ndot[0], is_equal_to(ndot[4]));
+  assert_that(ndot[0], is_equal_to(ndot[5]));
+}
