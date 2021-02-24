@@ -44,6 +44,9 @@ void dbl3_copy(dbl const u[3], dbl v[3]);
 dbl dbl3_ndot(dbl const u[3], dbl const v[3]);
 
 bool dbl4_nonneg(dbl const u[4]);
+dbl dbl4_norm(dbl const u[4]);
+void dbl4_saxpy(dbl a, dbl const x[4], dbl const y[4], dbl z[4]);
+void dbl4_sub(dbl const u[4], dbl const v[4], dbl w[4]);
 dbl dbl4_sum(dbl const u[4]);
 
 dbl dblN_mean(dbl const *x, size_t n);

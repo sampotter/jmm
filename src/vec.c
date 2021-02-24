@@ -164,6 +164,24 @@ bool dbl4_nonneg(dbl const u[4]) {
   return u[0] >= 0 && u[1] >= 0 && u[2] >= 0 && u[3] >= 0;
 }
 
+dbl dbl4_norm(dbl const u[4]) {
+  return sqrt(u[0]*u[0] + u[1]*u[1] + u[2]*u[2] + u[3]*u[3]);
+}
+
+void dbl4_saxpy(dbl a, dbl const x[4], dbl const y[4], dbl z[4]) {
+  z[0] = a*x[0] + y[0];
+  z[1] = a*x[1] + y[1];
+  z[2] = a*x[2] + y[2];
+  z[3] = a*x[3] + y[3];
+}
+
+void dbl4_sub(dbl const u[4], dbl const v[4], dbl w[4]) {
+  w[0] = u[0] - v[0];
+  w[1] = u[1] - v[1];
+  w[2] = u[2] - v[2];
+  w[3] = u[3] - v[3];
+}
+
 dbl dbl4_sum(dbl const u[4]) {
   return u[0] + u[1] + u[2] + u[3];
 }
