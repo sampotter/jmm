@@ -160,6 +160,12 @@ dbl dbl3_ndot(dbl const u[3], dbl const v[3]) {
   return dblN_ndot(u, v, 3); // TODO: inline and optimize me!
 }
 
+bool dbl3_valid_bary_coord(dbl const b[3]) {
+  dbl const atol = 1e-15;
+  return b[0] > -atol && b[1] > -atol && b[2] > -atol
+    && fabs(1 - dbl3_sum(b)) < atol;
+}
+
 bool dbl4_nonneg(dbl const u[4]) {
   return u[0] >= 0 && u[1] >= 0 && u[2] >= 0 && u[3] >= 0;
 }
@@ -184,6 +190,12 @@ void dbl4_sub(dbl const u[4], dbl const v[4], dbl w[4]) {
 
 dbl dbl4_sum(dbl const u[4]) {
   return u[0] + u[1] + u[2] + u[3];
+}
+
+bool dbl4_valid_bary_coord(dbl const b[4]) {
+  dbl const atol = 1e-15;
+  return b[0] > -atol && b[1] > -atol && b[2] > -atol && b[3] > -atol
+    && fabs(1 - dbl4_sum(b)) < atol;
 }
 
 dbl dblN_mean(dbl const *x, size_t n) {

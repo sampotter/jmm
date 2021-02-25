@@ -216,9 +216,7 @@ void utetra_set_lambda(utetra_s *cf, dbl const lam[2]) {
   b[2] = lam[1];
   b[0] = 1 - b[1] - b[2];
 
-  assert(b[0] >= -atol);
-  assert(b[1] >= -atol);
-  assert(b[2] >= -atol);
+  assert(dbl3_valid_bary_coord(b));
 
   dbl33_dbl3_mul(cf->X, b, xb);
   dbl3_sub(cf->x, xb, cf->x_minus_xb);
@@ -349,7 +347,7 @@ void utetra_get_lag_mults(utetra_s const *cf, dbl alpha[3]) {
     alpha[1] = 0;
     alpha[2] = -cf->g[1];
   } else {
-    assert(b[0] > -atol && b[1] > -atol && b[2] > -atol);
+    assert(dbl3_valid_bary_coord(b));
   }
 }
 
