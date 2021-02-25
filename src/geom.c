@@ -290,42 +290,6 @@ void get_bary_coords_3d(dbl const *x[3], dbl const y[3], dbl b[3]) {
   b[2] = tri_area(x[0], x[1], y)/area;
 }
 
-bool adj_tetra_pair_is_convex(mesh3_s const *mesh, size_t l0,
-                              size_t const lf[3], size_t l1) {
-  // Get vertex data from mesh
-  // TODO: probably faster to just get pointers
-  dbl x0[3], x1[3], x[3][3];
-  mesh3_copy_vert(mesh, l0, x0);
-  mesh3_copy_vert(mesh, l1, x1);
-  for (int i = 0; i < 3; ++i)
-    mesh3_copy_vert(mesh, lf[i], x[i]);
-
-  dbl dx[2][3];
-  dbl3_sub(x[1], x[0], dx[0]);
-  dbl3_sub(x[2], x[0], dx[1]);
-
-  // Compute normal vector for plane spanned by (x1 - x0, x2 - x0).
-  dbl n[3];
-  dbl3_cross(dx[0], dx[1], n);
-  dbl area = dbl3_normalize(n)/2;
-
-  // Find intersection between line [x0, x1] and plane p(x) = n'*(x - x0).
-  dbl d[3];
-  dbl3_sub(x1, x0, d);
-  dbl s = (dbl3_dot(n, x[0]) - dbl3_dot(n, x0))/dbl3_dot(n, d);
-  dbl xs[3];
-  dbl3_saxpy(s, x0, d, xs);
-
-  // Compute barycentric coordinates of xs
-  dbl const b[3] = {
-    tri_area(xs, x[1], x[2])/area,
-    tri_area(x[0], xs, x[2])/area,
-    tri_area(x[0], x[1], xs)/area
-  };
-
-  return b[0] > 0 && b[1] > 0 && b[2] > 0;
-}
-
 dbl min_tetra_altitude(dbl const x[4][3]) {
   dbl n[3], dx[3][3];
 

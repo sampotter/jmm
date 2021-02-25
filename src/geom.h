@@ -77,15 +77,6 @@ dbl tri_area(dbl const x[3], dbl const y[3], dbl const z[3]);
 void get_bary_coords_3d(dbl const *x[3], dbl const y[3], dbl b[3]);
 
 /**
- * Check if a pair of tetrahedra in `mesh` is convex. The tetrahedron
- * are required to share the face indexed by `lf`. The indices `l0`
- * and `l1` index the points on either side of the separating face
- * `lf`.
- */
-bool adj_tetra_pair_is_convex(mesh3_s const *mesh, size_t l0,
-                              size_t const lf[3], size_t l1);
-
-/**
  * Compute the minimum altitude of the tetrahedron with vertices given
  * by `x`.
  */
