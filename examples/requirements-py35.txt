@@ -1,7 +1,7 @@
 # pip requirements file for running any example in this directory
 
 colorcet
-matplotlib
+matplotlib==3.0.0
 meshio
 meshzoo
 pyvista

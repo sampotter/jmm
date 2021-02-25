@@ -12,7 +12,7 @@ before_script:
   - python3 -m venv .
   - source bin/activate
   - pip install -r requirements-py35.txt
-  - pip install -r examples/requirements.txt
+  - pip install -r examples/requirements-py35.txt
 script:
   - ./quick_build.sh
   - ./quick_test.sh
