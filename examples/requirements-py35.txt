@@ -7,4 +7,4 @@ meshzoo
 pyvista
 pyvistaqt
 scipy==1.4.0
-skimage
+scikit-image
