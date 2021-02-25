@@ -204,57 +204,77 @@ bool ray3_intersects_rect3(ray3 const *ray, rect3 const *rect, dbl *t) {
 bool ray3_intersects_tri3(ray3 const *ray, tri3 const *tri, dbl *t) {
   dbl const atol = 1e-15;
 
-  dbl dv[2][3], n[3];
+  dbl const *v[3] = {tri->v[0], tri->v[1], tri->v[2]};
+  dbl dv[2][3], n[3], b[3], xt[3];
   dbl3_sub(tri->v[1], tri->v[0], dv[0]);
   dbl3_sub(tri->v[2], tri->v[0], dv[1]);
   dbl3_cross(dv[0], dv[1], n);
   dbl3_normalize(n); // TODO: probably unnecessary
 
+  // First, check if the origin of the ray lies in the plane of the
+  // triangle.
+  *t = dbl3_dot(n, tri->v[0]) - dbl3_dot(n, ray->org);
+  if (fabs(*t) < atol) {
+    get_bary_coords_3d(v, ray->org, b);
+    return dbl3_valid_bary_coord(b);
+  }
+
   // If the ray direction and triangle normal are orthogonal, then the
-  // triangle would appear infinitely thin to the ray, so just return
-  // false here.
+  // triangle would appear infinitely thin to the ray, so return false
   if (fabs(dbl3_dot(n, ray->dir)) < atol)
     return false;
 
-  // First, compute the ray parameter---if it's negative, the triangle
-  // is behind the start of the ray and we can return early.
-  //
-  // TODO: should check if the ray lies in the same plane as the
-  // triangle... maybe this is automatically handled by the cases
-  // below...
-  *t = dbl3_dot(n, tri->v[0]) - dbl3_dot(n, ray->org);
+  // Compute the ray parameter---if it's negative, the triangle is
+  // behind the start of the ray and we can return early.
   *t /= dbl3_dot(n, ray->dir);
   if (*t < 0)
     return false;
 
-  // Next, check if the ray points through the triangle
-  //
-  // TODO: redundant calculations happening here!
-  dbl lam[3];
-  dbl X[3][3];
-  dbl3_sub(tri->v[1], tri->v[0], X[0]);
-  dbl3_sub(tri->v[2], tri->v[0], X[1]);
-  dbl3_copy(tri->v[0], X[2]);
-  dbl33_transpose(X);
-
-  dbl xt[3];
+  // Finally, check whether the ray passes through the triangle
   dbl3_saxpy(*t, ray->dir, ray->org, xt);
-  dbl33_dbl3_solve(X, xt, lam);
+  get_bary_coords_3d(v, xt, b);
+  return dbl3_valid_bary_coord(b);
+}
 
-  return lam[0] >= 0 && lam[1] >= 0 && lam[0] + lam[1] <= 1;
+static void tetra3_get_face(tetra3 const *tetra, int p[3], tri3 *tri) {
+  assert(p[0] != p[1] && p[1] != p[2]);
+  for (int i = 0; i < 3; ++i) {
+    assert(0 <= p[i] && p[i] < 4);
+    for (int j = 0; j < 3; ++j)
+      tri->v[i][j] = tetra->v[p[i]][j];
+  }
 }
 
 bool ray3_intersects_tetra3(ray3 const *ray, tetra3 const *tetra, dbl *t) {
-  *t = INFINITY;
   tri3 tri;
-  int J[4][3] = {{1, 2, 3}, {0, 2, 3}, {0, 1, 3}, {0, 1, 2}};
   dbl s;
-  for (int i = 0; i < 4; ++i) {
-    for (int j = 0; j < 3; ++j)
-      memcpy(tri.v[j], tetra->v[J[i][j]], sizeof(dbl[3]));
-    if (ray3_intersects_tri3(ray, &tri, &s))
-      *t = fmin(*t, s);
-  }
+
+  *t = INFINITY;
+
+  /**
+   * Get each of the faces of tetra using `tetra3_get_face`, intersect
+   * `ray` with these faces, and set `*t` to the minimum intersection
+   * parameter.
+   */
+
+  tetra3_get_face(tetra, (int[]) {0, 1, 2}, &tri);
+  if (ray3_intersects_tri3(ray, &tri, &s))
+    *t = fmin(*t, s);
+
+  tetra3_get_face(tetra, (int[]) {0, 1, 3}, &tri);
+  if (ray3_intersects_tri3(ray, &tri, &s))
+    *t = fmin(*t, s);
+
+  tetra3_get_face(tetra, (int[]) {0, 2, 3}, &tri);
+  if (ray3_intersects_tri3(ray, &tri, &s))
+    *t = fmin(*t, s);
+
+  tetra3_get_face(tetra, (int[]) {1, 2, 3}, &tri);
+  if (ray3_intersects_tri3(ray, &tri, &s))
+    *t = fmin(*t, s);
+
+  // We've found an intersection if `*t < INFINITY` (its initial value
+  // at the start of `ray3_intersects_tetra`).
   return isfinite(*t);
 }
 

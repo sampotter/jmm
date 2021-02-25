@@ -144,6 +144,7 @@ if (BUILD_TESTS)
     test/test_bb3tet.c
     test/test_edgemap.c
     test/test_eik3.c
+    test/test_geom.c
     test/test_opt.c
     test/test_mat.c
     test/test_mesh2.c
