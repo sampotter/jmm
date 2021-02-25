@@ -5,6 +5,7 @@ matplotlib==3.0.0
 meshio
 meshzoo
 pillow==7.0.0
+pyqt5==5.14
 pyvista
 pyvistaqt
 scipy==1.4.0
