@@ -134,10 +134,11 @@ if __name__ == '__main__':
                 Img[i, j] += TriAlpha*TriColor
             elif isect.obj.type.value == 1:
                 tetra = isect.obj.astype(jmm.Mesh3Tetra)
-                tet_inds.add(tetra.index) # For debugging...
+                l = tetra.index
+                tet_inds.add(l) # For debugging...
                 cell = level_bmesh.get_cell(tetra.index)
                 ray = jmm.Ray3(org, dir_)
-                print(f'cell.ray_intersects_level(l = {tetra.index})')
+                print('cell.ray_intersects_level(l = %d)' % (l,))
                 b = cell.ray_intersects_level(ray, LEVEL)
                 if b is not None:
                     print(b)
