@@ -5,6 +5,11 @@ from mesh2 cimport mesh2
 cdef extern from "mesh3.h":
     cdef struct mesh3:
         pass
+
+    cdef struct mesh3_tetra:
+        mesh3 *mesh
+        size_t l
+
     void mesh3_alloc(mesh3 **mesh)
     void mesh3_dealloc(mesh3 **mesh)
     void mesh3_init(mesh3 *mesh,

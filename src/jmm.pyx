@@ -311,8 +311,9 @@ cdef class Mesh2:
 
 class RobjType(Enum):
     Mesh2Tri = 0
-    Tri3 = 1
-    Tetra3 = 2
+    Mesh3Tetra = 1
+    Tri3 = 2
+    Tetra3 = 3
 
 class RtreeSplitStrategy(Enum):
     SurfaceArea = 0
@@ -346,10 +347,12 @@ cdef class Robj:
         return hit, t
 
     def astype(self, Class):
-        Classes = {Mesh2Tri}
+        Classes = {Mesh2Tri, Mesh3Tetra}
         if isinstance(Class, type):
             if Class is Mesh2Tri:
                 return Mesh2Tri.from_robj_ptr(self._obj)
+            elif Class is Mesh3Tetra:
+                return Mesh3Tetra.from_robj_ptr(self._obj)
             else:
                 raise Exception(f'`Class` should be one of: {Classes}')
         else:
@@ -658,6 +661,23 @@ class Dial:
     @property
     def state(self):
         return np.asarray(self._dial.state)
+
+cdef class Mesh3Tetra:
+    cdef mesh3_tetra *_tetra
+
+    @staticmethod
+    cdef from_robj_ptr(const robj *obj):
+        tetra = Mesh3Tetra()
+        tetra._tetra = <mesh3_tetra *>robj_get_data(obj)
+        return tetra
+
+    @property
+    def mesh(self):
+        return Mesh3.from_ptr(self._tetra.mesh)
+
+    @property
+    def index(self):
+        return self._tetra.l
 
 cdef class Mesh3:
     cdef:
