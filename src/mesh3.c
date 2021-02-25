@@ -476,41 +476,10 @@ void mesh3_get_cell_bbox(mesh3_s const *mesh, size_t i, rect3 *bbox) {
   }
 }
 
-bool mesh3_dbl3_in_cell(mesh3_s const *mesh, size_t lc, dbl const x[3],
-                        dbl b[4]) {
-  dbl const atol = 1e-13;
-
-  assert(lc < mesh->ncells);
-
-  size_t const *c = &mesh->cells[lc].data[0];
-
-  dbl lhs[4][4];
-  for (int j = 0; j < 4; ++j) {
-    lhs[0][j] = 1;
-    for (int i = 1; i < 4; ++i) {
-      lhs[i][j] = mesh->verts[c[j]].data[i - 1];
-    }
-  }
-
-  dbl vol = dbl44_det(lhs);
-
-  dbl rhs[4];
-  rhs[0] = 1;
-  for (int i = 1; i < 4; ++i) {
-    rhs[i] = x[i - 1];
-  }
-
-  dbl tmp[4];
-  for (int j = 0; j < 4; ++j) {
-    dbl44_get_col(lhs, j, tmp);
-    dbl44_set_col(lhs, j, rhs);
-    b[j] = dbl44_det(lhs)/vol;
-    dbl44_set_col(lhs, j, tmp);
-  }
-
-  // After solving this system, the components of b will sum to unity,
-  // so we just need to check if b is nonnegative.
-  return b[0] >= -atol && b[1] >= -atol && b[2] >= -atol && b[3] >= -atol;
+bool mesh3_dbl3_in_cell(mesh3_s const *mesh, size_t lc, dbl const x[3], dbl b[4]) {
+  tetra3 tetra = mesh3_get_tetra(mesh, lc);
+  tetra3_get_bary_coords(&tetra, x, b);
+  return dbl4_valid_bary_coord(b);
 }
 
 int mesh3_nvc(mesh3_s const *mesh, size_t i) {
