@@ -21,6 +21,7 @@ typedef struct {
   dbl v[4][3];
 } tetra3;
 
+void tetra3_get_bary_coords(tetra3 const *tetra, dbl const x[3], dbl b[4]);
 void tetra3_get_centroid(tetra3 const *tetra, dbl centroid[3]);
 
 typedef struct {

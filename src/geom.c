@@ -18,6 +18,25 @@ void tri3_get_centroid(tri3 const *tri, dbl c[3]) {
   }
 }
 
+void tetra3_get_bary_coords(tetra3 const *tetra, dbl const x[3], dbl b[4]) {
+  dbl lhs[4][4];
+  for (int j = 0; j < 4; ++j) {
+    lhs[0][j] = 1;
+    for (int i = 1; i < 4; ++i)
+      lhs[i][j] = tetra->v[j][i - 1];
+  }
+
+  dbl rhs[4] = {1, x[0], x[1], x[2]}, vol = dbl44_det(lhs);
+
+  dbl tmp[4];
+  for (int j = 0; j < 4; ++j) {
+    dbl44_get_col(lhs, j, tmp);
+    dbl44_set_col(lhs, j, rhs);
+    b[j] = dbl44_det(lhs)/vol;
+    dbl44_set_col(lhs, j, tmp);
+  }
+}
+
 void tetra3_get_centroid(tetra3 const *tetra, dbl c[3]) {
   for (int j = 0; j < 3; ++j) {
     c[j] = 0;
