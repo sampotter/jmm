@@ -1,0 +1,10 @@
+# pip requirements file for running any example in this directory
+
+colorcet
+matplotlib
+meshio
+meshzoo
+pyvista
+pyvistaqt
+scipy
+skimage

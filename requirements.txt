@@ -1,0 +1,4 @@
+# pip requirements file for installing the Python bindings for libjmm
+
+cython
+numpy
