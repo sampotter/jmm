@@ -154,7 +154,7 @@ bool utetra_is_causal(utetra_s const *cf) {
 }
 
 void utetra_step(utetra_s *cf) {
-  dbl const atol = 1e-15, c1 = 1e-2;
+  dbl const atol = 1e-15, c1 = 1e-4;
 
   dbl lam1[2], f, c1_times_g_dot_p, beta;
 
@@ -169,10 +169,12 @@ void utetra_step(utetra_s *cf) {
   dbl2_saxpy(beta, p, lam, lam1);
   utetra_set_lambda(cf, lam1);
   while (cf->f > f + beta*c1_times_g_dot_p + atol) {
-    beta /= 2;
+    beta *= 0.9;
     dbl2_saxpy(beta, p, lam, lam1);
     utetra_set_lambda(cf, lam1);
   }
+
+  ++cf->niter;
 }
 
 /**
@@ -185,9 +187,14 @@ void utetra_solve(utetra_s *cf) {
   // cf->p, but maybe cf->p is more appropriate for constraint
   // Newton's method, since it takes into account the constraints
   // while cf->p doesn't.
+  int const max_niter = 100;
   dbl const atol = 1e-15, rtol = 1e-15, tol = rtol*dbl2_norm(cf->p) + atol;
-  do utetra_step(cf);
-  while (dbl2_norm(cf->p) > tol);
+  for (int _ = 0; _ < max_niter; ++_) {
+    if (dbl2_norm(cf->p) <= tol)
+      break;
+    utetra_step(cf);
+  }
+  // printf("solved: cf->niter = %d, |cf->p| = %0.16g\n", cf->niter, dbl2_norm(cf->p));
 }
 
 void utetra_get_lambda(utetra_s const *cf, dbl lam[2]) {
@@ -203,8 +210,6 @@ void utetra_set_lambda(utetra_s *cf, dbl const lam[2]) {
   // and dot products involving a1 or a2 with the Neumaier equivalent.
   static dbl a1[3] = {-1, 1, 0};
   static dbl a2[3] = {-1, 0, 1};
-
-  static dbl const atol = 1e-15;
 
   dbl b[3], xb[3], tmp1[3], tmp2[3][3], DL[2], D2L[2][2], DT[2], D2T[2][2];
   dbl tmp3[2];
