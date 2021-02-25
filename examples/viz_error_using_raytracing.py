@@ -3,13 +3,16 @@
 import colorcet as cc
 import itertools as it
 import jmm
+import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import os
 import scipy.optimize
 
 from common import get_camera_basis, get_view_direction
+from PIL import Image
 
+matplotlib.use('agg')
 plt.ion()
 
 LEVEL = 0.5
@@ -80,30 +83,73 @@ if __name__ == '__main__':
 
     T = np.empty((num_rays,), dtype=np.float64)
     I = np.empty((num_rays,), dtype=np.float64)
+    Type = np.empty((num_rays,), dtype=np.float64)
     for l, (org, dir_) in enumerate(zip(orgs, dirs)):
+        assert abs(1 - np.linalg.norm(dir_)) < 1e-15
         isect = level_rtree.intersect(org, dir_)
         T[l] = isect.t if isect.hit else np.nan
         I[l] = isect.obj.astype(jmm.Mesh2Tri).index if isect.hit else np.nan
+        Type[l] = isect.obj.type.value if isect.hit else np.nan
     T = T.reshape(h, w)
     I = I.reshape(h, w)
+    Type = Type.reshape(h, w)
+    print('- finished raytracing')
 
-    plt.figure(figsize=(9, 4))
+    plt.figure(figsize=(12, 4))
 
-    plt.subplot(1, 2, 1)
+    plt.subplot(1, 3, 1)
     plt.imshow(I, cmap=cc.cm.rainbow, interpolation='none')
     plt.gca().set_aspect('equal')
     plt.colorbar()
     plt.title("index")
 
-    plt.subplot(1, 2, 2)
+    plt.subplot(1, 3, 2)
     plt.imshow(T, cmap=cc.cm.bmw)
     plt.gca().set_aspect('equal')
     plt.colorbar()
     plt.title("$t$")
 
+    plt.subplot(1, 3, 3)
+    plt.imshow(Type, cmap=cc.cm.rainbow)
+    plt.gca().set_aspect('equal')
+    plt.colorbar()
+    plt.title('Type')
+
     plt.tight_layout()
 
     plt.show()
+
+    print('- finished making plot')
+
+    tet_inds = set()
+    TriColor = np.array([0.5, 0.5, 1.0])
+    TriAlpha = 0.1
+    Img = np.empty((h, w, 3), dtype=np.float64)
+    Img[:] = 1
+    for (i, j), org, dir_ in zip(it.product(range(h), range(w)), orgs.copy(), dirs.copy()):
+        isect = level_rtree.intersect(org, dir_)
+        while isect.hit:
+            if isect.obj.type.value == 0: # Mesh2Tri
+                Img[i, j] *= 1 - TriAlpha
+                Img[i, j] += TriAlpha*TriColor
+            elif isect.obj.type.value == 1:
+                tetra = isect.obj.astype(jmm.Mesh3Tetra)
+                tet_inds.add(tetra.index) # For debugging...
+                cell = level_bmesh.get_cell(tetra.index)
+                ray = jmm.Ray3(org, dir_)
+                print(f'cell.ray_intersects_level(l = {tetra.index})')
+                b = cell.ray_intersects_level(ray, LEVEL)
+                if b is not None:
+                    print(b)
+            org += (isect.t + 1e-10)*dir_
+            isect = level_rtree.intersect(org, dir_)
+    print('- finished raytracing for image')
+    plt.figure()
+    plt.imshow(Img, cmap=cc.cm.gray, vmin=0, vmax=1, interpolation='none')
+    plt.gca().set_aspect('equal')
+    plt.tight_layout()
+    plt.show()
+    print('- plotted image')
 
     f = np.array([0, 1, 1, 1], dtype=np.float64)
     Df = np.zeros((4, 3), dtype=np.float64); Df[1, 0] = 1; Df[2, 1] = 1; Df[3, 2] = 1;

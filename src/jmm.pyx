@@ -127,6 +127,21 @@ cdef class Bb33:
     def convex_hull_brackets_value(self, dbl value):
         return bb33_convex_hull_brackets_value(&self._bb, value)
 
+cdef class Bmesh33Cell:
+    cdef bmesh33_cell cell
+
+    @staticmethod
+    cdef from_cell(bmesh33_cell cell):
+        cell_ = Bmesh33Cell()
+        cell_.cell = cell
+        return cell_
+
+    def ray_intersects_level(self, Ray3 ray, dbl level):
+        cdef dbl t
+        cdef dbl[::1] b = np.empty((4,), dtype=np.float64)
+        if bmesh33_cell_ray_intersects_level(&self.cell, &ray._ray, level, &b[0]):
+            return np.asarray(b)
+
 cdef class Bmesh33:
     cdef:
         bool ptr_owner
@@ -165,6 +180,9 @@ cdef class Bmesh33:
     def get_level_bmesh(self, dbl level):
         return Bmesh33.from_ptr(
             bmesh33_get_level_bmesh(self.bmesh, level), ptr_owner=True)
+
+    def get_cell(self, size_t l):
+        return Bmesh33Cell.from_cell(bmesh33_get_cell(self.bmesh, l))
 
 cdef class Grid3:
     cdef grid3 _grid
