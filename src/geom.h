@@ -11,6 +11,10 @@ typedef struct {
   dbl min[3], max[3];
 } rect3;
 
+bool mesh3_tetra_contains_point(mesh3_tetra_s const *tetra, dbl const x[3]);
+void mesh3_tetra_get_bary_coords(mesh3_tetra_s const *tetra, dbl const x[3], dbl b[4]);
+void mesh3_tetra_get_point(mesh3_tetra_s const *tetra, dbl const b[4], dbl x[3]);
+
 typedef struct {
   dbl v[3][3];
 } tri3;
@@ -21,8 +25,10 @@ typedef struct {
   dbl v[4][3];
 } tetra3;
 
+bool tetra3_contains_point(tetra3 const *tetra, dbl const x[3]);
 void tetra3_get_bary_coords(tetra3 const *tetra, dbl const x[3], dbl b[4]);
 void tetra3_get_centroid(tetra3 const *tetra, dbl centroid[3]);
+void tetra3_get_point(tetra3 const *tetra, dbl const b[4], dbl x[3]);
 
 typedef struct {
   /**
@@ -50,6 +56,7 @@ bool rect3_overlaps(rect3 const *r1, rect3 const *r2);
 bool rect3_occludes_ray3(rect3 const *rect, ray3 const *ray);
 
 bool ray3_intersects_rect3(ray3 const *ray, rect3 const *rect, dbl *t);
+bool ray3_intersects_mesh3_tetra(ray3 const *ray, mesh3_tetra_s const *tetra, dbl *t);
 bool ray3_intersects_tri3(ray3 const *ray, tri3 const *tri, dbl *t);
 bool ray3_intersects_tetra3(ray3 const *ray, tetra3 const *tetra, dbl *t);
 

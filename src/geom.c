@@ -9,6 +9,21 @@
 #include "mesh3.h"
 #include "vec.h"
 
+bool mesh3_tetra_contains_point(mesh3_tetra_s const *tetra, dbl const x[3]) {
+  tetra3 tetra_ = mesh3_get_tetra(tetra->mesh, tetra->l);
+  return tetra3_contains_point(&tetra_, x);
+}
+
+void mesh3_tetra_get_bary_coords(mesh3_tetra_s const *tetra, dbl const x[3], dbl b[4]) {
+  tetra3 tetra_ = mesh3_get_tetra(tetra->mesh, tetra->l);
+  tetra3_get_bary_coords(&tetra_, x, b);
+}
+
+void mesh3_tetra_get_point(mesh3_tetra_s const *tetra, dbl const b[4], dbl x[3]) {
+  tetra3 tetra_ = mesh3_get_tetra(tetra->mesh, tetra->l);
+  tetra3_get_point(&tetra_, b, x);
+}
+
 void tri3_get_centroid(tri3 const *tri, dbl c[3]) {
   for (int j = 0; j < 3; ++j) {
     c[j] = 0;
@@ -16,6 +31,12 @@ void tri3_get_centroid(tri3 const *tri, dbl c[3]) {
       c[j] += tri->v[i][j];
     c[j] /= 3;
   }
+}
+
+bool tetra3_contains_point(tetra3 const *tetra, dbl const x[3]) {
+  dbl b[4];
+  tetra3_get_bary_coords(tetra, x, b);
+  return dbl4_valid_bary_coord(b);
 }
 
 void tetra3_get_bary_coords(tetra3 const *tetra, dbl const x[3], dbl b[4]) {
@@ -44,6 +65,13 @@ void tetra3_get_centroid(tetra3 const *tetra, dbl c[3]) {
       c[j] += tetra->v[i][j];
     c[j] /= 4;
   }
+}
+
+void tetra3_get_point(tetra3 const *tetra, dbl const b[4], dbl x[3]) {
+  x[0] = x[1] = x[2] = 0;
+  for (int i = 0; i < 4; ++i)
+    for (int j = 0; j < 3; ++j)
+      x[j] += b[i]*tetra->v[i][j];
 }
 
 rect3 rect3_make_empty(void) {
@@ -199,6 +227,11 @@ bool ray3_intersects_rect3(ray3 const *ray, rect3 const *rect, dbl *t) {
     *t = fmin(*t, s);
 
   return *t >= 0;
+}
+
+bool ray3_intersects_mesh3_tetra(ray3 const *ray, mesh3_tetra_s const *tetra, dbl *t) {
+  tetra3 tetra_ = mesh3_get_tetra(tetra->mesh, tetra->l);
+  return ray3_intersects_tetra3(ray, &tetra_, t);
 }
 
 bool ray3_intersects_tri3(ray3 const *ray, tri3 const *tri, dbl *t) {
