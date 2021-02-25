@@ -6,5 +6,5 @@ meshio
 meshzoo
 pyvista
 pyvistaqt
-scipy
+scipy==1.4.0
 skimage
