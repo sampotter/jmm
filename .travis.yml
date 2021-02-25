@@ -15,3 +15,5 @@ before_script:
 script:
   - ./quick_build.sh
   - ./quick_test.sh
+  # Run examples
+  - python examples/viz_error_using_raytracing.py
