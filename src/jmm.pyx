@@ -83,18 +83,27 @@ cdef class ArrayView:
 cdef class Bb33:
     cdef bb33 _bb
 
-    def __cinit__(self, dbl[:] f, dbl[:, :] Df, dbl[:, :] x):
+    @staticmethod
+    def from_3d_data(dbl[:] f, dbl[:, :] Df, dbl[:, :] x):
         if f.size != 4 or f.shape[0] != 4:
             raise Exception('`f` must be a length 4 vector')
         if Df.size != 12 or Df.shape[0] != 4 or Df.shape[1] != 3:
             raise Exception('`Df` must have shape (4, 3)')
         if x.size != 12 or x.shape[0] != 4 or x.shape[1] != 3:
             raise Exception('`x` must have shape (4, 3)')
+        bb = Bb33()
         bb33_init_from_3d_data(
-            &self._bb,
+            &bb._bb,
             &f[0],
             <const dbl (*)[3]>&Df[0, 0],
             <const dbl (*)[3]>&x[0, 0])
+        return bb
+
+    @staticmethod
+    cdef from_bb33(bb33 bb):
+        bb_ = Bb33()
+        bb_._bb = bb
+        return bb_
 
     def f(self, dbl[:] b):
         if b.size != 4 or b.shape[0] != 4:

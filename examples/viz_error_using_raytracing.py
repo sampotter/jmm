@@ -98,3 +98,9 @@ if __name__ == '__main__':
     plt.tight_layout()
 
     plt.show()
+
+    f = np.array([0, 1, 1, 1], dtype=np.float64)
+    Df = np.zeros((4, 3), dtype=np.float64); Df[1, 0] = 1; Df[2, 1] = 1; Df[3, 2] = 1;
+    X = Df.copy()
+    bb = jmm.Bb33.from_3d_data(f, Df, X)
+    print('- set up test Bezier tetrahedron')
