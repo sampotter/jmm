@@ -701,7 +701,7 @@ cdef class Mesh3Tetra:
 
     @property
     def mesh(self):
-        return Mesh3.from_ptr(self._tetra.mesh)
+        return Mesh3.from_ptr(<mesh3 *>self._tetra.mesh)
 
     @property
     def index(self):
