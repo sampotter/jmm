@@ -33,8 +33,10 @@ if __name__ == '__main__':
     eik = jmm.Eik3(mesh)
     eik.add_trial(indsrc, jmm.Jet3(0, np.nan, np.nan, np.nan))
     eik.solve()
+    print('- solved point source problem')
 
     bmesh = jmm.Bmesh33.from_eik3(eik)
+    print('- assembled Bernstein-Bezier mesh for solution')
 
     # Initialize an R-tree (don't build the BVH yet!) with the
     # triangles in the surface mesh of our domain. For each level in
@@ -44,12 +46,15 @@ if __name__ == '__main__':
     surface_mesh = mesh.get_surface_mesh()
     base_rtree = jmm.Rtree()
     base_rtree.insert(surface_mesh)
+    print('- got surface mesh and inserted into BVH')
 
     level_bmesh = bmesh.get_level_bmesh(LEVEL)
+    print('- got Bernstein-Bezier mesh for level (T = %f)' % LEVEL)
 
     level_rtree = base_rtree.copy()
     level_rtree.insert(level_bmesh.mesh)
     level_rtree.build()
+    print('- built BVH for level set')
 
     # Compute camera frame (front x left x up)
     origin = np.array([-4, 0, 0], dtype=np.float64)
@@ -71,6 +76,7 @@ if __name__ == '__main__':
     orgs = np.outer(np.ones(num_rays), origin)
     dirs = np.array([get_view_direction(left, front, up, phi, theta)
                      for phi, theta in it.product(Phi, Theta)])
+    print('- set up camera rays')
 
     T = np.empty((num_rays,), dtype=np.float64)
     I = np.empty((num_rays,), dtype=np.float64)

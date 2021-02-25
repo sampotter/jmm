@@ -383,7 +383,8 @@ cdef class Isect:
 
     @property
     def obj(self):
-        return Robj.from_ptr(self._isect.obj)
+        if np.isfinite(self.t):
+            return Robj.from_ptr(self._isect.obj)
 
 cdef class Rtree:
     '''An R-tree data structure, intended to be used for speeding up
