@@ -100,6 +100,13 @@ dbl dbl3_normalize(dbl u[3]) {
   return unorm;
 }
 
+void dbl3_normalized(dbl const u[3], dbl v[3]) {
+  dbl unorm = dbl3_norm(u);
+  v[0] = u[0]/unorm;
+  v[1] = u[1]/unorm;
+  v[2] = u[2]/unorm;
+}
+
 void dbl3_saxpy(dbl a, dbl const x[3], dbl const y[3], dbl z[3]) {
   z[0] = a*x[0] + y[0];
   z[1] = a*x[1] + y[1];
