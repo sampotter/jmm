@@ -54,7 +54,7 @@ factoring radius (TODO: not currently being used)''', default=None)
     cells = cells.reshape(cells.size//4, 4)
     print('- reading cells from %s' % cells_bin_path)
 
-    mesh = jmm.Mesh3(verts, cells)
+    mesh = jmm.Mesh3.from_verts_and_cells(verts, cells)
 
     eik = jmm.Eik3(mesh)
 

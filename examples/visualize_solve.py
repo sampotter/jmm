@@ -109,7 +109,7 @@ if __name__ == '__main__':
     cells = np.fromfile(cells_bin_path, np.uintp)
     cells = cells.reshape(cells.size//4, 4)
 
-    mesh = jmm.Mesh3(verts, cells)
+    mesh = jmm.Mesh3.from_verts_and_cells(verts, cells)
 
     eik = jmm.Eik3(mesh)
 

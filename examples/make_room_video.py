@@ -33,7 +33,7 @@ print('%d points and %d cells' % (num_points, num_cells))
 
 # Compute eikonal
 
-mesh = jmm.Mesh3(points, cells)
+mesh = jmm.Mesh3.from_verts_and_cells(points, cells)
 eik = jmm.Eik3(mesh)
 eik.add_trial(3019, jmm.Jet3(0, np.nan, np.nan, np.nan))
 eik.solve()

@@ -164,7 +164,7 @@ if __name__ == '__main__':
     points = grid.points.copy().astype(np.float64)
     cells = grid.cells.reshape(-1, 5)[:, 1:].copy().astype(np.uintp)
 
-    mesh = jmm.Mesh3(verts, cells)
+    mesh = jmm.Mesh3.from_verts_and_cells(verts, cells)
 
     eik = jmm.Eik3(mesh)
     eik.add_trial(indsrc, 0)
