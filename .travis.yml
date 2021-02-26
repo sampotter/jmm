@@ -9,6 +9,9 @@ before_script:
   - git clone https://github.com/sampotter/cgreen
   - cd cgreen; make; sudo make install; cd -
   - sudo ldconfig # ...
+  - wget https://www.umiacs.umd.edu/~sfp/tetgen1.6.0.zip
+  - unzip tetgen1.6.0.zip
+  - cd tetgen1.6.0; make -j; cd -; mkdir Build; mv tetgen1.6.0 Build
   - python3 -m venv .
   - source bin/activate
   - pip install -r requirements-py35.txt
