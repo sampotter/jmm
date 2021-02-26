@@ -37,4 +37,5 @@ cdef extern from "mesh3.h":
     bool mesh3_bde(const mesh3 *mesh, const size_t l[2])
     bool mesh3_bdf(const mesh3 *mesh, const size_t l[3])
     bool mesh3_is_diff_edge(const mesh3 *mesh, const size_t l[2])
+    dbl mesh3_get_min_tetra_alt(const mesh3 *mesh)
     mesh2 *mesh3_get_surface_mesh(const mesh3 *mesh)

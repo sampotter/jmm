@@ -851,6 +851,14 @@ cdef class Mesh3:
         l[1] = j
         return mesh3_is_diff_edge(self.mesh, l)
 
+    @property
+    def min_tetra_alt(self):
+        '''The minimum tetrahedron altitude, taken over all cells in this
+instance of `jmm.Mesh3`.
+
+        '''
+        return mesh3_get_min_tetra_alt(self.mesh)
+
     def get_surface_mesh(self):
         if not self.has_bd_info:
             raise Exception("mesh wasn't built with boundary info");
