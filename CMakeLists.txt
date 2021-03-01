@@ -45,6 +45,7 @@ set (JMM_SRCS
   src/bicubic.c
   src/bmesh.c
   src/bucket.c
+  src/camera.c
   src/cubic.c
   src/dial.c
   src/edge.c
@@ -143,6 +144,7 @@ if (BUILD_TESTS)
     test/test_bb3tri.c
     test/test_bb3tet.c
     test/test_bmesh33.c
+    test/test_camera.c
     test/test_edgemap.c
     test/test_eik3.c
     test/test_geom.c
