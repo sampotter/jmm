@@ -404,3 +404,9 @@ def min_tet_alt(i):
     return h
 
 min_tet_alts = np.array([min_tet_alt(i) for i in range(cells.shape[0])])
+
+
+f = np.array([0, 1, 1, 1], dtype=np.float64)
+Df = np.outer(np.ones(4), np.array([0, 0, 1], dtype=np.float64))
+X = np.array([[0, 0, 0], [-1, 1, 1], [1, 1, 1], [0, -1, 1]], dtype=np.float64)
+bb = jmm.Bb33.from_3d_data(f, Df, X)
