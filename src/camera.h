@@ -8,6 +8,7 @@ extern "C" {
 #include "geom.h"
 
 typedef enum camera_type {
+  CAMERA_TYPE_NONE,
   CAMERA_TYPE_ORTHOGRAPHIC,
   CAMERA_TYPE_PERSPECTIVE
 } camera_type_e;
@@ -20,7 +21,8 @@ typedef struct camera {
   size_t dim[2];
 } camera_s;
 
-ray3 camera_get_ray(camera_s const *camera, dbl x[2]);
+void camera_init(camera_s *camera);
+ray3 camera_get_ray_for_index(camera_s const *camera, int i, int j);
 
 #ifdef __cplusplus
 }
