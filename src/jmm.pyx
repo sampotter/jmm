@@ -136,12 +136,6 @@ cdef class Bmesh33Cell:
         cell_.cell = cell
         return cell_
 
-    def ray_intersects_level(self, Ray3 ray, dbl level):
-        cdef dbl t
-        cdef dbl[::1] b = np.empty((4,), dtype=np.float64)
-        if bmesh33_cell_ray_intersects_level(&self.cell, &ray._ray, level, &b[0]):
-            return np.asarray(b)
-
 cdef class Bmesh33:
     cdef:
         bool ptr_owner
@@ -163,6 +157,22 @@ cdef class Bmesh33:
         return bmesh
 
     @staticmethod
+    def from_mesh_and_jets(Mesh3 mesh, dbl[::1] f, dbl[:, ::1] Df):
+        cdef jet3 *jet = <jet3 *>malloc(f.size*sizeof(jet3))
+        cdef int i
+        for i in range(f.size):
+            jet[i].f = f[i]
+            jet[i].fx = Df[i, 0]
+            jet[i].fy = Df[i, 1]
+            jet[i].fz = Df[i, 2]
+        bmesh = Bmesh33()
+        bmesh.ptr_owner = True
+        bmesh33_alloc(&bmesh.bmesh)
+        bmesh33_init_from_mesh3_and_jets(bmesh.bmesh, mesh.mesh, jet)
+        free(jet)
+        return bmesh
+
+    @staticmethod
     cdef from_ptr(bmesh33 *bmesh_ptr, ptr_owner=False):
         bmesh = Bmesh33()
         bmesh.ptr_owner = ptr_owner
@@ -177,9 +187,9 @@ cdef class Bmesh33:
     def mesh(self):
         return Mesh3.from_ptr(<mesh3 *>bmesh33_get_mesh_ptr(self.bmesh))
 
-    def get_level_bmesh(self, dbl level):
+    def restrict_to_level(self, dbl level):
         return Bmesh33.from_ptr(
-            bmesh33_get_level_bmesh(self.bmesh, level), ptr_owner=True)
+            bmesh33_restrict_to_level(self.bmesh, level), ptr_owner=True)
 
     def get_cell(self, size_t l):
         return Bmesh33Cell.from_cell(bmesh33_get_cell(self.bmesh, l))

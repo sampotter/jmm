@@ -4,6 +4,8 @@
 extern "C" {
 #endif
 
+typedef struct bmesh33_cell bmesh33_cell_s;
+typedef struct bmesh33 bmesh33_s;
 typedef struct edgemap edgemap_s;
 typedef struct eik3 eik3_s;
 typedef struct field2 field2_s;

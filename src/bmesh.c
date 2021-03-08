@@ -8,32 +8,17 @@
 #include "geom.h"
 #include "hybrid.h"
 #include "mesh3.h"
+#include "util.h"
 
-typedef struct {
-  bb33 const *bb;
-  dbl b0[4], db[4];
-  dbl level;
-} bmesh33_cell_ray_intersects_level_context;
+bool bmesh33_cell_intersect(bmesh33_cell_s const *cell, ray3 const *ray, dbl *t) {
+  dbl const atol = 1e-13;
 
-static dbl
-bmesh33_cell_ray_intersects_level_hybrid_cost_func(
-  dbl t, bmesh33_cell_ray_intersects_level_context *context)
-{
-  dbl bt[4];
-  dbl4_saxpy(t, context->db, context->b0, bt);
-  return bb33_f(context->bb, bt) - context->level;
-}
-
-bool bmesh33_cell_ray_intersects_level(bmesh33_cell const *cell,
-                                       ray3 const *ray, dbl level, dbl b[4]) {
   // TODO: this a first draft... can definitely be
   // simplified/optimized/otherwise improved.
 
-  dbl const atol = 1e-13;
-
-  dbl t0, t1, x[3], b1[4];
   mesh3_tetra_s tetra = {cell->mesh, cell->l};
-  bmesh33_cell_ray_intersects_level_context context = {.bb = cell->bb, .level = level};
+
+  dbl t0, t1, x0[3], x1[3], b0[4], b1[4];
 
   /**
    * The first thing we need to do is define the interval which we're
@@ -50,61 +35,98 @@ bool bmesh33_cell_ray_intersects_level(bmesh33_cell const *cell,
   if (!ray3_intersects_mesh3_tetra(ray, &tetra, &t0))
     return false;
 
-  ray3 ray_ = *ray;
-  dbl3_saxpy(t0, ray->dir, ray->org, ray_.org);
-  if (ray3_intersects_mesh3_tetra(&ray_, &tetra, &t1)) {
-    dbl3_saxpy(t0, ray->dir, ray->org, x);
-    mesh3_tetra_get_bary_coords(&tetra, x, context.b0);
+  ray3_get_point(ray, t0, x0);
 
-    dbl3_saxpy(t1, ray_.dir, ray_.org, x);
-    mesh3_tetra_get_bary_coords(&tetra, x, b1);
-  } else {
+  bool overlap[4];
+  int face_inds[4][3] = {{0, 1, 2}, {0, 1, 3}, {0, 2, 3}, {1, 2, 3}};
+  tri3 tetra_face[4];
+  for (int i = 0; i < 4; ++i) {
+    tetra_face[i] = mesh3_tetra_get_face(&tetra, face_inds[i]);
+    overlap[i] = tri3_contains_point(&tetra_face[i], x0);
+  }
+
+  t1 = INFINITY;
+  for (int i = 0; i < 4; ++i) {
+    if (overlap[i]) continue;
+    dbl tmp;
+    if (ray3_intersects_tri3(ray, &tetra_face[i], &tmp))
+      t1 = fmin(tmp, t1);
+  }
+
+  // If `t1` is infinity, we either grazed the tetrahedron or shot a
+  // ray from inside the tetrahedron (or from its boundary). First we
+  // set the interval of interest to [0, t0] and then try to handle
+  // special cases early.
+  if (isinf(t1)) {
+    dbl3_copy(x0, x1);
+    dbl3_copy(ray->org, x0);
+
     t1 = t0;
     t0 = 0;
 
-    mesh3_tetra_get_bary_coords(&tetra, ray_.org, context.b0);
-
-    // TODO: a special case to handle later: if the `ray_.org` isn't
-    // in `tetra` and we only found one intersection point, then the
-    // ray grazed the tetrahedron. We can immediately check whether we
-    // hit the level set by just evaluating the Bezier tetrahedron at
-    // the intersection point and check whether it's equal to the
-    // level value.
-    if (!mesh3_tetra_contains_point(&tetra, ray_.org)) {
-      printf("t0 = %0.16g\nt1 = %g0.16\n", t0, t1);
-      for (int i = 0; i < 4; ++i)
-        printf("b0[%d] = %0.16g\n", i, context.b0[i]);
-      printf("sum(b0) = %0.16g\n", dbl4_sum(context.b0));
-      assert(false);
+    // If `x0` isn't in `tetra` and we only found one intersection
+    // point, then the ray grazed the tetrahedron. We can immediately
+    // check whether we hit the level set by evaluating the Bezier
+    // tetra to check if the ray hit (which is now parametrized by t =
+    // t1) lies on the level set.
+    if (!mesh3_tetra_contains_point(&tetra, x0)) {
+      mesh3_tetra_get_bary_coords(&tetra, x1, b1);
+      bool hit = fabs(bb33_f(cell->bb, b1) - cell->level) < atol;
+      if (hit)
+        *t = t1;
+      return hit;
     }
-
-    dbl3_saxpy(t1, ray_.dir, ray_.org, x);
-    mesh3_tetra_get_bary_coords(&tetra, x, b1);
+  } else {
+    ray3_get_point(ray, t1, x1);
   }
-  dbl4_sub(b1, context.b0, context.db);
+
+  mesh3_tetra_get_bary_coords(&tetra, x0, b0);
+  mesh3_tetra_get_bary_coords(&tetra, x1, b1);
 
   // We should handle this case separately---i.e., just check whether
   // the Bezier tetrahedron evaluated at the two coincident interval
   // endpoints equals `level`.
-  assert(dbl4_norm(context.db) > atol);
+  assert(dbl4_dist(b0, b1) > atol);
 
   /**
    * Now we want to use the hybrid rootfinder to check whether f([t0,
-   * t1]) contains `level`. It's probably possible to do this here
-   * without appealing to a hybrid rootfinder but we can look into
-   * that later. An idea is to restrict the Bezier tetra to an
-   * interval by pulling out the data for a univariate cubic, but I'm
-   * not sure whether a cubic has high enough degree to reproduce the
-   * 20-param Bezier tetra exactly or not and too lazy to check right
-   * now.
+   * t1]) contains `level`.
    */
-  dbl s = hybrid(
-    (hybrid_cost_func_t)bmesh33_cell_ray_intersects_level_hybrid_cost_func,
-    0, 1, &context);
+  // TODO: It's probably possible to do this here without appealing to
+  // a hybrid rootfinder but we can look into that later. An idea is
+  // to restrict the Bezier tetra to an interval by pulling out the
+  // data for a univariate cubic, but I'm not sure whether a cubic has
+  // high enough degree to reproduce the 20-param Bezier tetra exactly
+  // or not and too lazy to check right now.
 
-  dbl4_saxpy(s, context.db, context.b0, b);
+  cubic_s cubic = bb33_restrict_along_interval(cell->bb, b0, b1);
+  cubic_add_constant(&cubic, -cell->level);
 
-  return true;
+  dbl root[3] = {INFINITY, INFINITY, INFINITY};
+  int num_roots = cubic_get_real_roots(&cubic, root);
+
+  int bad_roots = 0;
+  for (int i = 0; i < num_roots; ++i) {
+    if (root[i] < 0 || 1 < root[i]) {
+      root[i] = INFINITY;
+      ++bad_roots;
+    }
+  }
+  num_roots -= bad_roots;
+
+  dbl3_sort(root);
+
+  /* Compute `t` as the arc-length distance from the ray origin to the
+   * first intersection with the tetrahedron plus the arc length
+   * distance from `x0` to `xs`, which is just s scaled by
+   * `dbl3_dist(x0, x1)`.
+   *
+   * If we didn't find any roots in the interval [0, 1], root[0] will
+   * be infinity, which will keep *t set to infinity after
+   * returning. */
+  *t = t0 + root[0]*dbl3_dist(x0, x1);
+
+  return isfinite(*t);
 }
 
 struct bmesh33 {
@@ -112,6 +134,7 @@ struct bmesh33 {
   bool mesh_owner;
   size_t num_cells;
   bb33 *bb;
+  dbl level;
 };
 
 void bmesh33_alloc(bmesh33_s **bmesh) {
@@ -133,6 +156,8 @@ void bmesh33_init_from_mesh3_and_jets(bmesh33_s *bmesh, mesh3_s const *mesh,
   bmesh->bb = malloc(bmesh->num_cells*sizeof(bb33));
   for (size_t l = 0; l < bmesh->num_cells; ++l)
     bb33_init_from_cell_and_jets(&bmesh->bb[l], mesh, jet, l);
+
+  bmesh->level = NAN;
 }
 
 void bmesh33_deinit(bmesh33_s *bmesh) {
@@ -149,11 +174,15 @@ size_t bmesh33_num_cells(bmesh33_s const *bmesh) {
   return bmesh->num_cells;
 }
 
+dbl bmesh33_get_level(bmesh33_s const *bmesh) {
+  return bmesh->level;
+}
+
 mesh3_s const *bmesh33_get_mesh_ptr(bmesh33_s const *bmesh) {
   return bmesh->mesh;
 }
 
-bmesh33_s *bmesh33_get_level_bmesh(bmesh33_s const *bmesh, dbl level) {
+bmesh33_s *bmesh33_restrict_to_level(bmesh33_s const *bmesh, dbl level) {
   // First, precompute which Bezier tetra *might* bracket the
   // level. Since the graph of each Bezier tetra is contained in the
   // convex hull of the defining control points, we can quickly rule
@@ -199,6 +228,8 @@ bmesh33_s *bmesh33_get_level_bmesh(bmesh33_s const *bmesh, dbl level) {
   level_bmesh->num_cells = mesh3_ncells(level_bmesh->mesh);
   assert(level_bmesh->num_cells == lc);
 
+  level_bmesh->level = level;
+
   free(cells);
   free(verts);
   free(brack);
@@ -206,7 +237,12 @@ bmesh33_s *bmesh33_get_level_bmesh(bmesh33_s const *bmesh, dbl level) {
   return level_bmesh;
 }
 
-bmesh33_cell bmesh33_get_cell(bmesh33_s const *bmesh, size_t l) {
+bmesh33_cell_s bmesh33_get_cell(bmesh33_s const *bmesh, size_t l) {
   assert(l < bmesh->num_cells);
-  return (bmesh33_cell) {.bb = &bmesh->bb[l], .mesh = bmesh->mesh, .l = l};
+  return (bmesh33_cell_s) {
+    .bb = &bmesh->bb[l],
+    .mesh = bmesh->mesh,
+    .l = l,
+    .level = bmesh33_get_level(bmesh)
+  };
 }

@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "bmesh.h"
 #include "def.h"
 #include "log.h"
 #include "macros.h"
@@ -29,6 +30,11 @@ void const *robj_get_data(robj_s const *obj) {
   return obj->data;
 }
 
+static void bmesh33_cell_insert_into_bbox(bmesh33_cell_s const *cell, rect3 *bbox) {
+  tetra3 tetra = mesh3_get_tetra(cell->mesh, cell->l);
+  rect3_insert_tetra3(bbox, &tetra);
+}
+
 static void mesh2_tri_insert_into_bbox(mesh2_tri_s const *mesh_tri, rect3 *bbox) {
   rect3_insert_mesh2_tri(bbox, mesh_tri);
 }
@@ -48,6 +54,7 @@ static void tetra3_insert_into_bbox(tetra3 const *tetra, rect3 *bbox) {
 typedef void (*robj_insert_into_bbox_t)(void const *, rect3 *);
 
 robj_insert_into_bbox_t _robj_insert_into_bbox[] = {
+  (robj_insert_into_bbox_t)bmesh33_cell_insert_into_bbox,
   (robj_insert_into_bbox_t)mesh2_tri_insert_into_bbox,
   (robj_insert_into_bbox_t)mesh3_tetra_insert_into_bbox,
   (robj_insert_into_bbox_t)tri3_insert_into_bbox,
@@ -56,6 +63,10 @@ robj_insert_into_bbox_t _robj_insert_into_bbox[] = {
 
 void robj_insert_into_bbox(robj_s const *obj, rect3 *bbox) {
   _robj_insert_into_bbox[obj->type](obj->data, bbox);
+}
+
+static void bmesh33_cell_get_centroid(bmesh33_cell_s const *cell, dbl c[3]) {
+  mesh3_get_centroid(cell->mesh, cell->l, c);
 }
 
 static void mesh2_tri_get_centroid(mesh2_tri_s const *mesh_tri, dbl c[3]) {
@@ -69,6 +80,7 @@ static void mesh3_tetra_get_centroid(mesh3_tetra_s const *tetra, dbl c[3]) {
 typedef void (*robj_get_centroid_t)(robj_s const *, dbl[3]);
 
 robj_get_centroid_t _robj_get_centroid[] = {
+  (robj_get_centroid_t)bmesh33_cell_get_centroid,
   (robj_get_centroid_t)mesh2_tri_get_centroid,
   (robj_get_centroid_t)mesh3_tetra_get_centroid,
   (robj_get_centroid_t)tri3_get_centroid,
@@ -77,6 +89,13 @@ robj_get_centroid_t _robj_get_centroid[] = {
 
 void robj_get_centroid(robj_s const *obj, dbl c[3]) {
   _robj_get_centroid[obj->type](obj->data, c);
+}
+
+static bool bmesh33_cell_isects_bbox(bmesh33_cell_s const *cell, rect3 const *bbox) {
+  (void)cell;
+  (void)bbox;
+  assert(false);
+  return false;
 }
 
 static bool mesh2_tri_isects_bbox(mesh2_tri_s const *mesh_tri, rect3 const *bbox) {
@@ -111,6 +130,7 @@ static bool tetra3_isects_bbox(tetra3 const *tetra, rect3 const *bbox) {
 typedef bool (*robj_isects_bbox_t)(void const *, rect3 const *bbox);
 
 robj_isects_bbox_t _robj_isects_bbox[] = {
+  (robj_isects_bbox_t)bmesh33_cell_isects_bbox,
   (robj_isects_bbox_t)mesh2_tri_isects_bbox,
   (robj_isects_bbox_t)mesh3_tetra_isects_bbox,
   (robj_isects_bbox_t)tri3_isects_bbox,
@@ -144,6 +164,7 @@ static bool tetra3_intersect(tetra3 const *tetra, ray3 const *ray, dbl *t) {
 typedef bool (*robj_intersect_t)(void const *, ray3 const *, dbl *);
 
 robj_intersect_t _robj_intersect[] = {
+  (robj_intersect_t)bmesh33_cell_intersect,
   (robj_intersect_t)mesh2_tri_intersect,
   (robj_intersect_t)mesh3_tetra_intersect,
   (robj_intersect_t)tri3_intersect,
@@ -440,6 +461,20 @@ rtree_s *rtree_copy(rtree_s const *rtree) {
   copy->pool_owner = false; // The original rtree is responsible for
                             // freeing the pool
   return copy;
+}
+
+void rtree_insert_bmesh33(rtree_s *rtree, bmesh33_s const *bmesh) {
+  rnode_s *node = &rtree->root;
+  assert(node->type == RNODE_TYPE_LEAF);
+  size_t num_cells = bmesh33_num_cells(bmesh);
+  robj_s obj = {.type = ROBJ_BMESH33_CELL};
+  for (size_t l = 0; l < num_cells; ++l) {
+    bmesh33_cell_s *cell = pool_get(rtree->pool, sizeof(bmesh33_cell_s));
+    *cell = bmesh33_get_cell(bmesh, l);
+    obj.data = cell;
+    rnode_append_robj(node, obj);
+  }
+  rnode_recompute_bbox(node);
 }
 
 void rtree_insert_mesh2(rtree_s *rtree, mesh2_s const *mesh) {

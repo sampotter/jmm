@@ -8,6 +8,7 @@ extern "C" {
 #include "geom.h"
 
 typedef enum robj_type {
+  ROBJ_BMESH33_CELL,
   ROBJ_MESH2_TRI,
   ROBJ_MESH3_TETRA,
   ROBJ_TRI3,
@@ -54,6 +55,7 @@ void rtree_init(rtree_s *rtree, size_t leaf_thresh,
                 rtree_split_strategy_e split_strategy);
 void rtree_deinit(rtree_s *rtree);
 rtree_s *rtree_copy(rtree_s const *rtree);
+void rtree_insert_bmesh33(rtree_s *rtree, bmesh33_s const *bmesh);
 void rtree_insert_mesh2(rtree_s *rtree, mesh2_s const *mesh);
 void rtree_insert_mesh3(rtree_s *rtree, mesh3_s const *mesh);
 void rtree_build(rtree_s *rtree);

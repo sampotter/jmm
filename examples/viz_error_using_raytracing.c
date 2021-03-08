@@ -77,7 +77,7 @@ int main(int argc, char *argv[]) {
   rtree_init(rtree, 32, RTREE_SPLIT_STRATEGY_SURFACE_AREA);
   rtree_insert_mesh2(rtree, surf_mesh);
 
-  bmesh33_s *level_bmesh = bmesh33_get_level_bmesh(bmesh, LEVEL);
+  bmesh33_s *level_bmesh = bmesh33_restrict_to_level(bmesh, LEVEL);
 
   rtree_s *level_rtree = rtree_copy(rtree);
   mesh3_s const *level_mesh = bmesh33_get_mesh_ptr(level_bmesh);

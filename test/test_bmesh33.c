@@ -1,7 +1,9 @@
 #include <cgreen/cgreen.h>
 
 #include "bmesh.h"
+#include "camera.h"
 #include "mesh3.h"
+#include "rtree.h"
 
 Describe(bmesh33);
 
@@ -75,7 +77,7 @@ create_approximate_sphere_bmesh33(
   for (int i = 1; i < 8; ++i)
     for (int j = 0; j < 5; ++j)
       for (int k = 0; k < 4; ++k)
-        cells[8*i + j][k] = 8*i + cells[j][k];
+        cells[5*i + j][k] = 8*i + cells[j][k];
 
   mesh3_alloc(mesh_handle);
   mesh3_init(*mesh_handle, &verts[0][0], 64, &cells[0][0], 40, false);
@@ -123,14 +125,72 @@ destroy_approximate_sphere_bmesh33(
   *jet_handle = NULL;
 }
 
-Ensure (bmesh33, approximate_sphere_setup_and_teardown_works) {
-  bmesh33_s *bmesh;
-  mesh3_s *mesh;
-  jet3 *jet;
-
+#define SET_UP_APPROXIMATE_SPHERE()                         \
+  bmesh33_s *bmesh;                                         \
+  mesh3_s *mesh;                                            \
+  jet3 *jet;                                                \
   create_approximate_sphere_bmesh33(&bmesh, &mesh, &jet);
 
+#define TEAR_DOWN_APPROXIMATE_SPHERE()                      \
+  destroy_approximate_sphere_bmesh33(&bmesh, &mesh, &jet);
+
+Ensure(bmesh33, approximate_sphere_setup_and_teardown_works) {
+  SET_UP_APPROXIMATE_SPHERE();
+
+  /**
+   * Just check basic properties of the structs initialized by
+   * SET_UP_APPROXIMATE_SPHERE.
+   */
   assert_that(bmesh33_num_cells(bmesh), is_equal_to(40));
 
-  destroy_approximate_sphere_bmesh33(&bmesh, &mesh, &jet);
+  TEAR_DOWN_APPROXIMATE_SPHERE();
+}
+
+Ensure(bmesh33, ray_intersects_level_works_on_approximate_sphere) {
+  SET_UP_APPROXIMATE_SPHERE();
+
+  bmesh33_s *level_bmesh = bmesh33_restrict_to_level(bmesh, 0.5);
+
+  /* After restricting to T = 0.5, we lose the corner tetrahedra,
+   * leaving 32 cells in the level's tetrahedron mesh (i.e., the ones
+   * containing (+/- 1, +/- 1, +/- 1) in each octant). */
+  assert_that(bmesh33_num_cells(level_bmesh), is_equal_to(32));
+
+  rtree_s *rtree;
+  rtree_alloc(&rtree);
+  rtree_init(rtree, 4, RTREE_SPLIT_STRATEGY_SURFACE_AREA);
+  rtree_insert_bmesh33(rtree, level_bmesh);
+
+  camera_s camera = {
+    .type = CAMERA_TYPE_ORTHOGRAPHIC,
+    .pos = {0, -2, 0},
+    .look = {0, 1, 0},
+    .left = {-1, 0, 0},
+    .up = {0, 0, 1},
+    .width = 2.0,
+    .height = 2.0,
+    .dim = {257, 257}
+  };
+
+  FILE *fp = fopen("tmp.bin", "w");
+
+  ray3 ray;
+  isect isect;
+  for (size_t i = 0; i < camera.dim[0]; ++i){
+    for (size_t j = 0; j < camera.dim[1]; ++j) {
+      ray = camera_get_ray_for_index(&camera, i, j);
+      rtree_intersect(rtree, &ray, &isect);
+      fwrite(&isect.t, sizeof(dbl), 1, fp);
+    }
+  }
+
+  fclose(fp);
+
+  rtree_deinit(rtree);
+  rtree_dealloc(&rtree);
+
+  bmesh33_deinit(level_bmesh);
+  bmesh33_dealloc(&level_bmesh);
+
+  TEAR_DOWN_APPROXIMATE_SPHERE();
 }
