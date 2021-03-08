@@ -13,6 +13,16 @@ static dmat44 V_inv = {
   }
 };
 
+/**
+ * This function is a bit of a stop gap until we move the dvec* and
+ * dmat* types.
+ */
+cubic_s cubic_from_data(dbl f[2], dbl Df[2]) {
+  cubic_s cubic;
+  cubic_set_data(&cubic, (dvec4) {.data = {f[0], f[1], Df[0], Df[1]}});
+  return cubic;
+}
+
 void cubic_set_data(cubic_s *cubic, dvec4 data) {
   cubic->a = dmat44_dvec4_mul(V_inv, data);
 }

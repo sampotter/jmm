@@ -484,6 +484,19 @@ bool bb33_convex_hull_brackets_value(bb33 const *bb, dbl value) {
   return min <= value && value <= max;
 }
 
+/**
+ * Restrict `bb` to the interval [`b0`, `b1`] returning the cubic
+ * polynomial `p(t) = q((1 - t)*b0 + t*b1)`, where `q(b)` is the
+ * trivariate polynomial represented by `bb`.
+ */
+cubic_s bb33_restrict_along_interval(bb33 const *bb, dbl b0[4], dbl b1[4]) {
+  dbl db[4];
+  dbl4_sub(b1, b0, db);
+  dbl f[2] = {bb33_f(bb, b0), bb33_f(bb, b1)};
+  dbl Df[2] = {bb33_df(bb, b0, db), bb33_df(bb, b1, db)};
+  return cubic_from_data(f, Df);
+}
+
 // Local Variables:
 // column-enforce-column: 160
 // End:
