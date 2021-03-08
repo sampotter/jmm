@@ -1,6 +1,9 @@
 #include "cubic.h"
 
+#include <assert.h>
 #include <string.h>
+
+#include <gsl/gsl_poly.h>
 
 #include "mat.h"
 
@@ -55,4 +58,30 @@ dbl cubic_df(cubic_s const *cubic, dbl lam) {
 
 dbl cubic_d2f(cubic_s const *cubic, dbl lam) {
   return dvec4_dot(cubic->a, dvec4_d2m(lam));
+}
+
+void cubic_make_monic(cubic_s *cubic) {
+  dbl a3 = cubic->a.data[3];
+  for (int i = 0; i < 4; ++i)
+    cubic->a.data[i] /= a3;
+}
+
+/**
+ * Compute the real roots of `cubic`, storing them in `lam`, and
+ * returning the number of real roots.
+ */
+int cubic_get_real_roots(cubic_s const *cubic, dbl lam[3]) {
+  cubic_s monic = {.a = cubic->a};
+
+  cubic_make_monic(&monic);
+
+  dbl const *a = &monic.a.data[0];
+
+  /* Note that we reverse the order of `a` here when transferring the
+   * coefficients to GSL's `gsl_poly_solve_cubic`. */
+  return gsl_poly_solve_cubic(a[2], a[1], a[0], &lam[0], &lam[1], &lam[2]);
+}
+
+void cubic_add_constant(cubic_s *cubic, dbl f) {
+  cubic->a.data[0] += f;
 }

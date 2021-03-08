@@ -23,6 +23,13 @@ include_directories (/opt/local/include)
 
 find_package (Sanitizers)
 
+# TODO: don't want a dependence on GSL (except for tests), but don't
+# want to implement cubic_get_real_roots on my own right now. Can just
+# copy and paste the code from GSL at some point to eliminate the
+# dependency. Should check first whether or not it works reasonably
+# well.
+find_package (GSL REQUIRED)
+
 set (CMAKE_XCODE_GENERATE_SCHEME TRUE)
 
 set (INSTALL_INCLUDE_DIR include)
@@ -86,6 +93,7 @@ endif ()
 if (UNIX)
   target_link_libraries (jmm PRIVATE m)
 endif ()
+target_link_libraries (jmm PRIVATE GSL::gsl)
 target_include_directories (
   jmm INTERFACE
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>
@@ -133,7 +141,6 @@ target_include_directories (viz_error_using_raytracing PRIVATE jmm)
 
 if (BUILD_TESTS)
   find_library (CGREEN_LIBRARY cgreen HINTS /usr/local/lib)
-  find_package (GSL REQUIRED)
 
   set (CGREEN_INCLUDE_DIRS "/usr/local/include")
 
