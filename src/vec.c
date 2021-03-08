@@ -173,6 +173,29 @@ bool dbl3_valid_bary_coord(dbl const b[3]) {
     && fabs(1 - dbl3_sum(b)) < atol;
 }
 
+void dbl3_sort(dbl u[3]) {
+  dbl tmp;
+
+  // Sort `u` using a sorting network of size 3.
+
+  tmp = fmin(u[0], u[1]);
+  u[1] = fmax(u[0], u[1]);
+  u[0] = tmp;
+
+  tmp = fmin(u[0], u[2]);
+  u[2] = fmax(u[0], u[2]);
+  u[0] = tmp;
+
+  tmp = fmin(u[1], u[2]);
+  u[2] = fmax(u[1], u[2]);
+  u[1] = tmp;
+}
+
+dbl dbl4_dist(dbl const u[4], dbl const v[4]) {
+  dbl tmp[4] = {u[0] - v[0], u[1] - v[1], u[2] - v[2], u[3] - v[3]};
+  return sqrt(tmp[0]*tmp[0] + tmp[1]*tmp[1] + tmp[2]*tmp[2] + tmp[3]*tmp[3]);
+}
+
 bool dbl4_nonneg(dbl const u[4]) {
   return u[0] >= 0 && u[1] >= 0 && u[2] >= 0 && u[3] >= 0;
 }
