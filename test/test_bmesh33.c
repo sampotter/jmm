@@ -169,18 +169,25 @@ Ensure(bmesh33, ray_intersects_level_works_on_approximate_sphere) {
     .up = {0, 0, 1},
     .width = 2.0,
     .height = 2.0,
-    .dim = {257, 257}
+    .dim = {33, 33}
   };
 
-  FILE *fp = fopen("tmp.bin", "w");
+  FILE *fp = fopen(
+    "bmesh33_ray_intersects_level_works_on_approximate_sphere.txt", "r");
 
   ray3 ray;
   isect isect;
+  dbl t_gt;
   for (size_t i = 0; i < camera.dim[0]; ++i){
     for (size_t j = 0; j < camera.dim[1]; ++j) {
       ray = camera_get_ray_for_index(&camera, i, j);
       rtree_intersect(rtree, &ray, &isect);
-      fwrite(&isect.t, sizeof(dbl), 1, fp);
+      fscanf(fp, "%lf\n", &t_gt);
+      if (isinf(t_gt)) {
+        assert_that(isinf(isect.t));
+      } else {
+        assert_that_double(t_gt, is_nearly_double(isect.t));
+      }
     }
   }
 

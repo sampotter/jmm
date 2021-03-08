@@ -172,6 +172,11 @@ if (BUILD_TESTS)
 
   enable_testing ()
   add_test (NAME jmm COMMAND cgreen-runner $<TARGET_FILE_NAME:jmm_tests>)
+
+  file (GLOB JMM_TEST_DATA_FILES ${CMAKE_CURRENT_SOURCE_DIR}/test/data/*.txt)
+  foreach (test_data_file ${JMM_TEST_DATA_FILES})
+    file (COPY ${test_data_file} DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
+  endforeach ()
 endif ()
 
 #
