@@ -49,8 +49,8 @@ ray3 camera_get_ray_for_index(camera_s const *camera, int i, int j) {
     h[1] = camera->width/(2*camera->dim[1]);
     dbl3_copy(camera->look, ray.dir);
     ray.org[0] = 0;
-    ray.org[1] = camera->width/2 - j - h[1];
-    ray.org[2] = camera->height/2 - i - h[0];
+    ray.org[1] = camera->width*(0.5 - ((dbl)j)/camera->dim[1]) - h[1];
+    ray.org[2] = camera->height*(0.5 - ((dbl)i)/camera->dim[0]) - h[0];
     dbl33_dbl3_mul_inplace(mat, ray.org);
     ray.org[0] += camera->pos[0];
     ray.org[1] += camera->pos[1];
