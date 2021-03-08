@@ -24,6 +24,14 @@ void mesh3_tetra_get_point(mesh3_tetra_s const *tetra, dbl const b[4], dbl x[3])
   tetra3_get_point(&tetra_, b, x);
 }
 
+void tri3_get_normal(tri3 const *tri, dbl normal[3]) {
+  dbl t[2][3];
+  dbl3_sub(tri->v[1], tri->v[0], t[0]);
+  dbl3_sub(tri->v[2], tri->v[0], t[1]);
+  dbl3_cross(t[0], t[1], normal);
+  dbl3_normalize(normal);
+}
+
 void tri3_get_centroid(tri3 const *tri, dbl c[3]) {
   for (int j = 0; j < 3; ++j) {
     c[j] = 0;
@@ -31,6 +39,31 @@ void tri3_get_centroid(tri3 const *tri, dbl c[3]) {
       c[j] += tri->v[i][j];
     c[j] /= 3;
   }
+}
+
+bool tri3_contains_point(tri3 const *tri, dbl x[3]) {
+  dbl const atol = 1e-13;
+  dbl normal[3];
+  tri3_get_normal(tri, normal);
+  if (fabs(dbl3_dot(normal, x) - dbl3_dot(normal, tri->v[0])) > atol)
+    return false;
+  dbl b[3];
+  tri3_get_bary_coords(tri, x, b);
+  return dbl3_valid_bary_coord(b);
+}
+
+void tri3_get_bary_coords(tri3 const *tri, dbl const x[3], dbl b[4]) {
+  dbl dx[2][3];
+  dbl3_sub(tri->v[1], tri->v[0], dx[0]);
+  dbl3_sub(tri->v[2], tri->v[0], dx[1]);
+
+  dbl n[3];
+  dbl3_cross(dx[0], dx[1], n);
+  dbl area = dbl3_normalize(n)/2;
+
+  b[0] = tri_area(x, tri->v[1], tri->v[2])/area;
+  b[1] = tri_area(tri->v[0], x, tri->v[2])/area;
+  b[2] = tri_area(tri->v[0], tri->v[1], x)/area;
 }
 
 bool tetra3_contains_point(tetra3 const *tetra, dbl const x[3]) {
@@ -183,6 +216,10 @@ bool rect3_occludes_ray3(rect3 const *rect, ray3 const *ray) {
   return false;
 }
 
+void ray3_get_point(ray3 const *ray, dbl t, dbl x[3]) {
+  dbl3_saxpy(t, ray->dir, ray->org, x);
+}
+
 bool ray3_intersects_rect3(ray3 const *ray, rect3 const *rect, dbl *t) {
   dbl const atol = 1e-15;
 
@@ -264,7 +301,7 @@ bool ray3_intersects_tri3(ray3 const *ray, tri3 const *tri, dbl *t) {
     return false;
 
   // Finally, check whether the ray passes through the triangle
-  dbl3_saxpy(*t, ray->dir, ray->org, xt);
+  ray3_get_point(ray, *t, xt);
   get_bary_coords_3d(v, xt, b);
   return dbl3_valid_bary_coord(b);
 }

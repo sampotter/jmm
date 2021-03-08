@@ -19,7 +19,10 @@ typedef struct {
   dbl v[3][3];
 } tri3;
 
+void tri3_get_normal(tri3 const *tri, dbl normal[3]);
 void tri3_get_centroid(tri3 const *tri, dbl centroid[3]);
+bool tri3_contains_point(tri3 const *tri, dbl x[3]);
+void tri3_get_bary_coords(tri3 const *tri, dbl const x[3], dbl b[4]);
 
 typedef struct {
   dbl v[4][3];
@@ -55,6 +58,7 @@ dbl rect3_surface_area(rect3 const *rect);
 bool rect3_overlaps(rect3 const *r1, rect3 const *r2);
 bool rect3_occludes_ray3(rect3 const *rect, ray3 const *ray);
 
+void ray3_get_point(ray3 const *ray, dbl t, dbl x[3]);
 bool ray3_intersects_rect3(ray3 const *ray, rect3 const *rect, dbl *t);
 bool ray3_intersects_mesh3_tetra(ray3 const *ray, mesh3_tetra_s const *tetra, dbl *t);
 bool ray3_intersects_tri3(ray3 const *ray, tri3 const *tri, dbl *t);
