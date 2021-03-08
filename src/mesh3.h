@@ -30,6 +30,8 @@ struct mesh3_tetra {
   size_t l; // index of tetrahedron
 };
 
+tri3 mesh3_tetra_get_face(mesh3_tetra_s const *tetra, int face_inds[3]);
+
 void mesh3_alloc(mesh3_s **mesh);
 void mesh3_dealloc(mesh3_s **mesh);
 void mesh3_init(mesh3_s *mesh,

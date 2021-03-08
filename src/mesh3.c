@@ -91,6 +91,16 @@ struct mesh3 {
   dbl min_tetra_alt; // The minimum of all tetrahedron altitudes in the mesh.
 };
 
+tri3 mesh3_tetra_get_face(mesh3_tetra_s const *tetra, int f[3]) {
+  size_t *cv = &tetra->mesh->cells[tetra->l].data[0];
+  dvec3 *verts = tetra->mesh->verts;
+  tri3 tri;
+  memcpy(tri.v[0], &verts[cv[f[0]]].data[0], sizeof(dbl[3]));
+  memcpy(tri.v[1], &verts[cv[f[1]]].data[0], sizeof(dbl[3]));
+  memcpy(tri.v[2], &verts[cv[f[2]]].data[0], sizeof(dbl[3]));
+  return tri;
+}
+
 void mesh3_alloc(mesh3_s **mesh) {
   *mesh = malloc(sizeof(mesh3_s));
 }
