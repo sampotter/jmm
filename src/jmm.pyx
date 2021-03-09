@@ -131,10 +131,20 @@ cdef class Bmesh33Cell:
     cdef bmesh33_cell cell
 
     @staticmethod
+    cdef from_robj_ptr(const robj *obj):
+        cell = Bmesh33Cell()
+        cell.cell = (<bmesh33_cell *>robj_get_data(obj))[0]
+        return cell
+
+    @staticmethod
     cdef from_cell(bmesh33_cell cell):
         cell_ = Bmesh33Cell()
         cell_.cell = cell
         return cell_
+
+    @property
+    def index(self):
+        return self.cell.l
 
 cdef class Bmesh33:
     cdef:
@@ -384,9 +394,11 @@ cdef class Robj:
         return hit, t
 
     def astype(self, Class):
-        Classes = {Mesh2Tri, Mesh3Tetra}
+        Classes = {Bmesh33Cell, Mesh2Tri, Mesh3Tetra}
         if isinstance(Class, type):
-            if Class is Mesh2Tri:
+            if Class is Bmesh33Cell:
+                return Bmesh33Cell.from_robj_ptr(self._obj)
+            elif Class is Mesh2Tri:
                 return Mesh2Tri.from_robj_ptr(self._obj)
             elif Class is Mesh3Tetra:
                 return Mesh3Tetra.from_robj_ptr(self._obj)
@@ -467,6 +479,9 @@ be removed in the near future.
         cdef rtree *rtree = rtree_copy(self._rtree)
         return Rtree.from_ptr(rtree, ptr_owner=True)
 
+    cdef insert_bmesh33(self, Bmesh33 bmesh):
+        rtree_insert_bmesh33(self._rtree, bmesh.bmesh)
+
     cdef insert_mesh2(self, Mesh2 mesh):
         rtree_insert_mesh2(self._rtree, mesh.mesh)
 
@@ -474,8 +489,15 @@ be removed in the near future.
         rtree_insert_mesh3(self._rtree, mesh.mesh)
 
     def insert(self, obj):
-        Classes = {'Mesh2', 'Mesh3'}
-        if isinstance(obj, Mesh2):
+        # TODO: this is a gross way to do this, but it works for
+        # now. Would be nice to come up with a simpler way to dispatch
+        # on the type of obj. One thing that would probably work is
+        # implementing an `insert_into_rtree` method for each of the
+        # classes listed below.
+        Classes = {'Bmesh33', 'Mesh2', 'Mesh3'}
+        if isinstance(obj, Bmesh33):
+            self.insert_bmesh33(obj)
+        elif isinstance(obj, Mesh2):
             self.insert_mesh2(obj)
         elif isinstance(obj, Mesh3):
             self.insert_mesh3(obj)
