@@ -14,6 +14,7 @@ from defs cimport bool, error, state, stype
 
 from bb cimport *
 from bmesh cimport *
+from camera cimport *
 from dial cimport *
 from edge cimport *
 from edgemap cimport *
@@ -204,6 +205,37 @@ cdef class Bmesh33:
     def get_cell(self, size_t l):
         return Bmesh33Cell.from_cell(bmesh33_get_cell(self.bmesh, l))
 
+cdef class Camera:
+    cdef camera _camera
+
+    @staticmethod
+    def make_orthographic(pos, look, left, up, shape, width, height):
+        camera = Camera()
+        camera._camera.type = CAMERA_TYPE_ORTHOGRAPHIC
+        cdef int i
+        for i in range(3):
+            camera._camera.pos[i] = pos[i]
+            camera._camera.look[i] = look[i]
+            camera._camera.left[i] = left[i]
+            camera._camera.up[i] = up[i]
+        camera._camera.dim[0] = shape[0]
+        camera._camera.dim[1] = shape[1]
+        camera._camera.width = width
+        camera._camera.height = height
+        return camera
+
+    @property
+    def num_rays(self):
+        return np.product(self._camera.dim)
+
+    def get_image_rays(self):
+        cdef ray3 ray
+        cdef int i, j
+        for i in range(self._camera.dim[0]):
+            for j in range(self._camera.dim[1]):
+                ray = camera_get_ray_for_index(&self._camera, i, j)
+                yield Ray3.from_ptr(&ray)
+
 cdef class Grid3:
     cdef grid3 _grid
 
@@ -266,6 +298,12 @@ direction*t`.
 
     def __repr__(self):
         return f'Ray3(origin={self._ray.org}, direction={self._ray.dir})'
+
+    def get_point(self, dbl t):
+        x = np.empty((3,), dtype=np.float64)
+        cdef dbl[::1] x_mv = x
+        ray3_get_point(&self._ray, t, &x_mv[0])
+        return x
 
 cdef class Mesh2Tri:
     cdef mesh2_tri *_tri
@@ -507,12 +545,9 @@ be removed in the near future.
     def build(self):
         rtree_build(self._rtree)
 
-    def intersect(self, dbl[::1] org, dbl[::1] dir):
-        cdef ray3 ray
-        memcpy(&ray.org[0], &org[0], 3*sizeof(dbl))
-        memcpy(&ray.dir[0], &dir[0], 3*sizeof(dbl))
+    def intersect(self, Ray3 ray):
         isect = Isect()
-        rtree_intersect(self._rtree, &ray, &isect._isect)
+        rtree_intersect(self._rtree, &ray._ray, &isect._isect)
         return isect
 
 cdef class UpdateTetra:

@@ -9,3 +9,4 @@ cdef extern from "geom.h":
     ctypedef struct ray3:
         dbl org[3]
         dbl dir[3]
+    void ray3_get_point(const ray3 *ray, dbl t, dbl x[3])
