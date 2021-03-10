@@ -68,6 +68,13 @@ if __name__ == '__main__':
     camera = jmm.Camera.make_orthographic(pos, look, left, up, shape, width, height)
     print('- set up camera')
 
+    # Define extent for imshow
+    extent = [pos[1] - width/2, pos[1] + width/2,
+              pos[2] - height/2, pos[2] + height/2]
+
+    # Set the clim based on the two-sigma value of the absolute errors
+    vmax = 2*abs(errors).std()
+
     levels = np.linspace(0.0, 1.8, 18*30 + 1)
 
     for i, LEVEL in enumerate(levels):
@@ -116,22 +123,22 @@ if __name__ == '__main__':
         gs = gridspec.GridSpec(2, 3, figure=fig)
 
         ax = fig.add_subplot(gs[0, 0])
-        im = ax.imshow(I, cmap=cc.cm.rainbow, interpolation='none')
-        fig.colorbar(im, ax=ax)
+        im = ax.imshow(I, extent=extent, cmap=cc.cm.rainbow,
+                       interpolation='none')
+        # fig.colorbar(im, ax=ax)
         ax.set_aspect('equal')
         ax.set_title("cell index")
 
         ax = fig.add_subplot(gs[1, 0])
-        im = ax.imshow(T, cmap=cc.cm.bmw)
+        im = ax.imshow(T, vmin=1, vmax=3, extent=extent,
+                       cmap=cc.cm.rainbow)
         fig.colorbar(im, ax=ax)
         ax.set_aspect('equal')
         ax.set_title("$t$")
 
-        # Set the clim based on the 99% quantile of the absolute errors
-        vmax = np.quantile(abs(errors), q=0.99)
-
         ax = fig.add_subplot(gs[:, 1:])
-        im = ax.imshow(Error, vmin=-vmax, vmax=vmax, cmap=cc.cm.coolwarm)
+        im = ax.imshow(Error, vmin=-vmax, vmax=vmax, extent=extent,
+                       cmap=cc.cm.coolwarm)
         fig.colorbar(im, ax=ax)
         ax.set_aspect('equal')
         ax.set_title(r'$e(x) = T(x) - \tau(x)$')
