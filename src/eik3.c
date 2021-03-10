@@ -641,6 +641,8 @@ void do_diff_edge_updates_and_adjust(eik3_s *eik, size_t l0, size_t l1,
       array_append(nb, &l1_nb[i]);
 
   int nnb = array_size(nb);
+
+  // TODO: don't need to allocate a bunch of separate `utri`s...
   utri_s **utri = malloc(nnb*sizeof(utri_s *));
 
   size_t l;
