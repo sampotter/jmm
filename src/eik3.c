@@ -507,8 +507,58 @@ static void update(eik3_s *eik, size_t l, size_t l0) {
 
   if (return_early)
     goto cleanup;
+
+  /**
+   * Before doing tetrahedron updates, we want to check if there are
+   * any diffracting edges updates that aren't adjacent to `l0`. These
+   * won't be covered by `do_all_diff_edge_updates_and_adjust` in
+   * `update_neighbors`.
+   */
+
+  bool *l_l1_adj = malloc(num_utetra*sizeof(bool));
+  for (int i = 0; i < num_utetra; ++i)
+    l_l1_adj[i] = mesh3_is_edge(eik->mesh, (size_t[2]) {l, l1[i]});
+
+  bool *l_l2_adj = malloc(num_utetra*sizeof(bool));
+  for (int i = 0; i < num_utetra; ++i)
+    l_l2_adj[i] = mesh3_is_edge(eik->mesh, (size_t[2]) {l, l2[i]});
+
+  bool *is_diff_edge = malloc(num_utetra*sizeof(bool));
+
+  int num_diff_utri = 0;
+  for (int i = 0; i < num_utetra; ++i) {
+    if (l_l1_adj[i] || l_l2_adj[i]) continue;
+    num_diff_utri += is_diff_edge[i]
+      = mesh3_is_diff_edge(eik->mesh, (size_t[2]) {l1[i], l2[i]});
+  }
+
+  utri_s *utri;
+  utri_alloc(&utri);
+
+  bool *updated_from_diff_edge = malloc(num_utetra*sizeof(bool));
+
+  for (int i = 0, j = 0; i < num_utetra; ++i) {
+    updated_from_diff_edge[i] = false;
+
+    if (!is_diff_edge[i])
+      continue;
+
+    utri_reset(utri);
+    utri_init_from_eik3(utri, eik, l, l1[j], l2[j]);
+    utri_solve(utri);
+
+    if (utri_has_interior_point_solution(utri) &&
+        utri_update_ray_is_physical(utri, eik)) {
+      commit_tri_update(eik, l, utri);
+      updated_from_diff_edge[i] = true;
     }
   }
+
+  utri_dealloc(&utri);
+
+  free(is_diff_edge);
+  free(l_l1_adj);
+  free(l_l2_adj);
 
   /**
    * Now we move on to doing tetrahedron updates
@@ -521,16 +571,25 @@ static void update(eik3_s *eik, size_t l, size_t l0) {
   for (int i = 0; i < num_utetra; ++i) {
     utetra_alloc(&utetra[i]);
     utetra_reset(utetra[i]);
-    if (eik3_is_point_source(eik, l1[i]) || eik3_is_point_source(eik, l2[i]))
+
+    // This is a gross hack. What we do here is prioritize a
+    // diffracting edge that's incident on this tetrahedron update. It
+    // might yield a somewhat higher value, but when we're close to a
+    // diffracting edge, it's important to correct the ray to ensure
+    // that it emits from the diffracting edge. So, we skip the
+    // tetrahedron update here.
+    if (updated_from_diff_edge[i])
       continue;
-    if (!utetra_init_from_eik3(utetra[i], eik, l, l0, l1[i], l2[i]))
-      continue;
-    if (utetra_is_degenerate(utetra[i]))
-      continue;
-    utetra_set_lambda(utetra[i], (dbl[2]) {0, 0});
-    utetra_solve(utetra[i]);
+
+    if (utetra_init_from_eik3(utetra[i], eik, l, l0, l1[i], l2[i]) &&
+        !utetra_is_degenerate(utetra[i])) {
+      utetra_set_lambda(utetra[i], (dbl[2]) {0, 0});
+      utetra_solve(utetra[i]);
+    }
   }
   qsort(utetra, num_utetra, sizeof(utetra_s *), (compar_t)utetra_cmp);
+
+  free(updated_from_diff_edge);
 
   // See if we can commit a tetrahedron update
   for (int i = 0; i < num_utetra; ++i) {
