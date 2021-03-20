@@ -485,17 +485,28 @@ static void update(eik3_s *eik, size_t l, size_t l0) {
   if (num_utetra == 0)
     return;
 
-  // TODO: got through l1 and l2 and check if they're point
+  // TODO: got through l1 and l2 and check if any are point
   // sources. If they are, we need to do the point source update and
   // return.
+
+  bool return_early = false;
+
   for (int i = 0; i < num_utetra; ++i) {
     if (eik3_is_point_source(eik, l1[i])) {
       do_1pt_update(eik, l, l1[i]);
-      goto cleanup;
+      return_early = true;
     }
+  }
+
+  for (int i = 0; i < num_utetra; ++i) {
     if (eik3_is_point_source(eik, l2[i])) {
-      do_1pt_update(eik, l, l2[i]);
-      goto cleanup;
+      do_1pt_update(eik, l, l1[i]);
+      return_early = true;
+    }
+  }
+
+  if (return_early)
+    goto cleanup;
     }
   }
 
