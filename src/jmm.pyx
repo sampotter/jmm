@@ -205,6 +205,11 @@ cdef class Bmesh33:
     def get_cell(self, size_t l):
         return Bmesh33Cell.from_cell(bmesh33_get_cell(self.bmesh, l))
 
+class CameraType(Enum):
+    None = 0
+    Orthographic = 1
+    Perspective = 2
+
 cdef class Camera:
     cdef camera _camera
 
@@ -223,6 +228,27 @@ cdef class Camera:
         camera._camera.width = width
         camera._camera.height = height
         return camera
+
+    @property
+    def shape(self):
+        return (self._camera.dim[0], self._camera.dim[1])
+
+    @property
+    def camera_type(self):
+        return CameraType(self._camera.type)
+
+    @property
+    def pos(self):
+        return (self._camera.pos[0], self._camera.pos[1], self._camera.pos[2])
+
+    @property
+    def extent(self):
+        '''A guess for the Matplotlib `imshow` plotting function's `extent`
+        keyword argument. The extent is computed as the axes of the
+        image plane.
+
+        '''
+        raise RuntimeError('not implemented yet... :-(')
 
     @property
     def num_rays(self):
