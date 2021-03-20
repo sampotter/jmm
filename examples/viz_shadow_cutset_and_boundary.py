@@ -1,7 +1,10 @@
 #!/usr/bin/env python
 
 
+import jmm
 import pyvista as pv
+import pyvistaqt as pvqt
+import numpy as np
 
 
 state_to_color = {
@@ -9,7 +12,7 @@ state_to_color = {
 }
 
 
-def plot_point(l, scale=1, color='white', opacity=1):
+def plot_point(points, l, scale=1, color='white', opacity=1):
     plotter.add_mesh(
         pv.Sphere(scale*r, points[l]), color=color, opacity=opacity)
 
@@ -72,7 +75,7 @@ def get_cut_point(l0, l1):
     return (1 - t)*x0 + t*x1
 
 
-def get_verts_and_faces(c, f_offset, verbose=False):
+def get_verts_and_faces(c, f_offset, verbose=False, tol=1e-15):
     num_shadow = (eik.state[c] == jmm.State.Shadow.value).sum()
     if num_shadow == 1:
         l0 = next(l for l in c if eik.is_shadow(l))
@@ -88,10 +91,11 @@ def get_verts_and_faces(c, f_offset, verbose=False):
             print('- t02 = %1.3f' % t02)
             print('- t03 = %1.3f' % t03)
 
-        num_equal_to_zero = (t01 == 0) + (t02 == 0) + (t03 == 0)
-        assert num_equal_to_zero != 2
+        num_approx_zero = (abs(t01) < tol) + (abs(t02) < tol) + (abs(t03) < tol)
 
-        if num_equal_to_zero == 3:
+        assert num_approx_zero != 2
+
+        if num_approx_zero == 3:
             return [], []
 
         v = [get_cut_point(l0, l1), get_cut_point(l0, l2), get_cut_point(l0, l3)]
@@ -106,15 +110,16 @@ def get_verts_and_faces(c, f_offset, verbose=False):
             print('- l0 = %d, t02 = %1.3f, t03 = %1.3f' % (l0, t02, t03))
             print('- l1 = %d, t12 = %1.3f, t13 = %1.3f' % (l1, t12, t13))
 
-        if t02 == 1 and t12 == 1 and t03 == 1 and t13 == 1:
+        if abs(t02 - 1) < tol and abs(t12 - 1) < tol and abs(t03 - 1) < tol \
+           and abs(t13 - 1) < tol:
             return [], []
 
-        if t02 == 1 and t12 == 1:
+        if abs(t02 - 1) < tol and abs(t12 - 1) < tol:
             v = [points[l2], get_cut_point(l0, l3), get_cut_point(l1, l3)]
             f = [[f_offset, f_offset + 1, f_offset + 2]]
             return v, f
 
-        if t03 == 1 and t13 == 1:
+        if abs(t03 - 1) < tol and abs(t13 - 1) < tol:
             v = [points[l3], get_cut_point(l0, l2), get_cut_point(l1, l2)]
             f = [[f_offset, f_offset + 1, f_offset + 2]]
             return v, f
@@ -141,10 +146,11 @@ def get_verts_and_faces(c, f_offset, verbose=False):
             print('- t13 = %1.3f' % t13)
             print('- t23 = %1.3f' % t23)
 
-        num_equal_to_one = (t03 == 1) + (t13 == 1) + (t23 == 1)
-        assert num_equal_to_one != 2
+        num_approx_one = (abs(t03 - 1) < tol) + (abs(t13 - 1) < tol) \
+            + (abs(t23 - 1) < tol)
+        assert num_approx_one != 2
 
-        if num_equal_to_one == 3:
+        if num_approx_one == 3:
             return [], []
 
         v = [get_cut_point(l0, l3), get_cut_point(l1, l3), get_cut_point(l2, l3)]
@@ -157,17 +163,17 @@ def get_verts_and_faces(c, f_offset, verbose=False):
 if __name__ == '__main__':
     indsrc = 36
 
-    tet_mesh = 'L/L.1.vtk'
+    tet_mesh = 'L.1.vtk'
     surf_mesh = pv.read('L.obj')
 
     grid = pv.read(tet_mesh)
     points = grid.points.copy().astype(np.float64)
     cells = grid.cells.reshape(-1, 5)[:, 1:].copy().astype(np.uintp)
 
-    mesh = jmm.Mesh3.from_verts_and_cells(verts, cells)
+    mesh = jmm.Mesh3.from_verts_and_cells(points, cells)
 
     eik = jmm.Eik3(mesh)
-    eik.add_trial(indsrc, 0)
+    eik.add_trial(indsrc, jmm.Jet3(0, np.nan, np.nan, np.nan))
     eik.solve()
 
     r = 0.05
@@ -176,19 +182,17 @@ if __name__ == '__main__':
     plotter.background_color = (0.6, 0.6, 0.6)
     plotter.add_mesh(surf_mesh, 'r', 'wireframe')
 
-    plot_point(indsrc, color='red', scale=0.6, opacity=0.5)
+    plot_point(points, indsrc, color='red', scale=0.6, opacity=0.5)
 
     for l in range(points.shape[0]):
         if eik.state[l] == 0:
             continue
         color = state_to_color[eik.state[l]]
-        plot_point(l, scale=0.3, color=color)
+        plot_point(points, l, scale=0.3, color=color)
 
     h = 0.1
 
     plot_cutset(False)
-
-    # plot_update(l0)
 
     cutset = eik.shadow_cutset
 
