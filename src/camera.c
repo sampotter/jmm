@@ -6,8 +6,8 @@
 #include "mat.h"
 #include "vec.h"
 
-void camera_init(camera_s *camera) {
-  camera->type = CAMERA_TYPE_NONE;
+void camera_reset(camera_s *camera) {
+  camera->type = CAMERA_TYPE_UNINITIALIZED;
   camera->pos[0] = camera->pos[1] = camera->pos[2] = NAN;
   camera->look[0] = camera->look[1] = camera->look[2] = NAN;
   camera->left[0] = camera->left[1] = camera->left[2] = NAN;
@@ -35,7 +35,7 @@ void camera_init(camera_s *camera) {
  * parameters.
  */
 ray3 camera_get_ray_for_index(camera_s const *camera, int i, int j) {
-  assert(camera->type != CAMERA_TYPE_NONE);
+  assert(camera->type != CAMERA_TYPE_UNINITIALIZED);
   dbl h[2], mat[3][3] = {
     {camera->look[0], camera->left[0], camera->up[0]},
     {camera->look[1], camera->left[1], camera->up[1]},

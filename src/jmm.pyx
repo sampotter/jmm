@@ -206,7 +206,7 @@ cdef class Bmesh33:
         return Bmesh33Cell.from_cell(bmesh33_get_cell(self.bmesh, l))
 
 class CameraType(Enum):
-    None = 0
+    Uninitialized = 0
     Orthographic = 1
     Perspective = 2
 
@@ -242,13 +242,47 @@ cdef class Camera:
         return (self._camera.pos[0], self._camera.pos[1], self._camera.pos[2])
 
     @property
+    def look(self):
+        return np.asarray(self._camera.look)
+
+    @property
+    def left(self):
+        return np.asarray(self._camera.left)
+
+    @property
+    def up(self):
+        return np.asarray(self._camera.up)
+
+    @property
+    def width(self):
+        if self.camera_type != CameraType.Orthographic:
+            raise Exception('tried to access "width" of %s camera' % (
+                self._get_camera_type_name(),))
+        return self._camera.width
+
+    @property
+    def height(self):
+        if self.camera_type != CameraType.Orthographic:
+            raise Exception('tried to access "height" of %s camera' % (
+                self._get_camera_type_name(),))
+        return self._camera.height
+
+    @property
     def extent(self):
         '''A guess for the Matplotlib `imshow` plotting function's `extent`
         keyword argument. The extent is computed as the axes of the
         image plane.
 
         '''
-        raise RuntimeError('not implemented yet... :-(')
+        if self.camera_type == CameraType.Uninitialized:
+            raise Exception("can't compute extent of uninitialized camera")
+        elif self.camera_type == CameraType.Orthographic:
+            w, h = self.width, self.height
+            return (-w/2, w/2, -h/2, h/2)
+        elif self.camera_type == CameraType.Perspective:
+            raise Exception("extent not implemented for perspective camera yet")
+        else:
+            assert False
 
     @property
     def num_rays(self):
@@ -261,6 +295,9 @@ cdef class Camera:
             for j in range(self._camera.dim[1]):
                 ray = camera_get_ray_for_index(&self._camera, i, j)
                 yield Ray3.from_ptr(&ray)
+
+    def _get_camera_type_name(self):
+        return str(self.camera_type).split('.')[1].lower()
 
 cdef class Grid3:
     cdef grid3 _grid
@@ -1133,3 +1170,43 @@ cdef class Eik3:
         cdef dbl[:, ::1] Df = np.array([(_[1], _[2], _[3]) for _ in jets])
         cdef dbl[:, ::1] x = self.mesh.verts[vert_inds]
         return Bb33(f, Df, x)
+
+
+def get_camera_basis(origin, target, up):
+    '''Get a triple of a vectors (left, front, up), indicating an
+    orthonormal basis for the camera.
+
+    '''
+    front = target - origin
+    front /= np.linalg.norm(front)
+    left = np.cross(up, front)
+    left /= np.linalg.norm(left)
+    up = np.cross(front, left)
+    up /= np.linalg.norm(up)
+    return left, front, up
+
+def get_view_direction(left, front, up, phi, theta):
+    '''Get the view direction in the camera basis expressed by (left,
+    front, up) corresponding to the spherical angles phi and
+    theta. This is written so that:
+
+    `get_view_direction(*get_camera_basis(origin, target, up), phi, theta)`
+
+    works as expected.
+
+    '''
+
+    ray = np.array([0, 1, 0])
+    # Rotate by phi around z/up axis
+    ray = np.array([
+        [ np.cos(phi), np.sin(phi), 0],
+        [-np.sin(phi), np.cos(phi), 0],
+        [          0,            0, 1]
+    ])@ray
+    # Rotate around the x/left axis.
+    ray = np.array([
+        [1,              0,             0],
+        [0,  np.cos(theta), np.sin(theta)],
+        [0, -np.sin(theta), np.cos(theta)],
+    ])@ray
+    return np.array([left, front, up]).T@ray
