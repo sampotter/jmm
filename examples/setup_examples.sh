@@ -9,16 +9,8 @@ echo "Making surface meshes"
 
 # Since tetgen can't handle comments in OFF files, filter them out
 echo "Stripping comments from OFF files"
-if [[ "$OSTYPE" == "linux-gnu"* ]]; then
-    sed -i '/^#/d' box.off
-    sed -i '/^#/d' L.off
-elif [[ "$OSTYPE" == "darwin"* ]]; then
-    sed -i '' '/^#/d' box.off
-    sed -i '' '/^#/d' L.off
-else
-    echo "Unknown platform: $OSTYPE" 1>&2
-    exit 1
-fi
+./strip_off_comments.sh box.off
+./strip_off_comments.sh L.off
 
 # Create a tetrahedron mesh for each
 echo "Generating tetrahedron meshes"

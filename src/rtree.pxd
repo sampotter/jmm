@@ -6,6 +6,7 @@ from mesh3 cimport mesh3
 
 cdef extern from "rtree.h":
     cdef enum robj_type:
+        ROBJ_BMESH33_CELL
         ROBJ_MESH2_TRI
         ROBJ_MESH3_TETRA
         ROBJ_TRI3
