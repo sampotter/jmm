@@ -140,6 +140,13 @@ static cutedge_s get_cutedge(eik3_s const *eik, size_t l0, size_t l1) {
   return cutedge;
 }
 
+static bool is_shadow_p1_diff(eik3_s const *eik, size_t l0, size_t l) {
+  dbl const atol = 1e-14;
+  dbl n[3];
+  dbl3_cross(&eik->jet[l0].fx, &eik->jet[l].fx, n);
+  return dbl3_norm(n) > atol;
+}
+
 /**
  * Determine if a node with two parents that was updated from a
  * diffracting edge (l0, l1) is a shadow node.
@@ -254,7 +261,7 @@ static bool is_shadow(eik3_s const *eik, size_t l0) {
     return eik3_is_shadow(eik, l[0]);
 
   if (num_parents == 1 && mesh3_vert_incident_on_diff_edge(mesh, l[0]))
-    assert(false);
+    return is_shadow_p1_diff(eik, l0, l[0]);
 
   if (num_parents == 1)
     return eik3_is_shadow(eik, l[0]);
