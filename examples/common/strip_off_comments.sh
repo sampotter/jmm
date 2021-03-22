@@ -2,8 +2,6 @@
 
 OFF_PATH=$1
 
-echo $OFF_PATH
-
 if [[ "$OSTYPE" == "linux-gnu"* ]]; then
     sed -i '/^#/d' $OFF_PATH
 elif [[ "$OSTYPE" == "darwin"* ]]; then
