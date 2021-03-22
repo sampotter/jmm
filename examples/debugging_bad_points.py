@@ -1,15 +1,30 @@
+# Note: can sometimes be helpful to run this section first before
+# running the rest of the script if running from python-mode in Emacs
+
 import colorcet as cc
 import jmm
 import numpy as np
 import pyvista as pv
 import pyvistaqt as pvqt
 
+plotter = pvqt.BackgroundPlotter()
+
+################################################################################
+# parameters
+
+verts_path = 'make_L_video/L_verts.bin'
+cells_path = 'make_L_video/L_cells.bin'
+
+lsrc = 0 # index of point source
+l0 = 87 # index of first node to stop at
 
 
-verts = np.fromfile('box_verts.bin', dtype=np.float64)
+################################################################################
+
+verts = np.fromfile(verts_path, dtype=np.float64)
 verts = verts.reshape(verts.size//3, 3)
 
-cells = np.fromfile('box_cells.bin', dtype=np.uintp)
+cells = np.fromfile(cells_path, dtype=np.uintp)
 cells = cells.reshape(cells.size//4, 4)
 
 mesh = jmm.Mesh3.from_verts_and_cells(verts, cells)
