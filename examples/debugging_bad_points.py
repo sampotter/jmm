@@ -29,27 +29,17 @@ cells = cells.reshape(cells.size//4, 4)
 
 mesh = jmm.Mesh3.from_verts_and_cells(verts, cells)
 
-lsrc = 16
-
 eik = jmm.Eik3(mesh)
 eik.add_trial(lsrc, jmm.Jet3(0.0, np.nan, np.nan, np.nan))
 
-
-l = 295
-
-# l0 = 186
-# l0 = 215
-l0 = 160
-# l0 = 319
 while eik.peek() != l0:
     eik.step()
 
-
-plotter = pvqt.BackgroundPlotter()
+surf_mesh = pv.read('L.off')
+plotter.add_mesh(surf_mesh, color='white', opacity=0.25)
 
 highlight_inds = [
     (lsrc, 'pink'),
-    (l, 'magenta'),
     (l0, 'blue'),
 ]
 
@@ -121,14 +111,14 @@ state_to_color = {
     jmm.State.Far.value: 'white',
 }
 
-for l1 in mesh.vv(l):
-    if eik.is_valid(l1):
-        print('%d is VALID' % l1)
-    plotter.add_mesh(pv.Sphere(1.1*sphere_radius, verts[l1]),
-                     color=state_to_color[eik.state[l1]])
+# for l1 in mesh.vv(l):
+#     if eik.is_valid(l1):
+#         print('%d is VALID' % l1)
+#     plotter.add_mesh(pv.Sphere(1.1*sphere_radius, verts[l1]),
+#                      color=state_to_color[eik.state[l1]])
 
 def plot_tri(L):
     plotter.add_mesh(
         pv.make_tri_mesh(verts, np.array(L).reshape(1, 3)),
         opacity=0.95, color='white', show_edges=True)
-plot_tri([160, 186, 215])
+# plot_tri([160, 186, 215])
