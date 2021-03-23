@@ -279,7 +279,8 @@ static bool is_shadow(eik3_s const *eik, size_t l0) {
 }
 
 static bool can_update_from_point(eik3_s const *eik, size_t l) {
-  return eik->state[l] == VALID || eik->state[l] == SHADOW;
+  return (eik->state[l] == VALID || eik->state[l] == SHADOW) &&
+    !eik3_is_point_source(eik, l);
 }
 
 static void do_1pt_update(eik3_s *eik, size_t l, size_t l0) {
@@ -492,29 +493,6 @@ static void update(eik3_s *eik, size_t l, size_t l0) {
   if (num_utetra == 0)
     return;
 
-  // TODO: got through l1 and l2 and check if any are point
-  // sources. If they are, we need to do the point source update and
-  // return.
-
-  bool return_early = false;
-
-  for (int i = 0; i < num_utetra; ++i) {
-    if (eik3_is_point_source(eik, l1[i])) {
-      do_1pt_update(eik, l, l1[i]);
-      return_early = true;
-    }
-  }
-
-  for (int i = 0; i < num_utetra; ++i) {
-    if (eik3_is_point_source(eik, l2[i])) {
-      do_1pt_update(eik, l, l1[i]);
-      return_early = true;
-    }
-  }
-
-  if (return_early)
-    goto cleanup;
-
   /**
    * Before doing tetrahedron updates, we want to check if there are
    * any diffracting edges updates that aren't adjacent to `l0`. These
@@ -624,7 +602,6 @@ static void update(eik3_s *eik, size_t l, size_t l0) {
     utetra_dealloc(&utetra[i]);
   free(utetra);
 
-cleanup:
   free(l1);
   free(l2);
 }
