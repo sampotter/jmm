@@ -23,12 +23,14 @@ dbl dbl2_maxnorm(dbl const u[2]);
 bool dbl2_isfinite(dbl const u[2]);
 
 void dbl3_add(dbl const u[3], dbl const v[3], dbl w[3]);
+void dbl3_add_inplace(dbl u[3], dbl const v[3]);
 void dbl3_sub(dbl const *u, dbl const *v, dbl *w);
 dbl dbl3_dot(dbl const *u, dbl const *v);
 dbl dbl3_dist(dbl const u[3], dbl const v[3]);
 dbl dbl3_norm(dbl const u[3]);
 dbl dbl3_normsq(dbl const u[3]);
 void dbl3_dbl_div(dbl u[3], dbl a, dbl v[3]);
+void dbl3_dbl_div_inplace(dbl u[3], dbl a);
 dbl dbl3_normalize(dbl u[3]);
 void dbl3_normalized(dbl const u[3], dbl v[3]);
 void dbl3_saxpy(dbl a, dbl const x[3], dbl const y[3], dbl z[3]);
@@ -45,6 +47,7 @@ void dbl3_copy(dbl const u[3], dbl v[3]);
 dbl dbl3_ndot(dbl const u[3], dbl const v[3]);
 bool dbl3_valid_bary_coord(dbl const b[3]);
 void dbl3_sort(dbl u[3]);
+void dbl3_zero(dbl u[3]);
 
 dbl dbl4_dist(dbl const u[4], dbl const v[4]);
 bool dbl4_nonneg(dbl const u[4]);

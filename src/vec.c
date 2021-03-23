@@ -63,6 +63,12 @@ void dbl3_add(dbl const u[3], dbl const v[3], dbl w[3]) {
   w[2] = u[2] + v[2];
 }
 
+void dbl3_add_inplace(dbl u[3], dbl const v[3]) {
+  u[0] += v[0];
+  u[1] += v[1];
+  u[2] += v[2];
+}
+
 void dbl3_sub(dbl const *u, dbl const *v, dbl *w) {
   w[0] = u[0] - v[0];
   w[1] = u[1] - v[1];
@@ -90,6 +96,12 @@ void dbl3_dbl_div(dbl u[3], dbl a, dbl v[3]) {
   v[0] = u[0]/a;
   v[1] = u[1]/a;
   v[2] = u[2]/a;
+}
+
+void dbl3_dbl_div_inplace(dbl u[3], dbl a) {
+  u[0] /= a;
+  u[1] /= a;
+  u[2] /= a;
 }
 
 dbl dbl3_normalize(dbl u[3]) {
@@ -189,6 +201,10 @@ void dbl3_sort(dbl u[3]) {
   tmp = fmin(u[1], u[2]);
   u[2] = fmax(u[1], u[2]);
   u[1] = tmp;
+}
+
+void dbl3_zero(dbl u[3]) {
+  u[0] = u[1] = u[2] = 0;
 }
 
 dbl dbl4_dist(dbl const u[4], dbl const v[4]) {
