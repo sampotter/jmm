@@ -84,3 +84,16 @@ void array_get(array_s const *arr, size_t i, void *elt) {
 void *array_get_ptr(array_s const *arr, size_t i) {
   return i < arr->size ? arr->data + arr->eltsize*i : NULL;
 }
+
+void array_delete(array_s *arr, size_t i) {
+  void *dst = arr->data + i*arr->eltsize;
+  void const *src = arr->data + (i + 1)*arr->eltsize;
+  size_t len = (arr->size - i - 1)*arr->eltsize;
+  memmove(dst, src, len);
+  --arr->size;
+}
+
+void array_pop_front(array_s *arr, void *elt) {
+  array_get(arr, 0, elt);
+  array_delete(arr, 0);
+}
