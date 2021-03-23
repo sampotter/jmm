@@ -5,6 +5,8 @@
 #include "mat.h"
 
 void triqp2_solve(triqp2_s *qp) {
+  dbl const atol = 1e-15;
+
   dbl x[2], lam[2]; // Temporary variables used below
 
   /**
@@ -61,7 +63,7 @@ void triqp2_solve(triqp2_s *qp) {
       x[1] = s;
       // Check Lagrange multiplier
       if (dbl2_dot(qp->A[0], x) + dbl2_dot(qp->A[1], x)
-          + dbl2_sum(qp->b) <= 0) {
+          + dbl2_sum(qp->b) <= atol) {
         qp->x[0] = x[0];
         qp->x[1] = x[1];
         return;
