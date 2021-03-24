@@ -39,4 +39,5 @@ dist
 dists
 jmm.c
 scratch
+srcs
 vgcore.*
