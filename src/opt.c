@@ -58,7 +58,8 @@ void triqp2_solve(triqp2_s *qp) {
   if (dbl2_sum(qp->x) >= 1) {
     dbl s = qp->A[0][0] - qp->A[1][0] + qp->b[0] - qp->b[1];
     s /= qp->A[0][0] - qp->A[1][0] - qp->A[0][1] + qp->A[1][1];
-    if (0 <= s && s <= 1) {
+    if (-atol <= s && s <= 1 + atol) {
+      s = fmax(0, fmin(1, s));
       x[0] = 1 - s;
       x[1] = s;
       // Check Lagrange multiplier
