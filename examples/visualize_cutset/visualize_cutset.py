@@ -1,10 +1,16 @@
 #!/usr/bin/env python
 
 
-import jmm
+import argparse
 import pyvista as pv
 import pyvistaqt as pvqt
 import numpy as np
+
+
+import jmm
+
+
+from pathlib import Path
 
 
 state_to_color = {
@@ -148,8 +154,15 @@ def get_verts_and_faces(c, f_offset, verbose=False, tol=1e-15):
 
         num_approx_one = (abs(t03 - 1) < tol) + (abs(t13 - 1) < tol) \
             + (abs(t23 - 1) < tol)
-        assert num_approx_one != 2
-
+        if num_approx_one == 2:
+            if verbose:
+                if abs(t03 - 1) >= tol:
+                    print(f'WARN: t03 = {t03}')
+                if abs(t13 - 1) >= tol:
+                    print(f'WARN: t13 = {t13}')
+                if abs(t23 - 1) >= tol:
+                    print(f'WARN: t23 = {t23}')
+            return [], []
         if num_approx_one == 3:
             return [], []
 
@@ -161,14 +174,32 @@ def get_verts_and_faces(c, f_offset, verbose=False, tol=1e-15):
 
 
 if __name__ == '__main__':
-    indsrc = 36
+    parser = argparse.ArgumentParser(description='''
+Solve the eikonal equation in an L-shaped room with the point source placed
+at the vertex with the given index. Afterwards, plot the state of the nodes,
+the shadow cutset edges, and the approximate shadow surface. This will save
+a quick test screenshot and a vtk.js file that can be used to view the entire
+scene.
+''')
+    parser.add_argument('-l', '--indsrc', type=int, default=36,
+                        help='index of vertex to use for source location',)
+    parser.add_argument('-p', '--outpath', type=str, default='frames',
+                        help='path to which to write output frames')
+    args = parser.parse_args()
 
-    tet_mesh = 'L.1.vtk'
-    surf_mesh = pv.read('L.obj')
+    indsrc = args.indsrc
 
-    grid = pv.read(tet_mesh)
-    points = grid.points.copy().astype(np.float64)
-    cells = grid.cells.reshape(-1, 5)[:, 1:].copy().astype(np.uintp)
+    scene = 'L'
+
+    surf_mesh = pv.read(f'{scene}.obj')
+
+    points_path = f'{scene}_verts.bin'
+    points = np.fromfile(points_path, dtype=np.float64)
+    points = points.reshape(points.size//3, 3)
+
+    cells_path = f'{scene}_cells.bin'
+    cells = np.fromfile(cells_path, dtype=np.uintp)
+    cells = cells.reshape(cells.size//4, 4)
 
     mesh = jmm.Mesh3.from_verts_and_cells(points, cells)
 
@@ -178,7 +209,7 @@ if __name__ == '__main__':
 
     r = 0.05
 
-    plotter = pvqt.BackgroundPlotter()
+    plotter = pv.Plotter(off_screen=True)
     plotter.background_color = (0.6, 0.6, 0.6)
     plotter.add_mesh(surf_mesh, 'r', 'wireframe')
 
@@ -221,3 +252,12 @@ if __name__ == '__main__':
         plotter.add_mesh(
             pv.make_tri_mesh(V, F),
             color='purple', opacity=0.5, show_edges=True)
+
+    path = Path('srcs/%d' % indsrc)
+    path.mkdir(exist_ok=True, parents=True)
+
+    plotter.show(screenshot=path/'cutset.png', auto_close=False)
+
+    plotter.export_vtkjs(path/'cutset')
+
+    plotter.close()
