@@ -155,4 +155,16 @@ Ensure(triqp2, collected_problems) {
 
   assert_that_double(qp.x[0], is_nearly_double(0.5021101017573482));
   assert_that_double(qp.x[1], is_nearly_double(0));
+
+  qp.A[0][0] = 0.27593389435955507;
+  qp.A[0][1] = qp.A[1][0] = -0.00022250249910501976;
+  qp.A[1][1] = 0.30352699961859408;
+
+  qp.b[0] = -0.27593389435955518;
+  qp.b[1] = 0.00022250249910489028;
+
+  triqp2_solve(&qp);
+
+  assert_that_double(qp.x[0], is_nearly_double(1));
+  assert_that_double(qp.x[1], is_nearly_double(0));
 }
