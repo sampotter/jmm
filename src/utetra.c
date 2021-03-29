@@ -544,14 +544,26 @@ bool utetra_has_shadow_solution(utetra_s const *utetra, eik3_s const *eik) {
   return has_shadow_solution;
 }
 
+int utetra_get_num_shared_inds(utetra_s const *u1, utetra_s const *u2) {
+  size_t const *l1 = u1->l, *l2 = u2->l;
+  assert(l1[0] != l1[1] && l1[1] != l1[2]);
+  assert(l2[0] != l2[1] && l2[1] != l2[2]);
+  int num_shared_inds = (
+    (l1[0] == l2[0]) + (l1[0] == l2[1]) + (l1[0] == l2[2]) +
+    (l1[1] == l2[0]) + (l1[1] == l2[1]) + (l1[1] == l2[2]) +
+    (l1[2] == l2[0]) + (l1[2] == l2[1]) + (l1[2] == l2[2]));
+  assert(num_shared_inds <= 3);
+  return num_shared_inds;
+}
+
 bool utetras_yield_same_update(utetra_s const **utetra, int n) {
   dbl const atol = 1e-14;
 
-  dbl b[2][3];
+  dbl x[2][3];
   jet3 jet[2];
 
   // Prefetch the first coords and jet
-  utetra_get_bary_coords(utetra[0], b[0]);
+  utetra_get_x(utetra[0], x[0]);
   utetra_get_jet(utetra[0], &jet[0]);
 
   for (int i = 1; i < n; ++i) {
@@ -561,21 +573,78 @@ bool utetras_yield_same_update(utetra_s const **utetra, int n) {
       return false;
 
     // Get the next coords
-    utetra_get_bary_coords(utetra[i], b[1]);
+    utetra_get_x(utetra[i], x[1]);
 
-    // Check if the coords and jet agree up to `atol` and return early
-    // if they don't
-    if (fabs(b[0][0] - b[1][0]) > atol ||
-        fabs(b[0][1] - b[1][1]) > atol ||
-        fabs(b[0][2] - b[1][2]) > atol ||
-        !jet3_approx_eq(&jet[0], &jet[1], atol))
+    // Check if the base of the update rays coincide...
+    if (dbl3_dist(x[0], x[1]) > atol)
+      return false;
+
+    // Check if the computed jets are the same...
+    if (!jet3_approx_eq(&jet[0], &jet[1], atol))
       return false;
 
     // Swap the coords and jet that we just fetched to make way for
     // the next ones
-    for (int j = 0; j < 3; ++j) SWAP(b[0][j], b[1][j]);
+    for (int j = 0; j < 3; ++j) SWAP(x[0][j], x[1][j]);
     SWAP(jet[0], jet[1]);
   }
 
   return true;
+}
+
+size_t utetra_get_l(utetra_s const *utetra) {
+  return utetra->lhat;
+}
+
+/**
+ * Check whether the optimum of `u1` is incident on the base of `u2`.
+ */
+bool utetra_opt_inc_on_other_utetra(utetra_s const *u1, utetra_s const *u2) {
+  dbl b1[3];
+  utetra_get_bary_coords(u1, b1);
+
+  bool zero[3] = {b1[0] == 0, b1[1] == 0, b1[2] == 0};
+
+  int num_bd = 3 - !zero[0] - !zero[1] - !zero[2];
+  assert(num_bd < 3);
+  if (num_bd == 0)
+    return false;
+
+  size_t const *l1 = u1->l, *l2 = u2->l;
+
+  bool l1_inc[3] = {
+    l1[0] == l2[0] || l1[0] == l2[1] || l1[0] == l2[2],
+    l1[1] == l2[0] || l1[1] == l2[1] || l1[1] == l2[2],
+    l1[2] == l2[0] || l1[2] == l2[1] || l1[2] == l2[2]
+  };
+  if (l1_inc[0] + l1_inc[1] + l1_inc[2] == 0)
+    return false;
+
+  if (num_bd == 1) { // TODO: are the following tests just equivalent to "zero XOR l1_inc"?
+    if (zero[0])
+      return l1_inc[1] && l1_inc[2];
+    if (zero[1])
+      return l1_inc[0] && l1_inc[2];
+    if (zero[2])
+      return l1_inc[0] && l1_inc[1];
+    assert(false);
+  }
+
+  if (num_bd == 2) {
+    if (zero[1] && zero[2])
+      return l1_inc[0];
+    if (zero[0] && zero[2])
+      return l1_inc[1];
+    if (zero[0] && zero[1])
+      return l1_inc[2];
+    assert(false);
+  }
+
+  assert(false);
+}
+
+void utetra_get_x(utetra_s const *u, dbl x[3]) {
+  dbl b[3];
+  utetra_get_bary_coords(u, b);
+  dbl33_dbl3_mul(u->X, b, x);
 }
