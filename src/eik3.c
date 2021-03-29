@@ -145,7 +145,9 @@ static cutedge_s get_cutedge(eik3_s const *eik, size_t l0, size_t l1) {
   bool found = edgemap_get(eik->cutset, make_edge(l0, l1), &cutedge);
   assert(found);
 
-  // Reverse `cutedge.t` if we need to.
+  // Reverse `cutedge.t` if we need to. Remember that we want (1 -
+  // t)*x0 + t*x1 to equal to point where the shadow boundary
+  // intersects each edge in the shadow cut.
   if (l0 > l1)
     cutedge.t = 1 - cutedge.t;
 
