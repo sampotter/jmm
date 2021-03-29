@@ -52,6 +52,12 @@ struct eik3 {
   heap_s *heap;
   int num_valid;
   edgemap_s *cutset;
+
+  /**
+   * In some cases, we'll skip old updates that might be useful at a
+   * later stage. We keep track of them here.
+   */
+  array_s *old_updates;
 };
 
 void eik3_alloc(eik3_s **eik) {
@@ -118,6 +124,9 @@ void eik3_init(eik3_s *eik, mesh3_s *mesh) {
 
   edgemap_alloc(&eik->cutset);
   edgemap_init(eik->cutset, sizeof(cutedge_s));
+
+  array_alloc(&eik->old_updates);
+  array_init(eik->old_updates, sizeof(utetra_s *), 16);
 }
 
 void eik3_deinit(eik3_s *eik) {
@@ -138,6 +147,14 @@ void eik3_deinit(eik3_s *eik) {
 
   edgemap_deinit(eik->cutset);
   edgemap_dealloc(&eik->cutset);
+
+  utetra_s *utetra;
+  for (size_t i = 0; i < array_size(eik->old_updates); ++i) {
+    array_get(eik->old_updates, i, &utetra);
+    utetra_dealloc(&utetra);
+  }
+  array_deinit(eik->old_updates);
+  array_dealloc(&eik->old_updates);
 }
 
 static cutedge_s get_cutedge(eik3_s const *eik, size_t l0, size_t l1) {
@@ -586,9 +603,46 @@ static void update(eik3_s *eik, size_t l, size_t l0) {
       utetra_solve(utetra[i]);
     }
   }
-  qsort(utetra, num_utetra, sizeof(utetra_s *), (compar_t)utetra_cmp);
 
   free(updated_from_diff_edge);
+
+  // Go through old updates and append any that have the same update
+  // index (`l`) and share an edge with the updates currently in
+  // `utetra`. Note: we will have already solved these updates! No
+  // need to redo them.
+  //
+  // TODO: this is a bit of a mess :-(
+  size_t copied_utetra = 0;
+  for (int i = 0; i < num_utetra; ++i) {
+    utetra_s *old_utetra;
+    for (size_t j = array_size(eik->old_updates); j > 0; --j) {
+      array_get(eik->old_updates, j - 1, &old_utetra);
+      // TODO: should filter out the entries of `old_updates` that
+      // have `lhat == l` beforehand so that we don't have to do this
+      // check for each element of `utetra[]`... wasteful
+      if (utetra_get_l(old_utetra) != l)
+        continue;
+      if (!utetra_opt_inc_on_other_utetra(old_utetra, utetra[i]))
+        continue;
+      // TODO: ACTUALLY, need to check if `old_utetra`'s optimum is
+      // incident on `utetra[i]`'s base!
+      array_delete(eik->old_updates, j - 1);
+      utetra = realloc(
+        utetra, (num_utetra + copied_utetra + 1)*sizeof(utetra_s *));
+      utetra[num_utetra + copied_utetra++] = old_utetra;
+    }
+  }
+  num_utetra += copied_utetra;
+
+  // Sort the updates by their eikonal value
+  qsort(utetra, num_utetra, sizeof(utetra_s *), (compar_t)utetra_cmp);
+
+  // Keep track of which updates to free. If we copy any updates over
+  // to `old_updates`, we want to make sure we don't accidentally free
+  // them.
+  bool *should_dealloc_utetra = malloc(num_utetra*sizeof(bool));
+  for (int i = 0; i < num_utetra; ++i)
+    should_dealloc_utetra[i] = true;
 
   // See if we can commit a tetrahedron update
   for (int i = 0; i < num_utetra; ++i) {
@@ -608,13 +662,19 @@ static void update(eik3_s *eik, size_t l, size_t l0) {
           utetra_update_ray_is_physical(utetra[i], eik) &&
           commit_tetra_update(eik, l, utetra[i])) {
         break;
+      } else {
+        array_append(eik->old_updates, &utetra[i]);
+        should_dealloc_utetra[i] = false;
       }
     }
   }
 
   for (int i = 0; i < num_utetra; ++i)
-    utetra_dealloc(&utetra[i]);
+    if (should_dealloc_utetra[i])
+      utetra_dealloc(&utetra[i]);
   free(utetra);
+
+  free(should_dealloc_utetra);
 
   free(l1);
   free(l2);
@@ -1105,6 +1165,17 @@ size_t eik3_step(eik3_s *eik) {
   heap_pop(eik->heap);
 
   assert(isfinite(eik->jet[l0].f));
+
+  // Once we accept a node, we can clear out the old updates that are
+  // targeting it
+  utetra_s *old_utetra;
+  for (size_t i = array_size(eik->old_updates); i > 0; --i) {
+    array_get(eik->old_updates, i - 1, &old_utetra);
+    if (utetra_get_l(old_utetra) == l0) {
+      utetra_dealloc(&old_utetra);
+      array_delete(eik->old_updates, i - 1);
+    }
+  }
 
   eik->state[l0] = is_shadow(eik, l0) ? SHADOW : VALID;
   ++eik->num_valid;
