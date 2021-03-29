@@ -823,10 +823,12 @@ static void get_diff_edge_surf_normal(eik3_s const *eik, size_t l0, size_t l[2],
   mesh3_s const *mesh = eik3_get_mesh(eik);
 
   // Reorient the surface normal by checking which side of the tangent
-  // place at x[l[0]] the point x[l0] is on.
-  dbl dx[3];
-  dbl3_sub(mesh3_get_vert_ptr(mesh, l[0]), mesh3_get_vert_ptr(mesh, l0), dx);
-  if (dbl3_dot(n, dx) < 0)
+  // plane at (x[l[0]] + x[l[1]])/2 the point x[l0] is on.
+  dbl dx[3], lm[3];
+  dbl3_add(mesh3_get_vert_ptr(mesh, l[0]), mesh3_get_vert_ptr(mesh, l[1]), lm);
+  dbl3_dbl_div_inplace(lm, 2);
+  dbl3_sub(mesh3_get_vert_ptr(mesh, l0), lm, dx);
+  if (dbl3_dot(n, dx) > 0)
     dbl3_negate(n);
 }
 
