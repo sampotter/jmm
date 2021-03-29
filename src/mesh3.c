@@ -1095,3 +1095,43 @@ mesh2_s *mesh3_get_surface_mesh(mesh3_s const *mesh) {
 
   return surface_mesh;
 }
+
+/* Count the number of diffracting edges that have `l` as as
+ * endpoint. */
+size_t mesh3_get_num_inc_diff_edges(mesh3_s const *mesh, size_t l) {
+  assert(mesh->has_bd_info);
+
+  int nvv = mesh3_nvv(mesh, l);
+  size_t *vv = malloc(nvv*sizeof(size_t));
+  mesh3_vv(mesh, l, vv);
+
+  size_t num_inc_diff_edges = 0;
+  for (int i = 0; i < nvv; ++i)
+    if (mesh3_is_diff_edge(mesh, (size_t[2]) {l, vv[i]}))
+      ++num_inc_diff_edges;
+
+  free(vv);
+
+  return num_inc_diff_edges;
+}
+
+/* Get the diffracting edges incident on `l`. This assumes that `le`
+ * has space enough for all edges, the number of which can be found by
+ * calling `mesh3_get_num_inc_diff_edges`. */
+void mesh3_get_inc_diff_edges(mesh3_s const *mesh, size_t l, size_t (*le)[2]) {
+  assert(mesh->has_bd_info);
+
+  int nvv = mesh3_nvv(mesh, l);
+  size_t *vv = malloc(nvv*sizeof(size_t));
+  mesh3_vv(mesh, l, vv);
+
+  int j = 0;
+  for (int i = 0; i < nvv; ++i) {
+    le[j][0] = l;
+    le[j][1] = vv[i];
+    if (mesh3_is_diff_edge(mesh, le[j]))
+      ++j;
+  }
+
+  free(vv);
+}
