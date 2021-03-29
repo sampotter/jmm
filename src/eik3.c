@@ -768,6 +768,8 @@ void do_diff_edge_updates_and_adjust(eik3_s *eik, size_t l0, size_t l1,
     if (eik3_is_trial(eik, l1_nb[i]) && !array_contains(nb, &l1_nb[i]))
       array_append(nb, &l1_nb[i]);
 
+  free(l1_nb);
+
   int nnb = array_size(nb);
 
   // TODO: don't need to allocate a bunch of separate `utri`s...
@@ -955,10 +957,6 @@ static void estimate_cutedge_data_from_incident_cutedges(
 {
   assert(!edgemap_is_empty(incident_cutedges));
 
-  edgemap_iter_s *iter;
-  edgemap_iter_alloc(&iter);
-  edgemap_iter_init(iter, incident_cutedges);
-
   edge_s edge;
   cutedge_s incident_cutedge;
 
@@ -969,6 +967,10 @@ static void estimate_cutedge_data_from_incident_cutedges(
 
   cutedge->t = 0;
   dbl3_zero(cutedge->n);
+
+  edgemap_iter_s *iter;
+  edgemap_iter_alloc(&iter);
+  edgemap_iter_init(iter, incident_cutedges);
 
   while (edgemap_iter_next(iter, &edge, &incident_cutedge)) {
     // Get the location of the intersection between the shadow
@@ -986,6 +988,8 @@ static void estimate_cutedge_data_from_incident_cutedges(
 
     dbl3_add_inplace(cutedge->n, incident_cutedge.n);
   }
+
+  edgemap_iter_dealloc(&iter);
 
   size_t num_incident = edgemap_size(incident_cutedges);
 
@@ -1115,12 +1119,12 @@ static bool get_cut_edge_coef_and_surf_normal(eik3_s const *eik,
   if (mesh3_vert_incident_on_diff_edge(mesh, l_valid)) {
     assert(!edgemap_is_empty(incident_cutedges));
 
+    edge_s edge;
+    cutedge_s incident_cutedge;
+
     edgemap_iter_s *iter;
     edgemap_iter_alloc(&iter);
     edgemap_iter_init(iter, incident_cutedges);
-
-    edge_s edge;
-    cutedge_s incident_cutedge;
 
     dbl3_zero(n);
     while (edgemap_iter_next(iter, &edge, &incident_cutedge)) {
@@ -1130,6 +1134,9 @@ static bool get_cut_edge_coef_and_surf_normal(eik3_s const *eik,
         assert(incident_cutedge.t == 1);
       dbl3_add_inplace(n, incident_cutedge.n);
     }
+
+	edgemap_iter_dealloc(&iter);
+
     // TODO: this is the perfect place to do a weighted spherical
     // average instead of just normalizing!
     dbl3_normalize(cutedge->n);
@@ -1229,6 +1236,9 @@ static void update_shadow_cutset(eik3_s *eik, size_t l0) {
 
     edgemap_set(eik->cutset, edge, &cutedge);
   }
+
+  array_deinit(l1_arr);
+  array_dealloc(&l1_arr);
 
   free(vv);
 }
