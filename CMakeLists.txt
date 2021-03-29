@@ -77,6 +77,7 @@ set (JMM_SRCS
   src/par.c
   src/pool.c
   src/rtree.c
+  src/solve_cubic.c
   src/stats.c
   src/triBoxOverlap.c
   src/utetra.c
@@ -93,7 +94,6 @@ endif ()
 if (UNIX)
   target_link_libraries (jmm PRIVATE m)
 endif ()
-target_link_libraries (jmm PRIVATE GSL::gsl)
 target_include_directories (
   jmm INTERFACE
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>

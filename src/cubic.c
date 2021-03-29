@@ -66,6 +66,10 @@ void cubic_make_monic(cubic_s *cubic) {
     cubic->a.data[i] /= a3;
 }
 
+int
+/* gsl_poly_ */ solve_cubic (double a, double b, double c,
+							 double *x0, double *x1, double *x2);
+
 /**
  * Compute the real roots of `cubic`, storing them in `lam`, and
  * returning the number of real roots.
@@ -79,7 +83,7 @@ int cubic_get_real_roots(cubic_s const *cubic, dbl lam[3]) {
 
   /* Note that we reverse the order of `a` here when transferring the
    * coefficients to GSL's `gsl_poly_solve_cubic`. */
-  return gsl_poly_solve_cubic(a[2], a[1], a[0], &lam[0], &lam[1], &lam[2]);
+  return solve_cubic(a[2], a[1], a[0], &lam[0], &lam[1], &lam[2]);
 }
 
 void cubic_add_constant(cubic_s *cubic, dbl f) {
