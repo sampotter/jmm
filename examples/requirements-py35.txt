@@ -1,7 +1,7 @@
 # pip requirements file for running any example in this directory
 
 colorcet
-matplotlib==3.0.0
+matplotlib
 meshio
 meshzoo
 pillow==7.0.0
