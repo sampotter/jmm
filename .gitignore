@@ -19,6 +19,7 @@
 *.vtk
 *.vtu
 *~
+.#*
 .DS_Store
 .DS_Store
 .cache
