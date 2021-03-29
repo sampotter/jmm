@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/bash
 
 TETGEN=~/Build/tetgen1.6.0/tetgen
 

@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/bash
 
 # This is a simple one-off script to quickly rebuild everything after
 # making some changes (anywhere!) in the code. The idea here is to

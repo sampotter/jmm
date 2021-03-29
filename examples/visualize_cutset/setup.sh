@@ -1,4 +1,4 @@
-#!/usr/bin/env sh
+#!/bin/bash
 
 OFF_PATH=L.off
 

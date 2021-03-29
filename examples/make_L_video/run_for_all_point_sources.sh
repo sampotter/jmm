@@ -1,4 +1,4 @@
-#!/usr/bin/env sh
+#!/bin/bash
 
 NUM_VERTS=`python -c "import numpy as np; V = np.fromfile('L_verts.bin'); print(V.size//3)"`
 

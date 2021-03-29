@@ -1,4 +1,4 @@
-#!/usr/bin/env sh
+#!/bin/bash
 
 if [ -z "$REBUILD" ] ; then
    while true; do
