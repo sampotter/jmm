@@ -3,13 +3,14 @@
 import argparse
 import colorcet as cc
 import itertools as it
-import jmm
 import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 import numpy as np
 import os
 import scipy.optimize
+
+import jmm
 
 from PIL import Image
 from pathlib import Path
