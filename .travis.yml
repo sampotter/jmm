@@ -1,3 +1,4 @@
+dist: bionic
 language: c
 compiler:
   - clang
@@ -17,8 +18,8 @@ before_script:
   # Activate venv and install necessary Python packages
   - python3 -m venv .
   - source bin/activate
-  - pip install -r requirements-py35.txt
-  - pip install -r examples/requirements-py35.txt
+  - pip install -r requirements-py36.txt
+  - pip install -r examples/requirements-py36.txt
 script:
   # Build everything and run the unit tests
   - ./quick_build.sh
