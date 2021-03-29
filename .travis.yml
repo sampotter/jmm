@@ -14,7 +14,8 @@ before_script:
   # Set up tetgen manually
   - wget https://www.umiacs.umd.edu/~sfp/tetgen1.6.0.zip
   - unzip tetgen1.6.0.zip
-  - cd tetgen1.6.0; make -j; cd -; mkdir Build; mv tetgen1.6.0 Build
+  - cd tetgen1.6.0; make -j; cd -
+  - PATH=`pwd`/tetgen1.6.0:$PATH export PATH
   # Activate venv and install necessary Python packages
   - python3 -m venv .
   - source bin/activate
