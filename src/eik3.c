@@ -864,13 +864,70 @@ void update_neighbors(eik3_s *eik, size_t l0) {
 }
 
 /**
- * Compute the surface normal at a diffraction edge. The index `l0`
- * indicates a new `SHADOW` point, which we use to orient the surface
- * normal, computed as the cross product of the eikonal gradients at
- * indices `l[0]` and `l[1]`. The result goes in `n`.
+ * Compute the surface normal for a cutedge attached to a diffracting
+ * edge when `l0` has one parent, and where `l0`'s state is
+ * `SHADOW`. Since `l0` only has one parent, this will use the
+ * diffracting edge to complete the information required to find `n`.
  */
-static void get_diff_edge_surf_normal(eik3_s const *eik, size_t l0, size_t l[2],
-                                      dbl n[3]) {
+static void get_diff_edge_surf_normal_p1(eik3_s const *eik,
+                                         size_t l0, size_t l1,
+                                         size_t (*e)[2], size_t ne,
+                                         dbl n[3])
+{
+  dbl const atol = 1e-13;
+
+  mesh3_s const *mesh = eik->mesh;
+
+  dbl (*N)[3] = malloc(ne*sizeof(dbl[3]));
+
+  dbl DT1[3];
+  eik3_get_DT(eik, l1, DT1);
+
+  dbl const *x1 = mesh3_get_vert_ptr(mesh, l1);
+  dbl dx[3];
+
+  /* Start by compute the normalized cross product between the ray
+   * vector at `x1` and each diffracting edge incident on `x1`. */
+  for (size_t i = 0; i < ne; ++i) {
+    assert(e[i][0] == l1 || e[i][1] == l1);
+    if (e[i][0] == l1)
+      dbl3_sub(mesh3_get_vert_ptr(mesh, e[i][1]), x1, dx);
+    else
+      dbl3_sub(mesh3_get_vert_ptr(mesh, e[i][0]), x1, dx);
+    dbl3_cross(DT1, dx, N[i]);
+    dbl3_normalize(N[i]);
+  }
+
+  /* Orient the surface normals consistently. */
+  dbl3_sub(mesh3_get_vert_ptr(mesh, l0), x1, dx);
+  for (size_t i = 0; i < ne; ++i)
+    if (dbl3_dot(N[i], dx) > 0)
+      dbl3_negate(N[i]);
+
+  // TODO: for now, ensure that all these normals are the same at this
+  // point. This is because we assume that the edges are all entirely
+  // straight. Later, when we relax this assumption, we'll need to
+  // handle this.
+  for (size_t i = 1; i < ne; ++i)
+    assert(dbl3_dist(N[i], N[i - 1]) < atol);
+
+  /* Set the surface normal (arbitrarily) to be the first of these
+   * surface normals, since we're assuming they're all the same at
+   * this point, anyway. */
+  dbl3_copy(N[0], n);
+
+  free(N);
+}
+
+/**
+ * Compute the surface normal at a diffraction edge when `l0` has two
+ * parents. The index `l0` indicates a new `SHADOW` point, which we
+ * use to orient the surface normal, computed as the cross product of
+ * the eikonal gradients at indices `l[0]` and `l[1]`. The result goes
+ * in `n`.
+ */
+static void get_diff_edge_surf_normal_p2(eik3_s const *eik, size_t l0,
+                                         size_t l[2], dbl n[3]) {
   assert(eik3_is_shadow(eik, l0));
 
   // Get DT at each parent and compute their cross product.
@@ -892,55 +949,51 @@ static void get_diff_edge_surf_normal(eik3_s const *eik, size_t l0, size_t l[2],
     dbl3_negate(n);
 }
 
-static void estimate_t_and_normal_from_cut_edges(eik3_s const *eik,
-                                                 size_t l0, size_t l1,
-                                                 edge_s const *edge,
-                                                 cutedge_s const *cutedge,
-                                                 int num_incident,
-                                                 dbl *that, dbl normal[3]) {
-  mesh3_s const *mesh = eik3_get_mesh(eik);
+static void estimate_cutedge_data_from_incident_cutedges(
+  mesh3_s const *mesh, size_t l0, size_t l1, cutedge_s *cutedge,
+  edgemap_s const *incident_cutedges)
+{
+  assert(!edgemap_is_empty(incident_cutedges));
 
-  dbl *t = malloc(num_incident*sizeof(dbl));
+  edgemap_iter_s *iter;
+  edgemap_iter_alloc(&iter);
+  edgemap_iter_init(iter, incident_cutedges);
 
-  // TODO: unnecessary! we're just copying this...
-  dbl (*n)[3] = malloc(num_incident*sizeof(dbl[3]));
+  edge_s edge;
+  cutedge_s incident_cutedge;
 
   dbl const *x0, *y0;
   dbl dx[3], dy[3], yt[3];
   x0 = mesh3_get_vert_ptr(mesh, l0);
   dbl3_sub(mesh3_get_vert_ptr(mesh, l1), x0, dx);
 
-  for (int i = 0; i < num_incident; ++i) {
+  cutedge->t = 0;
+  dbl3_zero(cutedge->n);
+
+  while (edgemap_iter_next(iter, &edge, &incident_cutedge)) {
     // Get the location of the intersection between the shadow
     // boundary and the current cut edge
-    y0 = mesh3_get_vert_ptr(mesh, edge[i].l[0]);
-    dbl3_sub(mesh3_get_vert_ptr(mesh, edge[i].l[1]), y0, dy);
-    dbl3_saxpy(cutedge[i].t, dy, y0, yt);
 
-    memcpy(n[i], cutedge[i].n, sizeof(dbl[3]));
-    t[i] = (dbl3_dot(n[i], yt) - dbl3_dot(n[i], x0))/dbl3_dot(n[i], dx);
+    y0 = mesh3_get_vert_ptr(mesh, edge.l[0]);
+    dbl3_sub(mesh3_get_vert_ptr(mesh, edge.l[1]), y0, dy);
+    dbl3_saxpy(incident_cutedge.t, dy, y0, yt);
+
+    dbl t = dbl3_dot(incident_cutedge.n, yt);
+    t -= dbl3_dot(incident_cutedge.n, x0);
+    t /= dbl3_dot(incident_cutedge.n, dx);
+
+    cutedge->t += t;
+
+    dbl3_add_inplace(cutedge->n, incident_cutedge.n);
   }
 
-  /**
-   * To estimate t and the normal vector, we just compute the average
-   * over each normal and intersection point...
-   */
-  // TODO: we can probably come up with a smarter way to do this
+  size_t num_incident = edgemap_size(incident_cutedges);
 
-  *that = dblN_mean(t, num_incident);
+  cutedge->t /= num_incident;
 
-  normal[0] = normal[1] = normal[2] = 0;
-  for (int i = 0; i < num_incident; ++i) {
-    normal[0] += n[i][0];
-    normal[1] += n[i][1];
-    normal[2] += n[i][2];
-  }
-  normal[0] /= num_incident;
-  normal[1] /= num_incident;
-  normal[2] /= num_incident;
-
-  free(n);
-  free(t);
+  // TODO: this is the perfect place to do a weighted spherical
+  // average instead of just normalizing!
+  dbl3_normalize(cutedge->n);
 }
 
 /**
@@ -950,17 +1003,36 @@ static void estimate_t_and_normal_from_cut_edges(eik3_s const *eik,
  *
  * The index l0 corresponds to the node that has just been accepted,
  * and l1 is some neighbor of l0 which has the "opposite" state from
- * l0 (i.e., VALID if l0 is SHADOW and vice versa).
- *
- * We assume that one of eik->state[l0] and eik->state[l1] is VALID
- * and the other is SHADOW. It doesn't matter which is which.
+ * l0 (i.e., VALID if l0 is SHADOW and vice versa). So, one of
+ * eik->state[l0] and eik->state[l1] is VALID and the other is
+ * SHADOW. No assumption is made about which is which.
  */
-static dbl get_cut_edge_coef_and_surf_normal(eik3_s const *eik,
-                                             size_t l0, size_t l1,
-                                             dbl normal[3]) {
-  dbl const atol = 1e-15;
+static bool get_cut_edge_coef_and_surf_normal(eik3_s const *eik,
+                                              size_t l0, size_t l1,
+                                              cutedge_s *cutedge) {
+  /* TODO: pretty sure this function is next on the chopping block.
+   * I really don't like how arbitrary the approach to find nearby
+   * cutedges to use to estimate the data for the passed cutedge
+   * is. Let's see if we can push it a bit further for now,
+   * though.
+   *
+   * Some observations...
+   *
+   * 1. The "base case" section and "inductive step" sections should
+   *    really be split off into two separate functions. */
+
+  //////////////////////////////////////////////////////////////////////////////
+  // BASE CASE /////////////////////////////////////////////////////////////////
+  //////////////////////////////////////////////////////////////////////////////
+
+  /* Setup */
 
   mesh3_s const *mesh = eik3_get_mesh(eik);
+
+  dbl const atol = 1e-15;
+
+  dbl *t = &cutedge->t;
+  dbl *n = cutedge->n;
 
   // For convenience, get the index with the VALID state...
   size_t l_valid = eik->state[l0] == VALID ? l0 : l1;
@@ -973,10 +1045,28 @@ static dbl get_cut_edge_coef_and_surf_normal(eik3_s const *eik,
   /**
    * "Base case": check and see if l0's parents are incident on a
    * diffracting edge.
+   *
+   * What we're checking here:
+   * - l1 is one of l0's parents
+   * - l0 has exactly two parents (why not just one == l1?)
+   * - l2 is the other parent
+   * - [l1, l2] is a diffracting edge
    */
   par3_s par = eik3_get_par(eik, l0);
   int npar = par3_size(&par);
-  if (npar == 2) {
+  if (npar == 1) {
+    size_t num_inc_diff_edges = mesh3_get_num_inc_diff_edges(mesh, l1);
+    if (num_inc_diff_edges > 0) {
+      assert(l0 == l_shadow && l1 == l_valid);
+      assert(num_inc_diff_edges <= 2); // TODO: corners later...
+      size_t (*e)[2] = malloc(num_inc_diff_edges*sizeof(size_t[2]));
+      mesh3_get_inc_diff_edges(mesh, l1, e);
+      get_diff_edge_surf_normal_p1(eik, l0, l1, e, num_inc_diff_edges, n);
+      free(e);
+      *t = 1;
+      return true;
+    }
+  } else if (npar == 2) {
     // Get indices
     size_t l2 = par.l[0], l3 = par.l[1];
     // Check if l0 was updated from l1
@@ -987,18 +1077,33 @@ static dbl get_cut_edge_coef_and_surf_normal(eik3_s const *eik,
       // assume that l1 is the VALID node (since diff => VALID) and
       // return t = 1.
       if (mesh3_is_diff_edge(mesh, (size_t[2]) {l1, l2})) {
-        assert(l1 == l_valid);
-        get_diff_edge_surf_normal(eik, l0, (size_t[2]) {l1, l2}, normal);
-        return 1;
+        assert(l0 == l_shadow && l1 == l_valid);
+        get_diff_edge_surf_normal_p2(eik, l0, (size_t[2]) {l1, l2}, n);
+        *t = 1; // This assumes that l1 is valid
+        return true;
       }
     }
   }
 
-  dbl t;
+  // /**
+  //  * "Another base case": if a SHADOW node receives its final value
+  //  * from a single node on a diffracting edge (TODO: or, later,
+  //  * diffracting vertex!), then we won't have enough information to
+  //  * compute the surface normal for the cutedge connecting it and its
+  //  * parent, since we'll only have ...
+  //  */
+
+  bool updated_cutedge = false;
 
   edgemap_s *incident_cutedges;
   edgemap_alloc(&incident_cutedges);
   edgemap_init(incident_cutedges, sizeof(cutedge_s));
+
+  edgemap_filter(
+    eik->cutset, incident_cutedges,
+    (edgemap_prop_t)cutedge_is_incident_on_vertex, &l_valid);
+
+  size_t num_incident = edgemap_size(incident_cutedges);
 
   /**
    * Next, we check if the valid node is incident on a diffracting
@@ -1008,29 +1113,31 @@ static dbl get_cut_edge_coef_and_surf_normal(eik3_s const *eik,
    */
 
   if (mesh3_vert_incident_on_diff_edge(mesh, l_valid)) {
-    edgemap_filter(
-      eik->cutset, incident_cutedges,
-      (edgemap_prop_t)cutedge_is_incident_on_vertex, &l_valid);
-
-    // TODO: safeguard here for now...
     assert(!edgemap_is_empty(incident_cutedges));
-
-    t = 1;
 
     edgemap_iter_s *iter;
     edgemap_iter_alloc(&iter);
     edgemap_iter_init(iter, incident_cutedges);
 
-    normal[0] = normal[1] = normal[2] = 0;
+    edge_s edge;
+    cutedge_s incident_cutedge;
 
-    cutedge_s cutedge;
-    while (edgemap_iter_next(iter, NULL, &cutedge))
-      for (int i = 0; i < 3; ++i)
-        normal[i] += cutedge.n[i];
+    dbl3_zero(n);
+    while (edgemap_iter_next(iter, &edge, &incident_cutedge)) {
+      if (eik3_is_valid(eik, edge.l[0]))
+        assert(incident_cutedge.t == 0);
+      else
+        assert(incident_cutedge.t == 1);
+      dbl3_add_inplace(n, incident_cutedge.n);
+    }
+    // TODO: this is the perfect place to do a weighted spherical
+    // average instead of just normalizing!
+    dbl3_normalize(cutedge->n);
 
-    int num_incident = edgemap_size(incident_cutedges);
-    for (int i = 0; i < 3; ++i)
-      normal[i] /= num_incident;
+    assert(l1 == l_valid);
+    *t = 1;
+
+    updated_cutedge = true;
 
     goto cleanup;
   }
@@ -1042,71 +1149,18 @@ static dbl get_cut_edge_coef_and_surf_normal(eik3_s const *eik,
    * order to find the intersection point.
    */
 
-  /**
-   * Try to compute `t` and `normal` using cutset edges incident on
-   * `l_shadow`.
-   */
-
-  // Filter out the edges that aren't incident on the SHADOW vertex
-  edgemap_clear(incident_cutedges);
+  // After running this filter, incident_cutedges will contain all of
+  // the cutedges incident on either l_valid or l_shadow.
   edgemap_filter(
     eik->cutset, incident_cutedges,
     (edgemap_prop_t)cutedge_is_incident_on_vertex, &l_shadow);
+  assert(num_incident <= edgemap_size(incident_cutedges));
 
-  if (!edgemap_is_empty(incident_cutedges)) {
-    int num_incident = edgemap_size(incident_cutedges);
-    edge_s *edge = malloc(num_incident*sizeof(edge_s));
-    cutedge_s *cutedge = malloc(num_incident*sizeof(cutedge_s));
+  updated_cutedge = !edgemap_is_empty(incident_cutedges);
 
-    // TODO: replace this with a new "edgemap_map" function
-    edgemap_iter_s *iter;
-    edgemap_iter_alloc(&iter);
-    edgemap_iter_init(iter, incident_cutedges);
-
-    for (int i = 0; i < num_incident; ++i)
-      edgemap_iter_next(iter, &edge[i], &cutedge[i]);
-    estimate_t_and_normal_from_cut_edges(
-      eik, l0, l1, edge, cutedge, num_incident, &t, normal);
-
-    edgemap_iter_dealloc(&iter);
-
-    free(cutedge);
-    free(edge);
-
-    goto cleanup;
-  }
-
-  /**
-   * If that didn't work, try to compute `t` and `normal` using cutset
-   * edges incident on `l_valid`.
-   */
-
-  // Filter out the edges that aren't incident on the SHADOW vertex
-  edgemap_clear(incident_cutedges);
-  edgemap_filter(
-    eik->cutset, incident_cutedges,
-    (edgemap_prop_t)cutedge_is_incident_on_vertex, &l_valid);
-  assert(!edgemap_is_empty(incident_cutedges));
-
-  int num_incident = edgemap_size(incident_cutedges);
-  edge_s *edge = malloc(num_incident*sizeof(edge_s));
-  cutedge_s *cutedge = malloc(num_incident*sizeof(cutedge_s));
-
-  // TODO: replace this with a new "edgemap_map" function
-  edgemap_iter_s *iter;
-  edgemap_iter_alloc(&iter);
-  edgemap_iter_init(iter, incident_cutedges);
-
-  edgemap_iter_init(iter, incident_cutedges);
-  for (int i = 0; i < num_incident; ++i)
-    edgemap_iter_next(iter, &edge[i], &cutedge[i]);
-  estimate_t_and_normal_from_cut_edges(
-    eik, l0, l1, edge, cutedge, num_incident, &t, normal);
-
-  edgemap_iter_dealloc(&iter);
-
-  free(cutedge);
-  free(edge);
+  if (updated_cutedge)
+    estimate_cutedge_data_from_incident_cutedges(
+      mesh, l0, l1, cutedge, incident_cutedges);
 
 cleanup:
   edgemap_deinit(incident_cutedges);
@@ -1115,13 +1169,17 @@ cleanup:
   // Verify that t is (up to machine precision) in the interval [0,
   // 1]. If it's slightly outside of the interval due to roundoff
   // error, clamp it back before returning.
-  if (t < -atol || 1 + atol < t) {
-    log_warn("bad cutset coef: l0 = %lu, l1 = %lu, t = %1.3f\n",
-             l0, l1, t);
+  //
+  // TODO: seems like the errors will be bigger than machine precision
+  // the way we're doing it now, but clamping back to [0, 1] seems to
+  // help.
+  if (updated_cutedge) {
+    if (*t < -atol || 1 + atol < *t)
+      log_warn("bad cutset coef: t = %1.3f\n", *t);
+    *t = fmax(0, fmin(1, *t));
   }
-  t = fmax(0, fmin(1, t));
 
-  return t;
+  return updated_cutedge;
 }
 
 static void update_shadow_cutset(eik3_s *eik, size_t l0) {
@@ -1134,19 +1192,35 @@ static void update_shadow_cutset(eik3_s *eik, size_t l0) {
   size_t *vv = malloc(nvv*sizeof(size_t));
   mesh3_vv(eik->mesh, l0, vv);
 
+  array_s *l1_arr;
+  array_alloc(&l1_arr);
+  array_init(l1_arr, sizeof(size_t), nvv);
+
   size_t l1;
-  edge_s edge;
   for (int i = 0; i < nvv; ++i) {
-    if (eik->state[l1 = vv[i]] != op_state)
-      continue;
+    l1 = vv[i];
+    if (eik->state[l1] == op_state)
+      array_append(l1_arr, &l1);
+  }
+
+  // We process the nodes neighboring l0 that have the opposite state
+  // using a queue. When we try to compute the data for each new
+  // cutedge, because of the way we do it right now, we need to
+  // compute this data for each node in a certain order. If we fail
+  // the first time, we reinsert the node into the queue and try
+  // again.
+  edge_s edge;
+  while (!array_is_empty(l1_arr)) {
+    array_pop_front(l1_arr, &l1);
 
     cutedge_s cutedge;
-    cutedge.t = get_cut_edge_coef_and_surf_normal(eik, l0, l1, cutedge.n);
+    if (!get_cut_edge_coef_and_surf_normal(eik, l0, l1, &cutedge)) {
+      array_append(l1_arr, &l1);
+      continue;
+    }
     assert(0 <= cutedge.t && cutedge.t <= 1);
+    assert(fabs(1 - dbl3_norm(cutedge.n)) < 1e-15);
 
-    // Reverse the coefficient here if necessary. We want `t = 0` to
-    // correspond to the `SHADOW` node and `t = 1` to the `VALID`
-    // node.
     if (l0 > l1)
       cutedge.t = 1 - cutedge.t;
 
