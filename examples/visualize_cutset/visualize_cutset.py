@@ -98,8 +98,14 @@ def get_verts_and_faces(c, f_offset, verbose=False, tol=1e-15):
             print('- t03 = %1.3f' % t03)
 
         num_approx_zero = (abs(t01) < tol) + (abs(t02) < tol) + (abs(t03) < tol)
-
-        assert num_approx_zero != 2
+        if num_approx_zero == 2:
+            if abs(t01) >= tol:
+                print(f'WARN: t01 = {t01}')
+            if abs(t02) >= tol:
+                print(f'WARN: t02 = {t02}')
+            if abs(t03) >= tol:
+                print(f'WARN: t03 = {t03}')
+            return [], []
 
         if num_approx_zero == 3:
             return [], []
