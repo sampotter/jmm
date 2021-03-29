@@ -23,5 +23,5 @@ script:
   # Build everything and run the unit tests
   - ./quick_build.sh
   - ./quick_test.sh
-  # Run examples
-  - python examples/viz_error_using_raytracing.py
+  # Run stress test
+  - REBUILD=1 ./stress_test.sh
