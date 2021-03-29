@@ -24,6 +24,18 @@
 #include "utri.h"
 #include "vec.h"
 
+// A few comments about this file follow:
+//
+// Debugging:
+// ---------
+//
+// 1. There are a few labels scattered throughout this file to make
+//    debugging a little simpler. It would be better to exclusively
+//    use setters and set breakpoints in those, but for now the labels
+//    should help. To find places where a new jet value is committed,
+//    e.g., search for "[UPDATE:JET]". Right now, this is the only
+//    label...  If I add more, I'll list them below...
+
 /**
  * A structure managing a jet marching method solving the eikonal
  * equation in 3D on an unstructured tetrahedron mesh.
@@ -300,7 +312,7 @@ static void do_1pt_update(eik3_s *eik, size_t l, size_t l0) {
   // solution. This may not be a great approach, but it's what we're
   // doing for now...
   assert(jet.f <= eik->jet[l].f);
-  eik->jet[l] = jet;
+  eik->jet[l] = jet; // [UPDATE:JET]
   eik->par[l] = (par3_s) {
     .l = {l0, NO_PARENT, NO_PARENT},
     .b = {1, NAN, NAN}
@@ -311,7 +323,7 @@ static bool commit_tri_update(eik3_s *eik, size_t lhat, utri_s const *utri) {
   if (utri_get_value(utri) >= eik->jet[lhat].f)
     return false;
 
-  utri_get_jet(utri, &eik->jet[lhat]);
+  utri_get_jet(utri, &eik->jet[lhat]); // [UPDATE:JET]
 
   size_t l[3] = {[2] = NO_PARENT};
   utri_get_update_inds(utri, l);
@@ -455,7 +467,7 @@ static bool commit_tetra_update(eik3_s *eik, size_t lhat, utetra_s const *utetra
   if (utetra_get_value(utetra) >= eik->jet[lhat].f)
     return false;
 
-  utetra_get_jet(utetra, &eik->jet[lhat]);
+  utetra_get_jet(utetra, &eik->jet[lhat]); // [UPDATE:JET]
 
   size_t l[3];
   utetra_get_update_inds(utetra, l);
