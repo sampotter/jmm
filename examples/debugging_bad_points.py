@@ -16,8 +16,22 @@ verts_path = 'make_L_video/L_verts.bin'
 cells_path = 'make_L_video/L_cells.bin'
 
 lsrc = 0 # index of point source
-l0 = 87 # index of first node to stop at
+l = None # index of node being updated
+l0 = 87
+l1 = 41
+l2 = None
+l3 = None
+lbad = None
 
+connect_l_and_lsrc = True
+
+# OKAY, these are the bad nodes, ordered in decreasing order of
+# likelihood of being *the* bad node, gotten using this line:
+#
+#   I[np.argsort(np.sqrt(np.sum((verts[I] - verts[lsrc])**2, axis=1)))]
+#
+# 62,  94,  55, 137, 131, 104,  61, 115,  91, 126,  87,  70,  85
+#
 
 ################################################################################
 
@@ -34,14 +48,39 @@ eik.add_trial(lsrc, jmm.Jet3(0.0, np.nan, np.nan, np.nan))
 
 while eik.peek() != l0:
     eik.step()
+# eik.step()
+
+if l is not None:
+    _ = verts[l] - verts[lsrc]
+    tau = np.linalg.norm(_)
+    Dtau = _/tau
+    del _
+    print(f'tau = {tau}')
+    print(f'T = {eik.jet[l][0]}')
+    print(f'T - tau = {tau - eik.jet[l][0]}')
+    print()
+    print(f'Dtau = {tuple(Dtau)}')
+    print(f'DT = ({eik.jet[l][1]}, {eik.jet[l][2]}, {eik.jet[l][3]})')
+    print(f'DT - Dtau = ({Dtau[0] - eik.jet[l][1]}, {Dtau[1] - eik.jet[l][2]}, {Dtau[2] - eik.jet[l][3]})')
+    print(f'angle(DT, Dtau) = {np.rad2deg(np.arccos(Dtau@[eik.jet[l][_] for _ in range(1, 4)]))} deg')
 
 surf_mesh = pv.read('L.off')
 plotter.add_mesh(surf_mesh, color='white', opacity=0.25)
 
-highlight_inds = [
-    (lsrc, 'pink'),
-    (l0, 'blue'),
-]
+highlight_inds = {
+    lsrc: 'pink',
+    l0: 'teal', # 'blue',
+}
+if l is not None:
+    highlight_inds[l] = 'orange'
+if lbad is not None:
+    highlight_inds[lbad] =  'red'
+if l1 is not None:
+    highlight_inds[l1] =  'purple'
+if l2 is not None:
+    highlight_inds[l2] =  'cyan'
+if l3 is not None:
+    highlight_inds[l3] = 'blue' # 'teal'
 
 h = eik.mesh.min_tetra_alt/2
 sphere_radius = h/6
@@ -80,17 +119,18 @@ DT = np.array([(J[1], J[2], J[3]) for J in eik.jet[uniq_inds]])
 
 # Put together the data for a PyVista PolyData instance containing
 # a triangle mesh representing the front
-points = verts[uniq_inds]
-faces = np.concatenate([
-    3*np.ones((tris_on_front.shape[0], 1), dtype=tris_on_front.dtype),
-    tris_on_front
-], axis=1)
-poly_data = pv.PolyData(points, faces)
-poly_data.point_arrays['T'] = T
+if tris_on_front.size > 0:
+    points = verts[uniq_inds]
+    faces = np.concatenate([
+        3*np.ones((tris_on_front.shape[0], 1), dtype=tris_on_front.dtype),
+        tris_on_front
+    ], axis=1)
+    poly_data = pv.PolyData(points, faces)
+    poly_data.point_arrays['T'] = T
 
-# Add it to the plotter and plot the values of the eikonal
-plotter.add_mesh(poly_data, scalars='T', cmap=cc.cm.rainbow,
-                 opacity=0.5, show_edges=True)
+    # Add it to the plotter and plot the values of the eikonal
+    plotter.add_mesh(poly_data, scalars='T', cmap=cc.cm.rainbow,
+                     opacity=0.5, show_edges=True)
 
 # Now, traverse each point and gradient, and add a colored arrow
 # for ind, p, d in zip(uniq_inds, points, DT):
@@ -100,25 +140,24 @@ plotter.add_mesh(poly_data, scalars='T', cmap=cc.cm.rainbow,
 #     arrow = pv.Arrow(p, d, tip_length=0.1, scale=h)
 #     plotter.add_mesh(arrow, color=color)
 
-for ind, color in highlight_inds:
+for ind, color in highlight_inds.items():
     p = verts[ind]
     sphere = pv.Sphere(1.25*sphere_radius, p)
     plotter.add_mesh(sphere, color=color)
-
-state_to_color = {
-    jmm.State.Valid.value: 'green',
-    jmm.State.Trial.value: 'yellow',
-    jmm.State.Far.value: 'white',
-}
-
-# for l1 in mesh.vv(l):
-#     if eik.is_valid(l1):
-#         print('%d is VALID' % l1)
-#     plotter.add_mesh(pv.Sphere(1.1*sphere_radius, verts[l1]),
-#                      color=state_to_color[eik.state[l1]])
 
 def plot_tri(L):
     plotter.add_mesh(
         pv.make_tri_mesh(verts, np.array(L).reshape(1, 3)),
         opacity=0.95, color='white', show_edges=True)
 # plot_tri([160, 186, 215])
+
+def plot_point(points, l, scale=1.25, color='white', opacity=1):
+    plotter.add_mesh(
+        pv.Sphere(scale*sphere_radius, points[l]), color=color, opacity=opacity)
+
+if l is not None and connect_l_and_lsrc:
+    x, xsrc = verts[l], verts[lsrc]
+    xm, xd = (x + xsrc)/2, x - xsrc
+    r, h = 0.5*sphere_radius, np.linalg.norm(xd)
+    plotter.add_mesh(
+        pv.Cylinder(xm, xd, r, h), color=highlight_inds[l], opacity=1)
