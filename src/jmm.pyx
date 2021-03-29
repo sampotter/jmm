@@ -290,7 +290,7 @@ cdef class Camera:
 
     def get_image_rays(self):
         cdef ray3 ray
-        cdef int i, j
+        cdef size_t i, j
         for i in range(self._camera.dim[0]):
             for j in range(self._camera.dim[1]):
                 ray = camera_get_ray_for_index(&self._camera, i, j)
