@@ -407,7 +407,7 @@ void utetra_get_point_on_ray(utetra_s const *utetra, dbl t, dbl xt[3]) {
   dbl3_saxpy(t/L, utetra->x_minus_xb, xb, xt);
 }
 
-int utetra_get_interior_coefs(utetra_s const *utetra, bool I[3]) {
+int utetra_get_interior_coefs_mask(utetra_s const *utetra, bool I[3]) {
   dbl const atol = 1e-14;
   I[0] = utetra->lam[0] + utetra->lam[1] < 1 - atol;
   I[1] = utetra->lam[0] > atol;
@@ -447,7 +447,7 @@ bool utetra_update_ray_is_physical(utetra_s const *utetra, eik3_s const *eik) {
 
   // Find the number and location of interior coefficients.
   bool I[3];
-  utetra_get_interior_coefs(utetra, I);
+  utetra_get_interior_coefs_mask(utetra, I);
 
   bool xm_in_cell = false, xp_in_cell = false;
 
@@ -647,4 +647,19 @@ void utetra_get_x(utetra_s const *u, dbl x[3]) {
   dbl b[3];
   utetra_get_bary_coords(u, b);
   dbl33_dbl3_mul(u->X, b, x);
+}
+
+void utetra_get_interior_coefs(utetra_s const *utetra, size_t *l) {
+  dbl const atol = 1e-14;
+
+  size_t i = 0;
+
+  if (utetra->lam[0] > atol)
+    l[i++] = utetra->l[1];
+
+  if (utetra->lam[1] > atol)
+    l[i++] = utetra->l[2];
+
+  if (utetra->lam[0] + utetra->lam[1] < 1 - atol)
+    l[i++] = utetra->l[0];
 }

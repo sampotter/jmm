@@ -35,6 +35,7 @@ int utetra_cmp(utetra_s const **h1, utetra_s const **h2);
 bool utetra_adj_are_optimal(utetra_s const *u1, utetra_s const *u2);
 bool utetra_diff(utetra_s const *utetra, mesh3_s const *mesh, size_t const l[3]);
 void utetra_get_point_on_ray(utetra_s const *utri, dbl t, dbl xt[3]);
+int utetra_get_interior_coefs_mask(utetra_s const *utetra, bool I[3]);
 bool utetra_update_ray_is_physical(utetra_s const *utetra, eik3_s const *eik);
 int utetra_get_num_interior_coefs(utetra_s const *utetra);
 void utetra_get_update_inds(utetra_s const *utetra, size_t l[3]);
@@ -44,6 +45,7 @@ bool utetras_yield_same_update(utetra_s const **utetra, int n);
 size_t utetra_get_l(utetra_s const *utetra);
 bool utetra_opt_inc_on_other_utetra(utetra_s const *u1, utetra_s const *u2);
 void utetra_get_x(utetra_s const *u, dbl x[3]);
+void utetra_get_interior_coefs(utetra_s const *utetra, size_t *l);
 
 #ifdef __cplusplus
 }
