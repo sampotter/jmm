@@ -1149,10 +1149,11 @@ void mesh3_get_inc_diff_edges(mesh3_s const *mesh, size_t l, size_t (*le)[2]) {
 
   int j = 0;
   for (int i = 0; i < nvv; ++i) {
-    le[j][0] = l;
-    le[j][1] = vv[i];
-    if (mesh3_is_diff_edge(mesh, le[j]))
+    if (mesh3_is_diff_edge(mesh, (size_t[2]) {l, vv[i]})) {
+      le[j][0] = l;
+      le[j][1] = vv[i];
       ++j;
+    }
   }
 
   free(vv);
