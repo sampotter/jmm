@@ -650,6 +650,7 @@ bool utetra_opt_inc_on_other_utetra(utetra_s const *u1, utetra_s const *u2) {
   }
 
   assert(false);
+  return false;
 }
 
 void utetra_get_x(utetra_s const *u, dbl x[3]) {
