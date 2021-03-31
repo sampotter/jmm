@@ -348,6 +348,13 @@ bool ray3_intersects_tetra3(ray3 const *ray, tetra3 const *tetra, dbl *t) {
   return isfinite(*t);
 }
 
+bool ray3_and_tri3_are_parallel(ray3 const *ray, tri3 const *tri) {
+  dbl const atol = 1e-14;
+  dbl n[3];
+  tri3_get_normal(tri, n);
+  return fabs(dbl3_dot(ray->dir, n)) < atol;
+}
+
 bool points_are_coplanar(dbl const **x) {
   dbl dx[3][3];
   dbl3_sub(x[1], x[0], dx[0]);
@@ -355,25 +362,6 @@ bool points_are_coplanar(dbl const **x) {
   dbl3_sub(x[3], x[2], dx[2]);
   dbl det = dbl33_det(dx);
   return fabs(det) < 1e-15;
-}
-
-bool ray_and_face_are_coplanar(mesh3_s const *mesh, size_t l0, size_t l1,
-                               size_t l2, dbl const *ray) {
-  dbl const *x[3] = {
-    mesh3_get_vert_ptr(mesh, l0),
-    mesh3_get_vert_ptr(mesh, l1),
-    mesh3_get_vert_ptr(mesh, l2)
-  };
-
-  dbl dx[2][3];
-  dbl3_sub(x[1], x[0], dx[0]);
-  dbl3_sub(x[2], x[0], dx[1]);
-
-  dbl n[3];
-  dbl3_cross(dx[0], dx[1], n);
-  dbl3_normalize(n);
-
-  return fabs(dbl3_dot(n, ray)) < 1e-14;
 }
 
 dbl tri_area(dbl const x[3], dbl const y[3], dbl const z[3]) {

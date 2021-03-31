@@ -63,14 +63,12 @@ bool ray3_intersects_rect3(ray3 const *ray, rect3 const *rect, dbl *t);
 bool ray3_intersects_mesh3_tetra(ray3 const *ray, mesh3_tetra_s const *tetra, dbl *t);
 bool ray3_intersects_tri3(ray3 const *ray, tri3 const *tri, dbl *t);
 bool ray3_intersects_tetra3(ray3 const *ray, tetra3 const *tetra, dbl *t);
+bool ray3_and_tri3_are_parallel(ray3 const *ray, tri3 const *tri);
 
 /**
  * Check if four points are coplanar.
  */
 bool points_are_coplanar(dbl const **x);
-
-bool ray_and_face_are_coplanar(mesh3_s const *mesh, size_t l0, size_t l1,
-                               size_t l2, dbl const *ray);
 
 /**
  * Compute the area of a triangle in R^3 with vertices given by `x`,
