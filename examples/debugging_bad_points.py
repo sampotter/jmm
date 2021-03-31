@@ -8,30 +8,39 @@ import pyvista as pv
 import pyvistaqt as pvqt
 
 plotter = pvqt.BackgroundPlotter()
+# plotter = pv.Plotter()
 
 ################################################################################
 # parameters
 
-verts_path = 'make_L_video/L_verts.bin'
-cells_path = 'make_L_video/L_cells.bin'
+verts_path = 'visualize_cutset/room_verts.bin'
+cells_path = 'visualize_cutset/room_cells.bin'
+surf_mesh_path = 'visualize_cutset/room.obj'
 
 lsrc = 0 # index of point source
-l = None # index of node being updated
-l0 = 87
-l1 = 41
-l2 = None
+l = 3167
+l0 = 499
+l1 = 2138
+l2 = 4385
 l3 = None
 lbad = None
 
-connect_l_and_lsrc = True
+# lsrc = 0 # index of point source
+# l = 3502
+# l0 = 4333
+# l1 = 4740
+# l2 = 5687
+# l3 = None
+# lbad = None
 
-# OKAY, these are the bad nodes, ordered in decreasing order of
-# likelihood of being *the* bad node, gotten using this line:
-#
-#   I[np.argsort(np.sqrt(np.sum((verts[I] - verts[lsrc])**2, axis=1)))]
-#
-# 62,  94,  55, 137, 131, 104,  61, 115,  91, 126,  87,  70,  85
-#
+l_color = 'red'
+l0_color = 'green'
+l1_color = 'green'
+l2_color = 'green'
+l3_color = 'green'
+lbad_color = 'red'
+
+connect_l_and_lsrc = True
 
 ################################################################################
 
@@ -64,23 +73,23 @@ if l is not None:
     print(f'DT - Dtau = ({Dtau[0] - eik.jet[l][1]}, {Dtau[1] - eik.jet[l][2]}, {Dtau[2] - eik.jet[l][3]})')
     print(f'angle(DT, Dtau) = {np.rad2deg(np.arccos(Dtau@[eik.jet[l][_] for _ in range(1, 4)]))} deg')
 
-surf_mesh = pv.read('L.off')
+surf_mesh = pv.read(surf_mesh_path)
 plotter.add_mesh(surf_mesh, color='white', opacity=0.25)
 
 highlight_inds = {
     lsrc: 'pink',
-    l0: 'teal', # 'blue',
+    l0: l0_color,
 }
 if l is not None:
-    highlight_inds[l] = 'orange'
+    highlight_inds[l] = l_color
 if lbad is not None:
-    highlight_inds[lbad] =  'red'
+    highlight_inds[lbad] = lbad_color
 if l1 is not None:
-    highlight_inds[l1] =  'purple'
+    highlight_inds[l1] = l1_color
 if l2 is not None:
-    highlight_inds[l2] =  'cyan'
+    highlight_inds[l2] = l2_color
 if l3 is not None:
-    highlight_inds[l3] = 'blue' # 'teal'
+    highlight_inds[l3] = l3_color
 
 h = eik.mesh.min_tetra_alt/2
 sphere_radius = h/6
@@ -154,6 +163,12 @@ def plot_tri(L):
 def plot_point(points, l, scale=1.25, color='white', opacity=1):
     plotter.add_mesh(
         pv.Sphere(scale*sphere_radius, points[l]), color=color, opacity=opacity)
+
+# for m in mesh.vv(l0):
+#     if m in {l1, l2, l3}:
+#         continue
+#     if eik.is_valid(m):
+#         plot_point(verts, m, scale=1, color='yellow')
 
 if l is not None and connect_l_and_lsrc:
     x, xsrc = verts[l], verts[lsrc]
