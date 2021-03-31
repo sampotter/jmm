@@ -438,6 +438,8 @@ bool utetra_update_ray_is_physical(utetra_s const *utetra, eik3_s const *eik) {
   // below gives "an interior ray" can be wrapped up and reused for
   // both this and the corresponding section in utri.c...
 
+  ray3 ray = utetra_get_ray(utetra);
+
   /**
    * First, check if the start of the ray is "in free space". To do
    * this, we just check if we can a cell containing a point just
@@ -451,8 +453,8 @@ bool utetra_update_ray_is_physical(utetra_s const *utetra, eik3_s const *eik) {
   // tetrahedra, but also large enough to take into consideration the
   // characteristic length scale of the mesh.
   dbl xm[3], xp[3], t = mesh3_get_min_tetra_alt(mesh)/2;
-  utetra_get_point_on_ray(utetra, -t, xm);
-  utetra_get_point_on_ray(utetra, t, xp);
+  ray3_get_point(&ray, -t, xm);
+  ray3_get_point(&ray, t, xp);
 
   // Find the number and location of interior coefficients.
   bool I[3];
