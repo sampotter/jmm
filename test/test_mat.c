@@ -12,10 +12,8 @@
 Describe(dbl44);
 
 BeforeEach(dbl44) {
-  // TODO: should fix this by implementing partial pivoting in
-  // dbl44_dbl4_solve
-  double_absolute_tolerance_is(1e-12);
-  double_relative_tolerance_is(1e-12);
+  double_absolute_tolerance_is(1e-15);
+  double_relative_tolerance_is(1e-15);
 }
 
 AfterEach(dbl44) {}
