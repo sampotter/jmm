@@ -539,9 +539,14 @@ static void update(eik3_s *eik, size_t l, size_t l0) {
 
   int num_diff_utri = 0;
   for (int i = 0; i < num_utetra; ++i) {
-    if (l_l1_adj[i] || l_l2_adj[i]) continue;
-    num_diff_utri += is_diff_edge[i]
-      = mesh3_is_diff_edge(eik->mesh, (size_t[2]) {l1[i], l2[i]});
+    if (l_l1_adj[i] || l_l2_adj[i]) {
+      is_diff_edge[i] = false;
+      continue;
+    } else {
+      size_t e[2] = {l1[i], l2[i]};
+      is_diff_edge[i] = mesh3_is_diff_edge(eik->mesh, e);
+      num_diff_utri += is_diff_edge[i];
+    }
   }
 
   utri_s *utri;
