@@ -21,7 +21,7 @@ set (CMAKE_MODULE_PATH
 # MacPorts...
 include_directories (/opt/local/include)
 
-find_package (Sanitizers)
+option (SANITIZE_ADDRESS "Compile with address sanitization on" OFF)
 
 # TODO: don't want a dependence on GSL (except for tests), but don't
 # want to implement cubic_get_real_roots on my own right now. Can just
@@ -106,7 +106,6 @@ target_include_directories (
 
 # basic_solve
 add_executable (basic_solve examples/basic_solve.c)
-add_sanitizers (basic_solve)
 target_link_libraries (basic_solve jmm)
 target_include_directories (basic_solve PRIVATE jmm)
 set_property (
@@ -119,19 +118,16 @@ set_property (
 
 # raytracing
 add_executable (raytracing examples/raytracing.c)
-add_sanitizers (raytracing)
 target_link_libraries (raytracing jmm)
 target_include_directories (raytracing PRIVATE jmm)
 
 # transfer_solution
 add_executable (transfer_solution examples/transfer_solution.c)
-add_sanitizers (transfer_solution)
 target_link_libraries (transfer_solution jmm)
 target_include_directories (transfer_solution PRIVATE jmm)
 
 # viz_error_using_raytracing
 add_executable (viz_error_using_raytracing examples/viz_error_using_raytracing.c)
-add_sanitizers (viz_error_using_raytracing)
 target_link_libraries (viz_error_using_raytracing jmm)
 target_include_directories (viz_error_using_raytracing PRIVATE jmm)
 
@@ -163,7 +159,6 @@ if (BUILD_TESTS)
     test/test_vec.c
     )
   add_library (jmm_tests SHARED ${JMM_TESTS_SRCS})
-  add_sanitizers (jmm_tests)
   target_link_libraries (jmm_tests PRIVATE ${CGREEN_LIBRARY})
   target_include_directories (jmm_tests PRIVATE ${CGREEN_INCLUDE_DIRS})
   target_link_libraries (jmm_tests PRIVATE jmm)
