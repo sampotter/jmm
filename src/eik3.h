@@ -39,9 +39,11 @@ bool eik3_is_valid(eik3_s const *eik, size_t ind);
 bool eik3_is_shadow(eik3_s const *eik, size_t l);
 mesh3_s *eik3_get_mesh(eik3_s const *eik);
 jet3 eik3_get_jet(eik3_s const *eik, size_t l);
+void eik3_set_jet(eik3_s *eik, size_t l, jet3 jet);
 jet3 *eik3_get_jet_ptr(eik3_s const *eik);
 state_e *eik3_get_state_ptr(eik3_s const *eik);
 par3_s eik3_get_par(eik3_s const *eik, size_t l);
+void eik3_set_par(eik3_s *eik, size_t l, par3_s par);
 void eik3_get_DT(eik3_s const *eik, size_t l, dbl DT[3]);
 edgemap_s const *eik3_get_cutset(eik3_s const *eik);
 
