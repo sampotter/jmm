@@ -145,27 +145,52 @@ void dbl44_dbl4_solve(dbl const A[4][4], dbl const b[4], dbl x[4]) {
 
   dbl const n = 4;
 
-  // LU decomposition
+  int perm[4] = {0, 1, 2, 3};
+
+  // LU decomposition with partial pivoting
   for (int k = 0; k < n - 1; ++k) {
+    // Find max |Ui:| for i >= k
+    int argi = k;
+    dbl absmax = fabs(LU[k][k]);
     for (int i = k + 1; i < n; ++i) {
-      LU[i][k] /= LU[k][k];
-    }
-    for (int i = k + 1; i < n; ++i) {
-      for (int j = k + 1; j < n; ++j) {
-        LU[i][j] -= LU[i][k]*LU[k][j];
+      dbl tmp = fabs(LU[i][k]);
+      if (tmp > absmax) {
+        absmax = tmp;
+        argi = i;
       }
     }
+
+    if (argi != k) {
+      // Swap rows i and k of L and U
+      for (int j = 0; j < n; ++j)
+        SWAP(LU[k][j], LU[argi][j]);
+
+      // Swap entries i and k of permutation
+      SWAP(perm[k], perm[argi]);
+    }
+
+    if (fabs(LU[k][k]) < 1e-15)
+      continue;
+
+    // Normalize column k of L
+    for (int i = k + 1; i < n; ++i)
+      LU[i][k] /= LU[k][k];
+
+    // Subtract outer product
+    for (int i = k + 1; i < n; ++i)
+      for (int j = k + 1; j < n; ++j)
+        LU[i][j] -= LU[i][k]*LU[k][j];
   }
 
-  // forward sub
+  // Solve Ly = Pb
   for (int i = 0; i < n; ++i) {
-    x[i] = b[i];
+    x[i] = b[perm[i]];
     for (int j = 0; j < i; ++j) {
       x[i] -= LU[i][j]*x[j];
     }
   }
 
-  // backward sub
+  // Solve Ux = y
   for (int i = n - 1; i >= 0; --i) {
     for (int j = i + 1; j < n; ++j) {
       x[i] -= LU[i][j]*x[j];
