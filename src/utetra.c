@@ -398,6 +398,15 @@ bool utetra_adj_are_optimal(utetra_s const *u1, utetra_s const *u2) {
     && fabs(utetra_get_value(u1) - utetra_get_value(u2)) <= atol;
 }
 
+ray3 utetra_get_ray(utetra_s const *utetra) {
+  ray3 ray;
+  dbl b[3];
+  utetra_get_bary_coords(utetra, b);
+  dbl33_dbl3_mul(utetra->X, b, ray.org);
+  dbl3_normalized(utetra->x_minus_xb, ray.dir);
+  return ray;
+}
+
 void utetra_get_point_on_ray(utetra_s const *utetra, dbl t, dbl xt[3]) {
   // TODO: optimize this by using utetra->x instead of computing xb
   dbl b[3], xb[3], L;
