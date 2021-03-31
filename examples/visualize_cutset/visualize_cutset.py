@@ -191,19 +191,20 @@ scene.
                         help='index of vertex to use for source location',)
     parser.add_argument('-p', '--outpath', type=str, default='frames',
                         help='path to which to write output frames')
+    parser.add_argument('-s', '--scene', type=str, default='L',
+                        help='''the name of the scene to load (tries to load ./<scene>_verts.bin
+and ./<scene>_cells.bin)''')
     args = parser.parse_args()
 
     indsrc = args.indsrc
 
-    scene = 'L'
+    surf_mesh = pv.read(f'{args.scene}.obj')
 
-    surf_mesh = pv.read(f'{scene}.obj')
-
-    points_path = f'{scene}_verts.bin'
+    points_path = f'{args.scene}_verts.bin'
     points = np.fromfile(points_path, dtype=np.float64)
     points = points.reshape(points.size//3, 3)
 
-    cells_path = f'{scene}_cells.bin'
+    cells_path = f'{args.scene}_cells.bin'
     cells = np.fromfile(cells_path, dtype=np.uintp)
     cells = cells.reshape(cells.size//4, 4)
 
@@ -259,7 +260,7 @@ scene.
             pv.make_tri_mesh(V, F),
             color='purple', opacity=0.5, show_edges=True)
 
-    path = Path('srcs/%d' % indsrc)
+    path = Path(args.outpath)
     path.mkdir(exist_ok=True, parents=True)
 
     plotter.show(screenshot=path/'cutset.png', auto_close=False)
