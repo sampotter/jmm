@@ -17,3 +17,15 @@
     x = y;                                      \
     y = tmp;                                    \
   }
+
+#define SORT2(x, y) {                           \
+    __typeof(x) tmp = MIN(x, y);                \
+    y = MAX(x, y);                              \
+    x = tmp;                                    \
+  }
+
+#define SORT3(x, y, z)  {                                               \
+    SORT2(x, y);                                                        \
+    SORT2(x, z);                                                        \
+    SORT2(y, z);                                                        \
+  }
