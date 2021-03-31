@@ -39,6 +39,31 @@ set (EXTRA_FLAGS "${EXTRA_FLAGS} -fPIC -Wall -Wextra -Werror -mavx")
 set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${EXTRA_FLAGS}")
 set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${EXTRA_FLAGS}")
 
+if (SANITIZE_ADDRESS)
+  if (NOT CMAKE_BUILD_TYPE STREQUAL "Debug")
+    message (FATAL_ERROR "Can only set SANITIZE_ADDRESS=ON for debug builds")
+  endif ()
+  string (JOIN " " SANITIZE_ADDRESS_CMAKE_C_FLAGS
+    "-fsanitize=address"
+    "-fno-omit-frame-pointer"
+    "-fsanitize-address-use-after-scope")
+  set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${SANITIZE_ADDRESS_CMAKE_C_FLAGS}")
+  string (JOIN ":" SANITIZE_ADDRESS_ASAN_OPTIONS
+    "strict_string_checks=1"
+    "detect_stack_use_after_return=1"
+    "check_initialization_order=1"
+    "strict_init_order=1")
+  set (ENV{ASAN_OPTIONS} "${SANITIZE_ADDRESS_ASAN_OPTIONS}")
+endif ()
+
+if (SANITIZE_MEMORY)
+  message (FATAL_ERROR "Not implemented yet")
+endif ()
+
+if (SANITIZE_UNDEFINED)
+  message (FATAL_ERROR "Not implemented yet")
+endif ()
+
 set (JMM_PUBLIC_HEADERS
   src/def.h
   src/dial.h
