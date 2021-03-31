@@ -88,6 +88,7 @@ size_t mesh3_nbdf(mesh3_s const *mesh);
 bool mesh3_bdf(mesh3_s const *mesh, size_t const l[3]);
 bool mesh3_is_edge(mesh3_s const *mesh, size_t const l[2]);
 bool mesh3_is_diff_edge(mesh3_s const *mesh, size_t const l[2]);
+bool mesh3_is_nondiff_boundary_edge(mesh3_s const *mesh, size_t const l[2]);
 bool mesh3_vert_incident_on_diff_edge(mesh3_s const *mesh, size_t l);
 dbl mesh3_get_min_tetra_alt(mesh3_s const *mesh);
 mesh2_s *mesh3_get_surface_mesh(mesh3_s const *mesh);
