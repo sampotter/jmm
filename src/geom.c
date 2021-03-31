@@ -279,6 +279,10 @@ bool ray3_intersects_mesh3_tetra(ray3 const *ray, mesh3_tetra_s const *tetra, db
   return ray3_intersects_tetra3(ray, &tetra_, t);
 }
 
+/* Try to find `t` such that `ray->org + t*ray->dir` intersects
+ * `tri`. This will return `true` if an intersection with `t >= 0`
+ * exists, and `false` otherwise. Each argument is assumed to be
+ * non-`NULL`. */
 bool ray3_intersects_tri3(ray3 const *ray, tri3 const *tri, dbl *t) {
   dbl const atol = 1e-15;
 
