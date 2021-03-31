@@ -73,22 +73,30 @@ bool tetra3_contains_point(tetra3 const *tetra, dbl const x[3]) {
 }
 
 void tetra3_get_bary_coords(tetra3 const *tetra, dbl const x[3], dbl b[4]) {
+  dbl const atol = 1e-13;
+
+  // Set up the LHS of the problem. The first three rows consist of
+  // the components of the tetrahedron vertices, and the last row is
+  // all ones.
   dbl lhs[4][4];
-  for (int j = 0; j < 4; ++j) {
-    lhs[0][j] = 1;
-    for (int i = 1; i < 4; ++i)
-      lhs[i][j] = tetra->v[j][i - 1];
-  }
+  for (int i = 0; i < 3; ++i)
+    for (int j = 0; j < 4; ++j)
+      lhs[i][j] = tetra->v[j][i];
+  for (int j = 0; j < 4; ++j)
+    lhs[3][j] = 1;
 
-  dbl rhs[4] = {1, x[0], x[1], x[2]}, vol = dbl44_det(lhs);
+  // Set up the RHS of the problem. The first three entries are just
+  // `x`, and the last is one.
+  dbl rhs[4];
+  for (int i = 0; i < 3; ++i)
+    rhs[i] = x[i];
+  rhs[3] = 1;
 
-  dbl tmp[4];
-  for (int j = 0; j < 4; ++j) {
-    dbl44_get_col(lhs, j, tmp);
-    dbl44_set_col(lhs, j, rhs);
-    b[j] = dbl44_det(lhs)/vol;
-    dbl44_set_col(lhs, j, tmp);
-  }
+  // Solve the system. After solving, we should have sum(b) == 1,
+  // close to machine precision.
+  dbl44_dbl4_solve(lhs, rhs, b);
+
+  assert(fabs(1 - dbl4_sum(b)) < atol);
 }
 
 void tetra3_get_centroid(tetra3 const *tetra, dbl c[3]) {
