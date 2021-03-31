@@ -428,6 +428,13 @@ tetra3 mesh3_get_tetra(mesh3_s const *mesh, size_t lc) {
   return tetra;
 }
 
+tri3 mesh3_get_tri(mesh3_s const *mesh, size_t const lf[3]) {
+  tri3 tri;
+  for (size_t i = 0; i < 3; ++i)
+    mesh3_copy_vert(mesh, lf[i], tri.v[i]);
+  return tri;
+}
+
 void mesh3_get_centroid(mesh3_s const *mesh, size_t lc, dbl c[3]) {
   tetra3 tetra = mesh3_get_tetra(mesh, lc);
   for (int j = 0; j < 3; ++j) {
@@ -753,6 +760,21 @@ void mesh3_cc(mesh3_s const *mesh, size_t i, size_t *cc) {
   }
 
   free(vc);
+}
+
+/* Fill `lf` with the faces incident on `lc`. These are the four
+ * different sets of vertices comprising the faces of the cell indexed
+ * by `lc`, but returned in sorted order. */
+void mesh3_cf(mesh3_s const *mesh, size_t lc, size_t lf[4][3]) {
+  size_t const *cv = mesh->cells[lc].data;
+  for (size_t i = 0; i < 4; ++i) {
+    for (size_t j = 0, k = 0; k < 4; ++k) {
+      if (i == k)
+        continue;
+      lf[i][j++] = cv[k];
+    }
+    SORT3(lf[i][0], lf[i][1], lf[i][2]);
+  }
 }
 
 void mesh3_cv(mesh3_s const *mesh, size_t i, size_t *cv) {
