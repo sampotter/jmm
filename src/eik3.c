@@ -1182,8 +1182,7 @@ cutedge_status_e get_cut_edge_coef_and_surf_normal(eik3_s const *eik,
     // average instead of just normalizing!
     dbl3_normalize(cutedge->n);
 
-    assert(l1 == l_valid);
-    *t = 1;
+    *t = l0 == l_valid ? 0 : 1;
 
     status = CUTEDGE_VALID;
 
