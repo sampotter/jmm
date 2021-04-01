@@ -508,10 +508,55 @@ bool utetra_update_ray_is_physical(utetra_s const *utetra, eik3_s const *eik) {
       break;
   }
 
-  // Free the space used for the adjacent cells since we're done with
-  // it now
+  /* Next, we'll pull out the boundary faces incident on these cells
+     and check if the ray intersects any of them. If it does, the ray
+     is unphysical. */
+
+  array_s *bdf;
+  array_alloc(&bdf);
+  array_init(bdf, sizeof(size_t[3]), ARRAY_DEFAULT_CAPACITY);
+
+  // Get the incident boundary faces
+  size_t cf[4][3];
+  for (size_t i = 0; i < array_size(cells); ++i) {
+    array_get(cells, i, &lc);
+    mesh3_cf(mesh, lc, cf);
+    for (size_t j = 0; j < 4; ++j) {
+      if (array_contains(bdf, cf[j]) ||
+          point_in_face(utetra->lhat, cf[j])) // skip faces containing
+                                              // the update point to
+                                              // make the intersection
+                                              // test simpler
+        continue;
+      if (mesh3_bdf(mesh, cf[j]))
+        array_append(bdf, cf[j]);
+    }
+  }
+
+  // Check for intersections with the nearby boundary faces
+  bool found_bdf_isect = false;
+  size_t lf[3];
+  for (size_t i = 0; i < array_size(bdf); ++i) {
+    array_get(bdf, i, lf);
+    tri3 tri = mesh3_get_tri(mesh, lf);
+    if (ray3_and_tri3_are_parallel(&ray, &tri))
+      continue;
+    dbl t;
+    bool isect = ray3_intersects_tri3(&ray, &tri, &t);
+    if (isect && t <= utetra->L) {
+      found_bdf_isect = true;
+      break;
+    }
+  }
+
+  array_deinit(bdf);
+  array_dealloc(&bdf);
+
   array_deinit(cells);
   array_dealloc(&cells);
+
+  if (found_bdf_isect)
+    return false;
 
   // If we didn't find a containing cell, we can conclude that the ray
   // is unphysical!
