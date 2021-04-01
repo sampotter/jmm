@@ -906,7 +906,7 @@ void update_neighbors(eik3_s *eik, size_t l0) {
  * diffracting edge to complete the information required to find `n`.
  */
 static void get_diff_edge_surf_normal_p1(eik3_s const *eik,
-                                         size_t l0, size_t l1,
+                                         size_t ls, size_t lv,
                                          size_t (*e)[2], size_t ne,
                                          dbl n[3])
 {
@@ -917,16 +917,16 @@ static void get_diff_edge_surf_normal_p1(eik3_s const *eik,
   dbl (*N)[3] = malloc(ne*sizeof(dbl[3]));
 
   dbl DT1[3];
-  eik3_get_DT(eik, l1, DT1);
+  eik3_get_DT(eik, lv, DT1);
 
-  dbl const *x1 = mesh3_get_vert_ptr(mesh, l1);
+  dbl const *x1 = mesh3_get_vert_ptr(mesh, lv);
   dbl dx[3];
 
   /* Start by compute the normalized cross product between the ray
    * vector at `x1` and each diffracting edge incident on `x1`. */
   for (size_t i = 0; i < ne; ++i) {
-    assert(e[i][0] == l1 || e[i][1] == l1);
-    if (e[i][0] == l1)
+    assert(e[i][0] == lv || e[i][1] == lv);
+    if (e[i][0] == lv)
       dbl3_sub(mesh3_get_vert_ptr(mesh, e[i][1]), x1, dx);
     else
       dbl3_sub(mesh3_get_vert_ptr(mesh, e[i][0]), x1, dx);
@@ -934,8 +934,9 @@ static void get_diff_edge_surf_normal_p1(eik3_s const *eik,
     dbl3_normalize(N[i]);
   }
 
-  /* Orient the surface normals consistently. */
-  dbl3_sub(mesh3_get_vert_ptr(mesh, l0), x1, dx);
+  /* Orient the surface normals consistently by checking on which side
+   * of the tangent plane the node at `ls` lies. */
+  dbl3_sub(mesh3_get_vert_ptr(mesh, ls), x1, dx);
   for (size_t i = 0; i < ne; ++i)
     if (dbl3_dot(N[i], dx) > 0)
       dbl3_negate(N[i]);
