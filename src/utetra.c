@@ -429,9 +429,24 @@ bool utetra_update_ray_is_physical(utetra_s const *utetra, eik3_s const *eik) {
 
   mesh3_s const *mesh = eik3_get_mesh(eik);
 
-  // TODO: it's pretty hard to say where this is what we want to do or
-  // not... let's see how it goes!
-  if (mesh3_bdf(mesh, l))
+  // In the following section, we want to quickly look at the boundary
+  // near the start of the ray and see if we can rule out the update
+  // based on this information alone.
+  //
+  // TODO: some of the following checks could be fine if the tangent
+  // vector at the ray origin lies in the plane spanned by the update
+  // base, but we don't have to worry about that until we deal with
+  // nonconstant speeds
+
+  int num_int = utetra_get_num_interior_coefs(utetra);
+
+  size_t l_int[3] = {NO_INDEX, NO_INDEX, NO_INDEX};
+  utetra_get_interior_coefs(utetra, l_int);
+
+  if (num_int == 2 && mesh3_is_nondiff_boundary_edge(mesh, l_int))
+    return false;
+
+  if (num_int == 3 && mesh3_bdf(mesh, l))
     return false;
 
   // TODO: the following section where we check to see if the stuff
