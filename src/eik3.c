@@ -527,6 +527,11 @@ static void update(eik3_s *eik, size_t l, size_t l0) {
    * `update_neighbors`.
    */
 
+  // First, check which of the l1's and l2's are adjacent to l0
+
+  // TODO: the way we're checking for adjacent updates here is pretty
+  // inefficient, but not sure if we can do better...
+
   bool *l_l1_adj = malloc(num_utetra*sizeof(bool));
   for (int i = 0; i < num_utetra; ++i)
     l_l1_adj[i] = mesh3_is_edge(eik->mesh, (size_t[2]) {l, l1[i]});
