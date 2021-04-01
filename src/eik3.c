@@ -385,7 +385,7 @@ static void do_2pt_bd_updates(eik3_s *eik, size_t l, size_t l0) {
   // TODO: as always, this is a bit complicated. Would be nice to
   // simplify this or at least factor it out somewhere else.
   for (int i = 0; i < nup; ++i) {
-    if (!isfinite(utri_get_value(utri[i])))
+    if (!utri_is_finite(utri[i]))
       break;
     if (utri_has_interior_point_solution(utri[i])) {
       if (utri_update_ray_is_physical(utri[i], eik) &&
