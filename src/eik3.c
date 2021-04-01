@@ -1034,6 +1034,12 @@ static void estimate_cutedge_data_from_incident_cutedges(
   dbl3_normalize(cutedge->n);
 }
 
+typedef enum cutedge_status {
+  CUTEDGE_VALID,
+  CUTEDGE_REINSERT,
+  CUTEDGE_SKIP
+} cutedge_status_e;
+
 /**
  * Compute the coefficient for the new edge in shadow cutset. This is
  * a double t such that 0 <= t <= 1 and where the shadow boundary
@@ -1045,9 +1051,10 @@ static void estimate_cutedge_data_from_incident_cutedges(
  * eik->state[l0] and eik->state[l1] is VALID and the other is
  * SHADOW. No assumption is made about which is which.
  */
-static bool get_cut_edge_coef_and_surf_normal(eik3_s const *eik,
-                                              size_t l0, size_t l1,
-                                              cutedge_s *cutedge) {
+static
+cutedge_status_e get_cut_edge_coef_and_surf_normal(eik3_s const *eik,
+                                                   size_t l0, size_t l1,
+                                                   cutedge_s *cutedge) {
   /* TODO: pretty sure this function is next on the chopping block.
    * I really don't like how arbitrary the approach to find nearby
    * cutedges to use to estimate the data for the passed cutedge
@@ -1102,36 +1109,37 @@ static bool get_cut_edge_coef_and_surf_normal(eik3_s const *eik,
       get_diff_edge_surf_normal_p1(eik, l0, l1, e, num_inc_diff_edges, n);
       free(e);
       *t = 1;
-      return true;
+      return CUTEDGE_VALID;
     }
-  } else if (npar == 2) {
-    // Get indices
+  } else if (npar == 2 &&
+             mesh3_is_diff_edge(mesh, par.l) &&
+             mesh3_vert_incident_on_diff_edge(mesh, l1)) {
     size_t l2 = par.l[0], l3 = par.l[1];
-    // Check if l0 was updated from l1
-    if (l2 == l1 || l3 == l1) {
-      // Swap l2 and l3 so that l1 and l2 are the parents of l0.
-      if (l2 == l1) SWAP(l2, l3);
-      // Check if (l1, l2) is a diffracting edge. In this case we
-      // assume that l1 is the VALID node (since diff => VALID) and
-      // return t = 1.
-      if (mesh3_is_diff_edge(mesh, (size_t[2]) {l1, l2})) {
-        assert(l0 == l_shadow && l1 == l_valid);
-        get_diff_edge_surf_normal_p2(eik, l0, (size_t[2]) {l1, l2}, n);
-        *t = 1; // This assumes that l1 is valid
-        return true;
-      }
+
+    if (l1 == l2 || l1 == l3) {
+      if (l1 == l2)
+        SWAP(l2, l3);
+    } else if (mesh3_is_diff_edge(mesh, (size_t[2]) {l1, l3})) {
+      SWAP(l2, l3);
+    } else if (!mesh3_is_diff_edge(mesh, (size_t[2]) {l1, l2})) {
+      log_warn("failed to insert cutedge (%lu, %lu)\n", l0, l1);
+      return CUTEDGE_SKIP;
     }
+
+    assert(l0 != l1 && l1 != l2);
+
+    // We assume that l1 is the VALID node (since diff => VALID) and
+    // return t = 1.
+    assert(l0 == l_shadow && l1 == l_valid);
+
+    get_diff_edge_surf_normal_p2(eik, l0, (size_t[2]) {l1, l2}, n);
+
+    *t = 1; // This assumes that l1 is valid
+
+    return CUTEDGE_VALID;
   }
 
-  // /**
-  //  * "Another base case": if a SHADOW node receives its final value
-  //  * from a single node on a diffracting edge (TODO: or, later,
-  //  * diffracting vertex!), then we won't have enough information to
-  //  * compute the surface normal for the cutedge connecting it and its
-  //  * parent, since we'll only have ...
-  //  */
-
-  bool updated_cutedge = false;
+  cutedge_status_e status = CUTEDGE_REINSERT;
 
   edgemap_s *incident_cutedges;
   edgemap_alloc(&incident_cutedges);
@@ -1150,9 +1158,7 @@ static bool get_cut_edge_coef_and_surf_normal(eik3_s const *eik,
    * attach a deeper shadow node to a diffracting edge.
    */
 
-  if (mesh3_vert_incident_on_diff_edge(mesh, l_valid)) {
-    assert(!edgemap_is_empty(incident_cutedges));
-
+  if (num_incident > 0 && mesh3_vert_incident_on_diff_edge(mesh, l_valid)) {
     edge_s edge;
     cutedge_s incident_cutedge;
 
@@ -1178,7 +1184,7 @@ static bool get_cut_edge_coef_and_surf_normal(eik3_s const *eik,
     assert(l1 == l_valid);
     *t = 1;
 
-    updated_cutedge = true;
+    status = CUTEDGE_VALID;
 
     goto cleanup;
   }
@@ -1197,9 +1203,10 @@ static bool get_cut_edge_coef_and_surf_normal(eik3_s const *eik,
     (edgemap_prop_t)cutedge_is_incident_on_vertex, &l_shadow);
   assert(num_incident <= edgemap_size(incident_cutedges));
 
-  updated_cutedge = !edgemap_is_empty(incident_cutedges);
+  if (!edgemap_is_empty(incident_cutedges))
+    status = CUTEDGE_VALID;
 
-  if (updated_cutedge)
+  if (status == CUTEDGE_VALID)
     estimate_cutedge_data_from_incident_cutedges(
       mesh, l0, l1, cutedge, incident_cutedges);
 
@@ -1214,13 +1221,13 @@ cleanup:
   // TODO: seems like the errors will be bigger than machine precision
   // the way we're doing it now, but clamping back to [0, 1] seems to
   // help.
-  if (updated_cutedge) {
+  if (status == CUTEDGE_VALID) {
     if (*t < -atol || 1 + atol < *t)
       log_warn("bad cutset coef: t = %1.3f\n", *t);
     *t = fmax(0, fmin(1, *t));
   }
 
-  return updated_cutedge;
+  return status;
 }
 
 static void update_shadow_cutset(eik3_s *eik, size_t l0) {
@@ -1251,14 +1258,19 @@ static void update_shadow_cutset(eik3_s *eik, size_t l0) {
   // the first time, we reinsert the node into the queue and try
   // again.
   edge_s edge;
+  cutedge_s cutedge;
   while (!array_is_empty(l1_arr)) {
     array_pop_front(l1_arr, &l1);
 
-    cutedge_s cutedge;
-    if (!get_cut_edge_coef_and_surf_normal(eik, l0, l1, &cutedge)) {
+    switch (get_cut_edge_coef_and_surf_normal(eik, l0, l1, &cutedge)) {
+    case CUTEDGE_VALID:
+      break;
+    case CUTEDGE_REINSERT:
       array_append(l1_arr, &l1);
+    case CUTEDGE_SKIP:
       continue;
     }
+
     assert(0 <= cutedge.t && cutedge.t <= 1);
     assert(fabs(1 - dbl3_norm(cutedge.n)) < 1e-15);
 
