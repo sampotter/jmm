@@ -238,10 +238,10 @@ static bool is_shadow_p3(eik3_s const *eik, par3_s par, int num_shadow) {
 
   // TODO: deal with this case here to avoid NaNs below
   if (ts[0] == 0 && ts[1] == 0) {
-    if (check_state == VALID)
-      return t[0] > 0 || t[1] > 0;
+    if (check_state == SHADOW)
+      return t[0] == 0 && t[1] == 0;
     else
-      assert(false);
+      return t[0] > 0 || t[1] > 0;
   }
 
   // Return `true` if the optimum is on the side of the line
