@@ -256,6 +256,11 @@ static void init_bd(mesh3_s *mesh) {
   // Sort the tagged faces themselves into a dictionary order.
   qsort(f, nf, sizeof(tagged_face_s), (compar_t)tagged_face_cmp);
 
+  /**
+   * Set up the boundary vertex, cell, face data structures (stored in
+   * `mesh->bdv`, `mesh->bdv`, and `mesh->bdf`, respectively).
+   */
+
   mesh->nbdf = 0;
 
   // After sorting, we can tell if a face is duplicated by checking
@@ -273,10 +278,22 @@ static void init_bd(mesh3_s *mesh) {
     ++mesh->nbdf;
   }
 
+  // Don't forget to check the last face! It could be a boundary face,
+  // too, in which case the foregoing loop will miss it
+  if (tagged_face_cmp(&f[nf - 2], &f[nf - 1])) {
+    mesh->bdc[f[nf - 1].lc] = true;
+    mesh->bdv[f[nf - 1].lf[0]] = true;
+    mesh->bdv[f[nf - 1].lf[1]] = true;
+    mesh->bdv[f[nf - 1].lf[2]] = true;
+    ++mesh->nbdf;
+  }
+
+  size_t lf = 0;
+
   // Traverse the sorted list again and pull out the boundary faces
   // now that we know how many there are
   mesh->bdf = malloc(mesh->nbdf*sizeof(tagged_face_s));
-  for (size_t l = 0, lf = 0; l < nf - 1; ++l) {
+  for (size_t l = 0; l < nf - 1; ++l) {
     if (!tagged_face_cmp(&f[l], &f[l + 1])) {
       ++l; // Increment here to skip equal pairs
       continue;
@@ -284,9 +301,21 @@ static void init_bd(mesh3_s *mesh) {
     tagged_face_init(&mesh->bdf[lf++], f[l].lf, f[l].lc);
   }
 
+  // ... and the last face
+  if (tagged_face_cmp(&f[nf - 2], &f[nf - 1])) {
+    tagged_face_init(&mesh->bdf[lf++], f[nf - 1].lf, f[nf - 1].lc);
+  }
+
+  assert(lf == mesh->nbdf); // sanity
+  assert(lf > 0);           // check
+
   // Sort the faces so that we can quickly query whether a face is a
   // boundary face or not.
   qsort(mesh->bdf, mesh->nbdf, sizeof(tagged_face_s), (compar_t)tagged_face_cmp);
+
+  /**
+   * Set up the boundary edge data structure (stored in `mesh->bde`)
+   */
 
   // Build a sorted array of all of the boundary edges, which are just
   // the edges incident on the boundary faces. This array will have
@@ -301,27 +330,30 @@ static void init_bd(mesh3_s *mesh) {
   qsort(bde, 3*mesh->nbdf, sizeof(diff_edge_s), (compar_t)diff_edge_cmp);
 
   // Now, let's count the number of distinct boundary edges.
-  mesh->nbde = 0;
-  for (size_t l = 0; l < 3*mesh->nbdf - 1; ++l) {
-    if  (!diff_edge_cmp(&bde[l], &bde[l + 1]))
-      continue;
-    ++mesh->nbde;
-  }
+  mesh->nbde = 1; // count the first edge (we assume nbdf > 0)
+  for (size_t l = 0; l < 3*mesh->nbdf - 1; ++l)
+    if  (diff_edge_cmp(&bde[l], &bde[l + 1]))
+      ++mesh->nbde;
+
+  size_t le = 0;
 
   // Traverse the array again, copying over distinct boundary
   // edges. Note: there's no need to sort mesh->bde, since it will
   // already be sorted.
   mesh->bde = malloc(mesh->nbde*sizeof(diff_edge_s));
-  for (size_t l = 0, l_ = 0; l < 3*mesh->nbdf - 1; ++l) {
-    if (!diff_edge_cmp(&bde[l], &bde[l + 1]))
-      continue;
-    mesh->bde[l_++] = bde[l];
-  }
+  mesh->bde[le++] = bde[0];
+  for (size_t l = 0; l < 3*mesh->nbdf - 1; ++l)
+    if (diff_edge_cmp(&bde[l], &bde[l + 1]))
+      mesh->bde[le++] = bde[l + 1];
 
-  for (size_t l = 0; l < mesh->nbde; ++l) {
+  assert(le == mesh->nbde); // sanity
+  assert(le > 0);           // check
+
+  /* Check whether each boundary edge is a diffracting edge */
+  for (size_t l = 0; l < mesh->nbde; ++l)
     mesh->bde[l].diff = edge_is_diff(mesh, &mesh->bde[l]);
-  }
 
+  // Cleanup
   free(bde);
   free(f);
 }
