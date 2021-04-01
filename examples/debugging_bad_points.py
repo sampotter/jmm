@@ -13,32 +13,35 @@ plotter = pvqt.BackgroundPlotter()
 ################################################################################
 # parameters
 
-verts_path = 'visualize_cutset/room_verts.bin'
-cells_path = 'visualize_cutset/room_cells.bin'
-surf_mesh_path = 'visualize_cutset/room.obj'
-
-lsrc = 0 # index of point source
-l = 3167
-l0 = 499
-l1 = 2138
-l2 = 4385
-l3 = None
-lbad = None
+# verts_path = 'visualize_cutset/room_verts.bin'
+# cells_path = 'visualize_cutset/room_cells.bin'
+# surf_mesh_path = 'visualize_cutset/room.obj'
 
 # lsrc = 0 # index of point source
-# l = 3502
-# l0 = 4333
-# l1 = 4740
-# l2 = 5687
+# l = 3167
+# l0 = 499
+# l1 = 2138
+# l2 = 4385
 # l3 = None
 # lbad = None
 
-l_color = 'red'
-l0_color = 'green'
-l1_color = 'green'
+verts_path = 'visualize_cutset/L_verts.bin'
+cells_path = 'visualize_cutset/L_cells.bin'
+
+lsrc = 22 # index of point source
+l = None
+l0 = 5
+l1 = 118
+l2 = None
+l3 = None
+lbad = None
+
+l_color = 'yellow'
+l0_color = 'white'
+l1_color = 'black'
 l2_color = 'green'
 l3_color = 'green'
-lbad_color = 'red'
+lbad_color = 'green'
 
 connect_l_and_lsrc = True
 
@@ -47,34 +50,64 @@ connect_l_and_lsrc = True
 verts = np.fromfile(verts_path, dtype=np.float64)
 verts = verts.reshape(verts.size//3, 3)
 
+num_verts = verts.shape[0]
+
 cells = np.fromfile(cells_path, dtype=np.uintp)
 cells = cells.reshape(cells.size//4, 4)
+
+faces = set()
+for C in cells:
+    F = [tuple(sorted([C[0], C[1], C[2]])),
+         tuple(sorted([C[0], C[1], C[3]])),
+         tuple(sorted([C[0], C[2], C[3]])),
+         tuple(sorted([C[1], C[2], C[3]]))]
+    for f in F:
+        if f in faces:
+            faces.remove(f)
+        else:
+            faces.add(f)
+faces = np.array(list(faces), dtype=np.uintp)
 
 mesh = jmm.Mesh3.from_verts_and_cells(verts, cells)
 
 eik = jmm.Eik3(mesh)
 eik.add_trial(lsrc, jmm.Jet3(0.0, np.nan, np.nan, np.nan))
 
+# l0 = eik.step()
+# rounds = 3
+# for _ in range(rounds):
+#     while (eik.is_valid(l0) and verts[l0, 0] >= 1) or \
+#           (eik.is_shadow(l0) and verts[l0, 0] < 1):
+#         l0 = eik.step()
+#     print(f'l0 = {l0}')
+#     if _ < rounds - 1:
+#         l0 = eik.step()
+
 while eik.peek() != l0:
     eik.step()
 # eik.step()
 
-if l is not None:
-    _ = verts[l] - verts[lsrc]
-    tau = np.linalg.norm(_)
-    Dtau = _/tau
-    del _
-    print(f'tau = {tau}')
-    print(f'T = {eik.jet[l][0]}')
-    print(f'T - tau = {tau - eik.jet[l][0]}')
-    print()
-    print(f'Dtau = {tuple(Dtau)}')
-    print(f'DT = ({eik.jet[l][1]}, {eik.jet[l][2]}, {eik.jet[l][3]})')
-    print(f'DT - Dtau = ({Dtau[0] - eik.jet[l][1]}, {Dtau[1] - eik.jet[l][2]}, {Dtau[2] - eik.jet[l][3]})')
-    print(f'angle(DT, Dtau) = {np.rad2deg(np.arccos(Dtau@[eik.jet[l][_] for _ in range(1, 4)]))} deg')
+# eik.solve()
 
-surf_mesh = pv.read(surf_mesh_path)
-plotter.add_mesh(surf_mesh, color='white', opacity=0.25)
+# if l is not None:
+#     _ = verts[l] - verts[lsrc]
+#     tau = np.linalg.norm(_)
+#     Dtau = _/tau
+#     del _
+#     print(f'tau = {tau}')
+#     print(f'T = {eik.jet[l][0]}')
+#     print(f'T - tau = {tau - eik.jet[l][0]}')
+#     print()
+#     print(f'Dtau = {tuple(Dtau)}')
+#     print(f'DT = ({eik.jet[l][1]}, {eik.jet[l][2]}, {eik.jet[l][3]})')
+#     print(f'DT - Dtau = ({Dtau[0] - eik.jet[l][1]}, {Dtau[1] - eik.jet[l][2]}, {Dtau[2] - eik.jet[l][3]})')
+#     print(f'angle(DT, Dtau) = {np.rad2deg(np.arccos(Dtau@[eik.jet[l][_] for _ in range(1, 4)]))} deg')
+
+surf_mesh = pv.PolyData(
+    verts,
+    np.concatenate([3*np.ones((faces.shape[0], 1), dtype=np.uintp), faces], axis=1)
+)
+plotter.add_mesh(surf_mesh, color='white', opacity=0.25, show_edges=True)
 
 highlight_inds = {
     lsrc: 'pink',
@@ -139,7 +172,7 @@ if tris_on_front.size > 0:
 
     # Add it to the plotter and plot the values of the eikonal
     plotter.add_mesh(poly_data, scalars='T', cmap=cc.cm.rainbow,
-                     opacity=0.5, show_edges=True)
+                     opacity=1.0, show_edges=True)
 
 # Now, traverse each point and gradient, and add a colored arrow
 # for ind, p, d in zip(uniq_inds, points, DT):
@@ -151,7 +184,7 @@ if tris_on_front.size > 0:
 
 for ind, color in highlight_inds.items():
     p = verts[ind]
-    sphere = pv.Sphere(1.25*sphere_radius, p)
+    sphere = pv.Sphere(1.5*sphere_radius, p)
     plotter.add_mesh(sphere, color=color)
 
 def plot_tri(L):
@@ -176,3 +209,34 @@ if l is not None and connect_l_and_lsrc:
     r, h = 0.5*sphere_radius, np.linalg.norm(xd)
     plotter.add_mesh(
         pv.Cylinder(xm, xd, r, h), color=highlight_inds[l], opacity=1)
+
+# for l0, l1 in bde:
+#     x0, x1 = verts[l0], verts[l1]
+#     xm, xd = (x0 + x1)/2, x1 - x0
+#     r, h = 0.5*sphere_radius, np.linalg.norm(xd)
+#     plotter.add_mesh(
+#         pv.Cylinder(xm, xd, r, h), color='yellow', opacity=1)
+
+for (m0, m1), cutedge in eik.shadow_cutset.items():
+    plot_point(verts, m0, color='purple' if eik.is_shadow(m0) else 'green')
+    plot_point(verts, m1, color='purple' if eik.is_shadow(m1) else 'green')
+    x0, x1 = verts[m0], verts[m1]
+    xm, xd = (x0 + x1)/2, x1 - x0
+    r, h = 0.5*sphere_radius, np.linalg.norm(xd)
+    plotter.add_mesh(
+        pv.Cylinder(xm, xd, r, h), color='white', opacity=1)
+    t = cutedge.t
+    xt = (1 - t)*verts[m0] + t*verts[m1]
+    plotter.add_mesh(
+        pv.Sphere(sphere_radius, xt), color='white', opacity=1)
+
+# parent = eik.get_parent(l0)
+# if parent.size == 3:
+#     plotter.add_mesh(
+#         pv.PolyData(verts, np.concatenate([[3], parent.l]).reshape(1, 4).astype(np.uintp)),
+#         opacity=0.5, color='white')
+# else:
+#     for l_ in parent.l:
+#         plot_point(verts, l_, color='cyan', scale=1.6, opacity=1)
+
+# plot_point(verts, l0, color='red', scale=1.6, opacity=1)
