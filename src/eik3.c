@@ -540,9 +540,10 @@ static void update(eik3_s *eik, size_t l, size_t l0) {
   for (int i = 0; i < num_utetra; ++i)
     l_l2_adj[i] = mesh3_is_edge(eik->mesh, (size_t[2]) {l, l2[i]});
 
-  bool *is_diff_edge = malloc(num_utetra*sizeof(bool));
+  // Count and mark the non-adjacent edges are diffracting edges
 
-  int num_diff_utri = 0;
+  int num_diff_edges = 0;
+  bool *is_diff_edge = malloc(num_utetra*sizeof(bool));
   for (int i = 0; i < num_utetra; ++i) {
     if (l_l1_adj[i] || l_l2_adj[i]) {
       is_diff_edge[i] = false;
@@ -550,35 +551,62 @@ static void update(eik3_s *eik, size_t l, size_t l0) {
     } else {
       size_t e[2] = {l1[i], l2[i]};
       is_diff_edge[i] = mesh3_is_diff_edge(eik->mesh, e);
-      num_diff_utri += is_diff_edge[i];
+      num_diff_edges += is_diff_edge[i];
     }
   }
 
-  utri_s *utri;
-  utri_alloc(&utri);
+  // TODO: here, we just allocate a separate utri for each edge,
+  // whether it's diffracting or not. It would be more efficient to
+  // just allocate for the diffracting edges only, but we can try that
+  // later.
 
-  bool *updated_from_diff_edge = malloc(num_utetra*sizeof(bool));
+  utri_s **diff_utri = malloc(num_utetra*sizeof(utri_s *));
+  for (int i = 0; i < num_utetra; ++i) {
+    utri_alloc(&diff_utri[i]);
+    utri_reset(diff_utri[i]);
 
-  for (int i = 0, j = 0; i < num_utetra; ++i) {
-    updated_from_diff_edge[i] = false;
+    if (!is_diff_edge[i]) continue;
 
-    if (!is_diff_edge[i])
-      continue;
+    // Mark the original index of each utri so that we can figure out
+    // which entries of `updated_from_diff_edge` to mark after
+    // updating.
+    utri_set_orig_index(diff_utri[i], i);
 
-    utri_reset(utri);
-    utri_init_from_eik3(utri, eik, l, l1[j], l2[j]);
-    utri_solve(utri);
+    utri_init_from_eik3(diff_utri[i], eik, l, l1[i], l2[i]);
+    utri_solve(diff_utri[i]);
+  }
 
-    if (utri_has_interior_point_solution(utri) &&
-        utri_update_ray_is_physical(utri, eik)) {
-      commit_tri_update(eik, l, utri);
-      updated_from_diff_edge[i] = true;
+  qsort(diff_utri, num_utetra, sizeof(utri_s *), (compar_t)utri_cmp);
+
+  bool *updated_from_diff_edge = calloc(num_utetra, sizeof(bool));
+
+  for (int i = 0, j; i < num_utetra; ++i) {
+    if (!utri_is_finite(diff_utri[i])) {
+      break;
+    } else if (utri_has_interior_point_solution(diff_utri[i])) {
+      if (utri_update_ray_is_physical(diff_utri[i], eik) &&
+          commit_tri_update(eik, l, diff_utri[i])) {
+        j = utri_get_orig_index(diff_utri[i]);
+        updated_from_diff_edge[j] = true;
+        break;
+      }
+    } else if (i + 1 < num_utetra &&
+               utris_yield_same_update(diff_utri[i], diff_utri[i + 1]) &&
+               utri_update_ray_is_physical(diff_utri[i], eik) &&
+               commit_tri_update(eik, l, diff_utri[i])) {
+      j = utri_get_orig_index(diff_utri[i]);
+      updated_from_diff_edge[j] = true;
+      j = utri_get_orig_index(diff_utri[i + 1]);
+      updated_from_diff_edge[j] = true;
     }
   }
 
-  utri_dealloc(&utri);
+  for (int i = 0; i < num_utetra; ++i)
+    utri_dealloc(&diff_utri[i]);
+  free(diff_utri);
 
   free(is_diff_edge);
+
   free(l_l1_adj);
   free(l_l2_adj);
 
