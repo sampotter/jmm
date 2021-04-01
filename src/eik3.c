@@ -1088,8 +1088,24 @@ cutedge_status_e get_cut_edge_coef_and_surf_normal(eik3_s const *eik,
   size_t l_shadow = eik->state[l0] == SHADOW ? l0 : l1;
   assert(eik->state[l_shadow] == SHADOW);
 
+  /* First "base case": check if l0 is incident on a diffracting edge. In
+   * which case, we can just grab the surface normal information from
+   * the diffracting edge and return early. */
+  // TODO: we should actually lift this into the calling function to
+  // make it a bit more efficient
+  if (l_valid == l0 && mesh3_vert_incident_on_diff_edge(mesh, l_valid)) {
+    size_t num_inc_diff_edges = mesh3_get_num_inc_diff_edges(mesh, l_valid);
+    assert(num_inc_diff_edges == 1); // TODO: handle "> 1" case later
+    size_t (*e)[2] = malloc(num_inc_diff_edges*sizeof(size_t[2]));
+    mesh3_get_inc_diff_edges(mesh, l_valid, e);
+    get_diff_edge_surf_normal_p1(eik, l_shadow, l_valid, e, num_inc_diff_edges, n);
+    free(e);
+    *t = 0;
+    return CUTEDGE_VALID;
+  }
+
   /**
-   * "Base case": check and see if l0's parents are incident on a
+   * Second "base case": check and see if l0's parents are incident on a
    * diffracting edge.
    *
    * What we're checking here:
