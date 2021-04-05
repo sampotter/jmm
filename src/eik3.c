@@ -995,6 +995,7 @@ static void estimate_cutedge_data_from_incident_cutedges(
 }
 
 typedef enum cutedge_status {
+  CUTEDGE_CONTINUE,
   CUTEDGE_VALID,
   CUTEDGE_REINSERT,
   CUTEDGE_SKIP
