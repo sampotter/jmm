@@ -1006,9 +1006,8 @@ typedef enum cutedge_status {
  * SHADOW. No assumption is made about which is which.
  */
 static
-cutedge_status_e get_cut_edge_coef_and_surf_normal(eik3_s const *eik,
-                                                   size_t l0, size_t l1,
-                                                   cutedge_s *cutedge) {
+cutedge_status_e set_cutedge(eik3_s const *eik, size_t l0, size_t l1,
+                             cutedge_s *cutedge) {
   /* TODO: pretty sure this function is next on the chopping block.
    * I really don't like how arbitrary the approach to find nearby
    * cutedges to use to estimate the data for the passed cutedge
@@ -1231,7 +1230,7 @@ static void update_shadow_cutset(eik3_s *eik, size_t l0) {
   while (!array_is_empty(l1_arr)) {
     array_pop_front(l1_arr, &l1);
 
-    switch (get_cut_edge_coef_and_surf_normal(eik, l0, l1, &cutedge)) {
+    switch (set_cutedge(eik, l0, l1, &cutedge)) {
     case CUTEDGE_VALID:
       break;
     case CUTEDGE_REINSERT:
