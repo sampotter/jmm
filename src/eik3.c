@@ -1001,6 +1001,27 @@ typedef enum cutedge_status {
   CUTEDGE_SKIP
 } cutedge_status_e;
 
+static
+bool set_cutedge_for_vert_on_diff_edge(eik3_s const *eik,
+                                       size_t l0, size_t lv, size_t ls,
+                                       cutedge_s *cutedge) {
+  assert(l0 == ls || l0 == lv);
+
+  size_t num_inc_diff_edges = mesh3_get_num_inc_diff_edges(eik->mesh, lv);
+  assert(num_inc_diff_edges <= 2); // TODO: handle corners later...
+
+  size_t (*e)[2] = malloc(num_inc_diff_edges*sizeof(size_t[2]));
+  mesh3_get_inc_diff_edges(eik->mesh, lv, e);
+
+  get_diff_edge_surf_normal_p1(eik, ls, lv, e, num_inc_diff_edges, cutedge->n);
+
+  free(e);
+
+  cutedge->t = l0 == lv ? 0 : 1;
+
+  return true;
+}
+
 /**
  * Compute the coefficient for the new edge in shadow cutset. This is
  * a double t such that 0 <= t <= 1 and where the shadow boundary
