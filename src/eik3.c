@@ -193,9 +193,15 @@ static bool is_shadow_p2(eik3_s const *eik, par3_s const *parent) {
   if (eik->state[l[0]] == eik->state[l[1]])
     return eik->state[l[0]] == SHADOW;
 
-  dbl ts = get_cutedge(eik, l[0], l[1]).t;
-  dbl t = parent->b[1];
-  return eik->state[l[0]] == VALID ? t > ts : t <= ts;
+  dbl t = parent->b[1], t_shadow = get_cutedge(eik, l[0], l[1]).t;
+
+  if (l[0] > l[1])
+    t = 1 - t;
+
+  if (eik->state[l[0]] == VALID)
+    return t >= t_shadow;
+  else
+    return t <= t_shadow;
 }
 
 static bool is_shadow_p3(eik3_s const *eik, par3_s par, int num_shadow) {
