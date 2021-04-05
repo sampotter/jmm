@@ -1022,6 +1022,50 @@ bool set_cutedge_for_vert_on_diff_edge(eik3_s const *eik,
   return true;
 }
 
+/* In this function, we want to fill in the cutedge information for a
+ * node that was updated from a diffracting edge. This is only the
+ * case when l0 has two parents. */
+static cutedge_status_e
+set_cutedge_for_vert_updated_from_diff_edge(eik3_s const *eik,
+                                            size_t l0, size_t l1,
+                                            size_t ls, size_t lv,
+                                            cutedge_s *cutedge) {
+  par3_s par = eik3_get_par(eik, l0);
+
+  if (par3_size(&par) != 2)
+    return CUTEDGE_CONTINUE;
+
+  if (l1 != par.l[0] && l1 != par.l[1])
+    return CUTEDGE_CONTINUE;
+
+  if (!mesh3_is_diff_edge(eik->mesh, par.l))
+    return CUTEDGE_CONTINUE;
+
+  size_t l2 = par.l[0], l3 = par.l[1];
+
+  if (l1 == l2 || l1 == l3) {
+    if (l1 == l2)
+      SWAP(l2, l3);
+  } else if (mesh3_is_diff_edge(eik->mesh, (size_t[2]) {l1, l3})) {
+    SWAP(l2, l3);
+  } else if (!mesh3_is_diff_edge(eik->mesh, (size_t[2]) {l1, l2})) {
+    log_warn("failed to insert cutedge (%lu, %lu)\n", l0, l1);
+    return CUTEDGE_SKIP;
+  }
+
+  assert(l0 != l1 && l1 != l2);
+
+  // We assume that l1 is the VALID node (since diff => VALID) and
+  // return t = 1.
+  assert(l0 == ls && l1 == lv);
+
+  get_diff_edge_surf_normal_p2(eik, l0, (size_t[2]) {l1, l2}, cutedge->n);
+
+  cutedge->t = 1; // This assumes that l1 is valid
+
+  return CUTEDGE_VALID;
+}
+
 /**
  * Compute the coefficient for the new edge in shadow cutset. This is
  * a double t such that 0 <= t <= 1 and where the shadow boundary
