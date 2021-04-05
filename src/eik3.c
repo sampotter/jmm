@@ -732,53 +732,6 @@ static bool cutedge_is_incident_on_vertex(edge_s edge, void const * elt,
   return edge.l[0] == l1 || edge.l[1] == l1;
 }
 
-bool should_be_in_shadow_zone(eik3_s const *eik, size_t l0, size_t l) {
-  edgemap_s *incident_cutedges;
-  edgemap_alloc(&incident_cutedges);
-  edgemap_init(incident_cutedges, sizeof(cutedge_s));
-
-  edgemap_filter(
-    eik->cutset, incident_cutedges,
-    (edgemap_prop_t)cutedge_is_incident_on_vertex, &l0);
-
-  assert(!edgemap_is_empty(incident_cutedges));
-
-  edgemap_iter_s *iter;
-  edgemap_iter_alloc(&iter);
-  edgemap_iter_init(iter, incident_cutedges);
-
-  mesh3_s const *mesh = eik->mesh;
-  dbl dy[3], yt[3];
-
-  dbl const *x = mesh3_get_vert_ptr(mesh, l), *y0;
-
-  // Number of supporting shadow boundary planes that say that `x`
-  // should be in the shadow zone.
-  size_t num_shadow_votes = 0;
-
-  edge_s edge;
-  cutedge_s cutedge;
-  while (edgemap_iter_next(iter, &edge, &cutedge)) {
-    // Get the location of the intersection between the shadow
-    // boundary and the current cut edge
-    y0 = mesh3_get_vert_ptr(mesh, edge.l[0]);
-    dbl3_sub(mesh3_get_vert_ptr(mesh, edge.l[1]), y0, dy);
-    dbl3_saxpy(cutedge.t, dy, y0, yt);
-
-    num_shadow_votes += dbl3_dot(cutedge.n, x) - dbl3_dot(cutedge.n, y0) < 0;
-  }
-
-  assert(num_shadow_votes == 0 ||
-         num_shadow_votes == edgemap_size(incident_cutedges));
-
-  edgemap_iter_dealloc(&iter);
-
-  edgemap_deinit(incident_cutedges);
-  edgemap_dealloc(&incident_cutedges);
-
-  return num_shadow_votes > 0;
-}
-
 void do_diff_edge_updates_and_adjust(eik3_s *eik, size_t l0, size_t l1,
                                      size_t *l0_nb, int l0_nnb) {
   assert(!eik3_is_point_source(eik, l0));
