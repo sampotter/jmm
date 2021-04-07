@@ -41,6 +41,12 @@ struct eik3 {
   int num_valid;
   edgemap_s *cutset;
 
+  /* A margin for the cutedge parameter `t`. When being computed, and
+   * before clamping to [0, 1], we assert that t falls in the range
+   * [-`tlim`, 1 + `tlim`], where `tlim` is set to the square of
+   * `mesh3_get_min_tetra_alt(eik->mesh)`. */
+  dbl tlim;
+
   /**
    * In some cases, we'll skip old updates that might be useful at a
    * later stage. We keep track of them here.
@@ -112,6 +118,8 @@ void eik3_init(eik3_s *eik, mesh3_s *mesh) {
 
   edgemap_alloc(&eik->cutset);
   edgemap_init(eik->cutset, sizeof(cutedge_s));
+
+  eik->tlim = pow(mesh3_get_min_tetra_alt(eik->mesh), 2);
 
   array_alloc(&eik->old_updates);
   array_init(eik->old_updates, sizeof(utetra_s *), 16);
@@ -1262,8 +1270,12 @@ cleanup:
   // the way we're doing it now, but clamping back to [0, 1] seems to
   // help.
   if (status == CUTEDGE_VALID) {
-    if (*t < -atol || 1 + atol < *t)
-      log_warn("bad cutset coef: t = %1.3f\n", *t);
+    dbl *t = &cutedge->t;
+    if (*t < -eik->tlim || 1 + eik->tlim < *t) {
+      log_error("bad cutset coef: t = %1.3f (range: [%f, %f])\n",
+                *t, -eik->tlim, 1 + eik->tlim);
+      assert(false);
+    }
     *t = fmax(0, fmin(1, *t));
   }
 
