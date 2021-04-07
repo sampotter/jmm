@@ -170,7 +170,7 @@ the raytracing information and error rendered on the level sets.
 
     # Set the clim based on the two-sigma value of the absolute errors
     # vmax = 2*np.nanstd(abs(errors))
-    vmax = 0.005
+    vmax = 0.01
 
     print(f'- using error clim: ({-vmax}, {vmax})')
 
