@@ -477,6 +477,11 @@ void mesh3_get_centroid(mesh3_s const *mesh, size_t lc, dbl c[3]) {
   }
 }
 
+void mesh3_get_edge_centroid(mesh3_s const *mesh, size_t e[2], dbl c[3]) {
+  assert(mesh3_is_edge(mesh, e));
+  dbl3_cc(mesh->verts[e[0]].data, mesh->verts[e[1]].data, 0.5, c);
+}
+
 size_t mesh3_ncells(mesh3_s const *mesh) {
   return mesh->ncells;
 }

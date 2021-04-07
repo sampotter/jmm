@@ -48,6 +48,7 @@ void mesh3_copy_vert(mesh3_s const *mesh, size_t i, dbl *v);
 tetra3 mesh3_get_tetra(mesh3_s const *mesh, size_t lc);
 tri3 mesh3_get_tri(mesh3_s const *mesh, size_t const lf[3]);
 void mesh3_get_centroid(mesh3_s const *mesh, size_t lc, dbl centroid[3]);
+void mesh3_get_edge_centroid(mesh3_s const *mesh, size_t e[2], dbl c[3]);
 size_t mesh3_ncells(mesh3_s const *mesh);
 size_t mesh3_nverts(mesh3_s const *mesh);
 void mesh3_get_bbox(mesh3_s const *mesh, rect3 *bbox);
