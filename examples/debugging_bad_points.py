@@ -39,10 +39,10 @@ l3 = None
 lbad = None
 
 l_color = 'white'
-l0_color = 'teal'
-l1_color = 'magenta'
-l2_color = 'magenta'
-l3_color = 'teal'
+l0_color = 'white'
+l1_color = 'black'
+l2_color = 'black'
+l3_color = 'black'
 lbad_color = 'green'
 
 plot_surf_tris = False
@@ -249,6 +249,31 @@ if plot_cutset:
         xt = (1 - t)*verts[m0] + t*verts[m1]
         plotter.add_mesh(
             pv.Sphere(sphere_radius, xt), color='white', opacity=1)
+        jet = cutedge.jet
+        d = np.array([jet.fx, jet.fy, jet.fz])
+        assert(abs(1 - np.linalg.norm(d)) < 1e-13)
+        plotter.add_mesh(
+            pv.Arrow(xt, d, scale=0.1),
+            color='white', opacity=1)
 
 ################################################################################
 # TMP
+
+
+# xt = np.array([1, 1.2831721151353119, 0.4054017326133959])
+# plotter.add_mesh(pv.Sphere(sphere_radius, xt), color='red')
+
+# xb = np.array([1.0822845820075846, 1.0311904455404601, 0.44268603803298395])
+# plotter.add_mesh(pv.Sphere(sphere_radius, xb), color='blue')
+
+
+# x0, x1 = verts[135], verts[138]
+# xm, xd = (x0 + x1)/2, x1 - x0
+# r, h = 0.5*sphere_radius, np.linalg.norm(xd)
+# plotter.add_mesh(
+#     pv.Cylinder(xm, xd, r, h), color='cyan', opacity=1)
+
+
+for l_ in [5, 118]:
+    c = 'cyan' if eik.is_valid(l_) else 'pink'
+    plot_point(verts, l_, color=c, scale=2)
