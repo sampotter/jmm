@@ -9,6 +9,7 @@ cdef extern from "eik3.h":
     cdef struct cutedge:
         dbl t
         dbl n[3]
+        jet3 jet
     cdef struct eik3:
         pass
     void eik3_alloc(eik3 **eik)

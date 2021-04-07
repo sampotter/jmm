@@ -21,6 +21,9 @@ typedef struct cutedge {
    * The surface normal of the shadow boundary at x(t).
    */
   dbl n[3];
+
+  /* The jet of the eikonal at `x(t)`. */
+  jet3 jet;
 } cutedge_s;
 
 void eik3_alloc(eik3_s **eik);

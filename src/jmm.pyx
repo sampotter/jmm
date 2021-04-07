@@ -1012,6 +1012,10 @@ cdef class Jet3:
         self.jet.fy = fy
         self.jet.fz = fz
 
+    def __repr__(self):
+        return 'Jet3(f = %f, fx = %f, fy = %f, fz = %f)' % (
+            self.jet.f, self.jet.fx, self.jet.fy, self.jet.fz)
+
     @property
     def f(self):
         return self.jet.f
@@ -1054,11 +1058,13 @@ cdef class Cutedge:
     cdef:
         dbl t
         dbl[::1] n
+        jet3 jet
 
-    def __cinit__(self, dbl t, dbl[::1] n):
+    def __cinit__(self, dbl t, dbl[::1] n, jet3 jet):
         self.t = t
         self.n = np.empty((3,), dtype=np.float64)
         self.n[:] = n[:]
+        self.jet = jet
 
     @property
     def t(self):
@@ -1067,6 +1073,10 @@ cdef class Cutedge:
     @property
     def n(self):
         return np.asarray(self.n)
+
+    @property
+    def jet(self):
+        return Jet3(self.jet.f, self.jet.fx, self.jet.fy, self.jet.fz)
 
 cdef class Eik3:
     cdef:
@@ -1162,7 +1172,7 @@ cdef class Eik3:
         edgemap_iter_init(it, eik3_get_cutset(self.eik))
         cutset = dict()
         while edgemap_iter_next(it, &e, &c):
-            cutset[e.l[0], e.l[1]] = Cutedge(c.t, <double[:3]>c.n)
+            cutset[e.l[0], e.l[1]] = Cutedge(c.t, <double[:3]>c.n, c.jet)
         edgemap_iter_dealloc(&it)
         return cutset
 
