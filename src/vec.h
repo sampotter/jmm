@@ -48,6 +48,7 @@ dbl dbl3_ndot(dbl const u[3], dbl const v[3]);
 bool dbl3_valid_bary_coord(dbl const b[3]);
 void dbl3_sort(dbl u[3]);
 void dbl3_zero(dbl u[3]);
+void dbl3_cc(dbl const u0[3], dbl const u1[3], dbl t0, dbl ut[3]);
 
 dbl dbl4_dist(dbl const u[4], dbl const v[4]);
 bool dbl4_nonneg(dbl const u[4]);

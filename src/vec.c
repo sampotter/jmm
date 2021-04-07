@@ -207,6 +207,13 @@ void dbl3_zero(dbl u[3]) {
   u[0] = u[1] = u[2] = 0;
 }
 
+void dbl3_cc(dbl const u0[3], dbl const u1[3], dbl t0, dbl ut[3]) {
+  dbl t1 = 1 - t0;
+  ut[0] = t0*u0[0] + t1*u1[0];
+  ut[1] = t0*u0[1] + t1*u1[1];
+  ut[2] = t0*u0[2] + t1*u1[2];
+}
+
 dbl dbl4_dist(dbl const u[4], dbl const v[4]) {
   dbl tmp[4] = {u[0] - v[0], u[1] - v[1], u[2] - v[2], u[3] - v[3]};
   return sqrt(tmp[0]*tmp[0] + tmp[1]*tmp[1] + tmp[2]*tmp[2] + tmp[3]*tmp[3]);
