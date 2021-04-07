@@ -212,8 +212,13 @@ static bool is_shadow_p2(eik3_s const *eik, par3_s const *parent) {
     return t <= t_shadow;
 }
 
-static bool is_shadow_p3(eik3_s const *eik, par3_s par, int num_shadow) {
+static bool is_shadow_p3(eik3_s const *eik, par3_s par) {
   assert(par3_size(&par) == 3);
+
+  size_t num_shadow = 0;
+  for (int i = 0; i < 3; ++i)
+    num_shadow += eik3_is_shadow(eik, par.l[i]);
+
   assert(num_shadow <= 3);
 
   // Handle the easy cases first (if all the nodes are `SHADOW` or
@@ -279,14 +284,6 @@ static bool is_shadow(eik3_s const *eik, size_t l0) {
 
   size_t const *l = parent->l;
 
-  int num_valid = 0;
-  for (int i = 0; i < num_parents; ++i)
-    num_valid += eik3_is_valid(eik, l[i]);
-
-  int num_shadow = 0;
-  for (int i = 0; i < num_parents; ++i)
-    num_shadow += eik3_is_shadow(eik, l[i]);
-
   // TODO: eventually, we should order these cases in decreasing order
   // of frequency to optimize this
 
@@ -306,7 +303,7 @@ static bool is_shadow(eik3_s const *eik, size_t l0) {
     return is_shadow_p2(eik, parent);
 
   if (num_parents == 3)
-    return is_shadow_p3(eik, *parent, num_shadow);
+    return is_shadow_p3(eik, *parent);
 
   assert(false);
 }
