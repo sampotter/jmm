@@ -938,6 +938,70 @@ void mesh3_ee(mesh3_s const *mesh, size_t const e[2], size_t (*ee)[2]) {
   free(ec);
 }
 
+size_t mesh3_nev(mesh3_s const *mesh, size_t const e[2]) {
+  size_t nec = mesh3_nec(mesh, e[0], e[1]);
+  size_t *ec = malloc(nec*sizeof(size_t));
+  mesh3_ec(mesh, e[0], e[1], ec);
+
+  array_s *ev;
+  array_alloc(&ev);
+  array_init(ev, sizeof(size_t), ARRAY_DEFAULT_CAPACITY);
+
+  size_t ee[2];
+
+  /* Fill `fev` with the vertices opposite `e` in each face incident
+   * on `e`. We'll count the number of elements in `fev` to calculate
+   * `nef`. */
+  for (size_t i = 0; i < nec; ++i) {
+    mesh3_cee(mesh, ec[i], e, ee);
+    for (size_t j = 0; j < 2; ++j) {
+      if (array_contains(ev, &ee[j]))
+        continue;
+      array_append(ev, &ee[j]);
+    }
+  }
+
+  size_t nev = array_size(ev);
+
+  array_deinit(ev);
+  array_dealloc(&ev);
+
+  free(ec);
+
+  return nev;
+}
+
+void mesh3_ev(mesh3_s const *mesh, size_t const e[2], size_t *v) {
+  size_t nec = mesh3_nec(mesh, e[0], e[1]);
+  size_t *ec = malloc(nec*sizeof(size_t));
+  mesh3_ec(mesh, e[0], e[1], ec);
+
+  array_s *ev;
+  array_alloc(&ev);
+  array_init(ev, sizeof(size_t), ARRAY_DEFAULT_CAPACITY);
+
+  size_t ee[2];
+
+  /* Fill `fev` with the vertices opposite `e` in each face incident
+   * on `e`. We'll count the number of elements in `fev` to calculate
+   * `nef`. */
+  size_t nev = 0;
+  for (size_t i = 0; i < nec; ++i) {
+    mesh3_cee(mesh, ec[i], e, ee);
+    for (size_t j = 0; j < 2; ++j) {
+      if (array_contains(ev, &ee[j]))
+        continue;
+      array_append(ev, &ee[j]);
+      v[nev++] = ee[j];
+    }
+  }
+
+  array_deinit(ev);
+  array_dealloc(&ev);
+
+  free(ec);
+}
+
 int mesh3_nfc(mesh3_s const *mesh, size_t const f[3]) {
   // We find the cells neighboring one of the vertices of the face and
   // then determine which ones are adjacent to the rest of the
