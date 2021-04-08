@@ -48,6 +48,8 @@ void utetra_get_update_inds(utetra_s const *utetra, size_t l[3]);
 bool utetra_has_shadow_solution(utetra_s const *utetra, eik3_s const *eik);
 int utetra_get_num_shared_inds(utetra_s const *u1, utetra_s const *u2);
 bool utetras_yield_same_update(utetra_s const **utetra, int n);
+size_t utetra_get_shared_inds(utetra_s const *u1, utetra_s const *u2, size_t *l);
+bool utetra_contains_inds(utetra_s const *u, size_t const *l, size_t n);
 size_t utetra_get_l(utetra_s const *utetra);
 void utetra_set_update_inds(utetra_s *utetra, size_t l[3]);
 void utetra_set_l0(utetra_s *utetra, size_t l0);
@@ -58,6 +60,8 @@ void utetra_get_x(utetra_s const *u, dbl x[3]);
 void utetra_get_interior_coefs(utetra_s const *utetra, size_t *l);
 size_t utetra_get_active_inds(utetra_s const *utetra, size_t l[2]);
 par3_s utetra_get_parent(utetra_s const *utetra);
+bool utetra_get_point_for_index(utetra_s const *utetra, size_t l, dbl x[3]);
+bool utetra_get_op_ind(utetra_s const *utetra, size_t const le[2], size_t *l);
 
 #ifdef __cplusplus
 }

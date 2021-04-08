@@ -657,6 +657,28 @@ int utetra_get_num_shared_inds(utetra_s const *u1, utetra_s const *u2) {
 }
 
 bool utetras_yield_same_update(utetra_s const **utetra, int n) {
+size_t utetra_get_shared_inds(utetra_s const *u1, utetra_s const *u2, size_t *l) {
+  assert(utetra_update_inds_are_set(u1));
+  assert(utetra_update_inds_are_set(u2));
+
+  size_t const *l1 = u1->l, *l2 = u2->l;
+
+  size_t i = 0;
+
+  for (size_t j = 0; j < 3; ++j)
+    if (l1[j] == l2[0] || l1[j] == l2[1] || l1[j] == l2[2])
+      l[i++] = l1[j];
+
+  return i; // == num_shared_inds
+}
+
+bool utetra_contains_inds(utetra_s const *u, size_t const *l, size_t n) {
+  for (size_t i = 0; i < n; ++i)
+    if (u->l[0] == l[i] || u->l[1] == l[i] || u->l[2] == l[i])
+      return true;
+  return false;
+}
+
   dbl const atol = 1e-14;
 
   dbl x[2][3];
