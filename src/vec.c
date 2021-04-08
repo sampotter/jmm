@@ -75,6 +75,12 @@ void dbl3_sub(dbl const *u, dbl const *v, dbl *w) {
   w[2] = u[2] - v[2];
 }
 
+void dbl3_sub_inplace(dbl u[3], dbl const v[3]) {
+  u[0] -= v[0];
+  u[1] -= v[1];
+  u[2] -= v[2];
+}
+
 dbl dbl3_dot(dbl const *u, dbl const *v) {
   return u[0]*v[0] + u[1]*v[1] + u[2]*v[2];
 }

@@ -25,6 +25,7 @@ bool dbl2_isfinite(dbl const u[2]);
 void dbl3_add(dbl const u[3], dbl const v[3], dbl w[3]);
 void dbl3_add_inplace(dbl u[3], dbl const v[3]);
 void dbl3_sub(dbl const *u, dbl const *v, dbl *w);
+void dbl3_sub_inplace(dbl u[3], dbl const v[3]);
 dbl dbl3_dot(dbl const *u, dbl const *v);
 dbl dbl3_dist(dbl const u[3], dbl const v[3]);
 dbl dbl3_norm(dbl const u[3]);
