@@ -641,14 +641,15 @@ bool utetra_has_shadow_solution(utetra_s const *utetra, eik3_s const *eik) {
   return has_shadow_solution;
 }
 
-int utetra_get_num_shared_inds(utetra_s const *u1, utetra_s const *u2) {
   assert(utetra_inds_are_set(u1));
   assert(utetra_inds_are_set(u2));
+size_t utetra_get_num_shared_inds(utetra_s const *u1, utetra_s const *u2) {
 
   size_t const *l1 = u1->l, *l2 = u2->l;
   assert(l1[0] != l1[1] && l1[1] != l1[2]);
   assert(l2[0] != l2[1] && l2[1] != l2[2]);
-  int num_shared_inds = (
+
+  size_t num_shared_inds = (
     (l1[0] == l2[0]) + (l1[0] == l2[1]) + (l1[0] == l2[2]) +
     (l1[1] == l2[0]) + (l1[1] == l2[1]) + (l1[1] == l2[2]) +
     (l1[2] == l2[0]) + (l1[2] == l2[1]) + (l1[2] == l2[2]));
