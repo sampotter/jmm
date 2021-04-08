@@ -641,9 +641,9 @@ bool utetra_has_shadow_solution(utetra_s const *utetra, eik3_s const *eik) {
   return has_shadow_solution;
 }
 
-  assert(utetra_inds_are_set(u1));
-  assert(utetra_inds_are_set(u2));
 size_t utetra_get_num_shared_inds(utetra_s const *u1, utetra_s const *u2) {
+  assert(utetra_update_inds_are_set(u1));
+  assert(utetra_update_inds_are_set(u2));
 
   size_t const *l1 = u1->l, *l2 = u2->l;
   assert(l1[0] != l1[1] && l1[1] != l1[2]);
@@ -654,10 +654,10 @@ size_t utetra_get_num_shared_inds(utetra_s const *u1, utetra_s const *u2) {
     (l1[1] == l2[0]) + (l1[1] == l2[1]) + (l1[1] == l2[2]) +
     (l1[2] == l2[0]) + (l1[2] == l2[1]) + (l1[2] == l2[2]));
   assert(num_shared_inds <= 3);
+
   return num_shared_inds;
 }
 
-bool utetras_yield_same_update(utetra_s const **utetra, int n) {
 size_t utetra_get_shared_inds(utetra_s const *u1, utetra_s const *u2, size_t *l) {
   assert(utetra_update_inds_are_set(u1));
   assert(utetra_update_inds_are_set(u2));
@@ -680,26 +680,58 @@ bool utetra_contains_inds(utetra_s const *u, size_t const *l, size_t n) {
   return false;
 }
 
+/* Checks whether `n` tetrahedron updates stored in `utetra[i]` yield
+ * the same update. This is a pretty complicated check... Need to
+ * explain the cases this handles a bit better. */
+bool utetras_yield_same_update(utetra_s const **u, size_t n) {
+  assert(n > 1);
+
+  // Get the indices of the shared edge, and validate that this edge
+  // is incident on the base of each tetrahedron update
+  size_t l_shared[2];
+  size_t num_shared = utetra_get_shared_inds(u[0], u[1], l_shared);
+  assert(num_shared != 3);
+
+  // TODO: for now, we'll just return false if only one update vertex
+  // is shared. This is *wrong*, but it's a fairly rare case, and
+  // handling it correctly is delicate. There are some sort of easy
+  // subcases, but doing it exactly right is involved.
+  //
+  // One relatively easy case is when the updates form a ring around
+  // the base of the ray. When this happens, we need to find the ring
+  // of indices that comprises the boundary, and then check whether
+  // the ray goes through the interior of the polygon. If `n == 3`,
+  // then this is easy, but can get complicated otherwise!
+  if (num_shared == 1)
+    return false;
+
   dbl const atol = 1e-14;
 
-  dbl x[2][3];
+  dbl x[3], y[3];
+
+  /* The first thing to check is whether the jet computed by each
+   * update and the start of the update ray parametrized by each
+   * update is the same. This is necessary but not sufficient. */
+
   jet3 jet[2];
 
   // Prefetch the first coords and jet
-  utetra_get_x(utetra[0], x[0]);
-  utetra_get_jet(utetra[0], &jet[0]);
+  utetra_get_x(u[0], x);
+  utetra_get_jet(u[0], &jet[0]);
 
-  for (int i = 1; i < n; ++i) {
+  // First, check that the update data for each utetra is the
+  // same. This is cheaper than the topological check that follows.
+  for (size_t i = 1; i < n; ++i) {
     // Get the next jet and check that it's finite
-    utetra_get_jet(utetra[i], &jet[1]);
+    utetra_get_jet(u[i], &jet[1]);
     if (!jet3_is_finite(&jet[1]))
       return false;
 
     // Get the next coords
-    utetra_get_x(utetra[i], x[1]);
+    utetra_get_x(u[i], y);
 
     // Check if the base of the update rays coincide...
-    if (dbl3_dist(x[0], x[1]) > atol)
+    if (dbl3_dist(x, y) > atol)
       return false;
 
     // Check if the computed jets are the same...
@@ -708,11 +740,65 @@ bool utetra_contains_inds(utetra_s const *u, size_t const *l, size_t n) {
 
     // Swap the coords and jet that we just fetched to make way for
     // the next ones
-    for (int j = 0; j < 3; ++j) SWAP(x[0][j], x[1][j]);
+    for (int j = 0; j < 3; ++j) SWAP(x[j], y[j]);
     SWAP(jet[0], jet[1]);
   }
 
-  return true;
+  /* Next, we do a topological check. We want to see whether the mesh
+   * comprised of the `n` update bases (triangles) are "thick" from
+   * the perspective of the update ray. Basically, what we're trying
+   * to check is whether, after projecting the union of the update
+   * bases into the plane normal to the update ray, the ray hits an
+   * interior point or not. E.g., we want to rule out rays that only
+   * *graze* the update triangles, or weird sets of updates that
+   * aren't manifold at the intersection point. As a reminder, this
+   * function should only be called when we were unable to find a
+   * single update with an interior point solution. */
+
+  if (num_shared == 1) {
+    assert(false); // TODO: handle later...
+  } else if (num_shared == 2) {
+    for (size_t i = 2; i < n; ++i)
+      if (utetra_get_num_shared_inds(u[0], u[i]) != 2 ||
+          utetra_contains_inds(u[i], l_shared, 2))
+        return false;
+
+    dbl dx[3], dy[3], normal[3];
+
+    // Get the vectors defining the line spanned by the shared edge
+    utetra_get_point_for_index(u[0], l_shared[0], y);
+    utetra_get_point_for_index(u[0], l_shared[1], dy);
+    dbl3_sub_inplace(dy, y);
+
+    // Get the normal for the plane spanned by the edge and update ray,
+    // taking advantage of the fact that all the update rays can be
+    // assumed to be equal at this point
+    dbl3_cross(dy, &jet[0].f, normal);
+    dbl3_normalize(normal); // (probably overkill)
+
+    // For each tetrahedron update, pull out the points corresponding to
+    // index that isn't incident on the shared edge, and translate them
+    // so that the edge passes through the origin. Then, compute the dot
+    // product between this point and the normal vector `n`, keeping
+    // track of the minimum and maximum dot products.
+    dbl a, amin = INFINITY, amax = -INFINITY;
+    for (size_t i = 0, l_op; i < n; ++i) {
+      utetra_get_op_ind(u[i], l_shared, &l_op);
+      utetra_get_point_for_index(u[i], l_op, x);
+      dbl3_sub(x, y, dx);
+      a = dbl3_dot(normal, dx);
+      amin = fmin(amin, a);
+      amax = fmax(amax, a);
+    }
+
+    // We want to check that at least two of the "opposite update
+    // indices" lie on either side of the plane spanned by the edge and
+    // the update ray. The dot products `amin` and `amax` are the
+    // extreme dot products values, so we just check this here.
+    return amin < 0 && 0 < amax;
+  } else {
+    assert(false);
+  }
 }
 
 size_t utetra_get_l(utetra_s const *utetra) {
@@ -833,4 +919,35 @@ par3_s utetra_get_parent(utetra_s const *utetra) {
   utetra_get_bary_coords(utetra, par.b);
   utetra_get_update_inds(utetra, par.l);
   return par;
+}
+
+bool utetra_get_point_for_index(utetra_s const *utetra, size_t l, dbl x[3]) {
+  assert(utetra_update_inds_are_set(utetra));
+
+  for (int i = 0; i < 3; ++i)
+    if (utetra->l[i] == l) {
+      memcpy(x, utetra->Xt[i], sizeof(dbl[3]));
+      return true;
+    }
+
+  return false;
+}
+
+bool utetra_get_op_ind(utetra_s const *utetra, size_t const le[2], size_t *l) {
+  bool found[3] = {false, false, false};
+
+  for (int i = 0; i < 3; ++i)
+    if (utetra->l[i] == le[0] || utetra->l[i] == le[1])
+      found[i] = true;
+
+  if (found[0] + found[1] + found[2] == 2) {
+    for (int i = 0; i < 3; ++i)
+      if (!found[i]) {
+        *l = utetra->l[i];
+        return true;
+      }
+    assert(false);
+  }
+
+  return false;
 }
