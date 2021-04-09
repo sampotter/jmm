@@ -150,6 +150,7 @@ Ensure(eik3, tetra_works_for_olim18_122_update) {
     mesh3_deinit(mesh);
   }
 
+  utetra_deinit(cf);
   utetra_dealloc(&cf);
 
   mesh3_dealloc(&mesh);
@@ -272,6 +273,7 @@ Ensure(eik3, tetra_works_for_olim18_222_update) {
     utetra_reset(cf);
   }
 
+  utetra_deinit(cf);
   utetra_dealloc(&cf);
 
   mesh3_deinit(mesh);
@@ -441,6 +443,7 @@ Ensure(eik3, tetra_works_for_olim26_updates) {
     mesh3_deinit(mesh);
   }
 
+  utetra_deinit(cf);
   utetra_dealloc(&cf);
 
   mesh3_dealloc(&mesh);

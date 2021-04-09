@@ -147,6 +147,7 @@ void eik3_deinit(eik3_s *eik) {
   utetra_s *utetra;
   for (size_t i = 0; i < array_size(eik->old_updates); ++i) {
     array_get(eik->old_updates, i, &utetra);
+    utetra_deinit(utetra);
     utetra_dealloc(&utetra);
   }
   array_deinit(eik->old_updates);
@@ -712,8 +713,10 @@ static void update(eik3_s *eik, size_t l, size_t l0) {
   }
 
   for (int i = 0; i < num_utetra; ++i)
-    if (should_dealloc_utetra[i])
+    if (should_dealloc_utetra[i]) {
+      utetra_deinit(utetra[i]);
       utetra_dealloc(&utetra[i]);
+    }
   free(utetra);
 
   free(should_dealloc_utetra);
@@ -983,6 +986,7 @@ static void set_cutedge_jet(eik3_s const *eik, edge_s edge, cutedge_s *cutedge) 
 coda:
   assert(found_update);
   utetra_get_jet(utetra, &cutedge->jet);
+  utetra_deinit(utetra);
   utetra_dealloc(&utetra);
 }
 
@@ -1347,6 +1351,7 @@ size_t eik3_step(eik3_s *eik) {
   for (size_t i = array_size(eik->old_updates); i > 0; --i) {
     array_get(eik->old_updates, i - 1, &old_utetra);
     if (utetra_get_l(old_utetra) == l0) {
+      utetra_deinit(old_utetra);
       utetra_dealloc(&old_utetra);
       array_delete(eik->old_updates, i - 1);
     }

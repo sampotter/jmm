@@ -641,6 +641,7 @@ cdef class UpdateTetra:
         utetra_init(self._utetra, &x[0], Xt_, jet)
 
     def __dealloc__(self):
+        utetra_deinit(self._utetra)
         utetra_dealloc(&self._utetra)
 
     def is_degenerate(self):

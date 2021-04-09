@@ -166,6 +166,9 @@ bool utetra_init(utetra_s *cf, dbl const x[3], dbl const Xt[3][3],
   cf->state[0] = cf->state[1] = cf->state[2] = UNKNOWN;
 }
 
+void utetra_deinit(utetra_s *u) {
+}
+
 bool utetra_is_degenerate(utetra_s const *cf) {
   // Check if the point being updated lies in the plane spanned by by
   // x0, x1, and x2. If it does, the update is degenerate.
