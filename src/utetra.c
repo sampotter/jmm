@@ -176,10 +176,6 @@ bool utetra_is_degenerate(utetra_s const *cf) {
   return points_are_coplanar(x);
 }
 
-bool utetra_is_causal(utetra_s const *cf) {
-  return cf->angles[0] >= 0 && cf->angles[1] >= 0 && cf->angles[2] >= 0;
-}
-
 void utetra_step(utetra_s *cf) {
   dbl const atol = 1e-15, c1 = 1e-4;
 

@@ -24,7 +24,6 @@ bool utetra_init(utetra_s *cf, dbl const x[3], dbl const Xt[3][3],
                  jet3 const jet[3]);
 void utetra_deinit(utetra_s *u);
 bool utetra_is_degenerate(utetra_s const *cf);
-bool utetra_is_causal(utetra_s const *cf);
 void utetra_step(utetra_s *cf);
 void utetra_solve(utetra_s *cf);
 void utetra_get_lambda(utetra_s const *cf, dbl lam[2]);
