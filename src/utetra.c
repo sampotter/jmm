@@ -76,7 +76,6 @@ bool utetra_init_from_ptrs(utetra_s *cf, mesh3_s const *mesh, jet3 const *jet,
   mesh3_copy_vert(mesh, l2, Xt[2]);
 
   jet3 jet_[3] = {jet[l0], jet[l1], jet[l2]};
-
   assert(jet3_is_finite(&jet_[0]));
   assert(jet3_is_finite(&jet_[1]));
   assert(jet3_is_finite(&jet_[2]));
