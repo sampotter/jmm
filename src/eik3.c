@@ -683,9 +683,9 @@ static void update(eik3_s *eik, size_t l, size_t l0) {
   // Keep track of which updates to free. If we copy any updates over
   // to `old_updates`, we want to make sure we don't accidentally free
   // them.
-  bool *should_dealloc_utetra = malloc(num_utetra*sizeof(bool));
+  bool *should_free_utetra = malloc(num_utetra*sizeof(bool));
   for (int i = 0; i < num_utetra; ++i)
-    should_dealloc_utetra[i] = true;
+    should_free_utetra[i] = true;
 
   // See if we can commit a tetrahedron update
   for (int i = 0; i < num_utetra; ++i) {
@@ -707,19 +707,19 @@ static void update(eik3_s *eik, size_t l, size_t l0) {
         break;
       } else {
         array_append(eik->old_updates, &utetra[i]);
-        should_dealloc_utetra[i] = false;
+        should_free_utetra[i] = false;
       }
     }
   }
 
   for (int i = 0; i < num_utetra; ++i)
-    if (should_dealloc_utetra[i]) {
+    if (should_free_utetra[i]) {
       utetra_deinit(utetra[i]);
       utetra_dealloc(&utetra[i]);
     }
   free(utetra);
 
-  free(should_dealloc_utetra);
+  free(should_free_utetra);
 
   free(l1);
   free(l2);
