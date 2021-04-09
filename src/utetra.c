@@ -41,6 +41,10 @@ struct utetra {
 
   size_t lhat, l[3];
 
+  /* The state of the vertices of the update base (i.e., `state[i]`
+   * goes with index `l[i]`). */
+  state_e state[3];
+
   int niter;
 };
 
@@ -63,6 +67,15 @@ bool utetra_init_from_eik3(utetra_s *cf, eik3_s const *eik,
   mesh3_s const *mesh = eik3_get_mesh(eik);
   jet3 const *jet = eik3_get_jet_ptr(eik);
   return utetra_init_from_ptrs(cf, mesh, jet, l, l0, l1, l2);
+
+  bool success = utetra_init_from_ptrs(cf, mesh, jet, l, l0, l1, l2);
+
+  state_e const *state = eik3_get_state_ptr(eik);
+  cf->state[0] = state[l0];
+  cf->state[1] = state[l1];
+  cf->state[2] = state[l2];
+
+  return success;
 }
 
 bool utetra_init_from_ptrs(utetra_s *cf, mesh3_s const *mesh, jet3 const *jet,
@@ -149,6 +162,8 @@ bool utetra_init(utetra_s *cf, dbl const x[3], dbl const Xt[3][3],
     dbl3_negate(n);
   dbl dot = -dbl3_dot(Xt_minus_x[0], n) > 0;
   return dot > 0;
+
+  cf->state[0] = cf->state[1] = cf->state[2] = UNKNOWN;
 }
 
 bool utetra_is_degenerate(utetra_s const *cf) {
