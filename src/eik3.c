@@ -347,13 +347,7 @@ static bool commit_tri_update(eik3_s *eik, size_t lhat, utri_s const *utri) {
   utri_get_jet(utri, &jet);
   eik3_set_jet(eik, lhat, jet);
 
-  size_t l[3] = {[2] = NO_PARENT};
-  utri_get_update_inds(utri, l);
-
-  dbl b[3] = {[2] = NAN};
-  utri_get_bary_coords(utri, b);
-
-  eik3_set_par(eik, lhat, make_par3(l, b));
+  eik3_set_par(eik, lhat, utri_get_par(utri));
 
   return true;
 }
@@ -368,13 +362,13 @@ static void do_2pt_bd_updates(eik3_s *eik, size_t l, size_t l0) {
   size_t l1;
   int nup = 0;
   for (int i = 0; i < nve; ++i) {
-    utri_alloc(&utri[i]);
-    utri_reset(utri[i]);
+    utri[i] = NULL;
     if (ve[i][0] == l0 || ve[i][1] == l0) {
       l1 = ve[i][0] == l0 ? ve[i][1] : ve[i][0];
       size_t f[3] = {l, l0, l1};
       if (can_update_from_point(eik, l1) && !eik3_is_point_source(eik, l1) &&
           mesh3_bdf(eik->mesh, f)) {
+        utri_alloc(&utri[i]);
         utri_init_from_eik3(utri[i], eik, l, l0, l1);
         utri_solve(utri[i]);
         ++nup;
@@ -565,18 +559,18 @@ static void update(eik3_s *eik, size_t l, size_t l0) {
 
   utri_s **diff_utri = malloc(num_utetra*sizeof(utri_s *));
   for (int i = 0; i < num_utetra; ++i) {
-    utri_alloc(&diff_utri[i]);
-    utri_reset(diff_utri[i]);
+    diff_utri[i] = NULL;
 
     if (!is_diff_edge[i]) continue;
+
+    utri_alloc(&diff_utri[i]);
+    utri_init_from_eik3(diff_utri[i], eik, l, l1[i], l2[i]);
+    utri_solve(diff_utri[i]);
 
     // Mark the original index of each utri so that we can figure out
     // which entries of `updated_from_diff_edge` to mark after
     // updating.
     utri_set_orig_index(diff_utri[i], i);
-
-    utri_init_from_eik3(diff_utri[i], eik, l, l1[i], l2[i]);
-    utri_solve(diff_utri[i]);
   }
 
   qsort(diff_utri, num_utetra, sizeof(utri_s *), (compar_t)utri_cmp);
@@ -584,7 +578,7 @@ static void update(eik3_s *eik, size_t l, size_t l0) {
   bool *updated_from_diff_edge = calloc(num_utetra, sizeof(bool));
 
   for (int i = 0, j; i < num_utetra; ++i) {
-    if (!utri_is_finite(diff_utri[i])) {
+    if (diff_utri[i] == NULL || !utri_is_finite(diff_utri[i])) {
       break;
     } else if (utri_has_interior_point_solution(diff_utri[i])) {
       if (utri_update_ray_is_physical(diff_utri[i], eik) &&
@@ -772,11 +766,11 @@ void do_diff_edge_updates_and_adjust(eik3_s *eik, size_t l0, size_t l1,
   // obstacle. We'll see how far we can get with this for now...
 
   for (int i = 0; i < nnb; ++i) {
+    array_get(nb, i, &l);
+
     // Do a triangle update for each neighbor l of the diffracting
     // edge (l0, l1)...
     utri_alloc(&utri[i]);
-    utri_reset(utri[i]);
-    array_get(nb, i, &l);
     utri_init_from_eik3(utri[i], eik, l, l0, l1);
     utri_solve(utri[i]);
 

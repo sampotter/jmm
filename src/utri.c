@@ -31,8 +31,17 @@ struct utri {
 
   size_t l, l0, l1;
 
+  utri_s *split;
+
+  state_e state[2];
+  size_t num_shadow;
+
   int i; // original index
 };
+
+static bool is_split(utri_s const *u) {
+  return u->split != NULL;
+}
 
 void utri_alloc(utri_s **utri) {
   *utri = malloc(sizeof(utri_s));
@@ -44,6 +53,8 @@ void utri_dealloc(utri_s **utri) {
 }
 
 void utri_set_lambda(utri_s *utri, dbl lam) {
+  assert(!is_split(utri));
+
   utri->lam = lam;
 
   dbl xb[3];
@@ -69,6 +80,57 @@ static dbl utri_hybrid_f(dbl lam, utri_s *utri) {
   return utri->Df;
 }
 
+static void init_split_utri(utri_s *u, eik3_s const *eik) {
+  u->split = NULL;
+
+  if (u->num_shadow != 1)
+    return;
+
+  dbl t;
+  assert(eik3_get_cutedge_t(eik, u->l0, u->l1, &t));
+
+  dbl const atol = 1e-15;
+
+  if (t < atol) {
+    if (u->state[0] == VALID) {
+      u->state[0] = SHADOW;
+      u->num_shadow = 2;
+    } else {
+      u->state[0] = VALID;
+      u->num_shadow = 0;
+    }
+    return;
+  }
+
+  if (t > 1 - atol) {
+    if (u->state[1] == VALID) {
+      u->state[1] = SHADOW;
+      u->num_shadow = 2;
+    } else {
+      u->state[1] = VALID;
+      u->num_shadow = 0;
+    }
+    return;
+  }
+
+  u->split = malloc(sizeof(utri_s *));
+  utri_alloc(&u->split);
+
+  dbl Xt[2][3];
+  dbl3_copy(u->x0, Xt[0]);
+  dbl3_saxpy(t, u->x1_minus_x0, u->x0, Xt[1]);
+
+  jet3 jet[2];
+  jet[0] = eik3_get_jet(eik, u->l0);
+  assert(eik3_get_cutedge_jet(eik, u->l0, u->l1, &jet[1]));
+
+  utri_init(u->split, u->x, Xt, jet);
+
+  state_e *state = u->split->state;
+  state[0] = state[1] = state[2] = VALID;
+  u->split->num_shadow = 0;
+}
+
 void utri_init_from_eik3(utri_s *utri, eik3_s const *eik, size_t l,
                          size_t l0, size_t l1) {
   mesh3_s const *mesh = eik3_get_mesh(eik);
@@ -88,15 +150,32 @@ void utri_init_from_eik3(utri_s *utri, eik3_s const *eik, size_t l,
   assert(jet3_is_finite(&jet[0]));
   assert(jet3_is_finite(&jet[1]));
 
+  utri_init(utri, x, Xt, jet);
+
   utri->l = l;
   utri->l0 = l0;
   utri->l1 = l1;
 
-  utri_init(utri, x, Xt, jet);
+  state_e const *state = eik3_get_state_ptr(eik);
+
+  assert(state[l0] == VALID || state[l0] == SHADOW);
+  assert(state[l1] == VALID || state[l1] == SHADOW);
+
+  utri->state[0] = state[l0];
+  utri->state[1] = state[l1];
+
+  utri->num_shadow = (utri->state[0] == SHADOW) + (utri->state[1] == SHADOW);
+
+  init_split_utri(utri, eik);
+
+  assert(0 <= utri->num_shadow && utri->num_shadow <= 2);
 }
 
 void utri_init(utri_s *utri, dbl const x[3], dbl const Xt[2][3],
                jet3 const jet[2]) {
+  utri->f = INFINITY;
+  utri->i = NO_INDEX;
+
   memcpy(utri->x, x, 3*sizeof(dbl));
   memcpy(utri->x0, Xt[0], 3*sizeof(dbl));
   memcpy(utri->x1, Xt[1], 3*sizeof(dbl));
@@ -116,35 +195,45 @@ void utri_init(utri_s *utri, dbl const x[3], dbl const Xt[2][3],
   bb31_init_from_3d_data(&utri->T, f, Df, Xt);
 }
 
-bool utri_is_causal(utri_s const *utri) {
-  return utri->cos01 >= 0;
-}
-
 void utri_solve(utri_s *utri) {
+  assert(!is_split(utri));
   (void)hybrid((hybrid_cost_func_t)utri_hybrid_f, 0, 1, utri);
 }
 
-dbl utri_get_lambda(utri_s const *utri) {
-  return utri->lam;
+static void get_update_inds(utri_s const *utri, size_t l[2]) {
+  assert(!is_split(utri));
+  l[0] = utri->l0;
+  l[1] = utri->l1;
 }
 
-void utri_get_bary_coords(utri_s const *utri, dbl b[2]) {
+static void get_bary_coords(utri_s const *utri, dbl b[2]) {
+  assert(!is_split(utri));
   b[0] = 1 - utri->lam;
   b[1] = utri->lam;
 }
 
-dbl utri_get_value(utri_s const *utri) {
-  return utri->f;
+par3_s utri_get_par(utri_s const *u) {
+  assert(!is_split(u));
+  par3_s par = {.l = {[2] = NO_PARENT}, .b = {[2] = NAN}};
+  get_update_inds(u, par.l);
+  get_bary_coords(u, par.b);
+  return par;
+}
+
+dbl utri_get_value(utri_s const *u) {
+  return is_split(u) ? utri_get_value(u->split) : u->f;
 }
 
 void utri_get_jet(utri_s const *utri, jet3 *jet) {
+  assert(!is_split(utri));
   jet->f = utri->f;
   jet->fx = utri->x_minus_xb[0]/utri->L;
   jet->fy = utri->x_minus_xb[1]/utri->L;
   jet->fz = utri->x_minus_xb[2]/utri->L;
 }
 
-dbl utri_get_lag_mult(utri_s const *utri) {
+static dbl get_lag_mult(utri_s const *utri) {
+  assert(!is_split(utri));
   dbl const atol = 1e-15;
   if (utri->lam < atol) {
     return utri->Df;
@@ -156,12 +245,15 @@ dbl utri_get_lag_mult(utri_s const *utri) {
 }
 
 void utri_get_point_on_ray(utri_s const *utri, dbl t, dbl xt[3]) {
+  assert(!is_split(utri));
   dbl xlam[3];
   dbl3_saxpy(utri->lam, utri->x1_minus_x0, utri->x0, xlam);
   dbl3_saxpy(t/utri->L, utri->x_minus_xb, xlam, xt);
 }
 
 bool utri_update_ray_is_physical(utri_s const *utri, eik3_s const *eik) {
+  assert(!is_split(utri));
+
   dbl const atol = 1e-14;
 
   mesh3_s const *mesh = eik3_get_mesh(eik);
@@ -259,14 +351,10 @@ bool utri_update_ray_is_physical(utri_s const *utri, eik3_s const *eik) {
   return xhatm_in_cell;
 }
 
-void utri_reset(utri_s *utri) {
-  utri->f = INFINITY;
-  utri->i = NO_INDEX;
-}
-
 int utri_cmp(utri_s const **h1, utri_s const **h2) {
   utri_s const *u1 = *h1;
   utri_s const *u2 = *h2;
+
   if (u1 == NULL && u2 == NULL) {
     return 0;
   } else if (u2 == NULL) {
@@ -274,7 +362,7 @@ int utri_cmp(utri_s const **h1, utri_s const **h2) {
   } else if (u1 == NULL) {
     return 1;
   } else {
-    dbl T1 = u1->f, T2 = u2->f;
+    dbl T1 = utri_get_value(u1), T2 = utri_get_value(u2);
     if (T1 < T2) {
       return -1;
     } else if (T1 > T2) {
@@ -286,29 +374,33 @@ int utri_cmp(utri_s const **h1, utri_s const **h2) {
 }
 
 bool utri_has_interior_point_solution(utri_s const *utri) {
+  assert(!is_split(utri));
+
   dbl const atol = 1e-14;
   return (atol < utri->lam && utri->lam < 1 - atol)
-    || fabs(utri_get_lag_mult(utri)) <= atol;
-}
-
-void utri_get_update_inds(utri_s const *utri, size_t l[2]) {
-  l[0] = utri->l0;
-  l[1] = utri->l1;
+    || fabs(get_lag_mult(utri)) <= atol;
 }
 
 void utri_set_orig_index(utri_s *utri, int i) {
+  assert(!is_split(utri));
+
   utri->i = i;
 }
 
 int utri_get_orig_index(utri_s const *utri) {
+  assert(!is_split(utri));
+
   return utri->i;
 }
 
-bool utri_is_finite(utri_s const *utri) {
-  return isfinite(utri->f);
+bool utri_is_finite(utri_s const *u) {
+  return isfinite(is_split(u) ? u->split->f : u->f);
 }
 
 bool utris_yield_same_update(utri_s const *utri1, utri_s const *utri2) {
+  assert(!is_split(utri1));
+  assert(!is_split(utri2));
+
   dbl const atol = 1e-14;
 
   jet3 jet1, jet2;
@@ -318,3 +410,17 @@ bool utris_yield_same_update(utri_s const *utri1, utri_s const *utri2) {
   return fabs(utri1->lam - utri2->lam) <= atol
     && jet3_approx_eq(&jet1, &jet2, atol);
 }
+
+#if JMM_TEST
+bool utri_is_causal(utri_s const *utri) {
+  assert(!is_split(utri));
+
+  return utri->cos01 >= 0;
+}
+
+dbl utri_get_lambda(utri_s const *utri) {
+  assert(!is_split(utri));
+
+  return utri->lam;
+}
+#endif
