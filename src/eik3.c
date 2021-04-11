@@ -1452,3 +1452,21 @@ void eik3_get_DT(eik3_s const *eik, size_t l, dbl DT[3]) {
 edgemap_s const *eik3_get_cutset(eik3_s const *eik) {
   return eik->cutset;
 }
+
+bool eik3_get_cutedge_t(eik3_s const *eik, size_t l0, size_t l1, dbl *t) {
+  cutedge_s cutedge;
+  if (!edgemap_get(eik->cutset, make_edge(l0, l1), &cutedge))
+    return false;
+  *t = cutedge.t;
+  if (l0 > l1)
+    *t = 1 - *t;
+  return true;
+}
+
+bool eik3_get_cutedge_jet(eik3_s const *eik, size_t l0, size_t l1, jet3 *jet) {
+  cutedge_s cutedge;
+  if (!edgemap_get(eik->cutset, make_edge(l0, l1), &cutedge))
+    return false;
+  *jet = cutedge.jet;
+  return true;
+}

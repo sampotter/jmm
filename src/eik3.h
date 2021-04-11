@@ -49,6 +49,8 @@ par3_s eik3_get_par(eik3_s const *eik, size_t l);
 void eik3_set_par(eik3_s *eik, size_t l, par3_s par);
 void eik3_get_DT(eik3_s const *eik, size_t l, dbl DT[3]);
 edgemap_s const *eik3_get_cutset(eik3_s const *eik);
+bool eik3_get_cutedge_t(eik3_s const *eik, size_t l0, size_t l1, dbl *t);
+bool eik3_get_cutedge_jet(eik3_s const *eik, size_t l0, size_t l1, jet3 *jet);
 
 #ifdef __cplusplus
 }
