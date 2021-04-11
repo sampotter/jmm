@@ -66,6 +66,87 @@ void tri3_get_bary_coords(tri3 const *tri, dbl const x[3], dbl b[3]) {
   b[2] = tri_area(tri->v[0], tri->v[1], x)/area;
 }
 
+/* Compute the closest point to `x` that lies in `tri` and store the
+ * result in `y`. */
+void tri3_get_closest_point(tri3 const *tri, dbl const x[3], dbl y[3]) {
+  /* This implementation is a transliteration of the "final version of
+   * the triangle closest point query" starting on page 141 of
+   * "Real-time Collision Detection" (2005). Not totally sure how
+   * robust or good this code is, but *do not* want to try
+   * implementing this myself at the moment. */
+
+  // Rename variables to match RTCD implementation
+  dbl const *p = x, *a = tri->v[0], *b = tri->v[1], *c = tri->v[2];
+
+  // Check if `p` is in the vertex region outside `a`
+  dbl ab[3]; dbl3_sub(b, a, ab);
+  dbl ac[3]; dbl3_sub(c, a, ac);
+  dbl ap[3]; dbl3_sub(p, a, ap);
+  dbl d1 = dbl3_dot(ab, ap), d2 = dbl3_dot(ac, ap);
+  if (d1 <= 0 && d2 <= 0) {
+    dbl3_copy(a, y); // bary coords = (1, 0, 0)
+    return;
+  }
+
+  // Check if `p` is in vertex region outside `b`
+  dbl bp[3]; dbl3_sub(p, b, bp);
+  dbl d3 = dbl3_dot(ab, bp);
+  dbl d4 = dbl3_dot(ac, bp);
+  if (d3 >= 0 && d4 <= d3) {
+    dbl3_copy(b, y); // bary coords = (0, 1, 0)
+    return;
+  }
+
+  // Check if `p` in edge region of `ab`, and if so return projection
+  // of `p` onto `ab`
+  dbl vc = d1*d4 - d3*d2;
+  if (vc <= 0 && d1 >= 0 && d3 <= 0) {
+    dbl v = d1/(d1 - d3);
+    return dbl3_saxpy(v, ab, a, y); // bary coords = (1 - v, v, 0)
+  }
+
+  // Check if `p` is in the vertex region outside `c`
+  dbl cp[3]; dbl3_sub(p, c, cp);
+  dbl d5 = dbl3_dot(ab, cp);
+  dbl d6 = dbl3_dot(ac, cp);
+  if (d6 >= 0 && d5 <= d6) {
+    dbl3_copy(c, y); // bary coords = (0, 0, 1)
+    return;
+  }
+
+  // Check if `p` is in the edge region of `ac`, and if so, return the
+  // projection of `p` onto `ac`
+  dbl vb = d5*d2 - d1*d6;
+  if (vb <= 0 && d2 >= 0 && d6 <= 0) {
+    dbl w = d2/(d2 - d6);
+    dbl3_saxpy(w, ac, a, y); // bary coords = (1 - w, 0, w)
+    return;
+  }
+
+  // Check if `p` is in the edge region of `bc`, and if so, return
+  // the projection of `p` onto `bc`
+  dbl va = d3*d6 - d5*d4;
+  if (va <= 0 && d4 - d3 >= 0 && d5 - d6 >= 0) {
+    dbl w = (d4 - d3)/(d4 - d3 + d5 - d6);
+    dbl bc[3]; dbl3_sub(c, b, bc);
+    dbl3_saxpy(w, bc, b, y); // bary coords = (0, 1 - w, w)
+    return;
+  }
+
+  // Conclude that `p` is inside the face region. Compute `q` through
+  // its barycentric coordinates `(u, v, w)`.
+  dbl denom = 1/(va + vb + vc);
+  dbl v = vb*denom, w = vc*denom;
+  dbl tmp[3]; dbl3_saxpy(v, ab, a, tmp);
+  dbl3_saxpy(w, ac, tmp, y);
+}
+
+dbl tri3_dist(tri3 const *tri, dbl const x[3]) {
+  dbl y[3];
+  tri3_get_closest_point(tri, x, y);
+  return dbl3_dist(x, y);
+}
+
 bool tetra3_contains_point(tetra3 const *tetra, dbl const x[3]) {
   dbl b[4];
   tetra3_get_bary_coords(tetra, x, b);
