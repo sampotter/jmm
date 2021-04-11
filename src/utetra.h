@@ -9,6 +9,13 @@ extern "C" {
 #include "jet.h"
 #include "par.h"
 
+// TODO: we want to create a new module... "utetras"
+// maybe... basically, a complex of utetra updates. There's a bunch of
+// logic related to doing this updates in eik3 that makes eik3's
+// update logic really difficult to follow, but has nothing to do with
+// how we extract an update ray from a set of utetras or how to
+// prioritize them.
+
 typedef struct utetra utetra_s;
 
 void utetra_alloc(utetra_s **cf);
