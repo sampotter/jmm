@@ -22,7 +22,7 @@ typedef struct {
 void tri3_get_normal(tri3 const *tri, dbl normal[3]);
 void tri3_get_centroid(tri3 const *tri, dbl centroid[3]);
 bool tri3_contains_point(tri3 const *tri, dbl x[3]);
-void tri3_get_bary_coords(tri3 const *tri, dbl const x[3], dbl b[4]);
+void tri3_get_bary_coords(tri3 const *tri, dbl const x[3], dbl b[3]);
 
 typedef struct {
   dbl v[4][3];

@@ -52,7 +52,7 @@ bool tri3_contains_point(tri3 const *tri, dbl x[3]) {
   return dbl3_valid_bary_coord(b);
 }
 
-void tri3_get_bary_coords(tri3 const *tri, dbl const x[3], dbl b[4]) {
+void tri3_get_bary_coords(tri3 const *tri, dbl const x[3], dbl b[3]) {
   dbl dx[2][3];
   dbl3_sub(tri->v[1], tri->v[0], dx[0]);
   dbl3_sub(tri->v[2], tri->v[0], dx[1]);
