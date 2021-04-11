@@ -530,7 +530,13 @@ void mesh3_get_cell_bbox(mesh3_s const *mesh, size_t i, rect3 *bbox) {
   }
 }
 
-bool mesh3_dbl3_in_cell(mesh3_s const *mesh, size_t lc, dbl const x[3], dbl b[4]) {
+bool mesh3_dbl3_in_cell(mesh3_s const *mesh, size_t lc, dbl const x[3], dbl *b) {
+  // TODO: HACK!
+  if (!b) {
+    dbl b_[4];
+    return mesh3_dbl3_in_cell(mesh, lc, x, b_);
+  }
+
   dbl const atol = 1e-13;
   tetra3 tetra = mesh3_get_tetra(mesh, lc);
   tetra3_get_bary_coords(&tetra, x, b);
