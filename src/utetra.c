@@ -161,6 +161,7 @@ static void init_split_utetra_s1(utetra_s *u, eik3_s const *eik) {
    * makes sense to label them as such.) */
   state_e *state = u->split[0]->state;
   state[0] = state[1] = state[2] = VALID;
+  u->split[0]->num_shadow = 0;
 
   /* Initialize the second `utetra` so that its base is the triangle
    * consisting of node `l1`, the cut point between `l0` and `l2`, and
@@ -177,6 +178,7 @@ static void init_split_utetra_s1(utetra_s *u, eik3_s const *eik) {
   /* ... and again, set the inds to `VALID`. */
   state = u->split[1]->state;
   state[0] = state[1] = state[2] = VALID;
+  u->split[1]->num_shadow = 0;
 }
 
 /* Initialize the split update when there are two `SHADOW` update
