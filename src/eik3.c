@@ -493,13 +493,7 @@ static bool commit_tetra_update(eik3_s *eik, size_t lhat, utetra_s const *utetra
   utetra_get_jet(utetra, &jet);
   eik3_set_jet(eik, lhat, jet);
 
-  size_t l[3];
-  utetra_get_update_inds(utetra, l);
-
-  dbl b[3];
-  utetra_get_bary_coords(utetra, b);
-
-  eik3_set_par(eik, lhat, make_par3(l, b));
+  eik3_set_par(eik, lhat, utetra_get_parent(utetra));
 
   return true;
 }
@@ -629,7 +623,6 @@ static void update(eik3_s *eik, size_t l, size_t l0) {
   // Do each tetrahedron update and sort
   for (int i = 0; i < num_utetra; ++i) {
     utetra_alloc(&utetra[i]);
-    utetra_reset(utetra[i]);
 
     // This is a gross hack. What we do here is prioritize a
     // diffracting edge that's incident on this tetrahedron update. It
@@ -641,10 +634,8 @@ static void update(eik3_s *eik, size_t l, size_t l0) {
       continue;
 
     if (utetra_init_from_eik3(utetra[i], eik, l, l0, l1[i], l2[i]) &&
-        !utetra_is_degenerate(utetra[i])) {
-      utetra_set_lambda(utetra[i], (dbl[2]) {0, 0});
-      utetra_solve(utetra[i]);
-    }
+        !utetra_is_degenerate(utetra[i])) // TODO: move into utetra_init?
+      utetra_solve(utetra[i], NULL);
   }
 
   free(updated_from_diff_edge);
@@ -692,7 +683,7 @@ static void update(eik3_s *eik, size_t l, size_t l0) {
     if (!isfinite(utetra_get_value(utetra[i])))
       break;
     if (utetra_has_interior_point_solution(utetra[i]) ||
-        utetra_has_shadow_solution(utetra[i], eik)) {
+        utetra_has_shadow_solution(utetra[i])) {
       if (utetra_update_ray_is_physical(utetra[i], eik) &&
           commit_tetra_update(eik, l, utetra[i]))
         break;
@@ -913,21 +904,14 @@ static void set_cutedge_jet(eik3_s const *eik, edge_s edge, cutedge_s *cutedge) 
 
   jet3 jet[3] = {eik->jet[par.l[0]], eik->jet[par.l[1]], eik->jet[par.l[2]]};
 
+  assert(false);
+  // TODO: init using inds so that we can make a split utetra here!
+
   utetra_s *utetra;
   utetra_alloc(&utetra);
   utetra_init_no_inds(utetra, xt, Xt, jet);
   utetra_set_update_inds(utetra, par.l);
-  utetra_reset(utetra);
-  utetra_set_lambda(utetra, (dbl[2]) {0, 0}); // TODO: if this works,
-                                              // we should try
-                                              // estimating the jet at
-                                              // xt using cubic
-                                              // interpolation, and
-                                              // shooting it back to
-                                              // the base of the
-                                              // update to find a good
-                                              // warm start
-  utetra_solve(utetra);
+  utetra_solve(utetra, NULL);
 
   bool found_update = false;
 
@@ -954,10 +938,6 @@ static void set_cutedge_jet(eik3_s const *eik, edge_s edge, cutedge_s *cutedge) 
   size_t *ev = malloc(nev*sizeof(size_t));
   mesh3_ev(mesh, l_active, ev);
 
-  // Use the previous optimum as a warm start
-  // dbl prev_lambda[2];
-  // utetra_get_lambda(utetra, prev_lambda);
-
   for (size_t i = 0; i < nev; ++i) {
     l_active[2] = ev[i];
 
@@ -967,9 +947,7 @@ static void set_cutedge_jet(eik3_s const *eik, edge_s edge, cutedge_s *cutedge) 
 
     utetra_init_no_inds(utetra, xt, Xt, jet);
     utetra_set_update_inds(utetra, (size_t[3]) {l_active[0], l_active[1], ev[i]});
-    utetra_reset(utetra);
-    utetra_set_lambda(utetra, (dbl[2]) {0, 0});
-    utetra_solve(utetra);
+    utetra_solve(utetra, NULL);
 
     if (utetra_has_interior_point_solution(utetra)) {
       // TODO: check whether ray is physical? ugh

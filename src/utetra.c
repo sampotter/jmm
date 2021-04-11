@@ -46,6 +46,28 @@ struct utetra {
   state_e state[3];
 
   int niter;
+
+  /* The number of update indices that are `SHADOW`. Used to determine
+   * what to do with the `split` updates.  */
+  size_t num_shadow;
+
+  /* "Split" updates. If any of the update indices are `SHADOW` nodes,
+   * then we split the base of the update along the shadow boundary
+   * and only perform the minimization over the `VALID` region. The
+   * shadow boundary can either be a triangle or a quadrilateral, so
+   * `split` can consist of one or two `utetra`, to keep things
+   * simple. (We could implement a `upyramid` type, to handle
+   * quadrilateral bases as a special case, but this isn't a high
+   * priority since we can accomplish the same thing by doing two
+   * tetrahedron updates and patching them together.)
+   *
+   * Note that when this update is split, the information stored
+   * directly in this `utetra` becomes a bit redundant. All of the
+   * calls to the different functions on this type will be redirected
+   * to the split updates. We could try to clean this up a bit later
+   * using some kind of polymorphism, but this isn't a high
+   * priority. */
+  utetra_s **split;
 };
 
 void utetra_alloc(utetra_s **utetra) {
@@ -57,25 +79,208 @@ void utetra_dealloc(utetra_s **utetra) {
   *utetra = NULL;
 }
 
-void utetra_reset(utetra_s *cf) {
-  cf->niter = 0;
-  cf->f = INFINITY;
+/* Initialize the split updates when there's one `SHADOW` update
+ * vertex. This results in a pair of split `utetra` forming a
+ * quadrilateral update base. */
+static void init_split_utetra_s1(utetra_s *u, eik3_s const *eik) {
+  dbl const atol = 1e-15;
+
+  /* Get indices and move the `SHADOW` index to `l[2]` */
+  size_t l[3] = {u->l[0], u->l[1], u->l[2]};
+  if (u->state[0] == SHADOW) SWAP(l[0], l[2]);
+  if (u->state[1] == SHADOW) SWAP(l[1], l[2]);
+
+  /* Get the cut point parameters for each edge. */
+  dbl t[2];
+  assert(eik3_get_cutedge_t(eik, l[0], l[2], &t[0]));
+  assert(eik3_get_cutedge_t(eik, l[1], l[2], &t[1]));
+
+  /* First, check if both cut points nearly coincide with the `VALID`
+   * nodes. When this happens, reset all of the states to `SHADOW` and
+   * return early. */
+  // TODO: this is actually slightly wrong. Technically, when this
+  // happens, the edge [x0, x1] is `VALID`, and we could conceivably
+  // have a `VALID` update from this edge. One thing we could do would
+  // be to replace this update with a triangle update in this
+  // case. Things would start to get pretty complicated in that case,
+  // though!
+  if (t[0] < atol && t[1] < atol) {
+    u->state[0] = u->state[1] = u->state[2] = SHADOW;
+    u->num_shadow = 3;
+    return;
+  }
+
+  /* Next, check if the cut points both nearly coincide with the
+   * `SHADOW` vertex. When this happens, we should instead avoid
+   * splitting the update, and just reset the state of the `SHADOW`
+   * node to `VALID`, since this is basically the case we're dealing
+   * with. */
+  if (t[0] > 1 - atol && t[1] > 1 - atol) {
+    u->state[0] = u->state[1] = u->state[2] = VALID;
+    u->num_shadow = 0;
+    return;
+  }
+
+  /* Allocate two utetra */
+  u->split = malloc(2*sizeof(utetra_s*));
+  utetra_alloc(&u->split[0]);
+  utetra_alloc(&u->split[1]);
+
+  mesh3_s const *mesh = eik3_get_mesh(eik);
+
+  /* We'll initialize the first `utetra` so that its base is the
+   * triangle consisting of nodes `l0`, `l1`, and the cut point
+   * between `l0` and `l2`. First, we just grab nodes `l0` and
+   * `l1`. We also want to arrange the nodes so that the first
+   * coordinate of this and the second `utetra` agree. That is, (t, 0)
+   * indexes the same point on the edge [x1, xt], shared by each split
+   * `utetra`. */
+  dbl x[3], Xt[3][3], dx[3];
+  mesh3_copy_vert(mesh, u->lhat, x);
+  mesh3_copy_vert(mesh, l[1], Xt[0]); // `l[1]` goes first! see the
+  mesh3_copy_vert(mesh, l[0], Xt[2]); // note above about coordinates
+
+  dbl const *x0 = Xt[2], *x1 = Xt[0], *x2 = mesh3_get_vert_ptr(mesh, l[2]);
+
+  /* Get the cut point between nodes `l0` and `l2`. */
+  dbl3_sub(x2, x0, dx);
+  dbl3_saxpy(t[0], dx, x0, Xt[1]);
+
+  /* Get the jets. */
+  jet3 jet[3];
+  jet[0] = eik3_get_jet(eik, l[1]);
+  jet[2] = eik3_get_jet(eik, l[0]);
+  assert(eik3_get_cutedge_jet(eik, l[0], l[2], &jet[1]));
+
+  /* Initialize the first `utetra`... */
+  utetra_init_no_inds(u->split[0], x, Xt, jet);
+
+  /* ... and make sure the states of each base node are
+   * `VALID`. (Technically, the cut points don't have a state, since
+   * they aren't grid nodes, but they are in the `VALID` zone, so it
+   * makes sense to label them as such.) */
+  state_e *state = u->split[0]->state;
+  state[0] = state[1] = state[2] = VALID;
+
+  /* Initialize the second `utetra` so that its base is the triangle
+   * consisting of node `l1`, the cut point between `l0` and `l2`, and
+   * the cut point between `l1` and `l2`.  */
+  dbl3_sub(x2, x1, dx);
+  dbl3_saxpy(t[1], dx, x1, Xt[2]);
+
+  /* Get the jet at that cut point. */
+  assert(eik3_get_cutedge_jet(eik, l[1], l[2], &jet[2]));
+
+  /* Initialize the second `utetra`... */
+  utetra_init_no_inds(u->split[1], x, Xt, jet);
+
+  /* ... and again, set the inds to `VALID`. */
+  state = u->split[1]->state;
+  state[0] = state[1] = state[2] = VALID;
+}
+
+/* Initialize the split update when there are two `SHADOW` update
+ * points. This results in a single `utetra`. */
+static void init_split_utetra_s2(utetra_s *u, eik3_s const *eik) {
+  dbl const atol = 1e-15;
+
+  /* Get indices and move the `VALID` index to `l[0]`. */
+  size_t l[3] = {u->l[0], u->l[1], u->l[2]};
+  if (u->state[1] == VALID) SWAP(l[0], l[1]);
+  if (u->state[2] == VALID) SWAP(l[0], l[2]);
+
+  /* Get the cut point parameters for each edge. */
+  dbl t[2];
+  assert(eik3_get_cutedge_t(eik, l[0], l[1], &t[0]));
+  assert(eik3_get_cutedge_t(eik, l[0], l[2], &t[1]));
+
+  /* Check if both of the cut points are nearly coincident with the
+   * `SHADOW` nodes. When this happens, set all nodes' states to
+   * `VALID` and return. */
+  if (t[0] > 1 - atol && t[1] > 1 - atol) {
+    u->state[0] = u->state[1] = u->state[2] = VALID;
+    u->num_shadow = 0;
+    return;
+  }
+
+  /* ... and if both cut points are nearly coincident wit the `VALID`
+   * node, set all nodes' states to `SHADOW` and return. */
+  if (t[0] < atol && t[1] < atol) {
+    u->state[0] = u->state[1] = u->state[2] = SHADOW;
+    u->num_shadow = 3;
+    return;
+  }
+
+  mesh3_s const *mesh = eik3_get_mesh(eik);
+
+  /* Allocate one utetra */
+  u->split = malloc(sizeof(utetra_s *));
+  utetra_alloc(&u->split[0]);
+
+  dbl x[3], Xt[3][3], dx[3];
+
+  /* Get the vertices for `l[0]` and the update point. */
+  mesh3_copy_vert(mesh, u->lhat, x);
+  mesh3_copy_vert(mesh, l[0], Xt[0]);
+
+  /* Get the cut point for the `(l[0], l[1])` cut edge. */
+  dbl3_sub(mesh3_get_vert_ptr(mesh, l[1]), Xt[0], dx);
+  dbl3_saxpy(t[0], dx, Xt[0], Xt[1]);
+
+  /* Get the cut point for the `(l[0], l[2])` cut edge. */
+  dbl3_sub(mesh3_get_vert_ptr(mesh, l[2]), Xt[0], dx);
+  dbl3_saxpy(t[1], dx, Xt[0], Xt[2]);
+
+  /* Get the jets for each point. */
+  jet3 jet[3];
+  jet[0] = eik3_get_jet(eik, l[0]);
+  assert(eik3_get_cutedge_jet(eik, l[0], l[1], &jet[1]));
+  assert(eik3_get_cutedge_jet(eik, l[0], l[2], &jet[2]));
+
+  /* Initialize the split `utetra`... */
+  utetra_init_no_inds(u->split[0], x, Xt, jet);
+
+  /* ... and set the state of each update vertex to `VALID`. */
+  state_e *state = u->split[0]->state;
+  state[0] = state[1] = state[2] = VALID;
+}
+
+/* Conditionally initialize the "split" updates. If there's more than
+ * one shadow node, then we split the base of the update, restricting
+ * the domain using information from the cutset. */
+static void init_split_utetra(utetra_s *u, eik3_s const *eik) {
+  if (u->num_shadow == 1)
+    init_split_utetra_s1(u, eik);
+  else if (u->num_shadow == 2)
+    init_split_utetra_s2(u, eik);
+  else
+    u->split = NULL;
 }
 
 bool utetra_init_from_eik3(utetra_s *cf, eik3_s const *eik,
                            size_t l, size_t l0, size_t l1, size_t l2) {
   mesh3_s const *mesh = eik3_get_mesh(eik);
   jet3 const *jet = eik3_get_jet_ptr(eik);
-  return utetra_init_from_ptrs(cf, mesh, jet, l, l0, l1, l2);
 
-  bool success = utetra_init_from_ptrs(cf, mesh, jet, l, l0, l1, l2);
+  if (!utetra_init_from_ptrs(cf, mesh, jet, l, l0, l1, l2))
+    return false;
 
   state_e const *state = eik3_get_state_ptr(eik);
   cf->state[0] = state[l0];
   cf->state[1] = state[l1];
   cf->state[2] = state[l2];
 
-  return success;
+  cf->num_shadow = 0;
+  for (size_t i = 0; i < 3; ++i)
+    cf->num_shadow += cf->state[i] == SHADOW;
+
+  init_split_utetra(cf, eik);
+
+  // TODO: would be good to initialize the containing utetra with
+  // dummy values when the update is split so it's a bit more obvious
+  // while debugging... (set things to NAN etc...)
+
+  return true;
 }
 
 bool utetra_init_from_ptrs(utetra_s *cf, mesh3_s const *mesh, jet3 const *jet,
@@ -114,9 +319,11 @@ bool utetra_init_no_inds(utetra_s *cf, dbl const x[3], dbl const Xt[3][3],
 
 bool utetra_init(utetra_s *cf, dbl const x[3], dbl const Xt[3][3],
                  jet3 const jet[3]) {
-  // Initialize lambda with a dummy value so that we can check for bad
-  // accesses later
+  cf->f = INFINITY;
+
+  /* Initialize some variables with dummy values. */
   cf->lam[0] = cf->lam[1] = NAN;
+  cf->L = NAN;
 
   memcpy(cf->x, x, 3*sizeof(dbl));
   memcpy(cf->Xt, Xt, 3*3*sizeof(dbl));
@@ -144,6 +351,11 @@ bool utetra_init(utetra_s *cf, dbl const x[3], dbl const Xt[3][3],
 
   cf->niter = 0;
 
+  cf->state[0] = cf->state[1] = cf->state[2] = UNKNOWN;
+
+  cf->num_shadow = 0;
+  cf->split = NULL;
+
   // Compute the surface normal for the plane spanned by (x1 - x0, x2
   // - x0), using DT[i] to determine its orientation. Return whether x
   // is on the right side of this plane.
@@ -162,11 +374,26 @@ bool utetra_init(utetra_s *cf, dbl const x[3], dbl const Xt[3][3],
     dbl3_negate(n);
   dbl dot = -dbl3_dot(Xt_minus_x[0], n) > 0;
   return dot > 0;
+}
 
-  cf->state[0] = cf->state[1] = cf->state[2] = UNKNOWN;
+static bool is_split(utetra_s const *cf) {
+  return cf->num_shadow == 1 || cf->num_shadow == 2;
+}
+
+static size_t num_split(utetra_s const *cf) {
+  return cf->split == NULL ? 0 : 3 - cf->num_shadow;
 }
 
 void utetra_deinit(utetra_s *u) {
+  if (is_split(u)) {
+    assert(u->split != NULL);
+    for (size_t i = 0; i < num_split(u); ++i) {
+      utetra_deinit(u->split[i]);
+      utetra_dealloc(&u->split[i]);
+    }
+  } else {
+    assert(u->split == NULL);
+  }
 }
 
 bool utetra_is_degenerate(utetra_s const *cf) {
@@ -176,57 +403,9 @@ bool utetra_is_degenerate(utetra_s const *cf) {
   return points_are_coplanar(x);
 }
 
-void utetra_step(utetra_s *cf) {
-  dbl const atol = 1e-15, c1 = 1e-4;
+static void set_lambda(utetra_s *cf, dbl const lam[2]) {
+  assert(!is_split(cf));
 
-  dbl lam1[2], f, c1_times_g_dot_p, beta;
-
-  // Get values for current iterate
-  dbl lam[2] = {cf->lam[0], cf->lam[1]};
-  dbl p[2] = {cf->p[0], cf->p[1]};
-  f = cf->f;
-
-  // Do backtracking line search
-  beta = 1;
-  c1_times_g_dot_p = c1*dbl2_dot(p, cf->g);
-  dbl2_saxpy(beta, p, lam, lam1);
-  utetra_set_lambda(cf, lam1);
-  while (cf->f > f + beta*c1_times_g_dot_p + atol) {
-    beta *= 0.9;
-    dbl2_saxpy(beta, p, lam, lam1);
-    utetra_set_lambda(cf, lam1);
-  }
-
-  ++cf->niter;
-}
-
-/**
- * Do a tetrahedron update starting at `lam`, writing the result to
- * `jet`. This assumes that `utetra_set_lambda` has already been
- * called, so that `cf` is currently at `lam`.
- */
-void utetra_solve(utetra_s *cf) {
-  // I think we're actually supposed to use cf->g here instead of
-  // cf->p, but maybe cf->p is more appropriate for constraint
-  // Newton's method, since it takes into account the constraints
-  // while cf->p doesn't.
-  int const max_niter = 100;
-  dbl const atol = 1e-15, rtol = 1e-15, tol = rtol*dbl2_norm(cf->p) + atol;
-  for (int _ = 0; _ < max_niter; ++_) {
-    if (dbl2_norm(cf->p) <= tol)
-      break;
-    utetra_step(cf);
-  }
-  // printf("solved: cf->niter = %d, |cf->p| = %0.16g\n", cf->niter, dbl2_norm(cf->p));
-}
-
-void utetra_get_lambda(utetra_s const *cf, dbl lam[2]) {
-  assert(!isnan(cf->lam[0]) && !isnan(cf->lam[1]));
-  lam[0] = cf->lam[0];
-  lam[1] = cf->lam[1];
-}
-
-void utetra_set_lambda(utetra_s *cf, dbl const lam[2]) {
   // TODO: question... would it make more sense to use different
   // vectors for a1 and a2? This choice seems to result in a lot of
   // numerical instability. For now I'm fixing this by replacing sums
@@ -297,9 +476,12 @@ void utetra_set_lambda(utetra_s *cf, dbl const lam[2]) {
    * perturbation entirely.)
    */
 
-  // Conditionally perturb the Hessian
+  // Compute the trace and determinant of the Hessian
   dbl tr = cf->H[0][0] + cf->H[1][1];
   dbl det = cf->H[0][0]*cf->H[1][1] - cf->H[0][1]*cf->H[1][0];
+  assert(tr != 0 && det != 0);
+
+  // Conditionally perturb the Hessian
   dbl min_eig_doubled = tr - sqrt(tr*tr - 4*det);
   if (min_eig_doubled < 0) {
     cf->H[0][0] -= min_eig_doubled;
@@ -318,23 +500,99 @@ void utetra_set_lambda(utetra_s *cf, dbl const lam[2]) {
   dbl2_sub(qp.x, lam, cf->p);
 }
 
-void utetra_get_bary_coords(utetra_s const *cf, dbl b[3]) {
+static void step(utetra_s *cf) {
+  dbl const atol = 1e-15, c1 = 1e-4;
+
+  dbl lam1[2], f, c1_times_g_dot_p, beta;
+
+  // Get values for current iterate
+  dbl lam[2] = {cf->lam[0], cf->lam[1]};
+  dbl p[2] = {cf->p[0], cf->p[1]};
+  f = cf->f;
+
+  // Do backtracking line search
+  beta = 1;
+  c1_times_g_dot_p = c1*dbl2_dot(p, cf->g);
+  dbl2_saxpy(beta, p, lam, lam1);
+  set_lambda(cf, lam1);
+  while (cf->f > f + beta*c1_times_g_dot_p + atol) {
+    beta *= 0.9;
+    dbl2_saxpy(beta, p, lam, lam1);
+    set_lambda(cf, lam1);
+  }
+
+  ++cf->niter;
+}
+
+/**
+ * Do a tetrahedron update starting at `lam`, writing the result to
+ * `jet`. If `lam` is `NULL`, then the first iterate will be selected
+ * automatically.
+ */
+void utetra_solve(utetra_s *cf, dbl const *lam) {
+  /* When `cf` is a split update, we solve its sub-updates instead of
+   * it, so `cf`'s data goes more-or-less unused. */
+  if (is_split(cf)) {
+    for (size_t i = 0; i < num_split(cf); ++i)
+      utetra_solve(cf->split[i], NULL);
+    return;
+  }
+
+  cf->niter = 0;
+
+  if (lam == NULL)
+    set_lambda(cf, (dbl[2]) {0, 0}); // see, automatically!
+  else
+    set_lambda(cf, lam);
+
+  // I think we're actually supposed to use cf->g here instead of
+  // cf->p, but maybe cf->p is more appropriate for constraint
+  // Newton's method, since it takes into account the constraints
+  // while cf->p doesn't.
+  int const max_niter = 100;
+  dbl const atol = 1e-15, rtol = 1e-15, tol = rtol*dbl2_norm(cf->p) + atol;
+  for (int _ = 0; _ < max_niter; ++_) {
+    if (dbl2_norm(cf->p) <= tol)
+      break;
+    step(cf);
+  }
+}
+
+static void get_b(utetra_s const *cf, dbl b[3]) {
+  assert(!is_split(cf));
   assert(!isnan(cf->lam[0]) && !isnan(cf->lam[1]));
   b[0] = 1 - cf->lam[0] - cf->lam[1];
   b[1] = cf->lam[0];
   b[2] = cf->lam[1];
 }
 
-dbl utetra_get_value(utetra_s const *cf) {
-  return cf->f;
+/* If `u` is split, return the split `utetra` with the smaller
+ * value. Otherwise, return `NULL`. This is a convenience function
+ * used to speed up dispatching function calls below. */
+static utetra_s *split_utetra_select(utetra_s const *u) {
+  if (is_split(u))
+    return num_split(u) == 1 || u->split[0]->f < u->split[1]->f ?
+      u->split[0] : u->split[1];
+  else
+    return NULL;
 }
 
-void utetra_get_gradient(utetra_s const *cf, dbl g[2]) {
-  g[0] = cf->g[0];
-  g[1] = cf->g[1];
+dbl utetra_get_value(utetra_s const *cf) {
+  if (is_split(cf))
+    return num_split(cf) == 1 ?
+      cf->split[0]->f :
+      fmin(cf->split[0]->f, cf->split[1]->f);
+  else
+    return cf->f;
 }
 
 void utetra_get_jet(utetra_s const *cf, jet3 *jet) {
+  utetra_s const *u = split_utetra_select(cf);
+  if (u) {
+    utetra_get_jet(u, jet);
+    return;
+  }
+
   jet->f = cf->f;
   jet->fx = cf->x_minus_xb[0]/cf->L;
   jet->fy = cf->x_minus_xb[1]/cf->L;
@@ -345,7 +603,8 @@ void utetra_get_jet(utetra_s const *cf, jet3 *jet) {
  * Compute the Lagrange multipliers for the constraint optimization
  * problem corresponding to this type of update
  */
-void utetra_get_lag_mults(utetra_s const *cf, dbl alpha[3]) {
+static void get_lag_mults(utetra_s const *cf, dbl alpha[3]) {
+  assert(!is_split(cf));
   dbl const atol = 5e-15;
   dbl b[3] = {1 - dbl2_sum(cf->lam), cf->lam[0], cf->lam[1]};
   alpha[0] = alpha[1] = alpha[2] = 0;
@@ -379,13 +638,44 @@ void utetra_get_lag_mults(utetra_s const *cf, dbl alpha[3]) {
   }
 }
 
-int utetra_get_num_iter(utetra_s const *cf) {
-  return cf->niter;
+static bool split_utetra_has_interior_point_solution(utetra_s const *cf) {
+  dbl const atol = 1e-14;
+
+  utetra_s **u = cf->split;
+
+  if (num_split(cf) == 1)
+    return utetra_has_interior_point_solution(u[0]);
+
+  dbl alpha[2][3];
+  for (size_t i = 0; i < 2; ++i)
+    get_lag_mults(u[i], alpha[i]);
+
+  jet3 jet[2];
+  for (size_t i = 0; i < 2; ++i)
+    utetra_get_jet(u[i], &jet[i]);
+
+  if (fabs(jet[0].f - jet[1].f) < atol)
+    return atol <= u[0]->lam[0] && u[0]->lam[0] <= 1 - atol &&
+      fabs(u[0]->lam[0] - u[1]->lam[0]) < atol &&
+      u[0]->lam[1] < atol && u[1]->lam[1] < atol;
+
+  if (jet[0].f < jet[1].f)
+    return fabs(alpha[1][0]) < atol && fabs(alpha[1][1]) < atol &&
+      dbl3_maxnorm(alpha[0]) < atol;
+
+  if (jet[0].f > jet[1].f)
+    return fabs(alpha[0][0]) < atol && fabs(alpha[0][1]) < atol &&
+      dbl3_maxnorm(alpha[1]) < atol;
+
+  assert(false);
 }
 
 bool utetra_has_interior_point_solution(utetra_s const *cf) {
+  if (is_split(cf))
+    return split_utetra_has_interior_point_solution(cf);
+
   dbl alpha[3];
-  utetra_get_lag_mults(cf, alpha);
+  get_lag_mults(cf, alpha);
   return dbl3_maxnorm(alpha) <= 1e-15;
 }
 
@@ -399,10 +689,10 @@ int utetra_cmp(utetra_s const **h1, utetra_s const **h2) {
   } else if (u1 == NULL) {
     return 1;
   } else {
-    dbl T1 = u1->f, T2 = u2->f;
-    if (T1 < T2) {
+    dbl f1 = utetra_get_value(u1), f2 = utetra_get_value(u2);
+    if (f1 < f2) {
       return -1;
-    } else if (T1 > T2) {
+    } else if (f1 > f2) {
       return 1;
     } else {
       return 0;
@@ -411,55 +701,65 @@ int utetra_cmp(utetra_s const **h1, utetra_s const **h2) {
 }
 
 bool utetra_adj_are_optimal(utetra_s const *u1, utetra_s const *u2) {
+  assert(!is_split(u1));
+  assert(!is_split(u2));
+
   dbl const atol = 1e-15;
-  dbl lam1[2], lam2[2];
-  utetra_get_lambda(u1, lam1);
-  utetra_get_lambda(u2, lam2);
-  return fabs(lam1[0] - lam2[0]) <= atol
-    && fabs(lam1[1]) <= atol
-    && fabs(lam2[1]) <= atol
+
+  return fabs(u1->lam[0] - u2->lam[0]) <= atol
+    && fabs(u1->lam[1]) <= atol
+    && fabs(u2->lam[1]) <= atol
     && fabs(utetra_get_value(u1) - utetra_get_value(u2)) <= atol;
 }
 
-ray3 utetra_get_ray(utetra_s const *utetra) {
+static ray3 get_ray(utetra_s const *utetra) {
+  utetra_s const *u = split_utetra_select(utetra);
+  if (u)
+    return get_ray(u);
+
   ray3 ray;
   dbl b[3];
-  utetra_get_bary_coords(utetra, b);
+  get_b(utetra, b);
   dbl33_dbl3_mul(utetra->X, b, ray.org);
   dbl3_normalized(utetra->x_minus_xb, ray.dir);
   return ray;
 }
 
-void utetra_get_point_on_ray(utetra_s const *utetra, dbl t, dbl xt[3]) {
-  // TODO: optimize this by using utetra->x instead of computing xb
-  dbl b[3], xb[3], L;
-  utetra_get_bary_coords(utetra, b);
-  dbl33_dbl3_mul(utetra->X, b, xb);
-  L = dbl3_norm(utetra->x_minus_xb);
-  dbl3_saxpy(t/L, utetra->x_minus_xb, xb, xt);
-}
-
-int utetra_get_interior_coefs_mask(utetra_s const *utetra, bool I[3]) {
-  dbl const atol = 1e-14;
-  I[0] = utetra->lam[0] + utetra->lam[1] < 1 - atol;
-  I[1] = utetra->lam[0] > atol;
-  I[2] = utetra->lam[1] > atol;
-  return I[0] + I[1] + I[2];
-}
-
-bool utetra_update_inds_are_set(utetra_s const *utetra) {
+static bool update_inds_are_set(utetra_s const *utetra) {
   return !(
     utetra->l[0] == (size_t)NO_INDEX ||
     utetra->l[1] == (size_t)NO_INDEX ||
     utetra->l[2] == (size_t)NO_INDEX);
 }
 
-bool utetra_inds_are_set(utetra_s const *utetra) {
-  return utetra->lhat != (size_t)NO_INDEX && utetra_update_inds_are_set(utetra);
+static bool all_inds_are_set(utetra_s const *utetra) {
+  return utetra->lhat != (size_t)NO_INDEX && update_inds_are_set(utetra);
+}
+
+static void get_interior_coefs(utetra_s const *utetra, size_t *l) {
+  assert(update_inds_are_set(utetra));
+
+  dbl const atol = 1e-14;
+
+  size_t i = 0;
+
+  if (utetra->lam[0] > atol)
+    l[i++] = utetra->l[1];
+
+  if (utetra->lam[1] > atol)
+    l[i++] = utetra->l[2];
+
+  if (utetra->lam[0] + utetra->lam[1] < 1 - atol)
+    l[i++] = utetra->l[0];
+}
+
+static dbl get_L(utetra_s const *u) {
+  utetra_s *u_split = split_utetra_select(u);
+  return u_split ? get_L(u_split) : u->L;
 }
 
 bool utetra_update_ray_is_physical(utetra_s const *utetra, eik3_s const *eik) {
-  assert(utetra_inds_are_set(utetra));
+  assert(all_inds_are_set(utetra));
 
   size_t const *l = utetra->l;
 
@@ -476,11 +776,12 @@ bool utetra_update_ray_is_physical(utetra_s const *utetra, eik3_s const *eik) {
 
   int num_int = utetra_get_num_interior_coefs(utetra);
 
-  size_t l_int[3] = {NO_INDEX, NO_INDEX, NO_INDEX};
-  utetra_get_interior_coefs(utetra, l_int);
-
-  if (num_int == 2 && mesh3_is_nondiff_boundary_edge(mesh, l_int))
-    return false;
+  if (num_int == 2) {
+    size_t l_int[3] = {NO_INDEX, NO_INDEX, NO_INDEX};
+    get_interior_coefs(utetra, l_int);
+    if (mesh3_is_nondiff_boundary_edge(mesh, l_int))
+      return false;
+  }
 
   if (num_int == 3 && mesh3_bdf(mesh, l))
     return false;
@@ -489,7 +790,7 @@ bool utetra_update_ray_is_physical(utetra_s const *utetra, eik3_s const *eik) {
   // below gives "an interior ray" can be wrapped up and reused for
   // both this and the corresponding section in utri.c...
 
-  ray3 ray = utetra_get_ray(utetra);
+  ray3 ray = get_ray(utetra);
 
   /**
    * First, check if the start of the ray is "in free space". To do
@@ -503,50 +804,40 @@ bool utetra_update_ray_is_physical(utetra_s const *utetra, eik3_s const *eik) {
   // perturbations are small enough to stay inside neighboring
   // tetrahedra, but also large enough to take into consideration the
   // characteristic length scale of the mesh.
-  dbl xm[3], xp[3], t = mesh3_get_min_tetra_alt(mesh)/2;
+  dbl xm[3], xp[3], t = mesh3_get_min_tetra_alt(mesh)/2; // TODO: rename t...
   ray3_get_point(&ray, -t, xm);
   ray3_get_point(&ray, t, xp);
-
-  // Find the number and location of interior coefficients.
-  bool I[3];
-  utetra_get_interior_coefs_mask(utetra, I);
-
-  bool xm_in_cell = false, xp_in_cell = false;
 
   array_s *cells;
   array_alloc(&cells);
   array_init(cells, sizeof(size_t), ARRAY_DEFAULT_CAPACITY);
 
-  int nvc;
-  size_t *vc;
-
+  /* Fill `cells` with all of the cells incident on any of the
+   * neighboring update indices. */
   for (int i = 0; i < 3; ++i) {
-    if (!I[i]) continue;
-
-    nvc = mesh3_nvc(mesh, l[i]);
-    vc = malloc(nvc*sizeof(size_t));
+    int nvc = mesh3_nvc(mesh, l[i]);
+    size_t *vc = malloc(nvc*sizeof(size_t));
     mesh3_vc(mesh, l[i], vc);
-
     for (int j = 0; j < nvc; ++j)
       if (!array_contains(cells, &vc[j]))
         array_append(cells, &vc[j]);
-
     free(vc);
   }
 
-  dbl b[4];
-  size_t lc;
-  for (size_t i = 0; i < array_size(cells); ++i) {
+  bool xm_in_cell = false, xp_in_cell = false;
+  for (size_t i = 0, lc; i < array_size(cells); ++i) {
     array_get(cells, i, &lc);
-    xm_in_cell |= mesh3_dbl3_in_cell(mesh, lc, xm, b);
-    xp_in_cell |= mesh3_dbl3_in_cell(mesh, lc, xp, b);
+    xm_in_cell |= mesh3_dbl3_in_cell(mesh, lc, xm, NULL);
+    xp_in_cell |= mesh3_dbl3_in_cell(mesh, lc, xp, NULL);
     if (xm_in_cell && xp_in_cell)
       break;
   }
+  if (!xm_in_cell || !xp_in_cell)
+    return false;
 
   /* Next, we'll pull out the boundary faces incident on these cells
-     and check if the ray intersects any of them. If it does, the ray
-     is unphysical. */
+   * and check if the ray intersects any of them. If it does, the ray
+   * is unphysical. */
 
   array_s *bdf;
   array_alloc(&bdf);
@@ -554,20 +845,22 @@ bool utetra_update_ray_is_physical(utetra_s const *utetra, eik3_s const *eik) {
 
   // Get the incident boundary faces
   size_t cf[4][3];
-  for (size_t i = 0; i < array_size(cells); ++i) {
+  for (size_t i = 0, lc; i < array_size(cells); ++i) {
     array_get(cells, i, &lc);
     mesh3_cf(mesh, lc, cf);
     for (size_t j = 0; j < 4; ++j) {
-      if (array_contains(bdf, cf[j]) ||
-          point_in_face(utetra->lhat, cf[j])) // skip faces containing
-                                              // the update point to
-                                              // make the intersection
-                                              // test simpler
+      if (array_contains(bdf, cf[j]))
+        continue;
+      /* skip faces containing the update point to make the
+       * intersection test simpler */
+      if (point_in_face(utetra->lhat, cf[j]))
         continue;
       if (mesh3_bdf(mesh, cf[j]))
         array_append(bdf, cf[j]);
     }
   }
+
+  dbl L = get_L(utetra);
 
   // Check for intersections with the nearby boundary faces
   bool found_bdf_isect = false;
@@ -579,7 +872,7 @@ bool utetra_update_ray_is_physical(utetra_s const *utetra, eik3_s const *eik) {
       continue;
     dbl t;
     bool isect = ray3_intersects_tri3(&ray, &tri, &t);
-    if (isect && t <= utetra->L) {
+    if (isect && t <= L) {
       found_bdf_isect = true;
       break;
     }
@@ -594,28 +887,19 @@ bool utetra_update_ray_is_physical(utetra_s const *utetra, eik3_s const *eik) {
   if (found_bdf_isect)
     return false;
 
-  // If we didn't find a containing cell, we can conclude that the ray
-  // is unphysical!
-  if (!xm_in_cell || !xp_in_cell)
-    return false;
-
-  /**
-   * Next, check and see if the point just before the end of the ray
-   * lies in a cell.
-   */
-
-  size_t lhat = utetra->lhat;
+  /* Next, check and see if the point just before the end of the ray
+   * lies in a cell. */
 
   dbl xhatm[3];
-  dbl3_saxpy(-t/utetra->L, utetra->x_minus_xb, utetra->x, xhatm);
+  ray3_get_point(&ray, L - t, xhatm);
 
-  nvc = mesh3_nvc(mesh, lhat);
-  vc = malloc(nvc*sizeof(size_t));
-  mesh3_vc(mesh, lhat, vc);
+  int nvc = mesh3_nvc(mesh, utetra->lhat);
+  size_t *vc = malloc(nvc*sizeof(size_t));
+  mesh3_vc(mesh, utetra->lhat, vc);
 
   bool xhatm_in_cell = false;
   for (int i = 0; i < nvc; ++i) {
-    xhatm_in_cell = mesh3_dbl3_in_cell(mesh, vc[i], xhatm, b);
+    xhatm_in_cell = mesh3_dbl3_in_cell(mesh, vc[i], xhatm, NULL);
     if (xhatm_in_cell)
       break;
   }
@@ -625,55 +909,76 @@ bool utetra_update_ray_is_physical(utetra_s const *utetra, eik3_s const *eik) {
   return xhatm_in_cell;
 }
 
-int utetra_get_num_interior_coefs(utetra_s const *utetra) {
-  dbl const atol = 1e-14;
-  return (utetra->lam[0] > atol) + (utetra->lam[1] > atol)
-    + (utetra->lam[0] + utetra->lam[1] < 1 - atol);
-}
+static int split_utetra_get_num_interior_coefs(utetra_s const *utetra) {
+  dbl const atol = 1e-15;
 
-void utetra_get_update_inds(utetra_s const *utetra, size_t l[3]) {
-  assert(utetra_update_inds_are_set(utetra));
-  memcpy(l, utetra->l, sizeof(size_t[3]));
-}
+  size_t n = num_split(utetra);
 
-bool utetra_has_shadow_solution(utetra_s const *utetra, eik3_s const *eik) {
-  assert(utetra_inds_are_set(utetra));
+  dbl f[2];
+  f[0] = utetra->split[0]->f;
+  f[1] = n == 2 ? utetra->split[1]->f : NAN;
 
-  dbl const atol = 1e-14;
+  /* Select utetra */
+  utetra_s const *u;
+  if (n == 1 || f[0] < f[1])
+    u = utetra->split[0];
+  else
+    u = utetra->split[1];
 
   dbl b[3];
-  utetra_get_bary_coords(utetra, b);
+  get_b(u, b);
 
-  bool has_shadow_solution = true;
+  /* If we're dealing with a quad split (`n == 2`) and the update
+   * point is in the interior of the quad, then we should return 4. */
+  if (n == 2 &&
+      b[0] > atol && b[1] > atol && b[2] <= atol)
+    return 4;
 
-  // Check if active => shadow
-  for (int i = 0; i < 3; ++i)
-    if (fabs(b[i]) > atol)
-      has_shadow_solution &= eik3_is_shadow(eik, utetra->l[i]);
-
-  return has_shadow_solution;
+  /* Compute the number of interior coefficients the normal way and
+   * return them. */
+  return (b[0] > atol) + (b[1] > atol) + (b[2] > atol);
 }
 
-size_t utetra_get_num_shared_inds(utetra_s const *u1, utetra_s const *u2) {
-  assert(utetra_update_inds_are_set(u1));
-  assert(utetra_update_inds_are_set(u2));
+int utetra_get_num_interior_coefs(utetra_s const *utetra) {
+  if (is_split(utetra))
+    return split_utetra_get_num_interior_coefs(utetra);
 
-  size_t const *l1 = u1->l, *l2 = u2->l;
-  assert(l1[0] != l1[1] && l1[1] != l1[2]);
-  assert(l2[0] != l2[1] && l2[1] != l2[2]);
-
-  size_t num_shared_inds = (
-    (l1[0] == l2[0]) + (l1[0] == l2[1]) + (l1[0] == l2[2]) +
-    (l1[1] == l2[0]) + (l1[1] == l2[1]) + (l1[1] == l2[2]) +
-    (l1[2] == l2[0]) + (l1[2] == l2[1]) + (l1[2] == l2[2]));
-  assert(num_shared_inds <= 3);
-
-  return num_shared_inds;
+  dbl const atol = 1e-15;
+  dbl b[3];
+  get_b(utetra, b);
+  return (b[0] > atol) + (b[1] > atol) + (b[2] > atol);
 }
 
-size_t utetra_get_shared_inds(utetra_s const *u1, utetra_s const *u2, size_t *l) {
-  assert(utetra_update_inds_are_set(u1));
-  assert(utetra_update_inds_are_set(u2));
+bool utetra_has_shadow_solution(utetra_s const *utetra) {
+  /* First, handle the easy cases... all `VALID` or all `SHADOW`
+   * nodes. */
+
+  if (utetra->num_shadow == 0)
+    return false;
+
+  if (utetra->num_shadow == 3)
+    return true;
+
+  /* Next, handle the hard case (split updates). */
+
+  assert(is_split(utetra));
+
+  dbl const atol = 1e-14;
+
+  utetra_s **u = utetra->split;
+
+  size_t n = num_split(utetra);
+  if (n == 1 || u[1]->f > u[0]->f) {
+    dbl b0 = 1 - u[0]->lam[0] - u[0]->lam[1];
+    return b0 < atol;
+  } else {
+    return u[0]->lam[0] >= 1 - atol;
+  }
+}
+
+static size_t get_shared_inds(utetra_s const *u1, utetra_s const *u2, size_t *l) {
+  assert(update_inds_are_set(u1));
+  assert(update_inds_are_set(u2));
 
   size_t const *l1 = u1->l, *l2 = u2->l;
 
@@ -686,256 +991,8 @@ size_t utetra_get_shared_inds(utetra_s const *u1, utetra_s const *u2, size_t *l)
   return i; // == num_shared_inds
 }
 
-bool utetra_contains_inds(utetra_s const *u, size_t const *l, size_t n) {
-  for (size_t i = 0; i < n; ++i)
-    if (u->l[0] == l[i] || u->l[1] == l[i] || u->l[2] == l[i])
-      return true;
-  return false;
-}
-
-/* Checks whether `n` tetrahedron updates stored in `utetra[i]` yield
- * the same update. This is a pretty complicated check... Need to
- * explain the cases this handles a bit better. */
-bool utetras_yield_same_update(utetra_s const **u, size_t n) {
-  assert(n > 1);
-
-  // Get the indices of the shared edge, and validate that this edge
-  // is incident on the base of each tetrahedron update
-  size_t l_shared[2];
-  size_t num_shared = utetra_get_shared_inds(u[0], u[1], l_shared);
-  assert(num_shared != 3);
-
-  // TODO: for now, we'll just return false if only one update vertex
-  // is shared. This is *wrong*, but it's a fairly rare case, and
-  // handling it correctly is delicate. There are some sort of easy
-  // subcases, but doing it exactly right is involved.
-  //
-  // One relatively easy case is when the updates form a ring around
-  // the base of the ray. When this happens, we need to find the ring
-  // of indices that comprises the boundary, and then check whether
-  // the ray goes through the interior of the polygon. If `n == 3`,
-  // then this is easy, but can get complicated otherwise!
-  if (num_shared == 1)
-    return false;
-
-  dbl const atol = 1e-14;
-
-  dbl x[3], y[3];
-
-  /* The first thing to check is whether the jet computed by each
-   * update and the start of the update ray parametrized by each
-   * update is the same. This is necessary but not sufficient. */
-
-  jet3 jet[2];
-
-  // Prefetch the first coords and jet
-  utetra_get_x(u[0], x);
-  utetra_get_jet(u[0], &jet[0]);
-
-  // First, check that the update data for each utetra is the
-  // same. This is cheaper than the topological check that follows.
-  for (size_t i = 1; i < n; ++i) {
-    // Get the next jet and check that it's finite
-    utetra_get_jet(u[i], &jet[1]);
-    if (!jet3_is_finite(&jet[1]))
-      return false;
-
-    // Get the next coords
-    utetra_get_x(u[i], y);
-
-    // Check if the base of the update rays coincide...
-    if (dbl3_dist(x, y) > atol)
-      return false;
-
-    // Check if the computed jets are the same...
-    if (!jet3_approx_eq(&jet[0], &jet[1], atol))
-      return false;
-
-    // Swap the coords and jet that we just fetched to make way for
-    // the next ones
-    for (int j = 0; j < 3; ++j) SWAP(x[j], y[j]);
-    SWAP(jet[0], jet[1]);
-  }
-
-  /* Next, we do a topological check. We want to see whether the mesh
-   * comprised of the `n` update bases (triangles) are "thick" from
-   * the perspective of the update ray. Basically, what we're trying
-   * to check is whether, after projecting the union of the update
-   * bases into the plane normal to the update ray, the ray hits an
-   * interior point or not. E.g., we want to rule out rays that only
-   * *graze* the update triangles, or weird sets of updates that
-   * aren't manifold at the intersection point. As a reminder, this
-   * function should only be called when we were unable to find a
-   * single update with an interior point solution. */
-
-  if (num_shared == 1) {
-    assert(false); // TODO: handle later...
-  } else if (num_shared == 2) {
-    for (size_t i = 2; i < n; ++i)
-      if (utetra_get_num_shared_inds(u[0], u[i]) != 2 ||
-          utetra_contains_inds(u[i], l_shared, 2))
-        return false;
-
-    dbl dx[3], dy[3], normal[3];
-
-    // Get the vectors defining the line spanned by the shared edge
-    utetra_get_point_for_index(u[0], l_shared[0], y);
-    utetra_get_point_for_index(u[0], l_shared[1], dy);
-    dbl3_sub_inplace(dy, y);
-
-    // Get the normal for the plane spanned by the edge and update ray,
-    // taking advantage of the fact that all the update rays can be
-    // assumed to be equal at this point
-    dbl3_cross(dy, &jet[0].f, normal);
-    dbl3_normalize(normal); // (probably overkill)
-
-    // For each tetrahedron update, pull out the points corresponding to
-    // index that isn't incident on the shared edge, and translate them
-    // so that the edge passes through the origin. Then, compute the dot
-    // product between this point and the normal vector `n`, keeping
-    // track of the minimum and maximum dot products.
-    dbl a, amin = INFINITY, amax = -INFINITY;
-    for (size_t i = 0, l_op; i < n; ++i) {
-      utetra_get_op_ind(u[i], l_shared, &l_op);
-      utetra_get_point_for_index(u[i], l_op, x);
-      dbl3_sub(x, y, dx);
-      a = dbl3_dot(normal, dx);
-      amin = fmin(amin, a);
-      amax = fmax(amax, a);
-    }
-
-    // We want to check that at least two of the "opposite update
-    // indices" lie on either side of the plane spanned by the edge and
-    // the update ray. The dot products `amin` and `amax` are the
-    // extreme dot products values, so we just check this here.
-    return amin < 0 && 0 < amax;
-  } else {
-    assert(false);
-  }
-}
-
-size_t utetra_get_l(utetra_s const *utetra) {
-  assert(utetra_inds_are_set(utetra));
-  return utetra->lhat;
-}
-
-void utetra_set_update_inds(utetra_s *utetra, size_t l[3]) {
-  memcpy(utetra->l, l, sizeof(size_t[3]));
-}
-
-void utetra_set_l0(utetra_s *utetra, size_t l0) {
-  utetra->l[0] = l0;
-}
-
-void utetra_set_l1(utetra_s *utetra, size_t l1) {
-  utetra->l[1] = l1;
-}
-
-void utetra_set_l2(utetra_s *utetra, size_t l2) {
-  utetra->l[2] = l2;
-}
-
-/**
- * Check whether the optimum of `u1` is incident on the base of `u2`.
- */
-bool utetra_opt_inc_on_other_utetra(utetra_s const *u1, utetra_s const *u2) {
-  assert(utetra_inds_are_set(u1));
-  assert(utetra_inds_are_set(u2));
-
-  dbl b1[3];
-  utetra_get_bary_coords(u1, b1);
-
-  bool zero[3] = {b1[0] == 0, b1[1] == 0, b1[2] == 0};
-
-  int num_bd = 3 - !zero[0] - !zero[1] - !zero[2];
-  assert(num_bd < 3);
-  if (num_bd == 0)
-    return false;
-
-  size_t const *l1 = u1->l, *l2 = u2->l;
-
-  bool l1_inc[3] = {
-    l1[0] == l2[0] || l1[0] == l2[1] || l1[0] == l2[2],
-    l1[1] == l2[0] || l1[1] == l2[1] || l1[1] == l2[2],
-    l1[2] == l2[0] || l1[2] == l2[1] || l1[2] == l2[2]
-  };
-  if (l1_inc[0] + l1_inc[1] + l1_inc[2] == 0)
-    return false;
-
-  if (num_bd == 1) { // TODO: are the following tests just equivalent to "zero XOR l1_inc"?
-    if (zero[0])
-      return l1_inc[1] && l1_inc[2];
-    if (zero[1])
-      return l1_inc[0] && l1_inc[2];
-    if (zero[2])
-      return l1_inc[0] && l1_inc[1];
-    assert(false);
-  }
-
-  if (num_bd == 2) {
-    if (zero[1] && zero[2])
-      return l1_inc[0];
-    if (zero[0] && zero[2])
-      return l1_inc[1];
-    if (zero[0] && zero[1])
-      return l1_inc[2];
-    assert(false);
-  }
-
-  assert(false);
-  return false;
-}
-
-void utetra_get_x(utetra_s const *u, dbl x[3]) {
-  dbl b[3];
-  utetra_get_bary_coords(u, b);
-  dbl33_dbl3_mul(u->X, b, x);
-}
-
-void utetra_get_interior_coefs(utetra_s const *utetra, size_t *l) {
-  assert(utetra_update_inds_are_set(utetra));
-
-  dbl const atol = 1e-14;
-
-  size_t i = 0;
-
-  if (utetra->lam[0] > atol)
-    l[i++] = utetra->l[1];
-
-  if (utetra->lam[1] > atol)
-    l[i++] = utetra->l[2];
-
-  if (utetra->lam[0] + utetra->lam[1] < 1 - atol)
-    l[i++] = utetra->l[0];
-}
-
-size_t utetra_get_active_inds(utetra_s const *utetra, size_t l[3]) {
-  assert(utetra_update_inds_are_set(utetra));
-
-  dbl const atol = 1e-14;
-
-  dbl alpha[3];
-  utetra_get_lag_mults(utetra, alpha);
-
-  size_t num_active = 0;
-
-  l[0] = l[1] = l[2] = NO_INDEX;
-  for (int i = 0; i < 3; ++i)
-    if (fabs(alpha[i]) < atol)
-      l[num_active++] = utetra->l[i];
-
-  return num_active;
-}
-
-par3_s utetra_get_parent(utetra_s const *utetra) {
-  par3_s par;
-  utetra_get_bary_coords(utetra, par.b);
-  utetra_get_update_inds(utetra, par.l);
-  return par;
-}
-
-bool utetra_get_point_for_index(utetra_s const *utetra, size_t l, dbl x[3]) {
-  assert(utetra_update_inds_are_set(utetra));
+static bool get_point_for_index(utetra_s const *utetra, size_t l, dbl x[3]) {
+  assert(update_inds_are_set(utetra));
 
   for (int i = 0; i < 3; ++i)
     if (utetra->l[i] == l) {
@@ -946,7 +1003,7 @@ bool utetra_get_point_for_index(utetra_s const *utetra, size_t l, dbl x[3]) {
   return false;
 }
 
-bool utetra_get_op_ind(utetra_s const *utetra, size_t const le[2], size_t *l) {
+static bool get_op_ind(utetra_s const *utetra, size_t const le[2], size_t *l) {
   bool found[3] = {false, false, false};
 
   for (int i = 0; i < 3; ++i)
@@ -964,3 +1021,311 @@ bool utetra_get_op_ind(utetra_s const *utetra, size_t const le[2], size_t *l) {
 
   return false;
 }
+
+static size_t get_num_equal(utetra_s const **u, size_t n) {
+  dbl const atol = 1e-14;
+
+  dbl x[3], y[3];
+
+  /* The first thing to check is whether the jet computed by each
+   * update and the start of the update ray parametrized by each
+   * update is the same. This is necessary but not sufficient. */
+
+  jet3 jet[2];
+
+  // Prefetch the first coords and jet
+  utetra_get_x(u[0], x);
+  utetra_get_jet(u[0], &jet[0]);
+
+  size_t neq = 1;
+
+  // First, check that the update data for each utetra is the
+  // same. This is cheaper than the topological check that follows.
+  for (neq = 1; neq < n; ++neq) {
+    // Get the next jet and check that it's finite
+    utetra_get_jet(u[neq], &jet[1]);
+    if (!jet3_is_finite(&jet[1]))
+      break;
+
+    // Get the next coords
+    utetra_get_x(u[neq], y);
+
+    // Check if the base of the update rays coincide...
+    if (dbl3_dist(x, y) > atol)
+      break;
+
+    // Check if the computed jets are the same...
+    if (!jet3_approx_eq(&jet[0], &jet[1], atol))
+      break;
+
+    // Swap the coords and jet that we just fetched to make way for
+    // the next ones
+    for (int j = 0; j < 3; ++j)
+      SWAP(x[j], y[j]);
+    SWAP(jet[0], jet[1]);
+  }
+
+  return neq;
+}
+
+static size_t count_unique_inds(utetra_s const **u, size_t n) {
+  array_s *l;
+
+  array_alloc(&l);
+  array_init(l, sizeof(size_t), ARRAY_DEFAULT_CAPACITY);
+
+  for (size_t i = 0; i < n; ++i)
+    for (size_t j = 0; j < 3; ++j)
+      if (!array_contains(l, &u[i]->l[j]))
+        array_append(l, &u[i]->l[j]);
+
+  size_t num_unique = array_size(l);
+
+  array_deinit(l);
+  array_dealloc(&l);
+
+  return num_unique;
+}
+
+static void get_shared_and_op_inds_3(utetra_s const **u, size_t *l_shared,
+                                     size_t l_op[3]) {
+  assert(count_unique_inds(u, 3) == 4);
+
+  size_t tmp1[2], tmp2[2];
+  get_shared_inds(u[0], u[1], tmp1);
+  get_shared_inds(u[0], u[2], tmp2);
+
+  for (size_t i = 0; i < 2; ++i)
+    for (size_t j = 0; j < 2; ++j)
+      if (tmp1[i] == tmp2[j]) {
+        *l_shared = tmp1[i];
+        break;
+      }
+
+  size_t j = 0;
+  for (size_t i = 0; i < 3; ++i)
+    if (u[0]->l[i] != *l_shared)
+      l_op[j++] = u[0]->l[i];
+  assert(j == 2);
+
+  for (size_t i = 0; i < 3; ++i)
+    for (size_t j = 0; j < 2; ++j)
+      if (u[1]->l[i] != l_op[j]) {
+        l_op[2] = u[1]->l[i];
+        break;
+      }
+}
+
+/* Checks whether `n` tetrahedron updates stored in `utetra[i]` yield
+ * the same update. This is a pretty complicated check... Need to
+ * explain the cases this handles a bit better. */
+bool utetras_yield_same_update(utetra_s const **u, size_t n) {
+  assert(n > 1);
+
+  size_t neq = get_num_equal(u, n);
+
+  if (neq == 1)
+    return false;
+
+  /* We want to check whether the mesh comprised of the `n` update
+   * bases (triangles) are "thick" from the perspective of the update
+   * ray. Basically, what we're trying to check is whether, after
+   * projecting the union of the update bases into the plane normal to
+   * the update ray, the ray hits an interior point or not. E.g., we
+   * want to rule out rays that only *graze* the update triangles, or
+   * weird sets of updates that aren't manifold at the intersection
+   * point. As a reminder, this function should only be called when we
+   * were unable to find a single update with an interior point
+   * solution. */
+
+  jet3 jet;
+  utetra_get_jet(u[0], &jet);
+
+  if (neq == 2) {
+    // Get the indices of the shared edge, and validate that this edge
+    // is incident on the base of each tetrahedron update
+    size_t l_shared[2];
+    size_t num_shared = get_shared_inds(u[0], u[1], l_shared);
+    assert(num_shared < 3);
+
+    if (num_shared == 1)
+      return false;
+
+    dbl x[3], dx[3], y[3], dy[3], normal[3];
+
+    // Get the vectors defining the line spanned by the shared edge
+    get_point_for_index(u[0], l_shared[0], y);
+    get_point_for_index(u[0], l_shared[1], dy);
+    dbl3_sub_inplace(dy, y);
+
+    // Get the normal for the plane spanned by the edge and update ray,
+    // taking advantage of the fact that all the update rays can be
+    // assumed to be equal at this point
+    dbl3_cross(dy, &jet.fx, normal);
+    dbl3_normalize(normal); // (probably overkill)
+
+    // For each tetrahedron update, pull out the points corresponding to
+    // index that isn't incident on the shared edge, and translate them
+    // so that the edge passes through the origin. Then, compute the dot
+    // product between this point and the normal vector `n`, keeping
+    // track of the minimum and maximum dot products.
+    dbl amin = INFINITY, amax = -INFINITY;
+    for (size_t i = 0, l_op; i < neq; ++i) {
+      get_op_ind(u[i], l_shared, &l_op);
+      get_point_for_index(u[i], l_op, x);
+      dbl3_sub(x, y, dx);
+      dbl a = dbl3_dot(normal, dx);
+      amin = fmin(amin, a);
+      amax = fmax(amax, a);
+    }
+
+    // We want to check that at least two of the "opposite update
+    // indices" lie on either side of the plane spanned by the edge and
+    // the update ray. The dot products `amin` and `amax` are the
+    // extreme dot products values, so we just check this here.
+    return amin < 0 && 0 < amax;
+  }
+
+  if (neq == 3) {
+    size_t num_unique = count_unique_inds(u, neq);
+    assert(num_unique >= 4);
+    if (num_unique > 4)
+      return false;
+
+    size_t l_shared, l_op[3];
+    get_shared_and_op_inds_3(u, &l_shared, l_op);
+
+    /* Get the `tri3` indexed by `l_op`. This is a little circuitous
+     * since we don't know the provenance of each index in `l_op` at
+     * this point, so we need to do a quick search...  */
+    tri3 tri;
+    for (size_t i = 0; i < 3; ++i)
+      for (size_t j = 0; j < 3; ++j)
+        if (get_point_for_index(u[j], l_op[i], tri.v[i]))
+          continue;
+
+    /* Get the update ray with which we'll try to intersect `tri`. */
+    ray3 ray = get_ray(u[0]);
+
+    dbl unused;
+
+    /* First check the default orientation of the update ray... */
+    if (ray3_intersects_tri3(&ray, &tri, &unused))
+      return true;
+
+    /* ... and if that doesn't intersect `tri`, flip it around and try
+     * the other orientation, as well. We do this because what we
+     * *really* want to do is intersect the line spanned by `ray` with
+     * `tri`. */
+    // TODO: implement a `line_intersects_tri3` function to simplify
+    // this code...
+    dbl3_negate(ray.dir);
+    return ray3_intersects_tri3(&ray, &tri, &unused);
+  }
+
+  assert(false);
+}
+
+size_t utetra_get_l(utetra_s const *utetra) {
+  assert(utetra->lhat != (size_t)NO_INDEX);
+  return utetra->lhat;
+}
+
+void utetra_set_update_inds(utetra_s *utetra, size_t l[3]) {
+  memcpy(utetra->l, l, sizeof(size_t[3]));
+}
+
+static tri3 get_tri(utetra_s const *u) {
+  utetra_s const *u_split = split_utetra_select(u);
+  if (u_split)
+    return get_tri(u_split);
+
+  tri3 tri;
+  memcpy(tri.v, u->Xt, sizeof(dbl[3][3]));
+  return tri;
+}
+
+/**
+ * Check whether the optimum of `u` is incident on the base of
+ * `u_other`.
+ */
+bool utetra_opt_inc_on_other_utetra(utetra_s const *u, utetra_s const *u_other) {
+  dbl const atol = 1e-14;
+  dbl xb[3];
+  utetra_get_x(u, xb);
+  tri3 tri = get_tri(u_other);
+  return tri3_dist(&tri, xb) < atol;
+}
+
+void utetra_get_x(utetra_s const *u, dbl x[3]) {
+  utetra_s const *u_split = split_utetra_select(u);
+  if (u_split)
+    return utetra_get_x(u_split, x);
+
+  dbl b[3];
+  get_b(u, b);
+  dbl33_dbl3_mul(u->X, b, x);
+}
+
+size_t utetra_get_active_inds(utetra_s const *utetra, size_t l[3]) {
+  assert(!is_split(utetra));
+  assert(update_inds_are_set(utetra));
+
+  dbl const atol = 1e-14;
+
+  dbl alpha[3];
+  get_lag_mults(utetra, alpha);
+
+  size_t num_active = 0;
+
+  l[0] = l[1] = l[2] = NO_INDEX;
+  for (int i = 0; i < 3; ++i)
+    if (fabs(alpha[i]) < atol)
+      l[num_active++] = utetra->l[i];
+
+  return num_active;
+}
+
+par3_s utetra_get_parent(utetra_s const *utetra) {
+  par3_s par;
+
+  /* If this is a split update, we pull out the optimum from that
+   * update and then compute its barycentric coordinates with respect
+   * to the base of the containing update (`utetra`). */
+  if (is_split(utetra)) {
+    utetra_s const *u = split_utetra_select(utetra);
+    dbl x[3]; utetra_get_x(u, x);
+    tri3 tri = get_tri(utetra); // tri from *containing* update
+    tri3_get_bary_coords(&tri, x, par.b);
+    dbl3_normalize1(par.b);
+  } else {
+    get_b(utetra, par.b);
+  }
+
+  assert(dbl3_valid_bary_coord(par.b));
+
+  memcpy(par.l, utetra->l, sizeof(size_t[3]));
+
+  return par;
+}
+
+#if JMM_TEST
+void utetra_step(utetra_s *u) {
+  step(u);
+}
+
+void utetra_get_lambda(utetra_s const *u, dbl lam[2]) {
+  assert(!is_split(u));
+  lam[0] = u->lam[0];
+  lam[1] = u->lam[1];
+}
+
+void utetra_set_lambda(utetra_s *u, dbl const lam[2]) {
+  set_lambda(u, lam);
+}
+
+size_t utetra_get_num_iter(utetra_s const *u) {
+  assert(!is_split(u));
+  return u->niter;
+}
+#endif

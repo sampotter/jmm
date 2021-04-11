@@ -647,40 +647,16 @@ cdef class UpdateTetra:
     def is_degenerate(self):
         return utetra_is_degenerate(self._utetra)
 
-    def reset(self):
-        utetra_reset(self._utetra)
-
     def solve(self):
-        utetra_solve(self._utetra)
-
-    def get_lambda(self):
-        cdef dbl[:] lam = np.empty((2,), dtype=np.float64)
-        utetra_get_lambda(self._utetra, &lam[0])
-        return np.asarray(lam)
-
-    def set_lambda(self, dbl[:] lam):
-        utetra_set_lambda(self._utetra, &lam[0])
+        utetra_solve(self._utetra, NULL)
 
     def get_value(self):
         return utetra_get_value(self._utetra)
-
-    def get_gradient(self):
-        cdef dbl[:] g = np.empty((2,), dtype=np.float64)
-        utetra_get_gradient(self._utetra, &g[0])
-        return np.asarray(g)
 
     def get_jet(self):
         cdef jet3 jet
         utetra_get_jet(self._utetra, &jet)
         return Jet3(jet.f, jet.fx, jet.fy, jet.fz)
-
-    def get_lag_mults(self):
-        cdef dbl[:] alpha = np.empty((3,), dtype=np.float64)
-        utetra_get_lag_mults(self._utetra, &alpha[0])
-        return np.asarray(alpha)
-
-    def get_num_iter(self):
-        return utetra_get_num_iter(self._utetra)
 
 cdef class _Dial3:
     cdef:
