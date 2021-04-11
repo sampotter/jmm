@@ -32,8 +32,8 @@ cells_path = 'visualize_cutset/%s_cells.bin' % scene
 
 lsrc = 0 # index of point source
 l = None
-l0 = 112
-l1 = 57
+l0 = 57
+l1 = None
 l2 = None
 l3 = None
 lbad = None
@@ -124,19 +124,23 @@ def plot_point(points, l, scale=1.25, color='white', opacity=1):
     plotter.add_mesh(
         pv.Sphere(scale*sphere_radius, points[l]), color=color, opacity=opacity)
 
+def plot_edge(l0, l1, color='white', opacity=1):
+    x0, x1 = verts[l0], verts[l1]
+    xm, xd = (x0 + x1)/2, x1 - x0
+    r, h = 0.5*sphere_radius, np.linalg.norm(xd)
+    plotter.add_mesh(
+        pv.Cylinder(xm, xd, r, h), color=color, opacity=opacity)
+
 def plot_cutset_edge(l0, l1):
     try:
         t = eik.shadow_cutset[min(l0, l1), max(l0, l1)].t
-        x0, x1 = verts[l0], verts[l1]
-        xm, xd = (x0 + x1)/2, x1 - x0
-        r, h = 0.5*sphere_radius, np.linalg.norm(xd)
-        plotter.add_mesh(
-            pv.Cylinder(xm, xd, r, h), color='white', opacity=1)
+        plot_edge(l0, l1)
         xt = (1 - t)*verts[l0] + t*verts[l1]
         plotter.add_mesh(
             pv.Sphere(sphere_radius, xt), color='white', opacity=1)
     except:
         pass
+
 
 ################################################################################
 # MAKE PLOTS
@@ -263,8 +267,8 @@ if plot_cutset:
 # xt = np.array([1, 1.2831721151353119, 0.4054017326133959])
 # plotter.add_mesh(pv.Sphere(sphere_radius, xt), color='red')
 
-# xb = np.array([1.0822845820075846, 1.0311904455404601, 0.44268603803298395])
-# plotter.add_mesh(pv.Sphere(sphere_radius, xb), color='blue')
+xb = eik.get_parent(l0).b@verts[eik.get_parent(l0).l]
+plotter.add_mesh(pv.Sphere(sphere_radius, xb), color='blue')
 
 
 # x0, x1 = verts[135], verts[138]
@@ -273,7 +277,6 @@ if plot_cutset:
 # plotter.add_mesh(
 #     pv.Cylinder(xm, xd, r, h), color='cyan', opacity=1)
 
-
-for l_ in [5, 118]:
-    c = 'cyan' if eik.is_valid(l_) else 'pink'
-    plot_point(verts, l_, color=c, scale=2)
+# for l_ in [118, 57, 126]:
+#     c = 'cyan' if eik.is_valid(l_) else 'pink'
+#     plot_point(verts, l_, color=c, scale=2)
