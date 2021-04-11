@@ -220,6 +220,11 @@ void dbl3_cc(dbl const u0[3], dbl const u1[3], dbl t0, dbl ut[3]) {
   ut[2] = t0*u0[2] + t1*u1[2];
 }
 
+void dbl3_normalize1(dbl x[3]) {
+  dbl xnorm1 = fabs(x[0]) + fabs(x[1]) + fabs(x[2]);
+  dbl3_dbl_div_inplace(x, xnorm1);
+}
+
 dbl dbl4_dist(dbl const u[4], dbl const v[4]) {
   dbl tmp[4] = {u[0] - v[0], u[1] - v[1], u[2] - v[2], u[3] - v[3]};
   return sqrt(tmp[0]*tmp[0] + tmp[1]*tmp[1] + tmp[2]*tmp[2] + tmp[3]*tmp[3]);
