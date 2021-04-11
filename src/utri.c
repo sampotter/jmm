@@ -215,13 +215,12 @@ bool utri_update_ray_is_physical(utri_s const *utri, eik3_s const *eik) {
     free(vc);
   }
 
-  dbl b[4];
   size_t lc;
   bool xm_in_cell = false, xp_in_cell = false;
   for (size_t i = 0; i < array_size(cells); ++i) {
     array_get(cells, i, &lc);
-    xm_in_cell |= mesh3_dbl3_in_cell(mesh, lc, xm, b);
-    xp_in_cell |= mesh3_dbl3_in_cell(mesh, lc, xp, b);
+    xm_in_cell |= mesh3_dbl3_in_cell(mesh, lc, xm, NULL);
+    xp_in_cell |= mesh3_dbl3_in_cell(mesh, lc, xp, NULL);
     if (xm_in_cell && xp_in_cell)
       break;
   }
@@ -250,7 +249,7 @@ bool utri_update_ray_is_physical(utri_s const *utri, eik3_s const *eik) {
 
   bool xhatm_in_cell = false;
   for (int i = 0; i < nvc; ++i) {
-    xhatm_in_cell = mesh3_dbl3_in_cell(mesh, vc[i], xhatm, b);
+    xhatm_in_cell = mesh3_dbl3_in_cell(mesh, vc[i], xhatm, NULL);
     if (xhatm_in_cell)
       break;
   }
