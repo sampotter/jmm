@@ -18,6 +18,13 @@
     y = tmp;                                    \
   } while (0)
 
+#define ROTATE3(x, y, z) do {                                           \
+    __typeof(x) tmp = x;                                                \
+    x = y;                                                              \
+    y = z;                                                              \
+    z = tmp;                                                            \
+  } while (0)
+
 #define SORT2(x, y) do {                        \
     __typeof(x) tmp = MIN(x, y);                \
     y = MAX(x, y);                              \
