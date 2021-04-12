@@ -877,33 +877,39 @@ static void get_diff_edge_surf_normal_p2(eik3_s const *eik, size_t l0,
     dbl3_negate(n);
 }
 
-static void set_cutedge_jet(eik3_s const *eik, edge_s edge, cutedge_s *cutedge) {
-  size_t lv = edge_get_valid_index(edge, eik);
+static void set_cutedge_jet_p2(eik3_s const *eik, edge_s edge,
+                               size_t const l[2], cutedge_s *cutedge) {
+  mesh3_s const *mesh = eik3_get_mesh(eik);
 
-  par3_s par = eik3_get_par(eik, lv);
+  dbl xt[3];
+  edge_get_xt(edge, mesh, cutedge->t, xt);
 
-  size_t num_parents = par3_size(&par);
-  assert(num_parents == 3);
+  utri_s *utri;
+  utri_alloc(&utri);
+  utri_init_from_eik3_without_l(utri, eik, xt, l[0], l[1]);
+  utri_solve(utri);
 
+  assert(utri_has_interior_point_solution(utri));
+  // TODO: check whether ray is physical? ugh
+
+  par3_s utri_par = utri_get_par(utri);
+  assert(!is_shadow_p2(eik, &utri_par));
+
+  utri_get_jet(utri, &cutedge->jet);
+
+  utri_dealloc(&utri);
+}
+
+static void set_cutedge_jet_p3(eik3_s const *eik, edge_s edge,
+                               size_t const l[3], cutedge_s *cutedge) {
   mesh3_s const *mesh = eik->mesh;
 
   dbl xt[3];
   edge_get_xt(edge, mesh, cutedge->t, xt);
 
-  dbl Xt[3][3];
-  mesh3_copy_vert(mesh, par.l[0], Xt[0]);
-  mesh3_copy_vert(mesh, par.l[1], Xt[1]);
-  mesh3_copy_vert(mesh, par.l[2], Xt[2]);
-
-  jet3 jet[3] = {eik->jet[par.l[0]], eik->jet[par.l[1]], eik->jet[par.l[2]]};
-
-  assert(false);
-  // TODO: init using inds so that we can make a split utetra here!
-
   utetra_s *utetra;
   utetra_alloc(&utetra);
-  utetra_init_no_inds(utetra, xt, Xt, jet);
-  utetra_set_update_inds(utetra, par.l);
+  utetra_init_from_eik3_without_l(utetra, eik, xt, l[0], l[1], l[2]);
   utetra_solve(utetra, NULL);
 
   bool found_update = false;
@@ -921,12 +927,6 @@ static void set_cutedge_jet(eik3_s const *eik, edge_s edge, cutedge_s *cutedge) 
   size_t num_active = utetra_get_active_inds(utetra, l_active);
   assert(num_active == 2); // TODO: handle "== 1" later
 
-  mesh3_copy_vert(mesh, l_active[0], Xt[0]);
-  mesh3_copy_vert(mesh, l_active[1], Xt[1]);
-
-  jet[0] = eik->jet[l_active[0]];
-  jet[1] = eik->jet[l_active[1]];
-
   size_t nev = mesh3_nev(mesh, l_active);
   size_t *ev = malloc(nev*sizeof(size_t));
   mesh3_ev(mesh, l_active, ev);
@@ -934,12 +934,8 @@ static void set_cutedge_jet(eik3_s const *eik, edge_s edge, cutedge_s *cutedge) 
   for (size_t i = 0; i < nev; ++i) {
     l_active[2] = ev[i];
 
-    mesh3_copy_vert(mesh, ev[i], Xt[2]);
-
-    jet[2] = eik->jet[ev[i]];
-
-    utetra_init_no_inds(utetra, xt, Xt, jet);
-    utetra_set_update_inds(utetra, (size_t[3]) {l_active[0], l_active[1], ev[i]});
+    utetra_init_from_eik3_without_l(
+      utetra, eik, xt, l_active[0], l_active[1], l_active[2]);
     utetra_solve(utetra, NULL);
 
     if (utetra_has_interior_point_solution(utetra)) {
@@ -959,6 +955,17 @@ coda:
   utetra_get_jet(utetra, &cutedge->jet);
   utetra_deinit(utetra);
   utetra_dealloc(&utetra);
+}
+
+static void set_cutedge_jet(eik3_s const *eik, edge_s edge, cutedge_s *cutedge) {
+  // Get the edge endpoint closer to x(t) and grab that node's parents.
+  par3_s par = eik3_get_par(eik, cutedge->t < 0.5 ? edge.l[0] : edge.l[1]);
+
+  switch (par3_size(&par)) {
+  case 2: return set_cutedge_jet_p2(eik, edge, par.l, cutedge);
+  case 3: return set_cutedge_jet_p3(eik, edge, par.l, cutedge);
+  default: assert(false);
+  }
 }
 
 static void estimate_cutedge_data_from_incident_cutedges(

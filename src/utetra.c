@@ -261,10 +261,21 @@ static void init_split_utetra(utetra_s *u, eik3_s const *eik) {
 
 bool utetra_init_from_eik3(utetra_s *cf, eik3_s const *eik,
                            size_t l, size_t l0, size_t l1, size_t l2) {
+  cf->lhat = l;
+
+  dbl x[3];
+  mesh3_copy_vert(eik3_get_mesh(eik), l, x);
+
+  return utetra_init_from_eik3_without_l(cf, eik, x, l0, l1, l2);
+}
+
+bool utetra_init_from_eik3_without_l(utetra_s *cf, eik3_s const *eik,
+                                     dbl const x[3],
+                                     size_t l0, size_t l1, size_t l2) {
   mesh3_s const *mesh = eik3_get_mesh(eik);
   jet3 const *jet = eik3_get_jet_ptr(eik);
 
-  if (!utetra_init_from_ptrs(cf, mesh, jet, l, l0, l1, l2))
+  if (!utetra_init_from_ptrs_without_l(cf, mesh, jet, x, l0, l1, l2))
     return false;
 
   state_e const *state = eik3_get_state_ptr(eik);
@@ -290,6 +301,18 @@ bool utetra_init_from_ptrs(utetra_s *cf, mesh3_s const *mesh, jet3 const *jet,
   dbl x[3];
   mesh3_copy_vert(mesh, l, x);
 
+  bool success = utetra_init_from_ptrs_without_l(cf, mesh, jet, x, l0, l1, l2);
+
+  cf->lhat = l;
+
+  return success;
+}
+
+bool utetra_init_from_ptrs_without_l(utetra_s *cf, mesh3_s const *mesh,
+                                     jet3 const *jet, dbl const x[3], size_t l0,
+                                     size_t l1, size_t l2) {
+  cf->lhat = NO_INDEX;
+
   dbl Xt[3][3];
   mesh3_copy_vert(mesh, l0, Xt[0]);
   mesh3_copy_vert(mesh, l1, Xt[1]);
@@ -299,8 +322,6 @@ bool utetra_init_from_ptrs(utetra_s *cf, mesh3_s const *mesh, jet3 const *jet,
   assert(jet3_is_finite(&jet_[0]));
   assert(jet3_is_finite(&jet_[1]));
   assert(jet3_is_finite(&jet_[2]));
-
-  cf->lhat = l;
 
   cf->l[0] = l0;
   cf->l[1] = l1;

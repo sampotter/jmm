@@ -126,17 +126,28 @@ static void init_split_utri(utri_s *u, eik3_s const *eik) {
 
   utri_init(u->split, u->x, Xt, jet);
 
+  u->split->l = NO_INDEX;
+  u->split->l0 = NO_INDEX;
+  u->split->l1 = NO_INDEX;
+
   state_e *state = u->split->state;
-  state[0] = state[1] = state[2] = VALID;
+  state[0] = state[1] = VALID;
   u->split->num_shadow = 0;
 }
 
 void utri_init_from_eik3(utri_s *utri, eik3_s const *eik, size_t l,
                          size_t l0, size_t l1) {
-  mesh3_s const *mesh = eik3_get_mesh(eik);
-
   dbl x[3];
-  mesh3_copy_vert(mesh, l, x);
+  mesh3_copy_vert(eik3_get_mesh(eik), l, x);
+
+  utri->l = l;
+
+  utri_init_from_eik3_without_l(utri, eik, x, l0, l1);
+}
+
+void utri_init_from_eik3_without_l(utri_s *utri, eik3_s const *eik,
+                                   dbl const x[3], size_t l0, size_t l1) {
+  mesh3_s const *mesh = eik3_get_mesh(eik);
 
   dbl Xt[2][3];
   mesh3_copy_vert(mesh, l0, Xt[0]);
@@ -152,7 +163,6 @@ void utri_init_from_eik3(utri_s *utri, eik3_s const *eik, size_t l,
 
   utri_init(utri, x, Xt, jet);
 
-  utri->l = l;
   utri->l0 = l0;
   utri->l1 = l1;
 
@@ -196,12 +206,13 @@ void utri_init(utri_s *utri, dbl const x[3], dbl const Xt[2][3],
 }
 
 void utri_solve(utri_s *utri) {
-  assert(!is_split(utri));
-  (void)hybrid((hybrid_cost_func_t)utri_hybrid_f, 0, 1, utri);
+  if (is_split(utri))
+    utri_solve(utri->split);
+  else
+    (void)hybrid((hybrid_cost_func_t)utri_hybrid_f, 0, 1, utri);
 }
 
 static void get_update_inds(utri_s const *utri, size_t l[2]) {
-  assert(!is_split(utri));
   l[0] = utri->l0;
   l[1] = utri->l1;
 }
@@ -212,11 +223,25 @@ static void get_bary_coords(utri_s const *utri, dbl b[2]) {
   b[1] = utri->lam;
 }
 
+static void get_x(utri_s const *u, dbl x[3]) {
+  if (is_split(u))
+    return get_x(u->split, x);
+  dbl3_saxpy(u->lam, u->x1_minus_x0, u->x0, x);
+}
+
 par3_s utri_get_par(utri_s const *u) {
-  assert(!is_split(u));
   par3_s par = {.l = {[2] = NO_PARENT}, .b = {[2] = NAN}};
+
   get_update_inds(u, par.l);
-  get_bary_coords(u, par.b);
+
+  if (is_split(u)) {
+    dbl xt[3]; get_x(u, xt);
+    par.b[1] = dbl3_dot(u->x1_minus_x0, xt);
+    par.b[0] = 1 - par.b[1];
+  } else {
+    get_bary_coords(u, par.b);
+  }
+
   return par;
 }
 
@@ -225,7 +250,9 @@ dbl utri_get_value(utri_s const *u) {
 }
 
 void utri_get_jet(utri_s const *utri, jet3 *jet) {
-  assert(!is_split(utri));
+  if (is_split(utri))
+    return utri_get_jet(utri->split, jet);
+
   jet->f = utri->f;
   jet->fx = utri->x_minus_xb[0]/utri->L;
   jet->fy = utri->x_minus_xb[1]/utri->L;
@@ -244,18 +271,17 @@ static dbl get_lag_mult(utri_s const *utri) {
   }
 }
 
-void utri_get_point_on_ray(utri_s const *utri, dbl t, dbl xt[3]) {
-  assert(!is_split(utri));
-  dbl xlam[3];
-  dbl3_saxpy(utri->lam, utri->x1_minus_x0, utri->x0, xlam);
-  dbl3_saxpy(t/utri->L, utri->x_minus_xb, xlam, xt);
+static ray3 get_ray(utri_s const *utri) {
+  if (is_split(utri))
+    return get_ray(utri->split);
+
+  ray3 ray;
+  dbl3_saxpy(utri->lam, utri->x1_minus_x0, utri->x0, ray.org);
+  dbl3_normalized(utri->x_minus_xb, ray.dir);
+  return ray;
 }
 
 bool utri_update_ray_is_physical(utri_s const *utri, eik3_s const *eik) {
-  assert(!is_split(utri));
-
-  dbl const atol = 1e-14;
-
   mesh3_s const *mesh = eik3_get_mesh(eik);
 
   size_t l[2] = {utri->l0, utri->l1};
@@ -274,6 +300,8 @@ bool utri_update_ray_is_physical(utri_s const *utri, eik3_s const *eik) {
   // TODO: we can accelerate this a bit by verifying that both l[0]
   // and l[1] are boundary indices...
 
+  ray3 ray = get_ray(utri);
+
   // Get points just before and just after the start of the ray. We
   // perturb forward and backward by one half of the minimum triangle
   // altitude (taken of the entire mesh). This is to ensure that the
@@ -281,21 +309,17 @@ bool utri_update_ray_is_physical(utri_s const *utri, eik3_s const *eik) {
   // tetrahedra, but also large enough to take into consideration the
   // characteristic length scale of the mesh.
   dbl xm[3], xp[3], t = mesh3_get_min_tetra_alt(mesh)/2;
-  utri_get_point_on_ray(utri, -t/2, xm);
-  utri_get_point_on_ray(utri, t/2, xp);
+  ray3_get_point(&ray, -t/2, xm);
+  ray3_get_point(&ray, t/2, xp);
 
   array_s *cells;
   array_alloc(&cells);
   array_init(cells, sizeof(size_t), ARRAY_DEFAULT_CAPACITY);
 
-  bool I[2] = {fabs(1 - utri->lam) > atol, fabs(utri->lam) > atol};
-
   int nvc;
   size_t *vc;
 
   for (int i = 0; i < 2; ++i) {
-    if (!I[i]) continue;
-
     nvc = mesh3_nvc(mesh, l[i]);
     vc = malloc(nvc*sizeof(size_t));
     mesh3_vc(mesh, l[i], vc);
@@ -327,13 +351,16 @@ bool utri_update_ray_is_physical(utri_s const *utri, eik3_s const *eik) {
   if (!xm_in_cell || !xp_in_cell)
     return false;
 
+  // TODO: need to check for boundary faces here! See implementation
+  // of `utetra_update_ray_is_physical`.
+
   /**
    * Next, check and see if the point just before the end of the ray
    * lies in a cell.
    */
 
   dbl xhatm[3];
-  dbl3_saxpy(-t/utri->L, utri->x_minus_xb, utri->x, xhatm);
+  ray3_get_point(&ray, utri->L - t, xhatm);
 
   nvc = mesh3_nvc(mesh, utri->l);
   vc = malloc(nvc*sizeof(size_t));
@@ -374,8 +401,8 @@ int utri_cmp(utri_s const **h1, utri_s const **h2) {
 }
 
 bool utri_has_interior_point_solution(utri_s const *utri) {
-  assert(!is_split(utri));
-
+  if (is_split(utri))
+    return utri_has_interior_point_solution(utri->split);
   dbl const atol = 1e-14;
   return (atol < utri->lam && utri->lam < 1 - atol)
     || fabs(get_lag_mult(utri)) <= atol;
@@ -397,18 +424,27 @@ bool utri_is_finite(utri_s const *u) {
   return isfinite(is_split(u) ? u->split->f : u->f);
 }
 
-bool utris_yield_same_update(utri_s const *utri1, utri_s const *utri2) {
-  assert(!is_split(utri1));
-  assert(!is_split(utri2));
+static dbl get_lambda(utri_s const *u) {
+  return is_split(u) ? u->split->lam : u->lam;
+}
 
+bool utris_yield_same_update(utri_s const *utri1, utri_s const *utri2) {
   dbl const atol = 1e-14;
+
+  if (utri1 == NULL || utri2 == NULL)
+    return false;
+
+  dbl lam1 = get_lambda(utri1);
+  dbl lam2 = get_lambda(utri2);
+
+  if (fabs(lam1 - lam2) > atol)
+    return false;
 
   jet3 jet1, jet2;
   utri_get_jet(utri1, &jet1);
   utri_get_jet(utri2, &jet2);
 
-  return fabs(utri1->lam - utri2->lam) <= atol
-    && jet3_approx_eq(&jet1, &jet2, atol);
+  return jet3_approx_eq(&jet1, &jet2, atol);
 }
 
 #if JMM_TEST
@@ -419,8 +455,6 @@ bool utri_is_causal(utri_s const *utri) {
 }
 
 dbl utri_get_lambda(utri_s const *utri) {
-  assert(!is_split(utri));
-
-  return utri->lam;
+  return get_lambda(utri);
 }
 #endif
