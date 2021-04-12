@@ -12,20 +12,20 @@
     x_ > y_ ? x_ : y_;                          \
   })
 
-#define SWAP(x, y) {                            \
+#define SWAP(x, y) do {                         \
     __typeof(x) tmp = x;                        \
     x = y;                                      \
     y = tmp;                                    \
-  }
+  } while (0)
 
-#define SORT2(x, y) {                           \
+#define SORT2(x, y) do {                        \
     __typeof(x) tmp = MIN(x, y);                \
     y = MAX(x, y);                              \
     x = tmp;                                    \
-  }
+  } while (0)
 
-#define SORT3(x, y, z)  {                                               \
+#define SORT3(x, y, z) do {                                             \
     SORT2(x, y);                                                        \
     SORT2(x, z);                                                        \
     SORT2(y, z);                                                        \
-  }
+  } while (0)
