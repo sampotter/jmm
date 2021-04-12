@@ -32,17 +32,17 @@ cells_path = 'visualize_cutset/%s_cells.bin' % scene
 
 lsrc = 0 # index of point source
 l = None
-l0 = 57
-l1 = None
+l0 = 154
+l1 = 75
 l2 = None
 l3 = None
 lbad = None
 
-l_color = 'white'
+l_color = 'yellow'
 l0_color = 'white'
 l1_color = 'black'
-l2_color = 'black'
-l3_color = 'black'
+l2_color = 'blue'
+l3_color = 'cyan'
 lbad_color = 'green'
 
 plot_surf_tris = False
@@ -141,6 +141,12 @@ def plot_cutset_edge(l0, l1):
     except:
         pass
 
+def plot_jet(x, jet):
+    d = np.array([jet[1], jet[2], jet[3]])
+    assert(abs(1 - np.linalg.norm(d)) < 1e-13)
+    plotter.add_mesh(
+        pv.Arrow(x, d, scale=0.1),
+        color='white', opacity=1)
 
 ################################################################################
 # MAKE PLOTS
@@ -254,22 +260,16 @@ if plot_cutset:
         plotter.add_mesh(
             pv.Sphere(sphere_radius, xt), color='white', opacity=1)
         jet = cutedge.jet
-        d = np.array([jet.fx, jet.fy, jet.fz])
-        assert(abs(1 - np.linalg.norm(d)) < 1e-13)
-        plotter.add_mesh(
-            pv.Arrow(xt, d, scale=0.1),
-            color='white', opacity=1)
+        plot_jet(xt, jet)
 
 ################################################################################
 # TMP
 
-
-# xt = np.array([1, 1.2831721151353119, 0.4054017326133959])
+# xt = np.array([1, 1.6315787092401441, 0.5328554895202533])
 # plotter.add_mesh(pv.Sphere(sphere_radius, xt), color='red')
 
-xb = eik.get_parent(l0).b@verts[eik.get_parent(l0).l]
-plotter.add_mesh(pv.Sphere(sphere_radius, xb), color='blue')
-
+# xb = eik.get_parent(l0).b@verts[eik.get_parent(l0).l]
+# plotter.add_mesh(pv.Sphere(sphere_radius, xb), color='blue')
 
 # x0, x1 = verts[135], verts[138]
 # xm, xd = (x0 + x1)/2, x1 - x0
@@ -277,6 +277,14 @@ plotter.add_mesh(pv.Sphere(sphere_radius, xb), color='blue')
 # plotter.add_mesh(
 #     pv.Cylinder(xm, xd, r, h), color='cyan', opacity=1)
 
-# for l_ in [118, 57, 126]:
+# for l_ in mesh.vv(72):
+#     if not eik.is_valid(l_) and not eik.is_shadow(l_):
+#         continue
 #     c = 'cyan' if eik.is_valid(l_) else 'pink'
 #     plot_point(verts, l_, color=c, scale=2)
+
+# plot_edge(l0, l1)
+
+# plot_point(verts, 124, color='red', scale=1.25)
+# plot_point(verts, 11, color='magenta', scale=1.25)
+# plot_point(verts, 98, color='orange', scale=1.25)
