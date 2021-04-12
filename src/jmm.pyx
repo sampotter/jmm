@@ -18,13 +18,13 @@ from camera cimport *
 from dial cimport *
 from edge cimport *
 from edgemap cimport *
+from eik3 cimport *
 from grid3 cimport *
 from jet cimport *
 from mesh2 cimport *
 from mesh3 cimport *
 from par cimport *
 from rtree cimport *
-from utetra cimport *
 from xfer cimport *
 
 class Stype(Enum):
@@ -620,43 +620,6 @@ be removed in the near future.
         isect = Isect()
         rtree_intersect(self._rtree, &ray._ray, &isect._isect)
         return isect
-
-cdef class UpdateTetra:
-    cdef utetra *_utetra
-
-    def __cinit__(self, dbl[:] x, dbl[:, :] Xt, dbl[:] T, dbl[:, :] DT):
-        cdef jet3 jet[3]
-        cdef int i
-        cdef int j
-        for i in range(3):
-            jet[i].f = T[i]
-            jet[i].fx = DT[i, 0]
-            jet[i].fy = DT[i, 1]
-            jet[i].fz = DT[i, 2]
-        cdef dbl Xt_[3][3]
-        for i in range(3):
-            for j in range(3):
-                Xt_[i][j] = Xt[i, j]
-        utetra_alloc(&self._utetra)
-        utetra_init(self._utetra, &x[0], Xt_, jet)
-
-    def __dealloc__(self):
-        utetra_deinit(self._utetra)
-        utetra_dealloc(&self._utetra)
-
-    def is_degenerate(self):
-        return utetra_is_degenerate(self._utetra)
-
-    def solve(self):
-        utetra_solve(self._utetra, NULL)
-
-    def get_value(self):
-        return utetra_get_value(self._utetra)
-
-    def get_jet(self):
-        cdef jet3 jet
-        utetra_get_jet(self._utetra, &jet)
-        return Jet3(jet.f, jet.fx, jet.fy, jet.fz)
 
 cdef class _Dial3:
     cdef:
