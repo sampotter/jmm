@@ -951,33 +951,6 @@ int utetra_get_num_interior_coefs(utetra_s const *utetra) {
   return (b[0] > atol) + (b[1] > atol) + (b[2] > atol);
 }
 
-bool utetra_has_shadow_solution(utetra_s const *utetra) {
-  /* First, handle the easy cases... all `VALID` or all `SHADOW`
-   * nodes. */
-
-  if (utetra->num_shadow == 0)
-    return false;
-
-  if (utetra->num_shadow == 3)
-    return true;
-
-  /* Next, handle the hard case (split updates). */
-
-  assert(is_split(utetra));
-
-  dbl const atol = 1e-14;
-
-  utetra_s **u = utetra->split;
-
-  size_t n = num_split(utetra);
-  if (n == 1 || u[1]->f > u[0]->f) {
-    dbl b0 = 1 - u[0]->lam[0] - u[0]->lam[1];
-    return b0 < atol;
-  } else {
-    return u[0]->lam[0] >= 1 - atol;
-  }
-}
-
 static size_t get_shared_inds(utetra_s const *u1, utetra_s const *u2, size_t *l) {
   assert(update_inds_are_set(u1));
   assert(update_inds_are_set(u2));

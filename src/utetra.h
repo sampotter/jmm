@@ -39,7 +39,6 @@ bool utetra_adj_are_optimal(utetra_s const *u1, utetra_s const *u2);
 bool utetra_diff(utetra_s const *utetra, mesh3_s const *mesh, size_t const l[3]);
 bool utetra_update_ray_is_physical(utetra_s const *utetra, eik3_s const *eik);
 int utetra_get_num_interior_coefs(utetra_s const *utetra);
-bool utetra_has_shadow_solution(utetra_s const *utetra);
 bool utetras_yield_same_update(utetra_s const **u, size_t n);
 size_t utetra_get_l(utetra_s const *utetra);
 void utetra_set_update_inds(utetra_s *utetra, size_t l[3]);
