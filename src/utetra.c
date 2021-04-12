@@ -16,28 +16,97 @@
 
 #define MAX_NITER 100
 
+utetra_spec_s utetra_spec_empty() {
+  return (utetra_spec_s) {
+    .eik = NULL,
+    .lhat = NO_INDEX,
+    .l = {NO_INDEX, NO_INDEX, NO_INDEX},
+    .state = {UNKNOWN, UNKNOWN, UNKNOWN},
+    .xhat = {NAN, NAN, NAN},
+    .x = {
+      {NAN, NAN, NAN},
+      {NAN, NAN, NAN},
+      {NAN, NAN, NAN}
+    },
+    .jet = {
+      {.f = INFINITY, .fx = NAN, .fy = NAN, .fz = NAN},
+      {.f = INFINITY, .fx = NAN, .fy = NAN, .fz = NAN},
+      {.f = INFINITY, .fx = NAN, .fy = NAN, .fz = NAN}
+    }
+  };
+}
+
+utetra_spec_s utetra_spec_from_eik_and_inds(eik3_s const *eik, size_t l,
+                                            size_t l0, size_t l1, size_t l2) {
+  state_e const *state = eik3_get_state_ptr(eik);
+  return (utetra_spec_s) {
+    .eik = eik,
+    .lhat = l,
+    .l = {l0, l1, l2},
+    .state = {state[l0], state[l1], state[l2]},
+    .xhat = {NAN, NAN, NAN},
+    .x = {
+      {NAN, NAN, NAN},
+      {NAN, NAN, NAN},
+      {NAN, NAN, NAN}
+    },
+    .jet = {
+      {.f = INFINITY, .fx = NAN, .fy = NAN, .fz = NAN},
+      {.f = INFINITY, .fx = NAN, .fy = NAN, .fz = NAN},
+      {.f = INFINITY, .fx = NAN, .fy = NAN, .fz = NAN}
+    }
+  };
+}
+
+utetra_spec_s utetra_spec_from_eik_without_l(eik3_s const *eik, dbl const x[3],
+                                             size_t l0, size_t l1, size_t l2) {
+  state_e const *state = eik3_get_state_ptr(eik);
+  return (utetra_spec_s) {
+    .eik = eik,
+    .lhat = NO_INDEX,
+    .l = {l0, l1, l2},
+    .state = {state[l0], state[l1], state[l2]},
+    .xhat = {x[0], x[1], x[2]},
+    .x = {
+      {NAN, NAN, NAN},
+      {NAN, NAN, NAN},
+      {NAN, NAN, NAN}
+    },
+    .jet = {
+      {.f = INFINITY, .fx = NAN, .fy = NAN, .fz = NAN},
+      {.f = INFINITY, .fx = NAN, .fy = NAN, .fz = NAN},
+      {.f = INFINITY, .fx = NAN, .fy = NAN, .fz = NAN}
+    }
+  };
+}
+
+utetra_spec_s utetra_spec_from_ptrs(mesh3_s const *mesh, jet3 const *jet,
+                                    size_t l, size_t l0, size_t l1, size_t l2) {
+  utetra_spec_s spec = {
+    .eik = NULL,
+    .lhat = NO_INDEX,
+    .l = {NO_INDEX, NO_INDEX, NO_INDEX},
+    .state = {UNKNOWN, UNKNOWN, UNKNOWN},
+    .jet = {jet[l0], jet[l1], jet[l2]}
+  };
+
+  mesh3_copy_vert(mesh, l, spec.xhat);
+  mesh3_copy_vert(mesh, l0, spec.x[0]);
+  mesh3_copy_vert(mesh, l1, spec.x[1]);
+  mesh3_copy_vert(mesh, l2, spec.x[2]);
+
+  return spec;
+}
+
 struct utetra {
   dbl lam[2]; // Current iterate
-
   dbl f;
   dbl g[2];
   dbl H[2][2];
-
   dbl p[2]; // Newton step
-
-  dbl angles[3];
-
-  dbl x[3]; // x[l]
-  dbl X[3][3]; // X = [x[l0] x[l1] x[l2]]
-  dbl Xt[3][3]; // X'
-  dbl XtX[3][3]; // X'*X
-
-  dbl L, T[3];
-
-  // B-coefs for 9-point triangle interpolation T on base of update
-  bb32 bb_T;
-
   dbl x_minus_xb[3];
+  dbl L;
+  int niter;
 
   size_t lhat, l[3];
 
@@ -45,7 +114,13 @@ struct utetra {
    * goes with index `l[i]`). */
   state_e state[3];
 
-  int niter;
+  dbl x[3]; // x[l]
+  dbl X[3][3]; // X = [x[l0] x[l1] x[l2]]
+  dbl Xt[3][3]; // X'
+  dbl XtX[3][3]; // X'*X
+
+  // B-coefs for 9-point triangle interpolation T on base of update
+  bb32 bb_T; // TODO: rename T!
 
   /* The number of update indices that are `SHADOW`. Used to determine
    * what to do with the `split` updates.  */
@@ -79,117 +154,17 @@ void utetra_dealloc(utetra_s **utetra) {
   *utetra = NULL;
 }
 
-/* Initialize the split updates when there's one `SHADOW` update
- * vertex. This results in a pair of split `utetra` forming a
- * quadrilateral update base. */
-static void init_split_utetra_s1(utetra_s *u, eik3_s const *eik) {
-  dbl const atol = 1e-15;
-
-  /* Get indices and move the `SHADOW` index to `l[2]` */
-  size_t l[3] = {u->l[0], u->l[1], u->l[2]};
-  if (u->state[0] == SHADOW) SWAP(l[0], l[2]);
-  if (u->state[1] == SHADOW) SWAP(l[1], l[2]);
-
-  /* Get the cut point parameters for each edge. */
-  dbl t[2];
-  assert(eik3_get_cutedge_t(eik, l[0], l[2], &t[0]));
-  assert(eik3_get_cutedge_t(eik, l[1], l[2], &t[1]));
-
-  /* First, check if both cut points nearly coincide with the `VALID`
-   * nodes. When this happens, reset all of the states to `SHADOW` and
-   * return early. */
-  // TODO: this is actually slightly wrong. Technically, when this
-  // happens, the edge [x0, x1] is `VALID`, and we could conceivably
-  // have a `VALID` update from this edge. One thing we could do would
-  // be to replace this update with a triangle update in this
-  // case. Things would start to get pretty complicated in that case,
-  // though!
-  if (t[0] < atol && t[1] < atol) {
-    u->state[0] = u->state[1] = u->state[2] = SHADOW;
-    u->num_shadow = 3;
-    return;
-  }
-
-  /* Next, check if the cut points both nearly coincide with the
-   * `SHADOW` vertex. When this happens, we should instead avoid
-   * splitting the update, and just reset the state of the `SHADOW`
-   * node to `VALID`, since this is basically the case we're dealing
-   * with. */
-  if (t[0] > 1 - atol && t[1] > 1 - atol) {
-    u->state[0] = u->state[1] = u->state[2] = VALID;
-    u->num_shadow = 0;
-    return;
-  }
-
-  /* Allocate two utetra */
-  u->split = malloc(2*sizeof(utetra_s*));
-  utetra_alloc(&u->split[0]);
-  utetra_alloc(&u->split[1]);
-
-  mesh3_s const *mesh = eik3_get_mesh(eik);
-
-  /* We'll initialize the first `utetra` so that its base is the
-   * triangle consisting of nodes `l0`, `l1`, and the cut point
-   * between `l0` and `l2`. First, we just grab nodes `l0` and
-   * `l1`. We also want to arrange the nodes so that the first
-   * coordinate of this and the second `utetra` agree. That is, (t, 0)
-   * indexes the same point on the edge [x1, xt], shared by each split
-   * `utetra`. */
-  dbl x[3], Xt[3][3], dx[3];
-  mesh3_copy_vert(mesh, u->lhat, x);
-  mesh3_copy_vert(mesh, l[1], Xt[0]); // `l[1]` goes first! see the
-  mesh3_copy_vert(mesh, l[0], Xt[2]); // note above about coordinates
-
-  dbl const *x0 = Xt[2], *x1 = Xt[0], *x2 = mesh3_get_vert_ptr(mesh, l[2]);
-
-  /* Get the cut point between nodes `l0` and `l2`. */
-  dbl3_sub(x2, x0, dx);
-  dbl3_saxpy(t[0], dx, x0, Xt[1]);
-
-  /* Get the jets. */
-  jet3 jet[3];
-  jet[0] = eik3_get_jet(eik, l[1]);
-  jet[2] = eik3_get_jet(eik, l[0]);
-  assert(eik3_get_cutedge_jet(eik, l[0], l[2], &jet[1]));
-
-  /* Initialize the first `utetra`... */
-  utetra_init_no_inds(u->split[0], x, Xt, jet);
-
-  /* ... and make sure the states of each base node are
-   * `VALID`. (Technically, the cut points don't have a state, since
-   * they aren't grid nodes, but they are in the `VALID` zone, so it
-   * makes sense to label them as such.) */
-  state_e *state = u->split[0]->state;
-  state[0] = state[1] = state[2] = VALID;
-  u->split[0]->num_shadow = 0;
-
-  /* Initialize the second `utetra` so that its base is the triangle
-   * consisting of node `l1`, the cut point between `l0` and `l2`, and
-   * the cut point between `l1` and `l2`.  */
-  dbl3_sub(x2, x1, dx);
-  dbl3_saxpy(t[1], dx, x1, Xt[2]);
-
-  /* Get the jet at that cut point. */
-  assert(eik3_get_cutedge_jet(eik, l[1], l[2], &jet[2]));
-
-  /* Initialize the second `utetra`... */
-  utetra_init_no_inds(u->split[1], x, Xt, jet);
-
-  /* ... and again, set the inds to `VALID`. */
-  state = u->split[1]->state;
-  state[0] = state[1] = state[2] = VALID;
-  u->split[1]->num_shadow = 0;
-}
-
 /* Initialize the split update when there are two `SHADOW` update
  * points. This results in a single `utetra`. */
-static void init_split_utetra_s2(utetra_s *u, eik3_s const *eik) {
+static void init_split_s1(utetra_s *u_par, eik3_s const *eik) {
   dbl const atol = 1e-15;
 
-  /* Get indices and move the `VALID` index to `l[0]`. */
-  size_t l[3] = {u->l[0], u->l[1], u->l[2]};
-  if (u->state[1] == VALID) SWAP(l[0], l[1]);
-  if (u->state[2] == VALID) SWAP(l[0], l[2]);
+  size_t l[3];
+  memcpy(l, u_par->l, sizeof(size_t[3]));
+
+  /* Move the `VALID` index to `l[0]`. */
+  if (u_par->state[1] == VALID) SWAP(l[0], l[1]);
+  if (u_par->state[2] == VALID) SWAP(l[0], l[2]);
 
   /* Get the cut point parameters for each edge. */
   dbl t[2];
@@ -200,192 +175,273 @@ static void init_split_utetra_s2(utetra_s *u, eik3_s const *eik) {
    * `SHADOW` nodes. When this happens, set all nodes' states to
    * `VALID` and return. */
   if (t[0] > 1 - atol && t[1] > 1 - atol) {
-    u->state[0] = u->state[1] = u->state[2] = VALID;
-    u->num_shadow = 0;
+    u_par->state[0] = u_par->state[1] = u_par->state[2] = VALID;
+    u_par->num_shadow = 0;
+    u_par->split = NULL;
     return;
   }
 
   /* ... and if both cut points are nearly coincident wit the `VALID`
    * node, set all nodes' states to `SHADOW` and return. */
   if (t[0] < atol && t[1] < atol) {
-    u->state[0] = u->state[1] = u->state[2] = SHADOW;
-    u->num_shadow = 3;
+    u_par->state[0] = u_par->state[1] = u_par->state[2] = SHADOW;
+    u_par->num_shadow = 3;
+    u_par->split = NULL;
     return;
   }
 
-  mesh3_s const *mesh = eik3_get_mesh(eik);
+  utetra_spec_s spec = utetra_spec_empty();
 
-  /* Allocate one utetra */
-  u->split = malloc(sizeof(utetra_s *));
-  utetra_alloc(&u->split[0]);
+  spec.eik = eik;
+  spec.state[0] = spec.state[1] = spec.state[2] = VALID;
 
-  dbl x[3], Xt[3][3], dx[3];
+  if (u_par->lhat == (size_t)NO_INDEX) {
+    assert(dbl3_isfinite(u_par->x));
+    dbl3_copy(u_par->x, spec.xhat);
+  } else {
+    spec.lhat = u_par->lhat;
+  }
 
-  /* Get the vertices for `l[0]` and the update point. */
-  mesh3_copy_vert(mesh, u->lhat, x);
-  mesh3_copy_vert(mesh, l[0], Xt[0]);
+  mesh3_s const *mesh = eik3_get_mesh(spec.eik);
+
+  mesh3_copy_vert(mesh, l[0], spec.x[0]);
+
+  dbl dx[3];
 
   /* Get the cut point for the `(l[0], l[1])` cut edge. */
-  dbl3_sub(mesh3_get_vert_ptr(mesh, l[1]), Xt[0], dx);
-  dbl3_saxpy(t[0], dx, Xt[0], Xt[1]);
+  dbl3_sub(mesh3_get_vert_ptr(mesh, l[1]), spec.x[0], dx);
+  dbl3_saxpy(t[0], dx, spec.x[0], spec.x[1]);
 
   /* Get the cut point for the `(l[0], l[2])` cut edge. */
-  dbl3_sub(mesh3_get_vert_ptr(mesh, l[2]), Xt[0], dx);
-  dbl3_saxpy(t[1], dx, Xt[0], Xt[2]);
+  dbl3_sub(mesh3_get_vert_ptr(mesh, l[2]), spec.x[0], dx);
+  dbl3_saxpy(t[1], dx, spec.x[0], spec.x[2]);
 
   /* Get the jets for each point. */
-  jet3 jet[3];
-  jet[0] = eik3_get_jet(eik, l[0]);
-  assert(eik3_get_cutedge_jet(eik, l[0], l[1], &jet[1]));
-  assert(eik3_get_cutedge_jet(eik, l[0], l[2], &jet[2]));
+  spec.jet[0] = eik3_get_jet(eik, l[0]);
+  assert(eik3_get_cutedge_jet(eik, l[0], l[1], &spec.jet[1]));
+  assert(eik3_get_cutedge_jet(eik, l[0], l[2], &spec.jet[2]));
 
-  /* Initialize the split `utetra`... */
-  utetra_init_no_inds(u->split[0], x, Xt, jet);
-
-  /* ... and set the state of each update vertex to `VALID`. */
-  state_e *state = u->split[0]->state;
-  state[0] = state[1] = state[2] = VALID;
+  /* Set up the single split `utetra` */
+  u_par->split = malloc(sizeof(utetra_s *));
+  utetra_alloc(&u_par->split[0]);
+  utetra_init(u_par->split[0], &spec);
 }
 
-/* Conditionally initialize the "split" updates. If there's more than
- * one shadow node, then we split the base of the update, restricting
- * the domain using information from the cutset. */
-static void init_split_utetra(utetra_s *u, eik3_s const *eik) {
+/* Initialize the split updates when there's one `SHADOW` update
+ * vertex. This results in a pair of split `utetra` forming a
+ * quadrilateral update base. */
+static void init_split_s2(utetra_s *u_par, eik3_s const *eik) {
+  dbl const atol = 1e-15;
+
+  /* Get indices and move the `SHADOW` index to `l[2]` */
+  size_t l[3]; memcpy(l, u_par->l, sizeof(size_t[3]));
+  if (u_par->state[0] == SHADOW) SWAP(l[0], l[2]);
+  if (u_par->state[1] == SHADOW) SWAP(l[1], l[2]);
+
+  /* Get the cut point parameters for each edge. */
+  dbl t[2];
+  assert(eik3_get_cutedge_t(eik, l[0], l[2], &t[0]));
+  assert(eik3_get_cutedge_t(eik, l[1], l[2], &t[1]));
+
+  // TODO: the next two sections are slightly wrong. Technically, when
+  // this happens, the edge [x0, x1] is `VALID`, and we could
+  // conceivably have a `VALID` update from this edge. One thing we
+  // could do would be to replace this update with a triangle update
+  // in this case. Things would start to get pretty complicated in
+  // that case, though!
+
+  /* First, check if both cut points nearly coincide with the `VALID`
+   * nodes. When this happens, reset all of the states to `SHADOW` and
+   * return early. */
+  if (t[0] < atol && t[1] < atol) {
+    u_par->state[0] = u_par->state[1] = u_par->state[2] = SHADOW;
+    u_par->num_shadow = 3;
+    u_par->split = NULL;
+    return;
+  }
+
+  /* Next, check if the cut points both nearly coincide with the
+   * `SHADOW` vertex. When this happens, we should instead avoid
+   * splitting the update, and just reset the state of the `SHADOW`
+   * node to `VALID`, since this is basically the case we're dealing
+   * with. */
+  if (t[0] > 1 - atol && t[1] > 1 - atol) {
+    u_par->state[0] = u_par->state[1] = u_par->state[2] = VALID;
+    u_par->num_shadow = 0;
+    u_par->split = NULL;
+    return;
+  }
+
+  utetra_spec_s spec[2] = {utetra_spec_empty(), utetra_spec_empty()};
+
+  for (size_t i = 0; i < 2; ++i) {
+    spec[i].eik = eik;
+    spec[i].state[0] = spec[i].state[1] = spec[i].state[2] = VALID;
+    spec[i].lhat = u_par->lhat;
+  }
+
+  /* If we weren't able to set each `spec[i].lhat` correctly above,
+   * set `spec[i].xhat` now. */
+  if (u_par->lhat == (size_t)NO_INDEX) {
+    assert(dbl3_isfinite(u_par->x));
+    for (size_t i = 0; i < 2; ++i)
+      dbl3_copy(u_par->x, spec[i].xhat);
+  }
+
+  mesh3_s const *mesh = eik3_get_mesh(eik);
+
+  dbl const *x[3];
+  for (size_t i = 0; i < 3; ++i)
+    x[i] = mesh3_get_vert_ptr(mesh, l[i]);
+
+  dbl dx[3];
+
+  /* We'll initialize the first `utetra` so that its base is the
+   * triangle consisting of nodes `l0`, `l1`, and the cut point
+   * between `l0` and `l2`. First, we just grab nodes `l0` and
+   * `l1`. We also want to arrange the nodes so that the first
+   * coordinate of this and the second `utetra` agree. That is, (t, 0)
+   * indexes the same point on the edge [x1, xt], shared by each split
+   * `utetra`. */
+  dbl3_copy(x[1], spec[0].x[0]); // `l[1]` goes first! see the note
+  dbl3_copy(x[0], spec[0].x[2]); // above about indexing
+
+  /* Get the cut point between nodes `l0` and `l2`. */
+  dbl3_sub(x[2], x[0], dx);
+  dbl3_saxpy(t[0], dx, x[0], spec[0].x[1]);
+
+  /* Get the jets. */
+  spec[0].jet[0] = eik3_get_jet(eik, l[1]);
+  spec[0].jet[2] = eik3_get_jet(eik, l[0]);
+  assert(eik3_get_cutedge_jet(eik, l[0], l[2], &spec[0].jet[1]));
+
+  /* Initialize the second `utetra` so that its base is the triangle
+   * consisting of node `l1`, the cut point between `l0` and `l2`, and
+   * the cut point between `l1` and `l2`.  */
+  dbl3_copy(spec[0].x[0], spec[1].x[0]);
+  dbl3_copy(spec[0].x[1], spec[1].x[1]);
+  dbl3_sub(x[2], x[1], dx);
+  dbl3_saxpy(t[1], dx, x[1], spec[1].x[2]);
+
+  /* Get the jet at that cut point. */
+  spec[1].jet[0] = spec[0].jet[0];
+  spec[1].jet[1] = spec[0].jet[1];
+  assert(eik3_get_cutedge_jet(eik, l[1], l[2], &spec[1].jet[2]));
+
+  /* Set up the pair of split `utetra` before returning */
+  u_par->split = malloc(2*sizeof(utetra_s*));
+  for (size_t i = 0; i < 2; ++i) {
+    utetra_alloc(&u_par->split[i]);
+    utetra_init(u_par->split[i], &spec[i]);
+  }
+}
+
+bool utetra_init(utetra_s *u, utetra_spec_s const *spec) {
+  /* Initialize f with INFINITY---this needs to be done so that `u`
+   * `cmp`s correctly with initialized `utetra` (i.e., if we sort an
+   * array of `utetra`, uninitialized `utetra` will move to the back
+   * so that they can be easily ignored). */
+  u->f = INFINITY;
+
+  /* Initialize Newton iteration variables with dummy values */
+  u->lam[0] = u->lam[1] = NAN;
+  u->g[0] = u->g[1] = NAN;
+  u->H[0][0] = u->H[1][0] = u->H[0][1] = u->H[1][1] = NAN;
+  u->p[0] = u->p[1] = NAN;
+
+  mesh3_s const *mesh = spec->eik ? eik3_get_mesh(spec->eik) : NULL;
+
+  bool passed_lhat = spec->lhat != (size_t)NO_INDEX;
+
+  u->lhat = spec->lhat;
+
+  bool passed_xhat = dbl3_isfinite(spec->xhat);
+  assert(passed_lhat ^ passed_xhat); // pass exactly one of these
+
+  /* Initialize x(hat) */
+  if (passed_lhat) {
+    assert(mesh);
+    mesh3_copy_vert(mesh, u->lhat, u->x);
+  } else { // passed_xhat
+    dbl3_copy(spec->xhat, u->x);
+  }
+
+  bool passed_l0 = spec->l[0] != (size_t)NO_INDEX;
+  bool passed_l1 = spec->l[1] != (size_t)NO_INDEX;
+  bool passed_l2 = spec->l[2] != (size_t)NO_INDEX;
+  bool passed_l = passed_l0 && passed_l1 && passed_l2;
+  if (passed_l0 || passed_l1 || passed_l2)
+    assert(passed_l);
+
+  memcpy(u->l, spec->l, sizeof(size_t[3]));
+
+  bool passed_x0 = dbl3_isfinite(spec->x[0]);
+  bool passed_x1 = dbl3_isfinite(spec->x[1]);
+  bool passed_x2 = dbl3_isfinite(spec->x[2]);
+  bool passed_x = passed_x0 && passed_x1 && passed_x2;
+  if (passed_x0 || passed_x1 || passed_x2)
+    assert(passed_x);
+
+  assert(passed_l ^ passed_x); // pass exactly one of these
+
+  if (passed_l)
+    for (size_t i = 0; i < 3; ++i)
+      mesh3_copy_vert(mesh, u->l[i], u->Xt[i]);
+  else  // passed_x
+    for (size_t i = 0; i < 3; ++i)
+      dbl3_copy(spec->x[i], u->Xt[i]);
+
+  dbl33_transposed(u->Xt, u->X);
+  dbl33_mul(u->Xt, u->X, u->XtX);
+
+  bool passed_state0 = spec->state[0] != UNKNOWN;
+  bool passed_state1 = spec->state[1] != UNKNOWN;
+  bool passed_state2 = spec->state[2] != UNKNOWN;
+  bool passed_state = passed_state0 && passed_state1 && passed_state2;
+  if (passed_state0 || passed_state1 || passed_state2)
+    assert(passed_state);
+
+  memcpy(u->state, spec->state, sizeof(state_e[3]));
+
+  bool passed_jet0 = jet3_is_finite(&spec->jet[0]);
+  bool passed_jet1 = jet3_is_finite(&spec->jet[1]);
+  bool passed_jet2 = jet3_is_finite(&spec->jet[2]);
+  bool passed_jet = passed_jet0 && passed_jet1 && passed_jet2;
+  if (passed_jet0 || passed_jet1 || passed_jet2)
+    assert(passed_jet);
+
+  assert(passed_jet ^ passed_l); // exactly one of these
+
+  jet3 jet[3];
+  for (size_t i = 0; i < 3; ++i)
+    jet[i] = passed_jet ? spec->jet[i] : eik3_get_jet(spec->eik, spec->l[i]);
+
+  dbl T[3], DT[3][3];
+  for (int i = 0; i < 3; ++i) {
+    assert(jet3_is_finite(&jet[i]));
+    T[i] = jet[i].f;
+    memcpy(DT[i], &jet[i].fx, sizeof(dbl[3]));
+  }
+  bb32_init_from_3d_data(&u->bb_T, T, &DT[0], u->Xt);
+
+  u->num_shadow = 0;
+  for (size_t i = 0; i < 3; ++i)
+    u->num_shadow += u->state[i] == SHADOW;
+
   if (u->num_shadow == 1)
-    init_split_utetra_s1(u, eik);
+    init_split_s2(u, spec->eik);
   else if (u->num_shadow == 2)
-    init_split_utetra_s2(u, eik);
+    init_split_s1(u, spec->eik);
   else
     u->split = NULL;
-}
-
-bool utetra_init_from_eik3(utetra_s *cf, eik3_s const *eik,
-                           size_t l, size_t l0, size_t l1, size_t l2) {
-  cf->lhat = l;
-
-  dbl x[3];
-  mesh3_copy_vert(eik3_get_mesh(eik), l, x);
-
-  return utetra_init_from_eik3_without_l(cf, eik, x, l0, l1, l2);
-}
-
-bool utetra_init_from_eik3_without_l(utetra_s *cf, eik3_s const *eik,
-                                     dbl const x[3],
-                                     size_t l0, size_t l1, size_t l2) {
-  mesh3_s const *mesh = eik3_get_mesh(eik);
-  jet3 const *jet = eik3_get_jet_ptr(eik);
-
-  if (!utetra_init_from_ptrs_without_l(cf, mesh, jet, x, l0, l1, l2))
-    return false;
-
-  state_e const *state = eik3_get_state_ptr(eik);
-  cf->state[0] = state[l0];
-  cf->state[1] = state[l1];
-  cf->state[2] = state[l2];
-
-  cf->num_shadow = 0;
-  for (size_t i = 0; i < 3; ++i)
-    cf->num_shadow += cf->state[i] == SHADOW;
-
-  init_split_utetra(cf, eik);
-
-  // TODO: would be good to initialize the containing utetra with
-  // dummy values when the update is split so it's a bit more obvious
-  // while debugging... (set things to NAN etc...)
-
-  return true;
-}
-
-bool utetra_init_from_ptrs(utetra_s *cf, mesh3_s const *mesh, jet3 const *jet,
-                           size_t l, size_t l0, size_t l1, size_t l2) {
-  dbl x[3];
-  mesh3_copy_vert(mesh, l, x);
-
-  bool success = utetra_init_from_ptrs_without_l(cf, mesh, jet, x, l0, l1, l2);
-
-  cf->lhat = l;
-
-  return success;
-}
-
-bool utetra_init_from_ptrs_without_l(utetra_s *cf, mesh3_s const *mesh,
-                                     jet3 const *jet, dbl const x[3], size_t l0,
-                                     size_t l1, size_t l2) {
-  cf->lhat = NO_INDEX;
-
-  dbl Xt[3][3];
-  mesh3_copy_vert(mesh, l0, Xt[0]);
-  mesh3_copy_vert(mesh, l1, Xt[1]);
-  mesh3_copy_vert(mesh, l2, Xt[2]);
-
-  jet3 jet_[3] = {jet[l0], jet[l1], jet[l2]};
-  assert(jet3_is_finite(&jet_[0]));
-  assert(jet3_is_finite(&jet_[1]));
-  assert(jet3_is_finite(&jet_[2]));
-
-  cf->l[0] = l0;
-  cf->l[1] = l1;
-  cf->l[2] = l2;
-
-  return utetra_init(cf, x, Xt, jet_);
-}
-
-bool utetra_init_no_inds(utetra_s *cf, dbl const x[3], dbl const Xt[3][3],
-                         jet3 const jet[3]) {
-  // Set the indices to `NO_INDEX` here to ensure that we don't
-  // accidentally trip over weird things later that assume access to
-  // indices that make sense.
-  cf->lhat = cf->l[0] = cf->l[1] = cf->l[2] = NO_INDEX;
-
-  return utetra_init(cf, x, Xt, jet);
-}
-
-bool utetra_init(utetra_s *cf, dbl const x[3], dbl const Xt[3][3],
-                 jet3 const jet[3]) {
-  cf->f = INFINITY;
-
-  /* Initialize some variables with dummy values. */
-  cf->lam[0] = cf->lam[1] = NAN;
-  cf->L = NAN;
-
-  memcpy(cf->x, x, 3*sizeof(dbl));
-  memcpy(cf->Xt, Xt, 3*3*sizeof(dbl));
-
-  dbl33_transposed(cf->Xt, cf->X);
-  dbl33_mul(cf->Xt, cf->X, cf->XtX);
-
-  dbl Xt_minus_x[3][3];
-  for (int i = 0; i < 3; ++i) {
-    dbl3_sub(cf->Xt[i], cf->x, Xt_minus_x[i]);
-    dbl3_normalize(Xt_minus_x[i]);
-  }
-  for (int i = 0; i < 3; ++i) {
-    cf->angles[i] = dbl3_dot(Xt_minus_x[i], Xt_minus_x[(i + 1) % 3]);
-  }
-
-  dbl DT[3][3];
-  for (int i = 0; i < 3; ++i) {
-    cf->T[i] = jet[i].f;
-    DT[i][0] = jet[i].fx;
-    DT[i][1] = jet[i].fy;
-    DT[i][2] = jet[i].fz;
-  }
-  bb32_init_from_3d_data(&cf->bb_T, cf->T, &DT[0], cf->Xt);
-
-  cf->niter = 0;
-
-  cf->state[0] = cf->state[1] = cf->state[2] = UNKNOWN;
-
-  cf->num_shadow = 0;
-  cf->split = NULL;
 
   // Compute the surface normal for the plane spanned by (x1 - x0, x2
   // - x0), using DT[i] to determine its orientation. Return whether x
   // is on the right side of this plane.
   dbl n[3];
   dbl dx[2][3];
-  dbl3_sub(cf->Xt[1], cf->Xt[0], dx[0]);
-  dbl3_sub(cf->Xt[2], cf->Xt[0], dx[1]);
+  dbl3_sub(u->Xt[1], u->Xt[0], dx[0]);
+  dbl3_sub(u->Xt[2], u->Xt[0], dx[1]);
   dbl3_cross(dx[0], dx[1], n);
   dbl3_normalize(n);
   int sgn[3] = {
@@ -395,7 +451,9 @@ bool utetra_init(utetra_s *cf, dbl const x[3], dbl const Xt[3][3],
   };
   if (sgn[0] == -1)
     dbl3_negate(n);
-  dbl dot = -dbl3_dot(Xt_minus_x[0], n) > 0;
+  dbl x0_minus_x[3];
+  dbl3_sub(u->Xt[0], u->x, x0_minus_x);
+  dbl dot = -dbl3_dot(x0_minus_x, n) > 0;
   return dot > 0;
 }
 
@@ -419,10 +477,10 @@ void utetra_deinit(utetra_s *u) {
   }
 }
 
-bool utetra_is_degenerate(utetra_s const *cf) {
-  // Check if the point being updated lies in the plane spanned by by
-  // x0, x1, and x2. If it does, the update is degenerate.
-  dbl const *x[4] = {cf->x, cf->Xt[0], cf->Xt[1], cf->Xt[2]};
+/* Check if the point being updated lies in the plane spanned by by
+ * x0, x1, and x2. If it does, the update is degenerate. */
+bool utetra_is_degenerate(utetra_s const *u) {
+  dbl const *x[4] = {u->x, u->Xt[0], u->Xt[1], u->Xt[2]};
   return points_are_coplanar(x);
 }
 
@@ -627,7 +685,6 @@ void utetra_get_jet(utetra_s const *cf, jet3 *jet) {
  * problem corresponding to this type of update
  */
 static void get_lag_mults(utetra_s const *cf, dbl alpha[3]) {
-  assert(!is_split(cf));
   dbl const atol = 5e-15;
   dbl b[3] = {1 - dbl2_sum(cf->lam), cf->lam[0], cf->lam[1]};
   alpha[0] = alpha[1] = alpha[2] = 0;
@@ -683,12 +740,10 @@ static bool split_utetra_has_interior_point_solution(utetra_s const *cf) {
       u[0]->lam[1] < atol && u[1]->lam[1] < atol;
 
   if (jet[0].f < jet[1].f)
-    return fabs(alpha[1][0]) < atol && fabs(alpha[1][1]) < atol &&
-      dbl3_maxnorm(alpha[0]) < atol;
+    return dbl3_maxnorm(alpha[0]) < atol;
 
   if (jet[0].f > jet[1].f)
-    return fabs(alpha[0][0]) < atol && fabs(alpha[0][1]) < atol &&
-      dbl3_maxnorm(alpha[1]) < atol;
+    return dbl3_maxnorm(alpha[1]) < atol;
 
   assert(false);
 }
@@ -935,26 +990,14 @@ bool utetra_update_ray_is_physical(utetra_s const *utetra, eik3_s const *eik) {
 static int split_utetra_get_num_interior_coefs(utetra_s const *utetra) {
   dbl const atol = 1e-15;
 
-  size_t n = num_split(utetra);
-
-  dbl f[2];
-  f[0] = utetra->split[0]->f;
-  f[1] = n == 2 ? utetra->split[1]->f : NAN;
-
-  /* Select utetra */
-  utetra_s const *u;
-  if (n == 1 || f[0] < f[1])
-    u = utetra->split[0];
-  else
-    u = utetra->split[1];
+  utetra_s const *u = split_utetra_select(utetra);
 
   dbl b[3];
   get_b(u, b);
 
   /* If we're dealing with a quad split (`n == 2`) and the update
    * point is in the interior of the quad, then we should return 4. */
-  if (n == 2 &&
-      b[0] > atol && b[1] > atol && b[2] <= atol)
+  if (num_split(u) == 2 && b[0] > atol && b[1] > atol && b[2] <= atol)
     return 4;
 
   /* Compute the number of interior coefficients the normal way and
@@ -1231,11 +1274,10 @@ void utetra_set_update_inds(utetra_s *utetra, size_t l[3]) {
   memcpy(utetra->l, l, sizeof(size_t[3]));
 }
 
+/* Get the triangle of `u`. If `u` is split, this does *not* return
+ * the triangle of the split updates (since that would not be
+ * well-defined!). */
 static tri3 get_tri(utetra_s const *u) {
-  utetra_s const *u_split = split_utetra_select(u);
-  if (u_split)
-    return get_tri(u_split);
-
   tri3 tri;
   memcpy(tri.v, u->Xt, sizeof(dbl[3][3]));
   return tri;
@@ -1263,22 +1305,79 @@ void utetra_get_x(utetra_s const *u, dbl x[3]) {
   dbl33_dbl3_mul(u->X, b, x);
 }
 
+static void get_alpha_for_active_inds_s1(utetra_s const *utetra, dbl alpha[3]) {
+  assert(false); // TODO: take a careful look at this the first time it hits!
+
+  utetra_s const *u = split_utetra_select(utetra);
+
+  get_lag_mults(u, alpha);
+
+  /* If the first Lagrange multiplier for `u` is nonzero, it indicates
+   * that optimum is incident on the shadow boundary, which in the
+   * interior of `utetra`. We set it to zero here to properly
+   * communicate this to the caller of `utetra_get_active_inds`, which
+   * properly refers to `utetra`. */
+  alpha[0] = 0;
+
+  /* When we set up `u` originally, we either swapped the position of
+   * `l0` and `l1` or `l0` and `l2`, depending on the state of each
+   * node, and so that ultimately `l0` is `VALID`, and `l1` and `l2`
+   * are `SHADOW`. We can undo this permutation by checking whether
+   * `utetra`'s `x0` equals `u`'s `x1` or `x2`.
+   *
+   * Note that when we compare below, we do exact, bitwise comparison,
+   * since the vertices in `u` are direct copies of those in
+   * `utetra`. */
+  if (dbl3_equal(utetra->Xt[0], u->Xt[1]))
+    SWAP(alpha[0], alpha[1]);
+  else if (dbl3_equal(utetra->Xt[0], u->Xt[2]))
+    SWAP(alpha[0], alpha[2]);
+}
+
+static void get_alpha_for_active_inds_s2(utetra_s const *utetra, dbl alpha[3]) {
+  bool shadow_adj_split = utetra->split[0]->f > utetra->split[1]->f;
+  utetra_s const *u = shadow_adj_split ? utetra->split[1] : utetra->split[0];
+
+  get_lag_mults(u, alpha);
+
+  /* Set Lagrange multiplier corresponding to internal edge to zero,
+   * so that an interior point minimizer is treated as such. */
+  alpha[2] = 0;
+
+  /* Rearrange the Lagrange multipliers so that they match `utetra`'s
+   * indices. We have to do this differently for each update. */
+  if (shadow_adj_split)
+    /* Only need to swap `l0` and `l1` for the split update adjacent
+     * to the shadow zone... */
+    SWAP(alpha[0], alpha[1]);
+  else {
+    assert(false); // TODO: take a careful look at this the first time it hits!
+
+    /* ... but need to rotate for the other split. This is a bit
+     * inscrutable, but to be clear: we want to set (0, 1, 2) <- (2,
+     * 0, 1). (Drawing a picture will make it clear.) */
+    ROTATE3(alpha[0], alpha[2], alpha[1]);
+  }
+}
+
 size_t utetra_get_active_inds(utetra_s const *utetra, size_t l[3]) {
-  assert(!is_split(utetra));
   assert(update_inds_are_set(utetra));
 
   dbl const atol = 1e-14;
 
   dbl alpha[3];
-  get_lag_mults(utetra, alpha);
+  switch (num_split(utetra)) {
+  case 0: get_lag_mults(utetra, alpha); break;
+  case 1: get_alpha_for_active_inds_s1(utetra, alpha); break;
+  case 2: get_alpha_for_active_inds_s2(utetra, alpha); break;
+  default: assert(false);
+  }
 
   size_t num_active = 0;
-
   l[0] = l[1] = l[2] = NO_INDEX;
   for (int i = 0; i < 3; ++i)
     if (fabs(alpha[i]) < atol)
       l[num_active++] = utetra->l[i];
-
   return num_active;
 }
 
@@ -1289,8 +1388,7 @@ par3_s utetra_get_parent(utetra_s const *utetra) {
    * update and then compute its barycentric coordinates with respect
    * to the base of the containing update (`utetra`). */
   if (is_split(utetra)) {
-    utetra_s const *u = split_utetra_select(utetra);
-    dbl x[3]; utetra_get_x(u, x);
+    dbl x[3]; utetra_get_x(utetra, x);
     tri3 tri = get_tri(utetra); // tri from *containing* update
     tri3_get_bary_coords(&tri, x, par.b);
     dbl3_normalize1(par.b);

@@ -79,6 +79,8 @@ Ensure(eik3, tetra_works_for_olim18_122_update) {
   utetra_s *cf;
   utetra_alloc(&cf);
 
+  utetra_spec_s spec;
+
   int p;
   for (int i = 0; i < 6; ++i) {
     /**
@@ -101,7 +103,8 @@ Ensure(eik3, tetra_works_for_olim18_122_update) {
       get_gt_jet(xsrc, &verts_perm[3*j],  &jet[j]);
     }
 
-    utetra_init_from_ptrs(cf, mesh, jet, 3, 0, 1, 2);
+    spec = utetra_spec_from_ptrs(mesh, jet, 3, 0, 1, 2);
+    utetra_init(cf, &spec);
 
     /**
      * Verify that cost function has correct nodal values
@@ -191,7 +194,9 @@ Ensure(eik3, tetra_works_for_olim18_222_update) {
 
   utetra_s *cf;
   utetra_alloc(&cf);
-  utetra_init_from_ptrs(cf, mesh, jet, 3, 0, 1, 2);
+
+  utetra_spec_s spec = utetra_spec_from_ptrs(mesh, jet, 3, 0, 1, 2);
+  utetra_init(cf, &spec);
 
   utetra_set_lambda(cf, lambda);
   utetra_solve(cf, NULL);
@@ -294,10 +299,12 @@ Ensure(eik3, olim18_222_is_symmetric) {
   mesh3_alloc(&mesh);
   mesh3_init(mesh, verts, 4, cells, 1, true);
 
+  utetra_spec_s spec = utetra_spec_from_ptrs(mesh, jet, 3, 0, 1, 2);
+
   utetra_s *cf[2];
   for (int i = 0; i < 2; ++i) {
     utetra_alloc(&cf[i]);
-    utetra_init_from_ptrs(cf[i], mesh, jet, 3, 0, 1, 2);
+    utetra_init(cf[i], &spec);
   }
 
   utetra_set_lambda(cf[0], (dbl[2]) {1, 0});
@@ -386,7 +393,8 @@ Ensure(eik3, tetra_works_for_olim26_updates) {
       get_gt_jet(xsrc, &verts_perm[3*j],  &jet[j]);
     }
 
-    utetra_init_from_ptrs(cf, mesh, jet, 3, 0, 1, 2);
+    utetra_spec_s spec = utetra_spec_from_ptrs(mesh, jet, 3, 0, 1, 2);
+    utetra_init(cf, &spec);
 
     /**
      * Verify that cost function has correct nodal values

@@ -9,6 +9,22 @@ extern "C" {
 #include "jet.h"
 #include "par.h"
 
+typedef struct utetra_spec {
+  eik3_s const *eik;
+  size_t lhat, l[3];
+  state_e state[3];
+  dbl xhat[3], x[3][3];
+  jet3 jet[3];
+} utetra_spec_s;
+
+utetra_spec_s utetra_spec_empty();
+utetra_spec_s utetra_spec_from_eik_and_inds(eik3_s const *eik, size_t l,
+                                            size_t l0, size_t l1, size_t l2);
+utetra_spec_s utetra_spec_from_eik_without_l(eik3_s const *eik, dbl const x[3],
+                                             size_t l0, size_t l1, size_t l2);
+utetra_spec_s utetra_spec_from_ptrs(mesh3_s const *mesh, jet3 const *jet,
+                                    size_t l, size_t l0, size_t l1, size_t l2);
+
 // TODO: we want to create a new module... "utetras"
 // maybe... basically, a complex of utetra updates. There's a bunch of
 // logic related to doing this updates in eik3 that makes eik3's
@@ -20,22 +36,9 @@ typedef struct utetra utetra_s;
 
 void utetra_alloc(utetra_s **cf);
 void utetra_dealloc(utetra_s **cf);
-bool utetra_init_from_eik3(utetra_s *cf, eik3_s const *eik,
-                           size_t l, size_t l0, size_t l1, size_t l2);
-bool utetra_init_from_eik3_without_l(utetra_s *cf, eik3_s const *eik,
-                                     dbl const x[3],
-                                     size_t l0, size_t l1, size_t l2);
-bool utetra_init_from_ptrs(utetra_s *cf, mesh3_s const *mesh, jet3 const *jet,
-                           size_t l, size_t l0, size_t l1, size_t l2);
-bool utetra_init_from_ptrs_without_l(utetra_s *cf, mesh3_s const *mesh,
-                                     jet3 const *jet, dbl const x[3],
-                                     size_t l0, size_t l1, size_t l2);
-bool utetra_init_no_inds(utetra_s *cf, dbl const x[3], dbl const Xt[3][3],
-                         jet3 const jet[3]);
-bool utetra_init(utetra_s *cf, dbl const x[3], dbl const Xt[3][3],
-                 jet3 const jet[3]);
+bool utetra_init(utetra_s *u, utetra_spec_s const *spec);
 void utetra_deinit(utetra_s *u);
-bool utetra_is_degenerate(utetra_s const *cf);
+bool utetra_is_degenerate(utetra_s const *u);
 void utetra_solve(utetra_s *cf, dbl const *lam);
 dbl utetra_get_value(utetra_s const *cf);
 void utetra_get_jet(utetra_s const *cf, jet3 *jet);

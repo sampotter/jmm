@@ -627,7 +627,8 @@ static void update(eik3_s *eik, size_t l, size_t l0) {
     if (updated_from_diff_edge[i])
       continue;
 
-    if (utetra_init_from_eik3(utetra[i], eik, l, l0, l1[i], l2[i]) &&
+    utetra_spec_s spec = utetra_spec_from_eik_and_inds(eik, l, l0, l1[i], l2[i]);
+    if (utetra_init(utetra[i], &spec) &&
         !utetra_is_degenerate(utetra[i])) // TODO: move into utetra_init?
       utetra_solve(utetra[i], NULL);
   }
@@ -907,17 +908,17 @@ static void set_cutedge_jet_p3(eik3_s const *eik, edge_s edge,
   dbl xt[3];
   edge_get_xt(edge, mesh, cutedge->t, xt);
 
+  utetra_spec_s spec = utetra_spec_from_eik_without_l(eik, xt, l[0], l[1], l[2]);
+
   utetra_s *utetra;
   utetra_alloc(&utetra);
-  utetra_init_from_eik3_without_l(utetra, eik, xt, l[0], l[1], l[2]);
+  utetra_init(utetra, &spec);
   utetra_solve(utetra, NULL);
 
   bool found_update = false;
 
   if (utetra_has_interior_point_solution(utetra)) {
     // TODO: check whether ray is physical? ugh
-
-    assert(!is_shadow_p3(eik, utetra_get_parent(utetra)));
 
     found_update = true;
     goto coda;
@@ -934,14 +935,13 @@ static void set_cutedge_jet_p3(eik3_s const *eik, edge_s edge,
   for (size_t i = 0; i < nev; ++i) {
     l_active[2] = ev[i];
 
-    utetra_init_from_eik3_without_l(
-      utetra, eik, xt, l_active[0], l_active[1], l_active[2]);
+    utetra_spec_s spec = utetra_spec_from_eik_without_l(
+      eik, xt, l_active[0], l_active[1], l_active[2]);
+    utetra_init(utetra, &spec);
     utetra_solve(utetra, NULL);
 
     if (utetra_has_interior_point_solution(utetra)) {
       // TODO: check whether ray is physical? ugh
-
-      assert(!is_shadow_p3(eik, utetra_get_parent(utetra)));
 
       found_update = true;
       break;
@@ -958,9 +958,27 @@ coda:
 }
 
 static void set_cutedge_jet(eik3_s const *eik, edge_s edge, cutedge_s *cutedge) {
-  // Get the edge endpoint closer to x(t) and grab that node's parents.
-  par3_s par = eik3_get_par(eik, cutedge->t < 0.5 ? edge.l[0] : edge.l[1]);
+  dbl const atol = 1e-15;
 
+  dbl t = cutedge->t;
+
+  /* Get the edge endpoint closer to x(t) and grab that node's parents. */
+  par3_s par = eik3_get_par(eik, t < 0.5 ? edge.l[0] : edge.l[1]);
+
+  /* Check if `t` is approximately `0` or `1`, in which case we can
+   * grab the data from the cutedge endpoint and return. */
+  if (t < atol) {
+    cutedge->jet = eik->jet[edge.l[0]];
+    return;
+  } else if (t > 1 - atol) {
+    cutedge->jet = eik->jet[edge.l[1]];
+    return;
+  }
+
+  /* Move on to the handling an interior cut point. We handle two
+   * parents and three parents separately. If there are two, we
+   * compute the cutedge jet using a triangle update, and using a
+   * tetrahedron update if there are three. */
   switch (par3_size(&par)) {
   case 2: return set_cutedge_jet_p2(eik, edge, par.l, cutedge);
   case 3: return set_cutedge_jet_p3(eik, edge, par.l, cutedge);
