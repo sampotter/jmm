@@ -225,6 +225,16 @@ void dbl3_normalize1(dbl x[3]) {
   dbl3_dbl_div_inplace(x, xnorm1);
 }
 
+bool dbl3_isfinite(dbl const x[3]) {
+  return isfinite(x[0]) && isfinite(x[1]) && isfinite(x[2]);
+}
+
+/* Direct, bitwise comparison of `x` and `y`. Returns `true` if all
+ * components are equal. */
+bool dbl3_equal(dbl const x[3], dbl const y[3]) {
+  return x[0] == y[0] && x[1] == y[1] && x[2] == y[2];
+}
+
 dbl dbl4_dist(dbl const u[4], dbl const v[4]) {
   dbl tmp[4] = {u[0] - v[0], u[1] - v[1], u[2] - v[2], u[3] - v[3]};
   return sqrt(tmp[0]*tmp[0] + tmp[1]*tmp[1] + tmp[2]*tmp[2] + tmp[3]*tmp[3]);

@@ -51,6 +51,8 @@ void dbl3_sort(dbl u[3]);
 void dbl3_zero(dbl u[3]);
 void dbl3_cc(dbl const u0[3], dbl const u1[3], dbl t0, dbl ut[3]);
 void dbl3_normalize1(dbl x[3]);
+bool dbl3_isfinite(dbl const x[3]);
+bool dbl3_equal(dbl const x[3], dbl const y[3]);
 
 dbl dbl4_dist(dbl const u[4], dbl const v[4]);
 bool dbl4_nonneg(dbl const u[4]);
