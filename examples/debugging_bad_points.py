@@ -31,17 +31,17 @@ verts_path = 'visualize_cutset/%s_verts.bin' % scene
 cells_path = 'visualize_cutset/%s_cells.bin' % scene
 
 lsrc = 0 # index of point source
-l = 93
-l0 = 151
+l = 153
+l0 = 57
 l1 = None
 l2 = None
 l3 = None
 lbad = None
 
-l_color = 'yellow'
-l0_color = 'blue'
-l1_color = 'black'
-l2_color = 'blue'
+l_color = 'brown'
+l0_color = 'black'
+l1_color = 'white'
+l2_color = 'white'
 l3_color = 'cyan'
 lbad_color = 'green'
 
@@ -297,16 +297,16 @@ if plot_cutset:
 #     plot_point(verts, l_, color=c, scale=1.1)
 #     plot_jet(verts[l_], eik.jet[l_])
 
-for l_ in mesh.vv(l):
-    state = jmm.State(eik.state[l_])
-    print(l_, state)
-    c = {
-        jmm.State.Valid: 'cyan',
-        jmm.State.Trial: 'yellow',
-        jmm.State.Far: 'red',
-        jmm.State.Shadow: 'brown'
-    }[state]
-    if l_ == l0:
-        plot_point(verts, l_, color='white', scale=1.7)
-    else:
-        plot_point(verts, l_, color=c, scale=1.4)
+# for l_ in mesh.vv(l):
+#     state = jmm.State(eik.state[l_])
+#     print(l_, state)
+#     c = {
+#         jmm.State.Valid: 'cyan',
+#         jmm.State.Trial: 'yellow',
+#         jmm.State.Far: 'red',
+#         jmm.State.Shadow: 'brown'
+#     }[state]
+#     if l_ == l0:
+#         plot_point(verts, l_, color='white', scale=1.7)
+#     else:
+#         plot_point(verts, l_, color=c, scale=1.4)
