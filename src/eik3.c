@@ -1360,7 +1360,6 @@ size_t eik3_step(eik3_s *eik) {
   }
 
   eik->state[l0] = is_shadow(eik, l0) ? SHADOW : VALID;
-  ++eik->num_valid;
 
   update_shadow_cutset(eik, l0);
   update_neighbors(eik, l0);
