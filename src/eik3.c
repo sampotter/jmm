@@ -515,7 +515,7 @@ static void update(eik3_s *eik, size_t l, size_t l0) {
    * First, find the "update triangle fan"
    */
   size_t *l1, *l2;
-  int num_utetra = get_update_tri_fan(eik, l0, &l1, &l2);
+  size_t num_utetra = get_update_tri_fan(eik, l0, &l1, &l2);
   if (num_utetra == 0)
     return;
 
@@ -532,18 +532,18 @@ static void update(eik3_s *eik, size_t l, size_t l0) {
   // inefficient, but not sure if we can do better...
 
   bool *l_l1_adj = malloc(num_utetra*sizeof(bool));
-  for (int i = 0; i < num_utetra; ++i)
+  for (size_t i = 0; i < num_utetra; ++i)
     l_l1_adj[i] = mesh3_is_edge(eik->mesh, (size_t[2]) {l, l1[i]});
 
   bool *l_l2_adj = malloc(num_utetra*sizeof(bool));
-  for (int i = 0; i < num_utetra; ++i)
+  for (size_t i = 0; i < num_utetra; ++i)
     l_l2_adj[i] = mesh3_is_edge(eik->mesh, (size_t[2]) {l, l2[i]});
 
   // Count and mark the non-adjacent edges are diffracting edges
 
-  int num_diff_edges = 0;
+  size_t num_diff_edges = 0;
   bool *is_diff_edge = malloc(num_utetra*sizeof(bool));
-  for (int i = 0; i < num_utetra; ++i) {
+  for (size_t i = 0; i < num_utetra; ++i) {
     if (l_l1_adj[i] || l_l2_adj[i]) {
       is_diff_edge[i] = false;
       continue;
@@ -617,7 +617,7 @@ static void update(eik3_s *eik, size_t l, size_t l0) {
   utetra_s **utetra = malloc(num_utetra*sizeof(utetra_s *));
 
   // Do each tetrahedron update and sort
-  for (int i = 0; i < num_utetra; ++i) {
+  for (size_t i = 0; i < num_utetra; ++i) {
     utetra_alloc(&utetra[i]);
 
     // This is a gross hack. What we do here is prioritize a
@@ -644,7 +644,7 @@ static void update(eik3_s *eik, size_t l, size_t l0) {
   //
   // TODO: this is a bit of a mess :-(
   size_t copied_utetra = 0;
-  for (int i = 0; i < num_utetra; ++i) {
+  for (size_t i = 0; i < num_utetra; ++i) {
     utetra_s *old_utetra;
     for (size_t j = array_size(eik->old_updates); j > 0; --j) {
       array_get(eik->old_updates, j - 1, &old_utetra);
@@ -672,11 +672,11 @@ static void update(eik3_s *eik, size_t l, size_t l0) {
   // to `old_updates`, we want to make sure we don't accidentally free
   // them.
   bool *should_free_utetra = malloc(num_utetra*sizeof(bool));
-  for (int i = 0; i < num_utetra; ++i)
+  for (size_t i = 0; i < num_utetra; ++i)
     should_free_utetra[i] = true;
 
   // See if we can commit a tetrahedron update
-  for (int i = 0; i < num_utetra; ++i) {
+  for (size_t i = 0; i < num_utetra; ++i) {
     if (!isfinite(utetra_get_value(utetra[i])))
       break;
     if (utetra_has_interior_point_solution(utetra[i])) {
@@ -684,9 +684,9 @@ static void update(eik3_s *eik, size_t l, size_t l0) {
           commit_tetra_update(eik, l, utetra[i]))
         break;
     } else {
-      int num_int = utetra_get_num_interior_coefs(utetra[i]);
+      size_t num_int = utetra_get_num_interior_coefs(utetra[i]);
       assert(num_int == 1 || num_int == 2);
-      int num_adj = 4 - num_int;
+      size_t num_adj = 4 - num_int;
       if (i + num_adj <= num_utetra &&
           utetras_yield_same_update((utetra_s const **)&utetra[i], num_adj) &&
           utetra_update_ray_is_physical(utetra[i], eik) &&
@@ -699,7 +699,7 @@ static void update(eik3_s *eik, size_t l, size_t l0) {
     }
   }
 
-  for (int i = 0; i < num_utetra; ++i)
+  for (size_t i = 0; i < num_utetra; ++i)
     if (should_free_utetra[i]) {
       utetra_deinit(utetra[i]);
       utetra_dealloc(&utetra[i]);
