@@ -120,7 +120,7 @@ struct utetra {
   dbl XtX[3][3]; // X'*X
 
   // B-coefs for 9-point triangle interpolation T on base of update
-  bb32 bb_T; // TODO: rename T!
+  bb32 T;
 
   /* The number of update indices that are `SHADOW`. Used to determine
    * what to do with the `split` updates.  */
@@ -422,7 +422,7 @@ bool utetra_init(utetra_s *u, utetra_spec_s const *spec) {
     T[i] = jet[i].f;
     memcpy(DT[i], &jet[i].fx, sizeof(dbl[3]));
   }
-  bb32_init_from_3d_data(&u->bb_T, T, &DT[0], u->Xt);
+  bb32_init_from_3d_data(&u->T, T, &DT[0], u->Xt);
 
   u->num_shadow = 0;
   for (size_t i = 0; i < 3; ++i)
@@ -529,14 +529,14 @@ static void set_lambda(utetra_s *cf, dbl const lam[2]) {
   D2L[1][1] = dbl3_ndot(tmp1, a2);
   assert(dbl22_isfinite(D2L));
 
-  DT[0] = bb32_df(&cf->bb_T, b, a1);
-  DT[1] = bb32_df(&cf->bb_T, b, a2);
+  DT[0] = bb32_df(&cf->T, b, a1);
+  DT[1] = bb32_df(&cf->T, b, a2);
 
-  D2T[0][0] = bb32_d2f(&cf->bb_T, b, a1, a1);
-  D2T[1][0] = D2T[0][1] = bb32_d2f(&cf->bb_T, b, a1, a2);
-  D2T[1][1] = bb32_d2f(&cf->bb_T, b, a2, a2);
+  D2T[0][0] = bb32_d2f(&cf->T, b, a1, a1);
+  D2T[1][0] = D2T[0][1] = bb32_d2f(&cf->T, b, a1, a2);
+  D2T[1][1] = bb32_d2f(&cf->T, b, a2, a2);
 
-  cf->f = cf->L + bb32_f(&cf->bb_T, b);
+  cf->f = cf->L + bb32_f(&cf->T, b);
   assert(isfinite(cf->f));
 
   dbl2_add(DL, DT, cf->g);
