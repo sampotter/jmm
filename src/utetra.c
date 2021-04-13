@@ -438,6 +438,13 @@ bool utetra_init(utetra_s *u, utetra_spec_s const *spec) {
   else
     u->split = NULL;
 
+  /* Check if we now have an update with all `SHADOW` indices. This
+   * can happen when there's initially one or two `VALID` indices that
+   * lie exactly on the shadow boundary, which get set to `SHADOW`
+   * when `init_split_s1` or `init_split_s2` are called. */
+  if (u->num_shadow == 3)
+    return false;
+
   // Compute the surface normal for the plane spanned by (x1 - x0, x2
   // - x0), using DT[i] to determine its orientation. Return whether x
   // is on the right side of this plane.
