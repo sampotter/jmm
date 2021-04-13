@@ -887,6 +887,8 @@ bool utetra_update_ray_is_physical(utetra_s const *utetra, eik3_s const *eik) {
   dbl xm[3], xp[3], t = mesh3_get_min_tetra_alt(mesh)/2; // TODO: rename t...
   ray3_get_point(&ray, -t, xm);
   ray3_get_point(&ray, t, xp);
+  assert(dbl3_isfinite(xm));
+  assert(dbl3_isfinite(xp));
 
   array_s *cells;
   array_alloc(&cells);
