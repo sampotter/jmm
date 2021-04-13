@@ -38,7 +38,6 @@ struct eik3 {
   int *pos;
   par3_s *par;
   heap_s *heap;
-  int num_valid;
   edgemap_s *cutset;
 
   /* A margin for the cutedge parameter `t`. When being computed, and
@@ -52,6 +51,9 @@ struct eik3 {
    * later stage. We keep track of them here.
    */
   array_s *old_updates;
+
+  /* Statistics... */
+  int num_accepted; // number of nodes fixed using `eik3_step`
 };
 
 void eik3_alloc(eik3_s **eik) {
@@ -114,7 +116,7 @@ void eik3_init(eik3_s *eik, mesh3_s *mesh) {
   heap_alloc(&eik->heap);
   heap_init(eik->heap, capacity, value, setpos, (void *)eik);
 
-  eik->num_valid = 0;
+  eik->num_accepted = 0;
 
   edgemap_alloc(&eik->cutset);
   edgemap_init(eik->cutset, sizeof(cutedge_s));
@@ -1334,6 +1336,10 @@ static void update_shadow_cutset(eik3_s *eik, size_t l0) {
   free(vv);
 }
 
+static void update_statistics(eik3_s *eik) {
+  ++eik->num_accepted;
+}
+
 size_t eik3_step(eik3_s *eik) {
   size_t l0 = heap_front(eik->heap);
   assert(eik->state[l0] == TRIAL);
@@ -1358,6 +1364,8 @@ size_t eik3_step(eik3_s *eik) {
 
   update_shadow_cutset(eik, l0);
   update_neighbors(eik, l0);
+
+  update_statistics(eik);
 
   return l0;
 }
