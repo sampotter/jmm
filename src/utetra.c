@@ -422,7 +422,6 @@ bool utetra_init(utetra_s *u, utetra_spec_s const *spec) {
 
   dbl T[3], DT[3][3];
   for (int i = 0; i < 3; ++i) {
-    assert(jet3_is_finite(&jet[i]));
     T[i] = jet[i].f;
     memcpy(DT[i], &jet[i].fx, sizeof(dbl[3]));
   }

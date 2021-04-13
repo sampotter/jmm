@@ -274,7 +274,6 @@ bool utri_init(utri_s *u, utri_spec_s const *spec) {
 
   dbl T[2], DT[2][3];
   for (int i = 0; i < 2; ++i) {
-    assert(jet3_is_finite(&jet[i]));
     T[i] = jet[i].f;
     memcpy(DT[i], &jet[i].fx, sizeof(dbl[3]));
   }
