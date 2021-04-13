@@ -337,6 +337,45 @@ static void init_split_s2(utetra_s *u_par, eik3_s const *eik) {
 }
 
 bool utetra_init(utetra_s *u, utetra_spec_s const *spec) {
+  /* First, validate the spec */
+
+  bool passed_lhat = spec->lhat != (size_t)NO_INDEX;
+
+  bool passed_xhat = dbl3_isfinite(spec->xhat);
+  assert(passed_lhat ^ passed_xhat); // pass exactly one of these
+
+  bool passed_l0 = spec->l[0] != (size_t)NO_INDEX;
+  bool passed_l1 = spec->l[1] != (size_t)NO_INDEX;
+  bool passed_l2 = spec->l[2] != (size_t)NO_INDEX;
+  bool passed_l = passed_l0 && passed_l1 && passed_l2;
+  if (passed_l0 || passed_l1 || passed_l2)
+    assert(passed_l);
+
+  bool passed_x0 = dbl3_isfinite(spec->x[0]);
+  bool passed_x1 = dbl3_isfinite(spec->x[1]);
+  bool passed_x2 = dbl3_isfinite(spec->x[2]);
+  bool passed_x = passed_x0 && passed_x1 && passed_x2;
+  if (passed_x0 || passed_x1 || passed_x2)
+    assert(passed_x);
+
+  assert(passed_l ^ passed_x); // pass exactly one of these
+
+  bool passed_state0 = spec->state[0] != UNKNOWN;
+  bool passed_state1 = spec->state[1] != UNKNOWN;
+  bool passed_state2 = spec->state[2] != UNKNOWN;
+  bool passed_state = passed_state0 && passed_state1 && passed_state2;
+  if (passed_state0 || passed_state1 || passed_state2)
+    assert(passed_state);
+
+  bool passed_jet0 = jet3_is_finite(&spec->jet[0]);
+  bool passed_jet1 = jet3_is_finite(&spec->jet[1]);
+  bool passed_jet2 = jet3_is_finite(&spec->jet[2]);
+  bool passed_jet = passed_jet0 && passed_jet1 && passed_jet2;
+  if (passed_jet0 || passed_jet1 || passed_jet2)
+    assert(passed_jet);
+
+  assert(passed_jet ^ passed_l); // exactly one of these
+
   /* Initialize f with INFINITY---this needs to be done so that `u`
    * `cmp`s correctly with initialized `utetra` (i.e., if we sort an
    * array of `utetra`, uninitialized `utetra` will move to the back
@@ -353,12 +392,7 @@ bool utetra_init(utetra_s *u, utetra_spec_s const *spec) {
 
   mesh3_s const *mesh = spec->eik ? eik3_get_mesh(spec->eik) : NULL;
 
-  bool passed_lhat = spec->lhat != (size_t)NO_INDEX;
-
   u->lhat = spec->lhat;
-
-  bool passed_xhat = dbl3_isfinite(spec->xhat);
-  assert(passed_lhat ^ passed_xhat); // pass exactly one of these
 
   /* Initialize x(hat) */
   if (passed_lhat) {
@@ -368,23 +402,7 @@ bool utetra_init(utetra_s *u, utetra_spec_s const *spec) {
     dbl3_copy(spec->xhat, u->x);
   }
 
-  bool passed_l0 = spec->l[0] != (size_t)NO_INDEX;
-  bool passed_l1 = spec->l[1] != (size_t)NO_INDEX;
-  bool passed_l2 = spec->l[2] != (size_t)NO_INDEX;
-  bool passed_l = passed_l0 && passed_l1 && passed_l2;
-  if (passed_l0 || passed_l1 || passed_l2)
-    assert(passed_l);
-
   memcpy(u->l, spec->l, sizeof(size_t[3]));
-
-  bool passed_x0 = dbl3_isfinite(spec->x[0]);
-  bool passed_x1 = dbl3_isfinite(spec->x[1]);
-  bool passed_x2 = dbl3_isfinite(spec->x[2]);
-  bool passed_x = passed_x0 && passed_x1 && passed_x2;
-  if (passed_x0 || passed_x1 || passed_x2)
-    assert(passed_x);
-
-  assert(passed_l ^ passed_x); // pass exactly one of these
 
   if (passed_l)
     for (size_t i = 0; i < 3; ++i)
@@ -396,23 +414,7 @@ bool utetra_init(utetra_s *u, utetra_spec_s const *spec) {
   dbl33_transposed(u->Xt, u->X);
   dbl33_mul(u->Xt, u->X, u->XtX);
 
-  bool passed_state0 = spec->state[0] != UNKNOWN;
-  bool passed_state1 = spec->state[1] != UNKNOWN;
-  bool passed_state2 = spec->state[2] != UNKNOWN;
-  bool passed_state = passed_state0 && passed_state1 && passed_state2;
-  if (passed_state0 || passed_state1 || passed_state2)
-    assert(passed_state);
-
   memcpy(u->state, spec->state, sizeof(state_e[3]));
-
-  bool passed_jet0 = jet3_is_finite(&spec->jet[0]);
-  bool passed_jet1 = jet3_is_finite(&spec->jet[1]);
-  bool passed_jet2 = jet3_is_finite(&spec->jet[2]);
-  bool passed_jet = passed_jet0 && passed_jet1 && passed_jet2;
-  if (passed_jet0 || passed_jet1 || passed_jet2)
-    assert(passed_jet);
-
-  assert(passed_jet ^ passed_l); // exactly one of these
 
   jet3 jet[3];
   for (size_t i = 0; i < 3; ++i)
