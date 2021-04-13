@@ -227,8 +227,8 @@ bool utri_init(utri_s *u, utri_spec_s const *spec) {
   if (passed_state0 || passed_state1)
     assert(passed_state);
 
-  bool passed_jet0 = jet3_is_finite(&spec->jet[0]);
-  bool passed_jet1 = jet3_is_finite(&spec->jet[1]);
+  bool passed_jet0 = spec->state[0] == VALID && jet3_is_finite(&spec->jet[0]);
+  bool passed_jet1 = spec->state[1] == VALID && jet3_is_finite(&spec->jet[1]);
   bool passed_jet = passed_jet0 && passed_jet1;
   if (passed_jet0 || passed_jet1)
     assert(passed_jet);

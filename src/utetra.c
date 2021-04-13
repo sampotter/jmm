@@ -367,9 +367,9 @@ bool utetra_init(utetra_s *u, utetra_spec_s const *spec) {
   if (passed_state0 || passed_state1 || passed_state2)
     assert(passed_state);
 
-  bool passed_jet0 = jet3_is_finite(&spec->jet[0]);
-  bool passed_jet1 = jet3_is_finite(&spec->jet[1]);
-  bool passed_jet2 = jet3_is_finite(&spec->jet[2]);
+  bool passed_jet0 = spec->state[0] == VALID && jet3_is_finite(&spec->jet[0]);
+  bool passed_jet1 = spec->state[1] == VALID && jet3_is_finite(&spec->jet[1]);
+  bool passed_jet2 = spec->state[2] == VALID && jet3_is_finite(&spec->jet[2]);
   bool passed_jet = passed_jet0 && passed_jet1 && passed_jet2;
   if (passed_jet0 || passed_jet1 || passed_jet2)
     assert(passed_jet);
