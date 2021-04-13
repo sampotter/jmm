@@ -8,6 +8,12 @@ extern "C" {
 #include "def.h"
 
 typedef struct {
+  dbl x[3], y[3];
+} line3;
+
+void line3_get_closest_point(line3 const *line, dbl const x[3], dbl y[3]);
+
+typedef struct {
   dbl min[3], max[3];
 } rect3;
 
