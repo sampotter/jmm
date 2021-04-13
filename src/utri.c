@@ -148,10 +148,7 @@ static dbl utri_hybrid_f(dbl lam, utri_s *utri) {
 }
 
 static void init_split(utri_s *u_par, eik3_s const *eik) {
-  u_par->split = NULL;
-
-  if (u_par->num_shadow != 1)
-    return;
+  assert(u_par->num_shadow == 1);
 
   dbl t;
   assert(eik3_get_cutedge_t(eik, u_par->l0, u_par->l1, &t));
@@ -291,7 +288,10 @@ bool utri_init(utri_s *u, utri_spec_s const *spec) {
   for (size_t i = 0; i < 2; ++i)
     u->num_shadow += u->state[i] == SHADOW;
 
-  init_split(u, spec->eik);
+  if (u->num_shadow == 1)
+    init_split(u, spec->eik);
+  else
+    u->split = NULL;
 
   u->orig_index = spec->orig_index;
 
