@@ -348,6 +348,8 @@ bool utetra_init(utetra_s *u, utetra_spec_s const *spec) {
   u->g[0] = u->g[1] = NAN;
   u->H[0][0] = u->H[1][0] = u->H[0][1] = u->H[1][1] = NAN;
   u->p[0] = u->p[1] = NAN;
+  u->x_minus_xb[0] = u->x_minus_xb[1] = u->x_minus_xb[2] = NAN;
+  u->L = NAN;
 
   mesh3_s const *mesh = spec->eik ? eik3_get_mesh(spec->eik) : NULL;
 
