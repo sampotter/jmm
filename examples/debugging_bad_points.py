@@ -31,15 +31,15 @@ verts_path = 'visualize_cutset/%s_verts.bin' % scene
 cells_path = 'visualize_cutset/%s_cells.bin' % scene
 
 lsrc = 0 # index of point source
-l = None
-l0 = 154
-l1 = 75
+l = 93
+l0 = 151
+l1 = None
 l2 = None
 l3 = None
 lbad = None
 
 l_color = 'yellow'
-l0_color = 'white'
+l0_color = 'blue'
 l1_color = 'black'
 l2_color = 'blue'
 l3_color = 'cyan'
@@ -141,8 +141,11 @@ def plot_cutset_edge(l0, l1):
     except:
         pass
 
-def plot_jet(x, jet):
-    d = np.array([jet[1], jet[2], jet[3]])
+def plot_jet(x, jet=None):
+    if isinstance(jet, jmm.Jet3):
+        d = np.array([jet.fx, jet.fy, jet.fz])
+    else:
+        d = np.array([jet[1], jet[2], jet[3]])
     assert(abs(1 - np.linalg.norm(d)) < 1e-13)
     plotter.add_mesh(
         pv.Arrow(x, d, scale=0.1),
@@ -288,3 +291,22 @@ if plot_cutset:
 # plot_point(verts, 124, color='red', scale=1.25)
 # plot_point(verts, 11, color='magenta', scale=1.25)
 # plot_point(verts, 98, color='orange', scale=1.25)
+
+# for l_ in [48, 98, 130]:
+#     c = 'yellow' if eik.is_valid(l_) else 'blue'
+#     plot_point(verts, l_, color=c, scale=1.1)
+#     plot_jet(verts[l_], eik.jet[l_])
+
+for l_ in mesh.vv(l):
+    state = jmm.State(eik.state[l_])
+    print(l_, state)
+    c = {
+        jmm.State.Valid: 'cyan',
+        jmm.State.Trial: 'yellow',
+        jmm.State.Far: 'red',
+        jmm.State.Shadow: 'brown'
+    }[state]
+    if l_ == l0:
+        plot_point(verts, l_, color='white', scale=1.7)
+    else:
+        plot_point(verts, l_, color=c, scale=1.4)
