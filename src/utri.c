@@ -203,35 +203,18 @@ static void init_split(utri_s *u_par, eik3_s const *eik) {
 }
 
 bool utri_init(utri_s *u, utri_spec_s const *spec) {
-  u->f = INFINITY;
-
-  u->lam = u->f = u->Df = u->L = NAN;
-  u->x_minus_xb[0] = u->x_minus_xb[1] = u->x_minus_xb[2] = NAN;
-
-  mesh3_s const *mesh = spec->eik ? eik3_get_mesh(spec->eik) : NULL;
+  /* Validate spec before doing anything else */
 
   bool passed_lhat = spec->lhat != (size_t)NO_INDEX;
 
-  u->l = spec->lhat;
-
   bool passed_xhat = dbl3_isfinite(spec->xhat);
   assert(passed_lhat ^ passed_xhat); // exactly one of these
-
-  if (passed_lhat) {
-    assert(mesh);
-    mesh3_copy_vert(mesh, u->l, u->x);
-  } else {
-    dbl3_copy(spec->xhat, u->x);
-  }
 
   bool passed_l0 = spec->l[0] != (size_t)NO_INDEX;
   bool passed_l1 = spec->l[1] != (size_t)NO_INDEX;
   bool passed_l = passed_l0 && passed_l1;
   if (passed_l0 || passed_l1)
     assert(passed_l);
-
-  u->l0 = spec->l[0];
-  u->l1 = spec->l[1];
 
   bool passed_x0 = dbl3_isfinite(spec->x[0]);
   bool passed_x1 = dbl3_isfinite(spec->x[1]);
@@ -240,6 +223,41 @@ bool utri_init(utri_s *u, utri_spec_s const *spec) {
     assert(passed_x);
 
   assert(passed_l ^ passed_x); // pass exactly one of these
+
+  bool passed_state0 = spec->state[0] != UNKNOWN;
+  bool passed_state1 = spec->state[1] != UNKNOWN;
+  bool passed_state = passed_state0 && passed_state1;
+  if (passed_state0 || passed_state1)
+    assert(passed_state);
+
+  bool passed_jet0 = jet3_is_finite(&spec->jet[0]);
+  bool passed_jet1 = jet3_is_finite(&spec->jet[1]);
+  bool passed_jet = passed_jet0 && passed_jet1;
+  if (passed_jet0 || passed_jet1)
+    assert(passed_jet);
+
+  assert(passed_jet ^ passed_l); // exactly one of these
+
+  /* Initialize `u` */
+
+  u->f = INFINITY;
+
+  u->lam = u->f = u->Df = u->L = NAN;
+  u->x_minus_xb[0] = u->x_minus_xb[1] = u->x_minus_xb[2] = NAN;
+
+  mesh3_s const *mesh = spec->eik ? eik3_get_mesh(spec->eik) : NULL;
+
+  u->l = spec->lhat;
+
+  if (passed_lhat) {
+    assert(mesh);
+    mesh3_copy_vert(mesh, u->l, u->x);
+  } else {
+    dbl3_copy(spec->xhat, u->x);
+  }
+
+  u->l0 = spec->l[0];
+  u->l1 = spec->l[1];
 
   if (passed_l) {
     mesh3_copy_vert(mesh, u->l0, u->x0);
@@ -251,21 +269,7 @@ bool utri_init(utri_s *u, utri_spec_s const *spec) {
 
   dbl3_sub(u->x1, u->x0, u->x1_minus_x0);
 
-  bool passed_state0 = spec->state[0] != UNKNOWN;
-  bool passed_state1 = spec->state[1] != UNKNOWN;
-  bool passed_state = passed_state0 && passed_state1;
-  if (passed_state0 || passed_state1)
-    assert(passed_state);
-
   memcpy(u->state, spec->state, sizeof(state_e[2]));
-
-  bool passed_jet0 = jet3_is_finite(&spec->jet[0]);
-  bool passed_jet1 = jet3_is_finite(&spec->jet[1]);
-  bool passed_jet = passed_jet0 && passed_jet1;
-  if (passed_jet0 || passed_jet1)
-    assert(passed_jet);
-
-  assert(passed_jet ^ passed_l); // exactly one of these
 
   jet3 jet[2];
   for (size_t i = 0; i < 2; ++i)
