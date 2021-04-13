@@ -4,6 +4,10 @@
 #include <math.h>
 #include <string.h>
 
+jet3 jet3_make_empty() {
+  return (jet3) {.f = INFINITY, .fx = NAN, .fy = NAN, .fz = NAN};
+}
+
 jet3 jet3_make_point_source(dbl tau) {
   return (jet3) {.f = tau, .fx = NAN, .fy = NAN, .fz = NAN};
 }
