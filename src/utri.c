@@ -11,36 +11,103 @@
 #include "mesh3.h"
 #include "vec.h"
 
+utri_spec_s utri_spec_empty() {
+  return (utri_spec_s) {
+    .eik = NULL,
+    .lhat = NO_INDEX,
+    .l = {NO_INDEX, NO_INDEX},
+    .state = {UNKNOWN, UNKNOWN},
+    .xhat = {NAN, NAN, NAN},
+    .x = {
+      {NAN, NAN, NAN},
+      {NAN, NAN, NAN}
+    },
+    .jet = {
+      {.f = INFINITY, .fx = NAN, .fy = NAN, .fz = NAN},
+      {.f = INFINITY, .fx = NAN, .fy = NAN, .fz = NAN}
+    },
+    .orig_index = NO_INDEX
+  };
+}
+
+utri_spec_s utri_spec_from_eik(eik3_s const *eik, size_t l, size_t l0, size_t l1) {
+  state_e const *state = eik3_get_state_ptr(eik);
+  return (utri_spec_s) {
+    .eik = eik,
+    .lhat = l,
+    .l = {l0, l1},
+    .state = {state[l0], state[l1]},
+    .xhat = {NAN, NAN, NAN},
+    .x = {
+      {NAN, NAN, NAN},
+      {NAN, NAN, NAN}
+    },
+    .jet = {
+      {.f = INFINITY, .fx = NAN, .fy = NAN, .fz = NAN},
+      {.f = INFINITY, .fx = NAN, .fy = NAN, .fz = NAN}
+    }
+  };
+}
+
+utri_spec_s utri_spec_from_eik_without_l(eik3_s const *eik, dbl const x[3],
+                                         size_t l0, size_t l1) {
+  state_e const *state = eik3_get_state_ptr(eik);
+  return (utri_spec_s) {
+    .eik = eik,
+    .lhat = NO_INDEX,
+    .l = {l0, l1},
+    .state = {state[l0], state[l1]},
+    .xhat = {x[0], x[1], x[2]},
+    .x = {
+      {NAN, NAN, NAN},
+      {NAN, NAN, NAN}
+    },
+    .jet = {
+      {.f = INFINITY, .fx = NAN, .fy = NAN, .fz = NAN},
+      {.f = INFINITY, .fx = NAN, .fy = NAN, .fz = NAN}
+    }
+  };
+}
+
+utri_spec_s utri_spec_from_raw_data(dbl const x[3], dbl const Xt[2][3], jet3 jet[2]) {
+  return (utri_spec_s) {
+    .eik = NULL,
+    .lhat = NO_INDEX,
+    .l = {NO_INDEX, NO_INDEX},
+    .state = {UNKNOWN, UNKNOWN},
+    .xhat = {x[0], x[1], x[2]},
+    .x = {
+      {Xt[0][0], Xt[0][1], Xt[0][2]},
+      {Xt[1][0], Xt[1][1], Xt[1][2]}
+    },
+    .jet = {jet[0], jet[1]}
+  };
+}
+
 struct utri {
-  dbl x[3];
-  dbl x0[3];
-  dbl x1[3];
-  dbl x1_minus_x0[3];
-
-  bb31 T;
-
-  dbl cos01;
-
   dbl lam;
-
   dbl f;
   dbl Df;
-
   dbl x_minus_xb[3];
   dbl L;
 
   size_t l, l0, l1;
+  dbl x[3];
+  dbl x0[3];
+  dbl x1[3];
+  dbl x1_minus_x0[3];
+  state_e state[2];
+  bb31 T;
+
+  size_t num_shadow;
 
   utri_s *split;
 
-  state_e state[2];
-  size_t num_shadow;
-
-  int i; // original index
+  size_t orig_index; // original index
 };
 
 static bool is_split(utri_s const *u) {
-  return u->split != NULL;
+  return u->num_shadow == 1;
 }
 
 void utri_alloc(utri_s **utri) {
@@ -80,129 +147,171 @@ static dbl utri_hybrid_f(dbl lam, utri_s *utri) {
   return utri->Df;
 }
 
-static void init_split_utri(utri_s *u, eik3_s const *eik) {
-  u->split = NULL;
+static void init_split(utri_s *u_par, eik3_s const *eik) {
+  u_par->split = NULL;
 
-  if (u->num_shadow != 1)
+  if (u_par->num_shadow != 1)
     return;
 
   dbl t;
-  assert(eik3_get_cutedge_t(eik, u->l0, u->l1, &t));
+  assert(eik3_get_cutedge_t(eik, u_par->l0, u_par->l1, &t));
 
   dbl const atol = 1e-15;
 
   if (t < atol) {
-    if (u->state[0] == VALID) {
-      u->state[0] = SHADOW;
-      u->num_shadow = 2;
+    if (u_par->state[0] == VALID) {
+      u_par->state[0] = SHADOW;
+      u_par->num_shadow = 2;
     } else {
-      u->state[0] = VALID;
-      u->num_shadow = 0;
+      u_par->state[0] = VALID;
+      u_par->num_shadow = 0;
     }
     return;
   }
 
   if (t > 1 - atol) {
-    if (u->state[1] == VALID) {
-      u->state[1] = SHADOW;
-      u->num_shadow = 2;
+    if (u_par->state[1] == VALID) {
+      u_par->state[1] = SHADOW;
+      u_par->num_shadow = 2;
     } else {
-      u->state[1] = VALID;
-      u->num_shadow = 0;
+      u_par->state[1] = VALID;
+      u_par->num_shadow = 0;
     }
     return;
   }
 
-  u->split = malloc(sizeof(utri_s *));
-  utri_alloc(&u->split);
+  utri_spec_s spec = utri_spec_empty();
+
+  spec.eik = eik;
+
+  spec.state[0] = spec.state[1] = VALID;
+
+  spec.lhat = u_par->l;
+  if (u_par->l == (size_t)NO_INDEX) {
+    assert(dbl3_isfinite(u_par->x));
+    dbl3_copy(u_par->x, spec.xhat);
+  }
+
+  dbl3_copy(u_par->x0, spec.x[0]);
+  dbl3_saxpy(t, u_par->x1_minus_x0, spec.x[0], spec.x[1]);
+
+  spec.jet[0] = eik3_get_jet(eik, u_par->l0);
+  assert(eik3_get_cutedge_jet(eik, u_par->l0, u_par->l1, &spec.jet[1]));
+
+  utri_alloc(&u_par->split);
+  utri_init(u_par->split, &spec);
+}
+
+bool utri_init(utri_s *u, utri_spec_s const *spec) {
+  u->f = INFINITY;
+
+  u->lam = u->f = u->Df = u->L = NAN;
+  u->x_minus_xb[0] = u->x_minus_xb[1] = u->x_minus_xb[2] = NAN;
+
+  mesh3_s const *mesh = spec->eik ? eik3_get_mesh(spec->eik) : NULL;
+
+  bool passed_lhat = spec->lhat != (size_t)NO_INDEX;
+
+  u->l = spec->lhat;
+
+  bool passed_xhat = dbl3_isfinite(spec->xhat);
+  assert(passed_lhat ^ passed_xhat); // exactly one of these
+
+  if (passed_lhat) {
+    assert(mesh);
+    mesh3_copy_vert(mesh, u->l, u->x);
+  } else {
+    dbl3_copy(spec->xhat, u->x);
+  }
+
+  bool passed_l0 = spec->l[0] != (size_t)NO_INDEX;
+  bool passed_l1 = spec->l[1] != (size_t)NO_INDEX;
+  bool passed_l = passed_l0 && passed_l1;
+  if (passed_l0 || passed_l1)
+    assert(passed_l);
+
+  u->l0 = spec->l[0];
+  u->l1 = spec->l[1];
+
+  bool passed_x0 = dbl3_isfinite(spec->x[0]);
+  bool passed_x1 = dbl3_isfinite(spec->x[1]);
+  bool passed_x = passed_x0 && passed_x1;
+  if (passed_x0 || passed_x1)
+    assert(passed_x);
+
+  assert(passed_l ^ passed_x); // pass exactly one of these
+
+  if (passed_l) {
+    mesh3_copy_vert(mesh, u->l0, u->x0);
+    mesh3_copy_vert(mesh, u->l1, u->x1);
+  } else { // passed_x
+    dbl3_copy(spec->x[0], u->x0);
+    dbl3_copy(spec->x[1], u->x1);
+  }
+
+  dbl3_sub(u->x1, u->x0, u->x1_minus_x0);
+
+  bool passed_state0 = spec->state[0] != UNKNOWN;
+  bool passed_state1 = spec->state[1] != UNKNOWN;
+  bool passed_state = passed_state0 && passed_state1;
+  if (passed_state0 || passed_state1)
+    assert(passed_state);
+
+  memcpy(u->state, spec->state, sizeof(state_e[2]));
+
+  bool passed_jet0 = jet3_is_finite(&spec->jet[0]);
+  bool passed_jet1 = jet3_is_finite(&spec->jet[1]);
+  bool passed_jet = passed_jet0 && passed_jet1;
+  if (passed_jet0 || passed_jet1)
+    assert(passed_jet);
+
+  assert(passed_jet ^ passed_l); // exactly one of these
+
+  jet3 jet[2];
+  for (size_t i = 0; i < 2; ++i)
+    jet[i] = passed_jet ? spec->jet[i] : eik3_get_jet(spec->eik, spec->l[i]);
+
+  dbl T[2], DT[2][3];
+  for (int i = 0; i < 2; ++i) {
+    assert(jet3_is_finite(&jet[i]));
+    T[i] = jet[i].f;
+    memcpy(DT[i], &jet[i].fx, sizeof(dbl[3]));
+  }
 
   dbl Xt[2][3];
   dbl3_copy(u->x0, Xt[0]);
-  dbl3_saxpy(t, u->x1_minus_x0, u->x0, Xt[1]);
+  dbl3_copy(u->x1, Xt[1]);
+  bb31_init_from_3d_data(&u->T, T, DT, Xt);
 
-  jet3 jet[2];
-  jet[0] = eik3_get_jet(eik, u->l0);
-  assert(eik3_get_cutedge_jet(eik, u->l0, u->l1, &jet[1]));
+  u->num_shadow = 0;
+  for (size_t i = 0; i < 2; ++i)
+    u->num_shadow += u->state[i] == SHADOW;
 
-  utri_init(u->split, u->x, Xt, jet);
+  init_split(u, spec->eik);
 
-  u->split->l = NO_INDEX;
-  u->split->l0 = NO_INDEX;
-  u->split->l1 = NO_INDEX;
+  u->orig_index = spec->orig_index;
 
-  state_e *state = u->split->state;
-  state[0] = state[1] = VALID;
-  u->split->num_shadow = 0;
+  /* Check if the update point is on the right side of the base of the
+   * update. First, we compute the closest point on the line spanned
+   * by the update base (`xp`), then check whether vector pointing
+   * from `xp` to `utri->x` makes a positive angle with the gradients
+   * at `utri->x0` and `utri->x1`. */
+  line3 line;
+  dbl3_copy(u->x0, line.x);
+  dbl3_copy(u->x1, line.y);
+  dbl xp[3]; line3_get_closest_point(&line, u->x, xp);
+  dbl dx[3]; dbl3_sub(u->x, xp, dx);
+  return dbl3_dot(dx, &jet[0].fx) > 0 && dbl3_dot(dx, &jet[1].fx);
 }
 
-void utri_init_from_eik3(utri_s *utri, eik3_s const *eik, size_t l,
-                         size_t l0, size_t l1) {
-  dbl x[3];
-  mesh3_copy_vert(eik3_get_mesh(eik), l, x);
-
-  utri->l = l;
-
-  utri_init_from_eik3_without_l(utri, eik, x, l0, l1);
-}
-
-void utri_init_from_eik3_without_l(utri_s *utri, eik3_s const *eik,
-                                   dbl const x[3], size_t l0, size_t l1) {
-  mesh3_s const *mesh = eik3_get_mesh(eik);
-
-  dbl Xt[2][3];
-  mesh3_copy_vert(mesh, l0, Xt[0]);
-  mesh3_copy_vert(mesh, l1, Xt[1]);
-
-  jet3 jet[2] = {
-    eik3_get_jet(eik, l0),
-    eik3_get_jet(eik, l1)
-  };
-
-  assert(jet3_is_finite(&jet[0]));
-  assert(jet3_is_finite(&jet[1]));
-
-  utri_init(utri, x, Xt, jet);
-
-  utri->l0 = l0;
-  utri->l1 = l1;
-
-  state_e const *state = eik3_get_state_ptr(eik);
-
-  assert(state[l0] == VALID || state[l0] == SHADOW);
-  assert(state[l1] == VALID || state[l1] == SHADOW);
-
-  utri->state[0] = state[l0];
-  utri->state[1] = state[l1];
-
-  utri->num_shadow = (utri->state[0] == SHADOW) + (utri->state[1] == SHADOW);
-
-  init_split_utri(utri, eik);
-
-  assert(0 <= utri->num_shadow && utri->num_shadow <= 2);
-}
-
-void utri_init(utri_s *utri, dbl const x[3], dbl const Xt[2][3],
-               jet3 const jet[2]) {
-  utri->f = INFINITY;
-  utri->i = NO_INDEX;
-
-  memcpy(utri->x, x, 3*sizeof(dbl));
-  memcpy(utri->x0, Xt[0], 3*sizeof(dbl));
-  memcpy(utri->x1, Xt[1], 3*sizeof(dbl));
-
-  dbl3_sub(utri->x1, utri->x0, utri->x1_minus_x0);
-
-  dbl dx0[3], dx1[3];
-  dbl3_sub(utri->x0, utri->x, dx0);
-  dbl3_sub(utri->x1, utri->x, dx1);
-  utri->cos01 = dbl3_dot(dx0, dx1)/(dbl3_norm(dx0)*dbl3_norm(dx1));
-
-  dbl f[2] = {jet[0].f, jet[1].f};
-  dbl Df[2][3] = {
-    {jet[0].fx, jet[0].fy, jet[0].fz},
-    {jet[1].fx, jet[1].fy, jet[1].fz}
-  };
-  bb31_init_from_3d_data(&utri->T, f, Df, Xt);
+void utri_deinit(utri_s *u) {
+  if (is_split(u)) {
+    assert(u->split != NULL);
+    utri_deinit(u->split);
+    utri_dealloc(&u->split);
+  } else {
+    assert(u->split == NULL);
+  }
 }
 
 void utri_solve(utri_s *utri) {
@@ -279,6 +388,10 @@ static ray3 get_ray(utri_s const *utri) {
   dbl3_saxpy(utri->lam, utri->x1_minus_x0, utri->x0, ray.org);
   dbl3_normalized(utri->x_minus_xb, ray.dir);
   return ray;
+}
+
+static dbl get_L(utri_s const *u) {
+  return is_split(u) ? u->split->L : u->L;
 }
 
 bool utri_update_ray_is_physical(utri_s const *utri, eik3_s const *eik) {
@@ -359,8 +472,10 @@ bool utri_update_ray_is_physical(utri_s const *utri, eik3_s const *eik) {
    * lies in a cell.
    */
 
+  dbl L = get_L(utri);
+
   dbl xhatm[3];
-  ray3_get_point(&ray, utri->L - t, xhatm);
+  ray3_get_point(&ray, L - t, xhatm);
 
   nvc = mesh3_nvc(mesh, utri->l);
   vc = malloc(nvc*sizeof(size_t));
@@ -408,20 +523,39 @@ bool utri_has_interior_point_solution(utri_s const *utri) {
     || fabs(get_lag_mult(utri)) <= atol;
 }
 
-void utri_set_orig_index(utri_s *utri, int i) {
-  assert(!is_split(utri));
-
-  utri->i = i;
+bool utri_has_orig_index(utri_s const *utri) {
+  return utri->orig_index != (size_t)NO_INDEX;
 }
 
-int utri_get_orig_index(utri_s const *utri) {
+size_t utri_get_orig_index(utri_s const *utri) {
   assert(!is_split(utri));
-
-  return utri->i;
+  return utri->orig_index;
 }
 
 bool utri_is_finite(utri_s const *u) {
   return isfinite(is_split(u) ? u->split->f : u->f);
+}
+
+size_t utri_get_active_ind(utri_s const *utri) {
+  dbl const atol = 1e-15;
+  if (utri->lam < atol)
+    return utri->l0;
+  if (utri->lam > 1 - atol)
+    return utri->l1;
+  return (size_t)NO_INDEX;
+}
+
+size_t utri_get_inactive_ind(utri_s const *utri) {
+  dbl const atol = 1e-15;
+  if (utri->lam < atol)
+    return utri->l1;
+  if (utri->lam > 1 - atol)
+    return utri->l0;
+  return (size_t)NO_INDEX;
+}
+
+bool utri_contains_update_ind(utri_s const *u, size_t l) {
+  return l == u->l0 || l == u->l1;
 }
 
 static dbl get_lambda(utri_s const *u) {
@@ -451,7 +585,13 @@ bool utris_yield_same_update(utri_s const *utri1, utri_s const *utri2) {
 bool utri_is_causal(utri_s const *utri) {
   assert(!is_split(utri));
 
-  return utri->cos01 >= 0;
+  dbl dx0[3], dx1[3];
+  dbl3_sub(utri->x0, utri->x, dx0);
+  dbl3_sub(utri->x1, utri->x, dx1);
+
+  dbl cos01 = dbl3_dot(dx0, dx1)/(dbl3_norm(dx0)*dbl3_norm(dx1));
+
+  return cos01 >= 0;
 }
 
 dbl utri_get_lambda(utri_s const *utri) {

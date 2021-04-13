@@ -50,7 +50,8 @@ Ensure (utri, tri11_works) {
     memcpy(&jet[0], jet_data_perm[0], 4*sizeof(dbl));
     memcpy(&jet[1], jet_data_perm[1], 4*sizeof(dbl));
 
-    utri_init(utri, x_perm, Xt_perm, jet);
+    utri_spec_s spec = utri_spec_from_raw_data(x_perm, Xt_perm, jet);
+    utri_init(utri, &spec);
     assert_that(utri_is_causal(utri));
 
     utri_solve(utri);
