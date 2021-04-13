@@ -97,3 +97,7 @@ void array_pop_front(array_s *arr, void *elt) {
   array_get(arr, 0, elt);
   array_delete(arr, 0);
 }
+
+void array_sort(array_s *arr, compar_t cmp) {
+  qsort(arr->data, arr->size, arr->eltsize, cmp);
+}

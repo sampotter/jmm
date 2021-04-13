@@ -4,8 +4,7 @@
 extern "C" {
 #endif
 
-#include <stdbool.h>
-#include <stddef.h>
+#include "def.h"
 
 #define ARRAY_DEFAULT_CAPACITY 32
 
@@ -24,6 +23,7 @@ void array_get(array_s const *arr, size_t i, void *elt);
 void *array_get_ptr(array_s const *arr, size_t i);
 void array_delete(array_s *arr, size_t i);
 void array_pop_front(array_s *arr, void *elt);
+void array_sort(array_s *arr, compar_t cmp);
 
 #ifdef __cplusplus
 }
