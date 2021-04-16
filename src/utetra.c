@@ -19,7 +19,7 @@
 utetra_spec_s utetra_spec_empty() {
   return (utetra_spec_s) {
     .eik = NULL,
-    .lhat = NO_INDEX,
+    .lhat = (size_t)NO_INDEX,
     .l = {NO_INDEX, NO_INDEX, NO_INDEX},
     .state = {UNKNOWN, UNKNOWN, UNKNOWN},
     .xhat = {NAN, NAN, NAN},
@@ -63,7 +63,7 @@ utetra_spec_s utetra_spec_from_eik_without_l(eik3_s const *eik, dbl const x[3],
   state_e const *state = eik3_get_state_ptr(eik);
   return (utetra_spec_s) {
     .eik = eik,
-    .lhat = NO_INDEX,
+    .lhat = (size_t)NO_INDEX,
     .l = {l0, l1, l2},
     .state = {state[l0], state[l1], state[l2]},
     .xhat = {x[0], x[1], x[2]},
@@ -1386,7 +1386,7 @@ size_t utetra_get_active_inds(utetra_s const *utetra, size_t l[3]) {
   }
 
   size_t num_active = 0;
-  l[0] = l[1] = l[2] = NO_INDEX;
+  l[0] = l[1] = l[2] = (size_t)NO_INDEX;
   for (int i = 0; i < 3; ++i)
     if (fabs(alpha[i]) < atol)
       l[num_active++] = utetra->l[i];

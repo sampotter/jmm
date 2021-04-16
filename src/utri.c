@@ -14,8 +14,8 @@
 utri_spec_s utri_spec_empty() {
   return (utri_spec_s) {
     .eik = NULL,
-    .lhat = NO_INDEX,
-    .l = {NO_INDEX, NO_INDEX},
+    .lhat = (size_t)NO_INDEX,
+    .l = {(size_t)NO_INDEX, (size_t)NO_INDEX},
     .state = {UNKNOWN, UNKNOWN},
     .xhat = {NAN, NAN, NAN},
     .x = {
@@ -54,7 +54,7 @@ utri_spec_s utri_spec_from_eik_without_l(eik3_s const *eik, dbl const x[3],
   state_e const *state = eik3_get_state_ptr(eik);
   return (utri_spec_s) {
     .eik = eik,
-    .lhat = NO_INDEX,
+    .lhat = (size_t)NO_INDEX,
     .l = {l0, l1},
     .state = {state[l0], state[l1]},
     .xhat = {x[0], x[1], x[2]},
