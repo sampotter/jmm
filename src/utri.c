@@ -26,7 +26,7 @@ utri_spec_s utri_spec_empty() {
       {.f = INFINITY, .fx = NAN, .fy = NAN, .fz = NAN},
       {.f = INFINITY, .fx = NAN, .fy = NAN, .fz = NAN}
     },
-    .orig_index = NO_INDEX
+    .orig_index = (size_t)NO_INDEX
   };
 }
 

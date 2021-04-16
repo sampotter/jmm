@@ -14,7 +14,7 @@ typedef struct utri_spec {
   state_e state[2];
   dbl xhat[3], x[2][3];
   jet3 jet[2];
-  int orig_index;
+  size_t orig_index;
 } utri_spec_s;
 
 utri_spec_s utri_spec_empty();
