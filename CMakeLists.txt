@@ -61,7 +61,17 @@ if (SANITIZE_MEMORY)
 endif ()
 
 if (SANITIZE_UNDEFINED)
-  message (FATAL_ERROR "Not implemented yet")
+  if (NOT CMAKE_BUILD_TYPE STREQUAL "Debug")
+    message (FATAL_ERROR "Can only set SANITIZE_UNDEFINED=ON for debug builds")
+  endif ()
+  string (JOIN " " SANITIZE_UNDEFINED_CMAKE_C_FLAGS
+    "-fsanitize=undefined"
+    "-fsanitize=nullability"
+    "-fsanitize=float-divide-by-zero"
+    "-fsanitize=unsigned-integer-overflow"
+    "-fsanitize=implicit-conversion"
+    "-fsanitize=local-bounds")
+  set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${SANITIZE_UNDEFINED_CMAKE_C_FLAGS}")
 endif ()
 
 set (JMM_PUBLIC_HEADERS
