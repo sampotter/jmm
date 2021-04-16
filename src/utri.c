@@ -148,12 +148,12 @@ static dbl utri_hybrid_f(dbl lam, utri_s *utri) {
 }
 
 static void init_split(utri_s *u_par, eik3_s const *eik) {
+  dbl const atol = 1e-15;
+
   assert(u_par->num_shadow == 1);
 
   dbl t;
   assert(eik3_get_cutedge_t(eik, u_par->l0, u_par->l1, &t));
-
-  dbl const atol = 1e-15;
 
   if (t < atol) {
     if (u_par->state[0] == VALID) {
@@ -164,9 +164,7 @@ static void init_split(utri_s *u_par, eik3_s const *eik) {
       u_par->num_shadow = 0;
     }
     return;
-  }
-
-  if (t > 1 - atol) {
+  } else if (t > 1 - atol) {
     if (u_par->state[1] == VALID) {
       u_par->state[1] = SHADOW;
       u_par->num_shadow = 2;

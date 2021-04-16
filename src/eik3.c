@@ -1452,7 +1452,6 @@ size_t eik3_step(eik3_s *eik) {
 
   update_shadow_cutset(eik, l0);
   update_neighbors(eik, l0);
-
   update_statistics(eik);
 
   return l0;
