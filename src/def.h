@@ -37,6 +37,7 @@ typedef enum state {
   ADJACENT_TO_BOUNDARY,
   NEW_VALID,
   SHADOW,
+  SHADOW_BOUNDARY,
   UNKNOWN
 } state_e;
 
