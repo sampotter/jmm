@@ -9,7 +9,6 @@ void triqp2_solve(triqp2_s *qp) {
   assert(dbl2_isfinite(qp->b));
   assert(dbl2_isfinite(qp->A[0]));
   assert(dbl2_isfinite(qp->A[1]));
-  assert(dbl2_isfinite(qp->x));
 
   dbl const atol = 1e-15;
 
