@@ -3,6 +3,7 @@
 #include <assert.h>
 #include <math.h>
 
+#include "macros.h"
 #include "mat.h"
 #include "vec.h"
 
@@ -71,7 +72,7 @@ ray3 camera_get_ray_for_index(camera_s const *camera, int i, int j) {
     dbl33_dbl3_mul_inplace(mat, ray.dir);
     dbl3_copy(camera->pos, ray.org);
   } else {
-    assert(false);
+    die();
   }
   return ray;
 }

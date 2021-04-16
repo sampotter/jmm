@@ -755,7 +755,7 @@ static bool split_utetra_has_interior_point_solution(utetra_s const *cf) {
   if (jet[0].f > jet[1].f)
     return dbl3_maxnorm(alpha[1]) < atol;
 
-  assert(false);
+  die();
 }
 
 bool utetra_has_interior_point_solution(utetra_s const *cf) {
@@ -1067,7 +1067,7 @@ static bool get_op_ind(utetra_s const *utetra, size_t const le[2], size_t *l) {
         *l = utetra->l[i];
         return true;
       }
-    assert(false);
+    die();
   }
 
   return false;
@@ -1274,7 +1274,7 @@ bool utetras_yield_same_update(utetra_s const **u, size_t n) {
     return ray3_intersects_tri3(&ray, &tri, &unused);
   }
 
-  assert(false);
+  die();
 }
 
 size_t utetra_get_l(utetra_s const *utetra) {
@@ -1318,7 +1318,7 @@ void utetra_get_x(utetra_s const *u, dbl x[3]) {
 }
 
 static void get_alpha_for_active_inds_s1(utetra_s const *utetra, dbl alpha[3]) {
-  assert(false); // TODO: take a careful look at this the first time it hits!
+  die(); // TODO: take a careful look at this the first time it hits!
 
   utetra_s const *u = split_utetra_select(utetra);
 
@@ -1382,7 +1382,7 @@ size_t utetra_get_active_inds(utetra_s const *utetra, size_t l[3]) {
   case 0: get_lag_mults(utetra, alpha); break;
   case 1: get_alpha_for_active_inds_s1(utetra, alpha); break;
   case 2: get_alpha_for_active_inds_s2(utetra, alpha); break;
-  default: assert(false);
+  default: die();
   }
 
   size_t num_active = 0;

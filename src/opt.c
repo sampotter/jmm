@@ -2,6 +2,7 @@
 
 #include <assert.h>
 
+#include "macros.h"
 #include "mat.h"
 
 void triqp2_solve(triqp2_s *qp) {
@@ -121,5 +122,5 @@ void triqp2_solve(triqp2_s *qp) {
   // We shouldn't reach this point! We want to different conditionals
   // above to exhaust every case and positively identify an argmin for
   // the quadratic.
-  assert(false);
+  die();
 }

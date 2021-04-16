@@ -305,7 +305,7 @@ static bool is_shadow(eik3_s const *eik, size_t l0) {
   if (num_parents == 3)
     return is_shadow_p3(eik, *parent);
 
-  assert(false);
+  die();
 }
 
 static bool can_update_from_point(eik3_s const *eik, size_t l) {
@@ -1066,7 +1066,7 @@ static void set_cutedge_jet(eik3_s const *eik, edge_s edge, cutedge_s *cutedge) 
   switch (par3_size(&par)) {
   case 2: return set_cutedge_jet_p2(eik, edge, par.l, cutedge);
   case 3: return set_cutedge_jet_p3(eik, edge, par.l, cutedge);
-  default: assert(false);
+  default: die();
   }
 }
 
@@ -1401,7 +1401,7 @@ static void update_shadow_cutset(eik3_s *eik, size_t l0) {
     edge_s edge = make_edge(l0, l1);
     switch (set_cutedge(eik, edge, &cutedge)) {
     case CUTEDGE_CONTINUE:
-      assert(false);
+      die();
     case CUTEDGE_VALID:
       break;
     case CUTEDGE_REINSERT:

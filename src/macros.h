@@ -1,5 +1,7 @@
 #pragma once
 
+#define die() assert(false)
+
 #define MIN(x, y) ({                            \
     __typeof(x) x_ = (x);                       \
     __typeof(y) y_ = (y);                       \

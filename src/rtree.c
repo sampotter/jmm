@@ -94,7 +94,7 @@ void robj_get_centroid(robj_s const *obj, dbl c[3]) {
 static bool bmesh33_cell_isects_bbox(bmesh33_cell_s const *cell, rect3 const *bbox) {
   (void)cell;
   (void)bbox;
-  assert(false);
+  die();
   return false;
 }
 
@@ -109,7 +109,7 @@ static bool mesh2_tri_isects_bbox(mesh2_tri_s const *mesh_tri, rect3 const *bbox
 static bool mesh3_tetra_isects_bbox(mesh3_tetra_s const *tetra, rect3 const *bbox) {
   (void)tetra;
   (void)bbox;
-  assert(false);
+  die();
   return false;
 }
 
@@ -123,7 +123,7 @@ static bool tri3_isects_bbox(tri3 const *tri, rect3 const *bbox) {
 static bool tetra3_isects_bbox(tetra3 const *tetra, rect3 const *bbox) {
   (void)tetra;
   (void)bbox;
-  assert(false);
+  die();
   return false;
 }
 
