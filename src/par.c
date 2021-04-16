@@ -45,7 +45,7 @@ void par3_set(par3_s *par, size_t const *l, dbl const *b, int n) {
 size_t par3_size(par3_s const *par) {
   size_t size = (int)(par->l[0] != NO_PARENT) + (int)(par->l[1] != NO_PARENT)
     + (int)(par->l[2] != NO_PARENT);
-  assert(size == 1 || size == 2 || size == 3);
+  assert(0 <= size && size <= 3);
   return size;
 }
 
