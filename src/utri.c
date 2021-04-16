@@ -200,6 +200,8 @@ static void init_split(utri_s *u_par, eik3_s const *eik) {
 }
 
 bool utri_init(utri_s *u, utri_spec_s const *spec) {
+  dbl const atol = 1e-15;
+
   /* Validate spec before doing anything else */
 
   bool passed_lhat = spec->lhat != (size_t)NO_INDEX;
@@ -304,7 +306,7 @@ bool utri_init(utri_s *u, utri_spec_s const *spec) {
   dbl3_copy(u->x1, line.y);
   dbl xp[3]; line3_get_closest_point(&line, u->x, xp);
   dbl dx[3]; dbl3_sub(u->x, xp, dx);
-  return dbl3_dot(dx, &jet[0].fx) > 0 && dbl3_dot(dx, &jet[1].fx);
+  return dbl3_dot(dx, &jet[0].fx) > -atol && dbl3_dot(dx, &jet[1].fx) > -atol;
 }
 
 void utri_deinit(utri_s *u) {
