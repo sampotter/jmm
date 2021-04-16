@@ -13,42 +13,31 @@ plotter = pvqt.BackgroundPlotter()
 ################################################################################
 # parameters
 
-# verts_path = 'visualize_cutset/room_verts.bin'
-# cells_path = 'visualize_cutset/room_cells.bin'
-# surf_mesh_path = 'visualize_cutset/room.obj'
-
-# lsrc = 0 # index of point source
-# l = 3167
-# l0 = 499
-# l1 = 2138
-# l2 = 4385
-# l3 = None
-# lbad = None
-
 scene = 'L'
 
 verts_path = 'visualize_cutset/%s_verts.bin' % scene
 cells_path = 'visualize_cutset/%s_cells.bin' % scene
 
 lsrc = 0 # index of point source
-l = 153
-l0 = 57
+l = None
+l0 = None
 l1 = None
 l2 = None
 l3 = None
 lbad = None
 
-l_color = 'brown'
-l0_color = 'black'
-l1_color = 'white'
-l2_color = 'white'
-l3_color = 'cyan'
+l_color = 'red'
+l0_color = 'white'
+l1_color = 'black'
+l2_color = 'grey'
+l3_color = 'black'
 lbad_color = 'green'
 
 plot_surf_tris = False
 plot_wavefront = False
 plot_cutset = True
 plot_ray_from_lsrc_to_l = False
+plot_states = False
 
 ################################################################################
 # GEOMETRY SETUP
@@ -92,11 +81,11 @@ eik.add_trial(lsrc, jmm.Jet3(0.0, np.nan, np.nan, np.nan))
 #     if _ < rounds - 1:
 #         l0 = eik.step()
 
-while eik.peek() != l0:
-    eik.step()
-# eik.step()
-
-# eik.solve()
+if l0 is None:
+    eik.solve()
+else:
+    while eik.peek() != l0:
+        eik.step()
 
 # if l is not None:
 #     _ = verts[l] - verts[lsrc]
@@ -160,20 +149,14 @@ surf_mesh = pv.PolyData(
 )
 plotter.add_mesh(surf_mesh, color='white', opacity=0.25, show_edges=plot_surf_tris)
 
-highlight_inds = {
-    lsrc: 'pink',
-    l0: l0_color,
-}
-if l is not None:
-    highlight_inds[l] = l_color
-if lbad is not None:
-    highlight_inds[lbad] = lbad_color
-if l1 is not None:
-    highlight_inds[l1] = l1_color
-if l2 is not None:
-    highlight_inds[l2] = l2_color
-if l3 is not None:
-    highlight_inds[l3] = l3_color
+highlight_inds = dict()
+if lsrc is not None: highlight_inds[lsrc] = 'pink'
+if l0 is not None:   highlight_inds[l0] = l0_color
+if l is not None:    highlight_inds[l] = l_color
+if lbad is not None: highlight_inds[lbad] = lbad_color
+if l1 is not None:   highlight_inds[l1] = l1_color
+if l2 is not None:   highlight_inds[l2] = l2_color
+if l3 is not None:   highlight_inds[l3] = l3_color
 
 h = eik.mesh.min_tetra_alt/2
 sphere_radius = h/6
@@ -265,48 +248,29 @@ if plot_cutset:
         jet = cutedge.jet
         plot_jet(xt, jet)
 
+if plot_states:
+    for l_ in range(num_verts):
+        state = jmm.State(eik.state[l_])
+        print(l_, state)
+        c = {
+            jmm.State.Valid: 'green',
+            jmm.State.Trial: 'yellow',
+            jmm.State.Far: 'red',
+            jmm.State.Shadow: 'purple'
+        }[state]
+        s = 0.25
+        if l_ == l0:
+            plot_point(verts, l_, color=l0_color, scale=s)
+        else:
+            plot_point(verts, l_, color=c, scale=s)
+
 ################################################################################
 # TMP
 
-# xt = np.array([1, 1.6315787092401441, 0.5328554895202533])
-# plotter.add_mesh(pv.Sphere(sphere_radius, xt), color='red')
-
-# xb = eik.get_parent(l0).b@verts[eik.get_parent(l0).l]
-# plotter.add_mesh(pv.Sphere(sphere_radius, xb), color='blue')
-
-# x0, x1 = verts[135], verts[138]
-# xm, xd = (x0 + x1)/2, x1 - x0
-# r, h = 0.5*sphere_radius, np.linalg.norm(xd)
-# plotter.add_mesh(
-#     pv.Cylinder(xm, xd, r, h), color='cyan', opacity=1)
-
-# for l_ in mesh.vv(72):
-#     if not eik.is_valid(l_) and not eik.is_shadow(l_):
-#         continue
-#     c = 'cyan' if eik.is_valid(l_) else 'pink'
-#     plot_point(verts, l_, color=c, scale=2)
-
-# plot_edge(l0, l1)
-
-# plot_point(verts, 124, color='red', scale=1.25)
-# plot_point(verts, 11, color='magenta', scale=1.25)
-# plot_point(verts, 98, color='orange', scale=1.25)
-
-# for l_ in [48, 98, 130]:
-#     c = 'yellow' if eik.is_valid(l_) else 'blue'
-#     plot_point(verts, l_, color=c, scale=1.1)
-#     plot_jet(verts[l_], eik.jet[l_])
-
-# for l_ in mesh.vv(l):
-#     state = jmm.State(eik.state[l_])
-#     print(l_, state)
-#     c = {
-#         jmm.State.Valid: 'cyan',
-#         jmm.State.Trial: 'yellow',
-#         jmm.State.Far: 'red',
-#         jmm.State.Shadow: 'brown'
-#     }[state]
-#     if l_ == l0:
-#         plot_point(verts, l_, color='white', scale=1.7)
-#     else:
-#         plot_point(verts, l_, color=c, scale=1.4)
+# L1 = np.array([57, 112, 57])
+# L2 = np.array([112, 153, 153])
+# assert L1.size == L2.size
+# num_utetra = L1.size
+# faces = np.array([
+#     3*np.ones(num_utetra), l0*np.ones(num_utetra), L1, L2]).astype(np.uintp).T
+# plotter.add_mesh(pv.PolyData(verts, faces), color='cyan', opacity=0.5)
