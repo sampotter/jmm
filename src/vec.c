@@ -112,6 +112,7 @@ void dbl3_dbl_div_inplace(dbl u[3], dbl a) {
 
 dbl dbl3_normalize(dbl u[3]) {
   dbl unorm = sqrt(u[0]*u[0] + u[1]*u[1] + u[2]*u[2]);
+  assert(unorm != 0);
   u[0] /= unorm;
   u[1] /= unorm;
   u[2] /= unorm;
