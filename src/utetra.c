@@ -220,7 +220,10 @@ static void init_split_s1(utetra_s *u_par, eik3_s const *eik) {
   spec.jet[0] = eik3_get_jet(eik, l[0]);
   assert(eik3_get_cutedge_jet(eik, l[0], l[1], &spec.jet[1]));
   assert(eik3_get_cutedge_jet(eik, l[0], l[2], &spec.jet[2]));
+  assert(jet3_is_finite(&spec.jet[0]));
 
+  assert(jet3_is_finite(&spec.jet[1]));
+  assert(jet3_is_finite(&spec.jet[2]));
   /* Set up the single split `utetra` */
   u_par->split = malloc(sizeof(utetra_s *));
   utetra_alloc(&u_par->split[0]);

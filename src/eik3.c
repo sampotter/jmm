@@ -981,6 +981,7 @@ static void set_cutedge_jet_p2(eik3_s const *eik, edge_s edge,
   assert(!is_shadow_p2(eik, &utri_par));
 
   utri_get_jet(utri, &cutedge->jet);
+  assert(jet3_is_finite(&cutedge->jet));
 
 cleanup:
   utri_deinit(utri);
@@ -1046,7 +1047,10 @@ static void set_cutedge_jet_p3(eik3_s const *eik, edge_s edge,
 
 coda:
   assert(found_update);
+
   utetra_get_jet(utetra, &cutedge->jet);
+  assert(jet3_is_finite(&cutedge->jet));
+
   utetra_deinit(utetra);
   utetra_dealloc(&utetra);
 }
