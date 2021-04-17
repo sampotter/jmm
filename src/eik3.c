@@ -1109,7 +1109,11 @@ static void estimate_cutedge_data_from_incident_cutedges(
 
     dbl t = dbl3_dot(inc_cutedge.n, yt);
     t -= dbl3_dot(inc_cutedge.n, x0);
-    t /= dbl3_dot(inc_cutedge.n, dx);
+    if (t != 0) {
+      dbl denom = dbl3_dot(inc_cutedge.n, dx);
+      assert(denom != 0);
+      t /= denom;
+    }
 
     cutedge->t += t;
 
