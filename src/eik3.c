@@ -1128,11 +1128,12 @@ static void estimate_cutedge_data_from_incident_cutedges(
   assert(-eik->tlim <= cutedge->t && cutedge->t <= 1 + eik->tlim);
   cutedge->t = fmax(0, fmin(1, cutedge->t));
 
-  set_cutedge_jet(eik, edge, cutedge);
-
   // TODO: this is the perfect place to do a weighted spherical
   // average instead of just normalizing!
   dbl3_normalize(cutedge->n);
+
+  /* Finally, set the cutedge jet. */
+  set_cutedge_jet(eik, edge, cutedge);
 }
 
 typedef enum cutedge_status {
