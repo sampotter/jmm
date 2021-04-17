@@ -107,7 +107,7 @@ struct utri {
 };
 
 static bool is_split(utri_s const *u) {
-  return u->num_shadow == 1;
+  return u->split != NULL;
 }
 
 void utri_alloc(utri_s **utri) {
@@ -147,7 +147,8 @@ static dbl utri_hybrid_f(dbl lam, utri_s *utri) {
   return utri->Df;
 }
 
-static void init_split(utri_s *u_par, eik3_s const *eik) {
+static void init_split(utri_s *u_par, eik3_s const *eik, bool *split,
+                       bool *causal) {
   dbl const atol = 1e-15;
 
   assert(u_par->num_shadow == 1);
@@ -163,6 +164,7 @@ static void init_split(utri_s *u_par, eik3_s const *eik) {
       u_par->state[0] = VALID;
       u_par->num_shadow = 0;
     }
+    *split = false;
     return;
   } else if (t > 1 - atol) {
     if (u_par->state[1] == VALID) {
@@ -172,7 +174,10 @@ static void init_split(utri_s *u_par, eik3_s const *eik) {
       u_par->state[1] = VALID;
       u_par->num_shadow = 0;
     }
+    *split = false;
     return;
+  } else {
+    *split = true;
   }
 
   utri_spec_s spec = utri_spec_empty();
@@ -187,14 +192,33 @@ static void init_split(utri_s *u_par, eik3_s const *eik) {
     dbl3_copy(u_par->x, spec.xhat);
   }
 
-  dbl3_copy(u_par->x0, spec.x[0]);
-  dbl3_saxpy(t, u_par->x1_minus_x0, spec.x[0], spec.x[1]);
+  /* In the next section, we want to make sure to avoid using garbage
+   * data coming from `SHADOW` nodes when we initialize the base of
+   * the update. This isn't too complicated, we just check which node
+   * of the parent update is `VALID`. (For `utetra`, we swap nodes
+   * around, which is efficient but a little confusing.) */
 
-  spec.jet[0] = eik3_get_jet(eik, u_par->l0);
-  assert(eik3_get_cutedge_jet(eik, u_par->l0, u_par->l1, &spec.jet[1]));
+  if (u_par->state[0] == VALID) {
+    dbl3_copy(u_par->x0, spec.x[0]);
+    dbl3_saxpy(t, u_par->x1_minus_x0, spec.x[0], spec.x[1]);
+  } else {
+    dbl3_saxpy(t, u_par->x1_minus_x0, u_par->x0, spec.x[0]);
+    dbl3_copy(u_par->x1, spec.x[1]);
+  }
+
+  if (u_par->state[0] == VALID) {
+    spec.jet[0] = eik3_get_jet(eik, u_par->l0);
+    assert(eik3_get_cutedge_jet(eik, u_par->l0, u_par->l1, &spec.jet[1]));
+  } else {
+    assert(eik3_get_cutedge_jet(eik, u_par->l0, u_par->l1, &spec.jet[0]));
+    spec.jet[1] = eik3_get_jet(eik, u_par->l1);
+  }
 
   utri_alloc(&u_par->split);
-  utri_init(u_par->split, &spec);
+
+  /* Initialize the split update and return whether the update is
+   * causal from the call to `utri_init`. */
+  *causal = utri_init(u_par->split, &spec);
 }
 
 bool utri_init(utri_s *u, utri_spec_s const *spec) {
@@ -287,12 +311,15 @@ bool utri_init(utri_s *u, utri_spec_s const *spec) {
   for (size_t i = 0; i < 2; ++i)
     u->num_shadow += u->state[i] == SHADOW;
 
-  if (u->num_shadow == 1)
-    init_split(u, spec->eik);
-  else
-    u->split = NULL;
-
   u->orig_index = spec->orig_index;
+
+  u->split = NULL;
+  if (u->num_shadow == 1) {
+    bool split, causal;
+    init_split(u, spec->eik, &split, &causal);
+    if (split)
+      return causal;
+  }
 
   /* Check if the update point is on the right side of the base of the
    * update. First, we compute the closest point on the line spanned
