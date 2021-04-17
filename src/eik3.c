@@ -1052,27 +1052,14 @@ coda:
 }
 
 static void set_cutedge_jet(eik3_s const *eik, edge_s edge, cutedge_s *cutedge) {
-  dbl const atol = 1e-15;
-
   dbl t = cutedge->t;
 
   /* Get the edge endpoint closer to x(t) and grab that node's parents. */
   par3_s par = eik3_get_par(eik, t < 0.5 ? edge.l[0] : edge.l[1]);
 
-  /* Check if `t` is approximately `0` or `1`, in which case we can
-   * grab the data from the cutedge endpoint and return. */
-  if (t < atol) {
-    cutedge->jet = eik->jet[edge.l[0]];
-    return;
-  } else if (t > 1 - atol) {
-    cutedge->jet = eik->jet[edge.l[1]];
-    return;
-  }
-
-  /* Move on to the handling an interior cut point. We handle two
-   * parents and three parents separately. If there are two, we
-   * compute the cutedge jet using a triangle update, and using a
-   * tetrahedron update if there are three. */
+  /* For two parents, compute the cutedge jet using a triangle update;
+   * for three, use a tetrahedron update. We don't current handle a
+   * single parent. */
   switch (par3_size(&par)) {
   case 2: return set_cutedge_jet_p2(eik, edge, par.l, cutedge);
   case 3: return set_cutedge_jet_p3(eik, edge, par.l, cutedge);
