@@ -1436,7 +1436,15 @@ size_t eik3_step(eik3_s *eik) {
   assert(eik->state[l0] == TRIAL);
   heap_pop(eik->heap);
 
-  assert(isfinite(eik->jet[l0].f));
+  /* When we accept a node with an infinite jet, we can conclude
+   * immediately that it must be a `SHADOW` node, since this should
+   * only happen when a node wasn't reachable by any update. */
+  if (isinf(eik->jet[l0].f)) {
+    eik->state[l0] = SHADOW;
+    update_shadow_cutset(eik, l0);
+    update_neighbors(eik, l0);
+    return l0;
+  }
 
   /* Once we accept a node, we can clear out the old updates that
    * are targeting it */
