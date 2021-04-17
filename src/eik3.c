@@ -1440,8 +1440,8 @@ size_t eik3_step(eik3_s *eik) {
 
   assert(isfinite(eik->jet[l0].f));
 
-  // Once we accept a node, we can clear out the old updates that are
-  // targeting it
+  /* Once we accept a node, we can clear out the old updates that
+   * are targeting it */
   utetra_s *old_utetra;
   for (size_t i = array_size(eik->old_updates); i > 0; --i) {
     array_get(eik->old_updates, i - 1, &old_utetra);
