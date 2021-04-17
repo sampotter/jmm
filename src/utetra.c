@@ -791,6 +791,29 @@ int utetra_cmp(utetra_s const **h1, utetra_s const **h2) {
   }
 }
 
+bool utetra_has_shadow_boundary_solution(utetra_s const *utetra) {
+  dbl const atol = 1e-15;
+
+  /* This isn't exactly right. If we try to split a tetrahedron update
+   * where the shadow boundary passes through the edge ...
+   */
+  if (!is_split(utetra))
+    return false;
+
+  utetra_s **u = utetra->split;
+
+  if (num_split(utetra) == 1) {
+    return dbl2_sum(u[0]->lam) > 1 - atol;
+  } else if (num_split(utetra) == 2) {
+    if (u[0]->f < u[1]->f)
+      return u[0]->lam[0] > 1 - atol;
+    else
+      return dbl2_sum(u[1]->lam) > 1 - atol;
+  } else {
+    die();
+  }
+}
+
 bool utetra_adj_are_optimal(utetra_s const *u1, utetra_s const *u2) {
   assert(!is_split(u1));
   assert(!is_split(u2));

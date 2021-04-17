@@ -43,6 +43,7 @@ void utetra_solve(utetra_s *cf, dbl const *lam);
 dbl utetra_get_value(utetra_s const *cf);
 void utetra_get_jet(utetra_s const *cf, jet3 *jet);
 bool utetra_has_interior_point_solution(utetra_s const *cf);
+bool utetra_has_shadow_boundary_solution(utetra_s const *u);
 int utetra_cmp(utetra_s const **h1, utetra_s const **h2);
 bool utetra_adj_are_optimal(utetra_s const *u1, utetra_s const *u2);
 bool utetra_diff(utetra_s const *utetra, mesh3_s const *mesh, size_t const l[3]);
