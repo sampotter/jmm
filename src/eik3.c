@@ -213,6 +213,8 @@ static bool is_shadow_p2(eik3_s const *eik, par3_s const *parent) {
 }
 
 static bool is_shadow_p3(eik3_s const *eik, par3_s par) {
+  dbl const atol = 1e-15;
+
   assert(par3_size(&par) == 3);
 
   size_t num_shadow = 0;
@@ -267,9 +269,9 @@ static bool is_shadow_p3(eik3_s const *eik, par3_s par) {
   // connecting the intersection points on the shadow cutset nearer to
   // x0.
   if (check_state == SHADOW)
-    return t[0] <= ts[0] && t[1] <= ts[1]*(1 - t[0]/ts[0]);
+    return t[0] <= ts[0] + atol && t[1] <= ts[1]*(1 - t[0]/ts[0]) + atol;
   else
-    return t[0] > ts[0] || t[1] > ts[1]*(1 - t[0]/ts[0]);
+    return t[0] >= ts[0] - atol || t[1] >= ts[1]*(1 - t[0]/ts[0]) - atol;
 }
 
 static bool is_shadow(eik3_s const *eik, size_t l0) {
