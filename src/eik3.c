@@ -989,6 +989,14 @@ cleanup:
 
 static void set_cutedge_jet_p3(eik3_s const *eik, edge_s edge,
                                size_t const l[3], cutedge_s *cutedge) {
+  /* Here's a little research project for this function, which is
+   * actually pretty important... If we find an update with a "shadow
+   * boundary solution" (i.e. lying on the shadow boundary with
+   * nonzero Lagrange multipliers for the active constraints), can we
+   * move the cutset point a bit until these constraints are relaxed?
+   * Is that a good idea? Seems complicated but could be
+   * interesting... */
+
   mesh3_s const *mesh = eik->mesh;
 
   dbl xt[3];
