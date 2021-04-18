@@ -20,6 +20,24 @@
 #include "utri.h"
 #include "vec.h"
 
+// TODO:
+//
+// - There's a common pattern that gets reused here a lot:
+//
+//   1. Use a mesh iterator to enumerate the bases of a set of
+//      `utetra` or `utri`
+//   2. Do all these updates
+//   3. Sort them
+//   4. Commit an update based on what's going on with the first
+//      couple of updates
+//
+//   I rewrote this from scratch each time I did it because I wasn't
+//   sure how often I'd be doing it! But there you are. Ideally, we
+//   should refactor these "updates sequences" into new module (e.g.,
+//   utetras.h, utris.h), and call them from here. It will make the
+//   code in this file much easier to understand and likely suss out a
+//   few bugs.
+
 /**
  * A structure managing a jet marching method solving the eikonal
  * equation in 3D on an unstructured tetrahedron mesh.
