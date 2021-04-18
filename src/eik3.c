@@ -7,10 +7,6 @@
 
 #include <stdio.h>
 
-#ifdef _OPENMP
-#include <omp.h>
-#endif
-
 #include "array.h"
 #include "bb.h"
 #include "edgemap.h"
