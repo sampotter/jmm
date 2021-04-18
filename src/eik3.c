@@ -227,7 +227,7 @@ static bool is_shadow_p2(eik3_s const *eik, par3_s const *parent) {
 }
 
 static bool is_shadow_p3(eik3_s const *eik, par3_s par) {
-  dbl const atol = 1e-15;
+  dbl const atol = 1e-14;
 
   assert(par3_size(&par) == 3);
 
