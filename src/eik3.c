@@ -1029,10 +1029,10 @@ static void set_cutedge_jet_p2(eik3_s const *eik, edge_s edge,
   utri_s **u = malloc(num_inc*sizeof(utri_s *));
 
   for (size_t i = 0; i < num_inc; ++i) {
-    utri_alloc(&u[0]);
+    utri_alloc(&u[i]);
     utri_spec_s spec_ = utri_spec_from_eik_without_l(eik, xt, le[i][0], le[i][1]);
-    if (utri_init(u[0], &spec_))
-      utri_solve(u[0]);
+    if (utri_init(u[i], &spec_))
+      utri_solve(u[i]);
   }
 
   qsort(u, num_inc, sizeof(utri_s *), (compar_t)utri_cmp);
