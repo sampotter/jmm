@@ -274,7 +274,8 @@ static void line(eik_s *eik, int l, int l0) {
   {
     dbl th_min = th - PI_OVER_FOUR;
     dbl th_max = th + PI_OVER_FOUR;
-    th = hybrid(S4_th, th_min, th_max, (void *)&context);
+    bool found = hybrid(S4_th, th_min, th_max, (void *)&context, &th);
+    assert(found);
   }
 
   dbl T = T0 + context.L*context.S4;
@@ -347,7 +348,8 @@ static void tri(eik_s *eik, int l, int l0, int l1, int ic0) {
     F3_context context = {
       .T_cubic = T_cubic, .xy = xy, .xy0 = xy0, .xy1 = xy1, .slow = eik->slow
     };
-    eta = hybrid(F3_eta, 0, 1, (void *)&context);
+    bool found = hybrid(F3_eta, 0, 1, (void *)&context, &eta);
+    assert(found);
   }
   {
     dvec2 dxy = dvec2_sub(xy1, xy0);

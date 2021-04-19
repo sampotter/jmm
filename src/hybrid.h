@@ -8,7 +8,7 @@ extern "C" {
 
 typedef dbl (*hybrid_cost_func_t)(dbl, void*);
 
-dbl hybrid(hybrid_cost_func_t f, dbl a, dbl b, void *context);
+bool hybrid(hybrid_cost_func_t f, dbl a, dbl b, void *context, dbl *t);
 
 #ifdef __cplusplus
 }

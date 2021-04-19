@@ -363,7 +363,9 @@ update_constant(dial3_s const *dial, int l, void *ptr, dbl *Toff, dvec3 *xsrc) {
     .xsrc0 = data->xsrc0,
     .d = d
   };
-  hybrid(f_update_constant, -1, 1, (void *)&context);
+  dbl unused;
+  bool found = hybrid(f_update_constant, -1, 1, (void *)&context, &unused);
+  assert(found);
 
   *Toff = data->Toff0 + dvec3_dist(context.xsrc, data->xsrc0);
   *xsrc = context.xsrc;

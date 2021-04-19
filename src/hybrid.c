@@ -4,21 +4,23 @@
 
 #include "util.h"
 
-dbl hybrid(dbl (*f)(dbl, void *), dbl a, dbl b, void *context) {
+bool hybrid(dbl (*f)(dbl, void *), dbl a, dbl b, void *context, dbl *t) {
   dbl c, d, fa, fb, fc, fd, dm, df, ds, dd, tmp;
 
   fa = f(a, context);
   if (fabs(fa) <= EPS) {
-    return a;
+    *t = a;
+    return true;
   }
 
   fb = f(b, context);
   if (fabs(fb) <= EPS) {
-    return b;
+    *t = b;
+    return true;
   }
 
   if (sgn(fa) == sgn(fb)) {
-    return sgn(fa) == 1 ? a : b;
+    return false;
   }
 
   c = a;
@@ -58,5 +60,6 @@ dbl hybrid(dbl (*f)(dbl, void *), dbl a, dbl b, void *context) {
       fc = fa;
     }
   }
-  return (b + c)/2;
+  *t = (b + c)/2;
+  return true;
 }

@@ -345,10 +345,28 @@ void utri_deinit(utri_s *u) {
 }
 
 void utri_solve(utri_s *utri) {
-  if (is_split(utri))
+  if (is_split(utri)) {
     utri_solve(utri->split);
+    return;
+  }
+
+  dbl lam, f[2];
+
+  if (hybrid((hybrid_cost_func_t)utri_hybrid_f, 0, 1, utri, &lam))
+    return;
+
+  utri_set_lambda(utri, 0);
+  f[0] = utri->f;
+
+  utri_set_lambda(utri, 1);
+  f[1] = utri->f;
+
+  assert(f[0] != f[1]);
+
+  if (f[0] < f[1])
+    utri_set_lambda(utri, 0);
   else
-    (void)hybrid((hybrid_cost_func_t)utri_hybrid_f, 0, 1, utri);
+    utri_set_lambda(utri, 1);
 }
 
 static void get_update_inds(utri_s const *utri, size_t l[2]) {
