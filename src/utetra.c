@@ -1517,8 +1517,6 @@ void utetra_get_x(utetra_s const *u, dbl x[3]) {
 }
 
 static void get_alpha_for_active_inds_s1(utetra_s const *utetra, dbl alpha[3]) {
-  die(); // TODO: take a careful look at this the first time it hits!
-
   utetra_s const *u = split_utetra_select(utetra);
 
   get_lag_mults(u, alpha);
