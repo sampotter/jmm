@@ -1826,6 +1826,10 @@ size_t eik3_step(eik3_s *eik) {
       eik->jet[l0] = jet3_make_empty();
   } while (!update_shadow_cutset(eik, l0));
 
+  if (!eik3_is_point_source(eik, l0) &&
+      !jet3_is_finite(&eik->jet[l0]))
+    assert(eik3_is_shadow(eik, l0));
+
   update_neighbors(eik, l0);
   update_statistics(eik);
 
