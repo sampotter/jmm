@@ -1261,7 +1261,8 @@ static void set_cutedge_jet_a2(eik3_s const *eik, dbl const xt[3],
   size_t na = utetra_get_active_inds(u[0], la);
 
   /* Try to handle some exceptional cases first */
-  if ((na == 1 && utetra_has_shadow_boundary_solution(u[0])) ||
+  if (((na == 1 || na == 3) &&
+       utetra_has_shadow_boundary_solution(u[0])) ||
       (na == 2 && mesh3_bde(eik->mesh, la))) {
     utetra_get_jet(u[0], &jet);
     assert(jet3_is_finite(&jet));
