@@ -525,6 +525,12 @@ bool utri_update_ray_is_physical(utri_s const *utri, eik3_s const *eik) {
   dbl xhatm[3];
   ray3_get_point(&ray, L - t, xhatm);
 
+  /* If `utri->l` is unset, we're probably computing a jet for a cut
+   * point, in which case we can fairly safely assume we're OK
+   * here. Return. */
+  if (utri->l == (size_t)NO_INDEX)
+    return true;
+
   nvc = mesh3_nvc(mesh, utri->l);
   vc = malloc(nvc*sizeof(size_t));
   mesh3_vc(mesh, utri->l, vc);
