@@ -1553,15 +1553,21 @@ static void get_alpha_for_active_inds_s2(utetra_s const *utetra, dbl alpha[3]) {
    * so that an interior point minimizer is treated as such. */
   alpha[2] = 0;
 
-  /* Set the Lagrange multiplier corresponding to the shadow boundary
-   * equal to zero. Only do this if the `utetra` that's incident on
-   * the shadow boundary is active. */
-  if (shadow_adj_split)
+  if (shadow_adj_split) {
+    /* Set the Lagrange multiplier corresponding to the shadow
+     * boundary equal to zero. Only do this if the `utetra` that's
+     * incident on the shadow boundary is active. */
     alpha[0] = 0;
+
+    /* Swap the 1st and 2nd components to orient the sub-update
+     * adjacent to the shadow boundary correctly (and do it before we
+     * undo permute the permutation taking the vertices of `utetra` to
+     * vertices of `utetra->split[1]`).  */
+    SWAP(alpha[1], alpha[2]);
+  }
 
   bool swapped_l0_and_l2 = dbl3_equal(utetra->split[0]->Xt[0], utetra->Xt[2]);
   bool swapped_l1_and_l2 = dbl3_equal(utetra->split[0]->Xt[1], utetra->Xt[2]);
-  assert(!(swapped_l0_and_l2 && swapped_l1_and_l2));
 
   if (swapped_l0_and_l2)
     SWAP(alpha[0], alpha[2]);
