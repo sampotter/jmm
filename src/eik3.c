@@ -1082,13 +1082,22 @@ static bool get_cutedge_jet_diff(eik3_s const *eik, size_t const l[2],
    * First, we find the active endpoint, then find all of the
    * diffracting edges adjacent to it. */
 
+  bool found = false;
+
   size_t l_active = utri_get_active_ind(utri);
 
-  utri_deinit(utri);
-  utri_dealloc(&utri);
-
   size_t num_inc = mesh3_get_num_inc_diff_edges(mesh, l_active);
-  assert(num_inc > 1);
+
+  /* If there's only one active index and only one incident
+   * diffracting edge, we should be on a diffracting edge where it
+   * meets a flat part of the boundary. So, we can just use the jet
+   * from `utri` and return early. */
+  if (num_inc == 1) {
+    utri_get_jet(utri, jet);
+    assert(jet3_is_finite(jet));
+    found = true;
+    goto cleanup;
+  }
 
   size_t (*le)[2] = malloc(num_inc*sizeof(size_t[2]));
   mesh3_get_inc_diff_edges(mesh, l_active, le);
@@ -1103,8 +1112,6 @@ static bool get_cutedge_jet_diff(eik3_s const *eik, size_t const l[2],
   }
 
   qsort(u, num_inc, sizeof(utri_s *), (compar_t)utri_cmp);
-
-  bool found = false;
 
   for (size_t i = 0; i < num_inc; ++i) {
     if (!utri_is_finite(u[i]))
@@ -1127,8 +1134,11 @@ static bool get_cutedge_jet_diff(eik3_s const *eik, size_t const l[2],
   }
 
   free(u);
-
   free(le);
+
+cleanup:
+  utri_deinit(utri);
+  utri_dealloc(&utri);
 
   return found;
 }
