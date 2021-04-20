@@ -1295,6 +1295,15 @@ cleanup:
   free(l2);
 }
 
+static size_t find_nearby_l2_for_edge(eik3_s const *eik, size_t l[2]) {
+  size_t *l2;
+  size_t nup = get_update_pencil(eik, l, &l2); // TODO: wasteful, but whatever
+  assert(nup > 0);
+  size_t tmp = l2[0];
+  free(l2);
+  return tmp;
+}
+
 static void set_cutedge_jet(eik3_s const *eik, edge_s edge, cutedge_s *cutedge) {
   dbl const atol = 1e-14;
 
@@ -1341,16 +1350,22 @@ static void set_cutedge_jet(eik3_s const *eik, edge_s edge, cutedge_s *cutedge) 
 
   utetra_spec_s spec[2];
   utetra_s *u[2];
-  for (size_t i = 0; i < 2; ++i) {
-    if (par_size[i] != 3) {
-      u[i] = NULL;
-      continue;
+  for (size_t i = 0, l[3]; i < 2; ++i) {
+    memcpy(l, par[i].l, par_size[i]*sizeof(size_t));
+    switch (par_size[i]) {
+    case 2:
+      assert(!mesh3_is_diff_edge(eik->mesh, l));
+      l[2] = find_nearby_l2_for_edge(eik, l);
+    case 3:
+      spec[i] = utetra_spec_from_eik_without_l(eik, xt, l[0], l[1], l[2]);
+      utetra_alloc(&u[i]);
+      if (utetra_init(u[i], &spec[i]))
+        utetra_solve(u[i], NULL);
+      break;
+    case 1:
+    default:
+      assert(false);
     }
-    size_t *l = par[i].l;
-    spec[i] = utetra_spec_from_eik_without_l(eik, xt, l[0], l[1], l[2]);
-    utetra_alloc(&u[i]);
-    if (utetra_init(u[i], &spec[i]))
-      utetra_solve(u[i], NULL);
   }
 
   dbl f[2];
