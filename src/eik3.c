@@ -523,6 +523,37 @@ cleanup:
 }
 
 static
+size_t get_update_pencil(eik3_s const *eik, size_t l[2], size_t **l2) {
+  /* Get vertices surrounding `l` */
+  size_t nev = mesh3_nev(eik->mesh, l);
+  size_t *ev = malloc(nev*sizeof(size_t));
+  mesh3_ev(eik->mesh, l, ev);
+
+  bool *can_update = malloc(nev*sizeof(bool));
+
+  size_t nup = 0;
+  for (size_t i = 0; i < nev; ++i)
+    nup += can_update[i] = can_update_from_face(eik, l[0], l[1], ev[i]);
+
+  if (nup == 0)
+    goto cleanup;
+
+  *l2 = malloc(nup*sizeof(size_t));
+
+  size_t j = 0;
+  for (size_t i = 0; i < nev; ++i)
+    if (can_update[i])
+      (*l2)[j++] = ev[i];
+  assert(j == nup);
+
+cleanup:
+  free(can_update);
+  free(ev);
+
+  return nup;
+}
+
+static
 void get_valid_incident_diff_edges(eik3_s const *eik, size_t l0, array_s *l1) {
   mesh3_s const *mesh = eik3_get_mesh(eik);
 
