@@ -1324,13 +1324,12 @@ static void set_cutedge_jet(eik3_s const *eik, edge_s edge, cutedge_s *cutedge) 
   edge_get_xt(edge, eik->mesh, cutedge->t, xt);
 
   /* First, try to handle diffracting edge cases */
-  jet3 jet[2];
+  jet3 jet[2] = {jet3_make_empty(), jet3_make_empty()};
   bool found[2];
-  for (size_t i = 0; i < 2; ++i) {
-    jet[i] = jet3_make_empty();
+  for (size_t i = 0; i < 2; ++i)
     found[i] = par_size[i] == 2 &&
+      mesh3_is_diff_edge(eik->mesh, par[i].l) &&
       get_cutedge_jet_diff(eik, par[i].l, xt, &jet[i]);
-  }
   if (found[0] && found[1])
     cutedge->jet = jet[0].f < jet[1].f ? jet[0] : jet[1];
   else if (found[0])
