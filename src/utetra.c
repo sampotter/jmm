@@ -262,6 +262,7 @@ static void init_split_s1(utetra_s *u_par, eik3_s const *eik,
   spec.jet[0] = eik3_get_jet(eik, l[0]);
   assert(jet3_is_finite(&spec.jet[0]));
 
+  /* Set `spec.jet[1]`: */
   if (!eik3_get_cutedge_jet(eik, l[0], l[1], &spec.jet[1])) {
     if (u_par->l[0] == l[0]) // no swap
       spec.jet[1] = jet[1];
@@ -274,6 +275,7 @@ static void init_split_s1(utetra_s *u_par, eik3_s const *eik,
   }
   assert(jet3_is_finite(&spec.jet[1]));
 
+  /* Set `spec.jet[2]`: */
   if (!eik3_get_cutedge_jet(eik, l[0], l[2], &spec.jet[2])) {
     if (u_par->l[0] == l[0]) // no swap
       die();
