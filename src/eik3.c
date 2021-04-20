@@ -438,11 +438,44 @@ static void do_2pt_bd_updates(eik3_s *eik, size_t l, size_t l0) {
   free(ve);
 }
 
-static bool can_update_from_edge(eik3_s const *eik, size_t l[2]) {
-  return can_update_from_point(eik, l[0]) && can_update_from_point(eik, l[1]);
+static bool has_cutedge(eik3_s const *eik, size_t l0, size_t l1) {
+  edge_s edge = make_edge(l0, l1);
+  return edgemap_contains(eik->cutset, edge);
 }
 
-static int get_update_tri_fan(eik3_s const *eik, size_t l0, size_t **l1, size_t **l2) {
+static bool can_update_from_face(eik3_s const *eik,
+                                 size_t l0, size_t l1, size_t l2) {
+  if (!can_update_from_point(eik, l0) ||
+      !can_update_from_point(eik, l1) ||
+      !can_update_from_point(eik, l2))
+    return false;
+
+  size_t num_shadow = (eik->state[l0] == SHADOW) +
+    (eik->state[l1] == SHADOW) + (eik->state[l2] == SHADOW);
+
+  if (num_shadow == 1) {
+    if (eik->state[l1] == SHADOW)
+      SWAP(l0, l1);
+    if (eik->state[l2] == SHADOW)
+      SWAP(l0, l2);
+    if (!has_cutedge(eik, l0, l1) || !has_cutedge(eik, l0, l2))
+      return false;
+  }
+
+  if (num_shadow == 2) {
+    if (eik->state[l1] == VALID)
+      SWAP(l0, l1);
+    if (eik->state[l2] == VALID)
+      SWAP(l0, l2);
+    if (!has_cutedge(eik, l0, l1) || !has_cutedge(eik, l0, l2))
+      return false;
+  }
+
+  return true;
+}
+
+static
+size_t get_update_fan(eik3_s const *eik, size_t l0, size_t **l1, size_t **l2) {
   // 1. get faces surrounding l0
 
   int nve = mesh3_nve(eik->mesh, l0);
@@ -454,7 +487,8 @@ static int get_update_tri_fan(eik3_s const *eik, size_t l0, size_t **l1, size_t 
   int ntri = 0;
   bool *updateable_tri = malloc(nve*sizeof(bool));
   for (int i = 0; i < nve; ++i)
-    ntri += updateable_tri[i] = can_update_from_edge(eik, ve[i]);
+    ntri += updateable_tri[i] =
+      can_update_from_face(eik, l0, ve[i][0], ve[i][1]);
 
   // 3. return if we didn't find any triangles we can update from
 
@@ -541,7 +575,7 @@ static void update(eik3_s *eik, size_t l, size_t l0) {
    * First, find the "update triangle fan"
    */
   size_t *l1, *l2;
-  size_t num_utetra = get_update_tri_fan(eik, l0, &l1, &l2);
+  size_t num_utetra = get_update_fan(eik, l0, &l1, &l2);
   if (num_utetra == 0)
     return;
 
