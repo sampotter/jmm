@@ -1354,7 +1354,6 @@ static void set_cutedge_jet(eik3_s const *eik, edge_s edge, cutedge_s *cutedge) 
     memcpy(l, par[i].l, par_size[i]*sizeof(size_t));
     switch (par_size[i]) {
     case 2:
-      assert(!mesh3_is_diff_edge(eik->mesh, l));
       l[2] = find_nearby_l2_for_edge(eik, l);
     case 3:
       spec[i] = utetra_spec_from_eik_without_l(eik, xt, l[0], l[1], l[2]);
