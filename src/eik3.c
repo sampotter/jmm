@@ -1048,6 +1048,8 @@ static bool get_cutedge_jet_diff(eik3_s const *eik, size_t const l[2],
                                  dbl const xt[3], jet3 *jet) {
   mesh3_s const *mesh = eik3_get_mesh(eik);
 
+  assert(mesh3_is_diff_edge(mesh, l));
+
   utri_s *utri;
   utri_alloc(&utri);
   utri_spec_s spec = utri_spec_from_eik_without_l(eik, xt, l[0], l[1]);
@@ -1079,8 +1081,6 @@ static bool get_cutedge_jet_diff(eik3_s const *eik, size_t const l[2],
    *
    * First, we find the active endpoint, then find all of the
    * diffracting edges adjacent to it. */
-
-  assert(mesh3_is_diff_edge(mesh, l));
 
   size_t l_active = utri_get_active_ind(utri);
 
