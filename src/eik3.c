@@ -184,6 +184,11 @@ static cutedge_s get_cutedge(eik3_s const *eik, size_t l0, size_t l1) {
   return cutedge;
 }
 
+static void reset_cutedge(cutedge_s *cutedge) {
+  cutedge->jet.f = cutedge->jet.fx = cutedge->jet.fy = cutedge->jet.fz
+    = cutedge->t = cutedge->n[0] = cutedge->n[1] = cutedge->n[1] = NAN;
+}
+
 static bool is_shadow_p1_diff(eik3_s const *eik, size_t l0, size_t l) {
   dbl const atol = 1e-14;
   dbl n[3];
@@ -1237,7 +1242,7 @@ static void set_cutedge_jet(eik3_s const *eik, edge_s edge, cutedge_s *cutedge) 
   }
 }
 
-static void estimate_cutedge_data_from_incident_cutedges(
+static bool estimate_cutedge_data_from_incident_cutedges(
   eik3_s const *eik, edge_s edge, cutedge_s *cutedge, edgemap_s const *inc)
 {
   assert(!edgemap_is_empty(inc));
@@ -1286,8 +1291,12 @@ static void estimate_cutedge_data_from_incident_cutedges(
   // Verify that t is (up to machine precision) in the interval [0,
   // 1]. If it's slightly outside of the interval due to roundoff
   // error, clamp it back before returning.
-  assert(-eik->tlim <= cutedge->t && cutedge->t <= 1 + eik->tlim);
-  cutedge->t = fmax(0, fmin(1, cutedge->t));
+  /* assert(-eik->tlim <= cutedge->t && cutedge->t <= 1 + eik->tlim); */
+  /* cutedge->t = fmax(0, fmin(1, cutedge->t)); */
+  if (cutedge->t < 0 || cutedge->t > 1) {
+    reset_cutedge(cutedge);
+    return false;
+  }
 
   // TODO: this is the perfect place to do a weighted spherical
   // average instead of just normalizing!
@@ -1295,10 +1304,13 @@ static void estimate_cutedge_data_from_incident_cutedges(
 
   /* Finally, set the cutedge jet. */
   set_cutedge_jet(eik, edge, cutedge);
+
+  return true;
 }
 
 typedef enum cutedge_status {
   CUTEDGE_CONTINUE,
+  CUTEDGE_SWITCH_STATE,
   CUTEDGE_VALID,
   CUTEDGE_REINSERT,
   CUTEDGE_SKIP
@@ -1495,8 +1507,9 @@ cutedge_status_e set_cutedge(eik3_s const *eik, edge_s edge, cutedge_s *cutedge)
   status = edgemap_is_empty(inc) ? CUTEDGE_REINSERT : CUTEDGE_VALID;
 
   if (status == CUTEDGE_VALID)
-    estimate_cutedge_data_from_incident_cutedges(
-      eik, edge, cutedge, inc);
+    if (!estimate_cutedge_data_from_incident_cutedges(
+          eik, edge, cutedge, inc))
+      status = CUTEDGE_SWITCH_STATE;
 
   edgemap_deinit(inc);
   edgemap_dealloc(&inc);
@@ -1530,7 +1543,7 @@ static void insert_cutedge(eik3_s *eik, edge_s edge, cutedge_s *cutedge) {
   }
 }
 
-static void update_shadow_cutset(eik3_s *eik, size_t l0) {
+static bool update_shadow_cutset(eik3_s *eik, size_t l0) {
   size_t l1;
   edge_s edge;
   cutedge_s cutedge;
@@ -1574,20 +1587,28 @@ static void update_shadow_cutset(eik3_s *eik, size_t l0) {
     switch (set_cutedge(eik, edge, &cutedge)) {
     case CUTEDGE_CONTINUE:
       die();
+    case CUTEDGE_SWITCH_STATE:
+      eik->state[l0] = op_state;
+      goto cleanup;
     case CUTEDGE_VALID:
       break;
     case CUTEDGE_REINSERT:
       array_append(l1_arr, &l1);
+      /* Fall through */
     case CUTEDGE_SKIP:
       continue;
     }
     insert_cutedge(eik, edge, &cutedge);
   }
 
+cleanup:
   array_deinit(l1_arr);
   array_dealloc(&l1_arr);
-
   free(vv);
+
+  /* Return whether we switched states (will need to re-run
+   * `update_shadow_cutset`) */
+  return eik->state[l0] != op_state;
 }
 
 static void update_statistics(eik3_s *eik) {
@@ -1623,14 +1644,15 @@ size_t eik3_step(eik3_s *eik) {
 
   eik->state[l0] = is_shadow(eik, l0) ? SHADOW : VALID;
 
-  /* Reset a `SHADOW` node's jet upon accepting it. We never want to
-   * do an update using information from a `SHADOW` node, since it's
-   * garbage! Instead, we avoid this by using split updates (see
-   * `utetra` and `utri`).  */
-  if (eik->state[l0] == SHADOW)
-    eik->jet[l0] = jet3_make_empty();
+  do {
+    /* Reset a `SHADOW` node's jet upon accepting it. We never want to
+     * do an update using information from a `SHADOW` node, since it's
+     * garbage! Instead, we avoid this by using split updates (see
+     * `utetra` and `utri`).  */
+    if (eik->state[l0] == SHADOW)
+      eik->jet[l0] = jet3_make_empty();
+  } while (!update_shadow_cutset(eik, l0));
 
-  update_shadow_cutset(eik, l0);
   update_neighbors(eik, l0);
   update_statistics(eik);
 
