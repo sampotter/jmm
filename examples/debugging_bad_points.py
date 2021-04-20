@@ -20,15 +20,15 @@ cells_path = 'visualize_cutset/%s_cells.bin' % scene
 
 lsrc = 0 # index of point source
 l = None
-l0 = None
-l1 = None
+l0 = 69
+l1 = 18
 l2 = None
 l3 = None
 lbad = None
 
 l_color = 'red'
-l0_color = 'white'
-l1_color = 'black'
+l0_color = 'black'
+l1_color = 'white'
 l2_color = 'grey'
 l3_color = 'black'
 lbad_color = 'green'
@@ -267,6 +267,8 @@ if plot_states:
 ################################################################################
 # TMP
 
+# plotter.add_mesh(pv.PolyData(verts, np.array([3, 29, 75, 129], dtype=np.uintp)), color='cyan', opacity=0.5)
+
 # L1 = np.array([57, 112, 57])
 # L2 = np.array([112, 153, 153])
 # assert L1.size == L2.size
@@ -274,3 +276,20 @@ if plot_states:
 # faces = np.array([
 #     3*np.ones(num_utetra), l0*np.ones(num_utetra), L1, L2]).astype(np.uintp).T
 # plotter.add_mesh(pv.PolyData(verts, faces), color='cyan', opacity=0.5)
+
+faces = np.array([
+    [3, 21, 15, 34],
+], dtype=np.uintp)
+plotter.add_mesh(pv.PolyData(verts, faces), color='cyan', opacity=0.5)
+
+# plot_edge(l0, l1, color='grey')
+
+# for i, x in enumerate(
+#         np.array([
+#             [1.2724255657507462, 1.103264482422655, 0.310246486846808],
+#             [1.2468812162733904, 0.75555356001852814, 0.42166403744943909],
+#             [1.2974439104910545, 0.75669096107833711, 0.45682182047054115]])):
+#     c = ['white', 'grey', 'black'][i]
+#     plotter.add_mesh(pv.Sphere(2.1*sphere_radius, x), color=c)
+
+# plotter.add_mesh(pv.Sphere(sphere_radius, [1.3949597408728025, 0.61417084099172381, 0.7919016275292361]), color='red')
