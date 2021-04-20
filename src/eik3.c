@@ -1085,6 +1085,8 @@ static bool get_cutedge_jet_diff(eik3_s const *eik, size_t const l[2],
   bool found = false;
 
   size_t l_active = utri_get_active_ind(utri);
+  if (l_active == (size_t)NO_INDEX)
+    return false;
 
   size_t num_inc = mesh3_get_num_inc_diff_edges(mesh, l_active);
 
