@@ -277,7 +277,7 @@ static void init_split_s1(utetra_s *u_par, eik3_s const *eik,
   /* Set `spec.jet[2]`: */
   if (!eik3_get_cutedge_jet(eik, l[0], l[2], &spec.jet[2])) {
     if (u_par->l[0] == l[0]) // no swap
-      die();
+      spec.jet[2] = jet[2];
     else if (u_par->l[0] == l[1]) // swapped l0 and l1
       spec.jet[2] = jet[2];
     else if (u_par->l[0] == l[2]) // swapped l0 and l2
