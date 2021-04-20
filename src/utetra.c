@@ -280,7 +280,7 @@ static void init_split_s1(utetra_s *u_par, eik3_s const *eik,
     if (u_par->l[0] == l[0]) // no swap
       die();
     else if (u_par->l[0] == l[1]) // swapped l0 and l1
-      die();
+      spec.jet[2] = jet[2];
     else if (u_par->l[0] == l[2]) // swapped l0 and l2
       spec.jet[2] = jet[0];
     else
