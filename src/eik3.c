@@ -1060,9 +1060,9 @@ static bool get_cutedge_jet_diff(eik3_s const *eik, size_t const l[2],
   }
 
   utri_solve(utri);
-  // TODO: check whether ray is physical? ugh
 
-  if (utri_has_interior_point_solution(utri)) {
+  if (utri_has_interior_point_solution(utri) &&
+      utri_update_ray_is_physical(utri, eik)) {
     par3_s utri_par = utri_get_par(utri);
     assert(!is_shadow_p2(eik, &utri_par));
 
