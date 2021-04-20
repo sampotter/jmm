@@ -215,8 +215,8 @@ static void init_split_s1(utetra_s *u_par, eik3_s const *eik,
     } else if (swapped_l0_and_l1) {
       u_par->l[1] = SHADOW_BOUNDARY;
     } else if (swapped_l0_and_l2) {
-      die();
     } else {
+      u_par->l[2] = SHADOW_BOUNDARY;
       die();
     }
 
