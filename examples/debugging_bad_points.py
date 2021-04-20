@@ -1,4 +1,4 @@
-# Note: can sometimes be helpful to run this section first before
+cc# Note: can sometimes be helpful to run this section first before
 # running the rest of the script if running from python-mode in Emacs
 
 import colorcet as cc
@@ -18,18 +18,18 @@ scene = 'L'
 verts_path = 'visualize_cutset/%s_verts.bin' % scene
 cells_path = 'visualize_cutset/%s_cells.bin' % scene
 
-lsrc = 0 # index of point source
+lsrc = 12
 l = None
-l0 = 69
-l1 = 18
+l0 = 30
+l1 = 96
 l2 = None
 l3 = None
 lbad = None
 
-l_color = 'red'
+l_color = 'black'
 l0_color = 'black'
 l1_color = 'white'
-l2_color = 'grey'
+l2_color = 'cyan'
 l3_color = 'black'
 lbad_color = 'green'
 
@@ -133,8 +133,10 @@ def plot_cutset_edge(l0, l1):
 def plot_jet(x, jet=None):
     if isinstance(jet, jmm.Jet3):
         d = np.array([jet.fx, jet.fy, jet.fz])
-    else:
+    elif len(jet) > 3:
         d = np.array([jet[1], jet[2], jet[3]])
+    else:
+        d = jet
     assert(abs(1 - np.linalg.norm(d)) < 1e-13)
     plotter.add_mesh(
         pv.Arrow(x, d, scale=0.1),
@@ -277,10 +279,10 @@ if plot_states:
 #     3*np.ones(num_utetra), l0*np.ones(num_utetra), L1, L2]).astype(np.uintp).T
 # plotter.add_mesh(pv.PolyData(verts, faces), color='cyan', opacity=0.5)
 
-faces = np.array([
-    [3, 21, 15, 34],
-], dtype=np.uintp)
-plotter.add_mesh(pv.PolyData(verts, faces), color='cyan', opacity=0.5)
+# faces = np.array([
+#     [3, 21, 15, 34],
+# ], dtype=np.uintp)
+# plotter.add_mesh(pv.PolyData(verts, faces), color='cyan', opacity=0.5)
 
 # plot_edge(l0, l1, color='grey')
 
@@ -292,4 +294,4 @@ plotter.add_mesh(pv.PolyData(verts, faces), color='cyan', opacity=0.5)
 #     c = ['white', 'grey', 'black'][i]
 #     plotter.add_mesh(pv.Sphere(2.1*sphere_radius, x), color=c)
 
-# plotter.add_mesh(pv.Sphere(sphere_radius, [1.3949597408728025, 0.61417084099172381, 0.7919016275292361]), color='red')
+# plotter.add_mesh(pv.Sphere(2.0*sphere_radius, [1.2879954987745708, 0.71429170686278221, 0.5117742261003202]), color='pink')
