@@ -210,15 +210,14 @@ static void init_split_s1(utetra_s *u_par, eik3_s const *eik,
   /* ... and if both cut points are nearly coincident wit the `VALID`
    * node, set all nodes' states to `SHADOW` and return. */
   if (t[0] < atol && t[1] < atol) {
-    if (no_swap) {
+    if (no_swap)
       u_par->l[0] = SHADOW_BOUNDARY;
-    } else if (swapped_l0_and_l1) {
+    else if (swapped_l0_and_l1)
       u_par->l[1] = SHADOW_BOUNDARY;
-    } else if (swapped_l0_and_l2) {
-    } else {
+    else if (swapped_l0_and_l2)
       u_par->l[2] = SHADOW_BOUNDARY;
+    else
       die();
-    }
 
     u_par->num_shadow = 3;
     u_par->split = NULL;
