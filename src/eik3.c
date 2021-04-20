@@ -1044,12 +1044,9 @@ static void get_diff_edge_surf_normal_p2(eik3_s const *eik, size_t l0,
     dbl3_negate(n);
 }
 
-static void set_cutedge_jet_p2(eik3_s const *eik, edge_s edge,
-                               size_t const l[2], cutedge_s *cutedge) {
+static bool get_cutedge_jet_diff(eik3_s const *eik, size_t const l[2],
+                                 dbl const xt[3], jet3 *jet) {
   mesh3_s const *mesh = eik3_get_mesh(eik);
-
-  dbl xt[3];
-  edge_get_xt(edge, mesh, cutedge->t, xt);
 
   utri_s *utri;
   utri_alloc(&utri);
@@ -1057,7 +1054,7 @@ static void set_cutedge_jet_p2(eik3_s const *eik, edge_s edge,
   if (!utri_init(utri, &spec)) {
     utri_deinit(utri);
     utri_dealloc(&utri);
-    return;
+    return false;
   }
 
   utri_solve(utri);
@@ -1067,13 +1064,13 @@ static void set_cutedge_jet_p2(eik3_s const *eik, edge_s edge,
     par3_s utri_par = utri_get_par(utri);
     assert(!is_shadow_p2(eik, &utri_par));
 
-    utri_get_jet(utri, &cutedge->jet);
-    assert(jet3_is_finite(&cutedge->jet));
+    utri_get_jet(utri, jet);
+    assert(jet3_is_finite(jet));
 
     utri_deinit(utri);
     utri_dealloc(&utri);
 
-    return;
+    return true;
   }
 
   /* If we haven't found an interior point solution, we assume that
@@ -1107,6 +1104,8 @@ static void set_cutedge_jet_p2(eik3_s const *eik, edge_s edge,
 
   qsort(u, num_inc, sizeof(utri_s *), (compar_t)utri_cmp);
 
+  bool found = false;
+
   for (size_t i = 0; i < num_inc; ++i) {
     if (!utri_is_finite(u[i]))
       assert(false); // should never happen...
@@ -1114,8 +1113,9 @@ static void set_cutedge_jet_p2(eik3_s const *eik, edge_s edge,
         (i + 1 < num_inc &&
          utris_yield_same_update(u[i], u[i + 1]))) {
       // TODO: check whether ray is physical? ugh
-      utri_get_jet(u[i], &cutedge->jet);
-      assert(jet3_is_finite(&cutedge->jet));
+      utri_get_jet(u[i], jet);
+      assert(jet3_is_finite(jet));
+      found = true;
       break;
     }
   }
@@ -1129,14 +1129,51 @@ static void set_cutedge_jet_p2(eik3_s const *eik, edge_s edge,
   free(u);
 
   free(le);
+
+  return found;
 }
 
-static void set_cutedge_jet_p3_a1(eik3_s const *eik, dbl const xt[3],
+static jet3 get_opt_from_utetras(size_t n, utetra_s const **u) {
+  qsort(u, n, sizeof(utetra_s *), (compar_t)utetra_cmp);
+
+  jet3 jet = jet3_make_empty();
+
+  for (size_t i = 0; i < n; ++i) {
+    if (!isfinite(utetra_get_value(u[i])))
+      break;
+
+    // TODO: if ray unphysical, continue
+
+    if (utetra_has_interior_point_solution(u[i])) {
+      utetra_get_jet(u[i], &jet);
+      break;
+    }
+
+    size_t num_int = utetra_get_num_interior_coefs(u[i]);
+    assert(num_int == 1 || num_int == 2);
+
+    size_t num_adj = 4 - num_int;
+    if (i + num_adj > n)
+      continue;
+
+    if (utetras_yield_same_update(&u[i], num_adj)) {
+      utetra_get_jet(u[i], &jet);
+      break;
+    }
+  }
+
+  return jet;
+}
+
+static void set_cutedge_jet_a2(eik3_s const *eik, dbl const xt[3],
+                                  size_t l0, size_t l1, cutedge_s *cutedge);
+
+static void set_cutedge_jet_a1(eik3_s const *eik, dbl const xt[3],
                                   size_t l0, cutedge_s *cutedge) {
   assert(l0 != (size_t)NO_INDEX);
 
   size_t *l1, *l2;
-  size_t num_utetra = get_update_tri_fan(eik, l0, &l1, &l2);
+  size_t num_utetra = get_update_fan(eik, l0, &l1, &l2);
   assert(num_utetra != 0);
 
   utetra_s **u = malloc(num_utetra*sizeof(utetra_s *));
@@ -1156,30 +1193,32 @@ static void set_cutedge_jet_p3_a1(eik3_s const *eik, dbl const xt[3],
     utetra_solve(u[i], NULL);
   }
 
-  qsort(u, num_utetra, sizeof(utetra_s *), (compar_t)utetra_cmp);
-
-  for (size_t i = 0; i < num_utetra; ++i) {
-    assert(isfinite(utetra_get_value(u[i])));
-    if (utetra_has_interior_point_solution(u[i]) ||
-        utetra_has_shadow_boundary_solution(u[i])) {
-      // TODO: check whether ray is physical? ugh
-      utetra_get_jet(u[i], &cutedge->jet);
-      assert(jet3_is_finite(&cutedge->jet));
-      break;
-    } else {
-      size_t num_int = utetra_get_num_interior_coefs(u[i]);
-      assert(num_int == 1 || num_int == 2);
-      size_t num_adj = 4 - num_int;
-      if (i + num_adj <= num_utetra &&
-          utetras_yield_same_update((utetra_s const **)&u[i], num_adj)) {
-        // TODO: check whether ray is physical? ugh
-        utetra_get_jet(u[i], &cutedge->jet);
-        assert(jet3_is_finite(&cutedge->jet));
-        break;
-      }
-    }
+  jet3 jet = get_opt_from_utetras(num_utetra, (utetra_s const **)u);
+  bool found_opt = jet3_is_finite(&jet);
+  if (found_opt) {
+    cutedge->jet = jet;
+    goto cleanup;
   }
 
+  assert(isfinite(utetra_get_value(u[0])));
+
+  size_t la[3];
+  switch (utetra_get_active_inds(u[0], la)) {
+  case 1:
+    assert(la[0] != l0);
+    set_cutedge_jet_a1(eik, xt, la[0], cutedge);
+    break;
+  case 2:
+    set_cutedge_jet_a2(eik, xt, la[0], la[1], cutedge);
+    break;
+  default:
+    assert(utetra_has_shadow_boundary_solution(u[0]));
+    utetra_get_jet(u[0], &cutedge->jet);
+    assert(jet3_is_finite(&cutedge->jet));
+    break;
+  }
+
+cleanup:
   for (size_t i = 0; i < num_utetra; ++i) {
     utetra_deinit(u[i]);
     utetra_dealloc(&u[i]);
@@ -1191,119 +1230,162 @@ static void set_cutedge_jet_p3_a1(eik3_s const *eik, dbl const xt[3],
   free(l2);
 }
 
-static void set_cutedge_jet_p3_a2(eik3_s const *eik, dbl const xt[3],
-                                  size_t la[2], cutedge_s *cutedge) {
-  assert(la[0] != (size_t)NO_INDEX && la[1] != (size_t)NO_INDEX);
+static void set_cutedge_jet_a2(eik3_s const *eik, dbl const xt[3],
+                                  size_t l0, size_t l1, cutedge_s *cutedge) {
+  assert(l0 != (size_t)NO_INDEX && l1 != (size_t)NO_INDEX);
 
-  size_t nev = mesh3_nev(eik->mesh, la);
-  size_t *ev = malloc(nev*sizeof(size_t));
-  mesh3_ev(eik->mesh, la, ev);
-
-  utetra_s *u;
-  utetra_alloc(&u);
+  size_t *l2;
+  size_t nup = get_update_pencil(eik, (size_t[2]) {l0, l1}, &l2);
+  assert(nup != 0);
 
   utetra_spec_s spec;
+  utetra_s **u = malloc(nup*sizeof(utetra_s *));
+  for (size_t i = 0; i < nup; ++i) {
+    utetra_alloc(&u[i]);
+    spec = utetra_spec_from_eik_without_l(eik, xt, l0, l1, l2[i]);
+    if (utetra_init(u[i], &spec) &&
+        !utetra_is_degenerate(u[i]))
+      utetra_solve(u[i], NULL);
+  }
 
-  // TODO: switch this over to use the same approach as everywhere
-  // else...
+  jet3 jet = get_opt_from_utetras(nup, (utetra_s const **)u);
+  bool found_opt = jet3_is_finite(&jet);
+  if (found_opt) {
+    cutedge->jet = jet;
+    goto cleanup;
+  }
 
-  for (size_t i = 0; i < nev; ++i) {
-    spec = utetra_spec_from_eik_without_l(eik, xt, la[0], la[1], ev[i]);
+  assert(isfinite(utetra_get_value(u[0])));
 
-    if (!utetra_init(u, &spec))
-      continue;
+  size_t la[3];
+  size_t na = utetra_get_active_inds(u[0], la);
 
-    utetra_solve(u, NULL);
+  /* Try to handle some exceptional cases first */
+  if ((na == 1 && utetra_has_shadow_boundary_solution(u[0])) ||
+      (na == 2 && mesh3_bde(eik->mesh, la))) {
+    utetra_get_jet(u[0], &jet);
+    assert(jet3_is_finite(&jet));
+    cutedge->jet = jet;
+    goto cleanup;
+  }
 
-    if (utetra_has_interior_point_solution(u) ||
-        utetra_has_shadow_boundary_solution(u)) {
-      // TODO: check whether ray is physical? ugh
-
-      utetra_get_jet(u, &cutedge->jet);
-      assert(jet3_is_finite(&cutedge->jet));
-
-      goto cleanup;
-    }
+  /* Descend on the number of active indices */
+  switch (na) {
+  case 1:
+    set_cutedge_jet_a1(eik, xt, la[0], cutedge);
+    break;
+  case 2:
+    /* Ensure that recursion terminates! */
+    assert(!(l0 == la[0] && l1 == la[1] || l0 == la[1] && l1 == la[0]));
+    set_cutedge_jet_a2(eik, xt, la[0], la[1], cutedge);
+    break;
+  default:
+    assert(false);
+    break;
   }
 
 cleanup:
-  utetra_dealloc(&u);
-  free(ev);
+  for (size_t i = 0; i < nup; ++i) {
+    utetra_deinit(u[i]);
+    utetra_dealloc(&u[i]);
+  }
+
+  free(u);
+  free(l2);
 }
 
-static void set_cutedge_jet_p3(eik3_s const *eik, edge_s edge,
-                               size_t const l[3], cutedge_s *cutedge) {
-  /* Here's a little research project for this function, which is
-   * actually pretty important... If we find an update with a "shadow
-   * boundary solution" (i.e. lying on the shadow boundary with
-   * nonzero Lagrange multipliers for the active constraints), can we
-   * move the cutset point a bit until these constraints are relaxed?
-   * Is that a good idea? Seems complicated but could be
-   * interesting... */
+static void set_cutedge_jet(eik3_s const *eik, edge_s edge, cutedge_s *cutedge) {
+  dbl const atol = 1e-14;
+
+  /* First, check if the cut point coincides with either of the edge
+   * endpoints... */
+
+  if (cutedge->t < atol) {
+    assert(eik->state[edge.l[0]] == VALID);
+    cutedge->jet = eik->jet[edge.l[0]];
+    return;
+  }
+
+  if (cutedge->t > 1 - atol) {
+    assert(eik->state[edge.l[1]] == VALID);
+    cutedge->jet = eik->jet[edge.l[1]];
+    return;
+  }
+
+  /* Next, check if either of the parents are diffracting edges. */
+  par3_s par[2] = {eik3_get_par(eik, edge.l[0]), eik3_get_par(eik, edge.l[1])};
+  size_t par_size[2] = {par3_size(&par[0]), par3_size(&par[1])};
+
+  assert(par_size[0] != 1);
+  assert(par_size[1] != 1);
 
   dbl xt[3];
   edge_get_xt(edge, eik->mesh, cutedge->t, xt);
 
-  utetra_spec_s spec = utetra_spec_from_eik_without_l(eik, xt, l[0], l[1], l[2]);
+  /* First, try to handle diffracting edge cases */
+  jet3 jet[2];
+  bool found[2];
+  for (size_t i = 0; i < 2; ++i) {
+    jet[i] = jet3_make_empty();
+    found[i] = par_size[i] == 2 &&
+      get_cutedge_jet_diff(eik, par[i].l, xt, &jet[i]);
+  }
+  if (found[0] && found[1])
+    cutedge->jet = jet[0].f < jet[1].f ? jet[0] : jet[1];
+  else if (found[0])
+    cutedge->jet = jet[0];
+  else if (found[1])
+    cutedge->jet = jet[1];
+  if (found[0] || found[1])
+    return;
 
-  utetra_s *utetra;
-  utetra_alloc(&utetra);
-  utetra_init(utetra, &spec);
-  utetra_solve(utetra, NULL);
+  utetra_spec_s spec[2];
+  utetra_s *u[2];
+  for (size_t i = 0; i < 2; ++i) {
+    if (par_size[i] != 3) {
+      u[i] = NULL;
+      continue;
+    }
+    size_t *l = par[i].l;
+    spec[i] = utetra_spec_from_eik_without_l(eik, xt, l[0], l[1], l[2]);
+    utetra_alloc(&u[i]);
+    if (utetra_init(u[i], &spec[i]))
+      utetra_solve(u[i], NULL);
+  }
 
-  if (utetra_has_interior_point_solution(utetra) ||
-      utetra_has_shadow_boundary_solution(utetra)) {
-    // TODO: check whether ray is physical? ugh
+  dbl f[2];
+  for (size_t i = 0; i < 2; ++i)
+    f[i] = u[i] == NULL ? INFINITY : utetra_get_value(u[i]);
 
-    utetra_get_jet(utetra, &cutedge->jet);
+  assert(isfinite(f[0]) || isfinite(f[1]));
+
+  utetra_s *u_sel = f[0] < f[1] ? u[0] : u[1];
+
+  if (utetra_has_interior_point_solution(u_sel)) {
+    utetra_get_jet(u_sel, &cutedge->jet);
     assert(jet3_is_finite(&cutedge->jet));
-
-    goto coda;
+    goto cleanup;
   }
 
   size_t la[3];
-  switch(utetra_get_active_inds(utetra, la)) {
+  switch (utetra_get_active_inds(u_sel, la)) {
   case 1:
-    set_cutedge_jet_p3_a1(eik, xt, la[0], cutedge);
+    set_cutedge_jet_a1(eik, xt, la[0], cutedge);
     break;
   case 2:
-    set_cutedge_jet_p3_a2(eik, xt, la, cutedge);
+    set_cutedge_jet_a2(eik, xt, la[0], la[1], cutedge);
     break;
   default:
-    assert(false);
+    assert(utetra_has_shadow_boundary_solution(u_sel));
+    utetra_get_jet(u_sel, &cutedge->jet);
+    assert(jet3_is_finite(&cutedge->jet));
+    break;
   }
 
-coda:
-  utetra_deinit(utetra);
-  utetra_dealloc(&utetra);
-}
-
-static void set_cutedge_jet(eik3_s const *eik, edge_s edge, cutedge_s *cutedge) {
-  dbl t = cutedge->t;
-
-  /* First, check if either of the parents are diffracting edges. */
-  par3_s par[2] = {eik3_get_par(eik, edge.l[0]), eik3_get_par(eik, edge.l[1])};
-  size_t par_size[2] = {par3_size(&par[0]), par3_size(&par[1])};
-
-  /* Handle a few different cases depending on whether the edge
-   * endpoints were updated from diffracting edges or not... */
-  par3_s sel;
-  if (par_size[0] == 2 && mesh3_is_diff_edge(eik->mesh, par[0].l)) {
-    sel = par[0];
-  } else if (par_size[1] == 2 && mesh3_is_diff_edge(eik->mesh, par[1].l)) {
-    sel = par[1];
-  } else {
-    /* Get the edge endpoint closer to x(t) and grab that node's parents. */
-    sel = t < 0.5 ? par[0] : par[1];
-  }
-
-  /* For two parents, compute the cutedge jet using a triangle update;
-   * for three, use a tetrahedron update. We don't current handle a
-   * single parent. */
-  switch (par3_size(&sel)) {
-  case 2: return set_cutedge_jet_p2(eik, edge, sel.l, cutedge);
-  case 3: return set_cutedge_jet_p3(eik, edge, sel.l, cutedge);
-  default: die();
+cleanup:
+  for (size_t i = 0; i < 2; ++i) {
+    utetra_deinit(u[i]);
+    utetra_dealloc(&u[i]);
   }
 }
 
