@@ -1536,9 +1536,14 @@ static void get_alpha_for_active_inds_s1(utetra_s const *utetra, dbl alpha[3]) {
    * Note that when we compare below, we do exact, bitwise comparison,
    * since the vertices in `u` are direct copies of those in
    * `utetra`. */
-  if (dbl3_equal(utetra->Xt[0], u->Xt[1]))
+
+  bool swapped_l0_and_l1 = dbl3_equal(u->Xt[0], utetra->Xt[1]);
+  bool swapped_l0_and_l2 = dbl3_equal(u->Xt[0], utetra->Xt[2]);
+
+  if (swapped_l0_and_l1)
     SWAP(alpha[0], alpha[1]);
-  else if (dbl3_equal(utetra->Xt[0], u->Xt[2]))
+
+  if (swapped_l0_and_l2)
     SWAP(alpha[0], alpha[2]);
 }
 
