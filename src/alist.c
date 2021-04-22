@@ -107,6 +107,18 @@ void alist_set_by_key(alist_s *lst, void const *key, void const *elt) {
     memcpy(lst->data + lst->nodesize*i + lst->keysize, elt, lst->eltsize);
 }
 
+bool alist_remove_by_key(alist_s *lst, void const *key) {
+  size_t i = alist_find(lst, key);
+  assert(i <= lst->size);
+  if (i == lst->size)
+    return false;
+  memmove(lst->data + lst->nodesize*i,
+          lst->data + lst->nodesize*(i + 1),
+          (lst->size - i - 1)*lst->nodesize);
+  --lst->size;
+  return true;
+}
+
 bool alist_get_key(alist_s const *lst, size_t i, void *key) {
   if (i >= lst->size)
     return false;

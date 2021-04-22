@@ -79,6 +79,10 @@ void edgemap_set(edgemap_s *edgemap, edge_s edge, void const *elt) {
   alist_set_by_key(edgemap->lst, &edge, elt);
 }
 
+bool edgemap_remove(edgemap_s *edgemap, edge_s edge) {
+  return alist_remove_by_key(edgemap->lst, &edge);
+}
+
 bool edgemap_contains(edgemap_s const *edgemap, edge_s edge) {
   return alist_contains(edgemap->lst, &edge);
 }

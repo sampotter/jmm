@@ -22,6 +22,7 @@ bool alist_get_by_index(alist_s const *lst, size_t i, void *elt);
 bool alist_get_by_key(alist_s const *lst, void const *key, void *elt);
 void alist_set_by_index(alist_s *lst, size_t i, void const *elt);
 void alist_set_by_key(alist_s *lst, void const *key, void const *elt);
+bool alist_remove_by_key(alist_s *lst, void const *key);
 bool alist_get_key(alist_s const *lst, size_t i, void *key);
 bool alist_get_pair(alist_s const *lst, size_t i, void *key, void *elt);
 void alist_clear(alist_s *lst);
