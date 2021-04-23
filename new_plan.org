@@ -1,0 +1,25 @@
+* New game plan
+  Trying to rush to get this finished...
+
+  Where am I at? I have a good solver for an unstructured mesh.
+
+  - [ ] Switch to Sethian-style shadows
+    - [ ] make L + bounding box
+    - [ ] make room + bounding box
+    - [ ] branch and get rid of shadow cutset stuff
+    - [ ] re-run and compute difference
+    - [ ] when doing an update from a diffracting edge, treat it as a point source
+      - [ ] do 2D minimization over edges (no diff edges in convex domain)
+  - [ ] use BVH to compare shadow on xy slice and see if it makes sense
+  - [ ] reinitialize reflections
+    - [ ] transport t0
+    - [ ] check reflection condition
+  - [ ] reinitialize from diffracting edge
+    - [ ] transport t0
+    - [ ] transport exterior angle
+  - [ ] compute amplitude
+    - [ ] 1/r (no paraxial for now)
+    - [ ] reflection coefficient
+    - [ ] UTD coefficient
+  - [ ] compute several arrivals for whatever domain i get to
+  - [ ] finish IEEE paper

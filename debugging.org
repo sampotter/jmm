@@ -1,0 +1,109 @@
+*current bug, as of <2021-04-18 Sun 23:08>*
+
+  found a cutset point to be updated ...
+
+
+________________________________________________________________________________
+
+*OK, current bug... as of <2021-04-15 Thu 21:27>*
+
+  trying to compute the jet at the cutpoint for the cutedge (93, 150)
+
+  we use the parent of 150 => (l0, l1, l2) = (151, 48, 130)
+
+  after solving the update, the optimum *clearly* lies on the edge [48,
+  151] but at eik3.c:1025, ~utetra_get_active_inds~ says that the active
+  edge is [130, 151]. OOPS!
+
+  this is a bug---*fix it*
+
+________________________________________________________________________________
+
+*making good headway with shadow stabilization*
+
+  trying to fix up a couple corner cases for (scene = L, lsrc = 0)
+
+  there are some nodes that aren't getting updated
+
+  - l = 113, 120: nodes that are on the wall and should get updated
+    with a triangle update and made shadow, but aren't
+
+  - l = 63, 112: nodes that are near the shadow boundary and should be
+    getting updated but aren't
+    - [ ] trying to get 63 to get updated, but it seems like 112 is
+      preventing this from happening... so deal with 112 first, and
+      maybe 63 will be OK?
+
+  probably some more, but let's start with these and see what happens
+
+*updating from the shadow boundary*
+
+  seems like a key to fixing the problems above is knowing when to
+  update from the shadow boundary
+
+  the check used to be ~interior_point_solution || shadow_solution~ but
+  this is more complicated now that we don't want to update from the
+  shadow... ever!
+
+*detour: fixing "ahead of update"*
+
+  taking a bit of a detour to fix the "ahead of update" check (still
+  not sure what to call this), which is now /working/ for ~utri~ but still
+  not implemented totally correctly of ~utetra~
+
+*another detour: handling degenerate splits*
+
+  when num_shadow = 1, there are two more degenerate cases to check,
+  where we wind up in the num_shadow = 2 case...
+
+________________________________________________________________________________
+
+
+*trying to fix the drift...* we need to stabilize the shadow cutset by
+  computing jets at the cut points
+
+working on scene = L, lsrc = 0...
+
+*base case:* at the diffracting edge, when t = 0, just set the jet to be
+  whatever the jet is at the valid node
+
+________________________________________________________________________________
+
+
+lil' todo:
+- [ ] wrap cut point jets in jmm.pyx
+- [ ] plot jets at cut points
+
+________________________________________________________________________________
+
+
+- [ ] *SPLIT UPDATES*
+
+    we'd like to develop "split updates":
+
+      when a tetrahedron update has at least one shadow node on its
+      base, we want to restrict the domain of the update and use the jet
+      at the cut points along the boundary of the base of the update
+
+        this would turn the tetrahedron update into a pyramid update
+
+________________________________________________________________________________
+
+
+* L
+
+- [ ] lsrc = 6:
+
+
+** old
+   lsrc = {33, 44, 45, 53, 56, 59, 61, 71, 93, 94, 101, 113, 118, 155}:
+   - computes shadow bd but it's all screwed up
+
+
+* Room
+
+lsrc = 0:
+- [ ] edges (1093, 1733), (1093, 3211), and (1093, 229) are getting
+  the wrong t value because of precedence... need to fix
+- [ ] having hard time setting normal for edge (111, 148) because it's
+  on a corner
