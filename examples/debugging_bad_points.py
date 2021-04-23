@@ -1,4 +1,4 @@
-cc# Note: can sometimes be helpful to run this section first before
+# Note: can sometimes be helpful to run this section first before
 # running the rest of the script if running from python-mode in Emacs
 
 import colorcet as cc
@@ -18,17 +18,17 @@ scene = 'L'
 verts_path = 'visualize_cutset/%s_verts.bin' % scene
 cells_path = 'visualize_cutset/%s_cells.bin' % scene
 
-lsrc = 12
+lsrc = 0
 l = None
-l0 = 30
-l1 = 96
+l0 = 48
+l1 = 124
 l2 = None
 l3 = None
 lbad = None
 
 l_color = 'black'
-l0_color = 'black'
-l1_color = 'white'
+l0_color = 'white'
+l1_color = 'black'
 l2_color = 'cyan'
 l3_color = 'black'
 lbad_color = 'green'
@@ -295,3 +295,7 @@ if plot_states:
 #     plotter.add_mesh(pv.Sphere(2.1*sphere_radius, x), color=c)
 
 # plotter.add_mesh(pv.Sphere(2.0*sphere_radius, [1.2879954987745708, 0.71429170686278221, 0.5117742261003202]), color='pink')
+
+# n = [0.0034659509079279886, 0.31743167482835211, -0.007794063362845877]
+# n /= np.linalg.norm(n)
+# plot_jet((verts[5] + verts[113])/2, n)
