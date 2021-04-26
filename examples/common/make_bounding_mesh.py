@@ -17,16 +17,16 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     try:
-        grid = pv.read(args.path)
+        surf_grid = pv.read(args.path)
     except:
         print(f'! failed to read {args.path} (unknown file format?)')
         exit(1)
     print(f'- loaded mesh from {args.path}')
     print(f'- bounds: x = (%g, %g), y = (%g, %g), z = (%g, %g)' %
-          tuple(grid.bounds))
+          tuple(surf_grid.bounds))
 
-    xm, ym, zm = (grid.points.min(0) + grid.points.max(0))/2
-    dx, dy, dz = grid.points.ptp(0)/2
+    xm, ym, zm = (surf_grid.points.min(0) + surf_grid.points.max(0))/2
+    dx, dy, dz = surf_grid.points.ptp(0)/2
     p = MARGIN_PERCENT
     bounding_box = np.array([
         (
@@ -48,15 +48,16 @@ if __name__ == '__main__':
     # `box_verts` was generated using `it.product(range(2),
     # repeat=3)`. But this is a dependency that could break...
 
-    verts = grid.points.astype(np.float64)
+    surf_verts = surf_grid.points.astype(np.float64)
+    surf_faces = surf_grid.faces.reshape(surf_grid.faces.size//4, 4)
+    surf_faces = surf_faces[:, 1:].astype(np.uintp)
 
-    faces = grid.faces.reshape(grid.faces.size//4, 4)
-    faces = faces[:, 1:].astype(np.uintp)
-
-    faces = np.concatenate([faces, box_faces.astype(np.uintp) + verts.shape[0]],
-                           dtype=faces.dtype, axis=0)
-    verts = np.concatenate([verts, bounding_box],
-                           dtype=verts.dtype, axis=0)
+    verts = np.concatenate(
+        [surf_verts, bounding_box],
+        dtype=surf_verts.dtype, axis=0)
+    faces = np.concatenate(
+        [surf_faces, box_faces.astype(np.uintp) + surf_verts.shape[0]],
+        dtype=surf_faces.dtype, axis=0)
 
     filename = os.path.splitext(args.path)[0]
     outpath = os.path.join(filename + '_bd.off')
