@@ -365,7 +365,11 @@ update_constant(dial3_s const *dial, int l, void *ptr, dbl *Toff, dvec3 *xsrc) {
   };
   dbl unused;
   bool found = hybrid(f_update_constant, -1, 1, (void *)&context, &unused);
+#if JMM_DEBUG
   assert(found);
+#else
+  (void)found;
+#endif
 
   *Toff = data->Toff0 + dvec3_dist(context.xsrc, data->xsrc0);
   *xsrc = context.xsrc;

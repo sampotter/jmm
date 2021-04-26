@@ -123,7 +123,10 @@ set (JMM_SRCS
 
 add_library (jmm STATIC ${JMM_SRCS})
 if (BUILD_TESTS)
-  target_compile_definitions(jmm PRIVATE JMM_TEST=1)
+  target_compile_definitions (jmm PRIVATE JMM_TEST=1)
+endif ()
+if (CMAKE_BUILD_TYPE STREQUAL "Debug")
+  target_compile_definitions (jmm PRIVATE JMM_DEBUG=1)
 endif ()
 if (IPO_SUPPORTED)
   set_property (TARGET jmm PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)

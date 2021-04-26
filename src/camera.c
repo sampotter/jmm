@@ -42,7 +42,7 @@ ray3 camera_get_ray_for_index(camera_s const *camera, int i, int j) {
     {camera->look[1], camera->left[1], camera->up[1]},
     {camera->look[2], camera->left[2], camera->up[2]},
   };
-  ray3 ray;
+  ray3 ray = ray3_make_empty();
   if (camera->type == CAMERA_TYPE_ORTHOGRAPHIC) {
     assert(isfinite(camera->height));
     assert(isfinite(camera->width));

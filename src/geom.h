@@ -66,6 +66,7 @@ dbl rect3_surface_area(rect3 const *rect);
 bool rect3_overlaps(rect3 const *r1, rect3 const *r2);
 bool rect3_occludes_ray3(rect3 const *rect, ray3 const *ray);
 
+ray3 ray3_make_empty();
 void ray3_get_point(ray3 const *ray, dbl t, dbl x[3]);
 bool ray3_intersects_rect3(ray3 const *ray, rect3 const *rect, dbl *t);
 bool ray3_intersects_mesh3_tetra(ray3 const *ray, mesh3_tetra_s const *tetra, dbl *t);

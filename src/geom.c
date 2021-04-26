@@ -268,13 +268,14 @@ bool rect3_overlaps(rect3 const *r1, rect3 const *r2) {
 }
 
 bool rect3_occludes_ray3(rect3 const *rect, ray3 const *ray) {
-  dbl const atol = 1e-15;
-
   dbl const *p = ray->org, *d = ray->dir;
   dbl const *m = rect->min, *M = rect->max;
 
+#if JMM_DEBUG
   // TODO: handle this case
+  dbl const atol = 1e-14;
   assert(fabs(d[0]) > atol || fabs(d[1]) > atol || fabs(d[2]) > atol);
+#endif
 
   dbl t, pt[3];
 
@@ -311,18 +312,23 @@ bool rect3_occludes_ray3(rect3 const *rect, ray3 const *ray) {
   return false;
 }
 
+ray3 ray3_make_empty() {
+  return (ray3) {.dir = {NAN, NAN, NAN}, .org = {NAN, NAN, NAN}};
+}
+
 void ray3_get_point(ray3 const *ray, dbl t, dbl x[3]) {
   dbl3_saxpy(t, ray->dir, ray->org, x);
 }
 
 bool ray3_intersects_rect3(ray3 const *ray, rect3 const *rect, dbl *t) {
-  dbl const atol = 1e-15;
-
   dbl const *p = ray->org, *d = ray->dir;
   dbl const *m = rect->min, *M = rect->max;
 
+#if JMM_DEBUG
   // TODO: handle this case
+  dbl const atol = 1e-14;
   assert(fabs(d[0]) > atol || fabs(d[1]) > atol || fabs(d[2]) > atol);
+#endif
 
   dbl s, pt[3];
 
