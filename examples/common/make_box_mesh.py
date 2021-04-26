@@ -29,5 +29,6 @@ faces = np.array([
     [3, 6, 2]
 ])
 
-meshio.write_points_cells('box.obj', verts, [(('triangle'), faces)])
-meshio.write_points_cells('box.off', verts, [(('triangle'), faces)])
+if __name__ == '__main__':
+    meshio.write_points_cells('box.obj', verts, [(('triangle'), faces)])
+    meshio.write_points_cells('box.off', verts, [(('triangle'), faces)])

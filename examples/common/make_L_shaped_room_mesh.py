@@ -43,5 +43,6 @@ faces = np.array([
     [10, 8, 9]
 ])
 
-meshio.write_points_cells('L.off', verts, [(('triangle'), faces)])
-meshio.write_points_cells('L.obj', verts, [(('triangle'), faces)])
+if __name__ == '__main__':
+    meshio.write_points_cells('L.off', verts, [(('triangle'), faces)])
+    meshio.write_points_cells('L.obj', verts, [(('triangle'), faces)])
