@@ -101,14 +101,8 @@ struct utri {
 
   size_t num_shadow;
 
-  utri_s *split;
-
   size_t orig_index; // original index
 };
-
-static bool is_split(utri_s const *u) {
-  return u->split != NULL;
-}
 
 void utri_alloc(utri_s **utri) {
   *utri = malloc(sizeof(utri_s));
@@ -120,8 +114,6 @@ void utri_dealloc(utri_s **utri) {
 }
 
 void utri_set_lambda(utri_s *utri, dbl lam) {
-  assert(!is_split(utri));
-
   utri->lam = lam;
 
   dbl xb[3];
@@ -147,93 +139,24 @@ static dbl utri_hybrid_f(dbl lam, utri_s *utri) {
   return utri->Df;
 }
 
-static void init_split(utri_s *u_par, eik3_s const *eik, bool *split,
-                       bool *causal) {
-  dbl const atol = 1e-15;
-
-  assert(u_par->num_shadow == 1);
-
-  dbl t;
-  assert(eik3_get_cutedge_t(eik, u_par->l0, u_par->l1, &t));
-
-  if (t < atol) {
-    if (u_par->state[0] == VALID) {
-      u_par->state[0] = SHADOW;
-      u_par->num_shadow = 2;
-    } else {
-      u_par->state[0] = VALID;
-      u_par->num_shadow = 0;
-    }
-    *split = false;
-    return;
-  } else if (t > 1 - atol) {
-    if (u_par->state[1] == VALID) {
-      u_par->state[1] = SHADOW;
-      u_par->num_shadow = 2;
-    } else {
-      u_par->state[1] = VALID;
-      u_par->num_shadow = 0;
-    }
-    *split = false;
-    return;
-  } else {
-    *split = true;
-  }
-
-  utri_spec_s spec = utri_spec_empty();
-
-  spec.eik = eik;
-
-  spec.state[0] = spec.state[1] = VALID;
-
-  spec.lhat = u_par->l;
-  if (u_par->l == (size_t)NO_INDEX) {
-    assert(dbl3_isfinite(u_par->x));
-    dbl3_copy(u_par->x, spec.xhat);
-  }
-
-  /* In the next section, we want to make sure to avoid using garbage
-   * data coming from `SHADOW` nodes when we initialize the base of
-   * the update. This isn't too complicated, we just check which node
-   * of the parent update is `VALID`. (For `utetra`, we swap nodes
-   * around, which is efficient but a little confusing.) */
-
-  if (u_par->state[0] == VALID) {
-    dbl3_copy(u_par->x0, spec.x[0]);
-    dbl3_saxpy(t, u_par->x1_minus_x0, spec.x[0], spec.x[1]);
-  } else {
-    dbl3_saxpy(t, u_par->x1_minus_x0, u_par->x0, spec.x[0]);
-    dbl3_copy(u_par->x1, spec.x[1]);
-  }
-
-  if (u_par->state[0] == VALID) {
-    spec.jet[0] = eik3_get_jet(eik, u_par->l0);
-    assert(eik3_get_cutedge_jet(eik, u_par->l0, u_par->l1, &spec.jet[1]));
-  } else {
-    assert(eik3_get_cutedge_jet(eik, u_par->l0, u_par->l1, &spec.jet[0]));
-    spec.jet[1] = eik3_get_jet(eik, u_par->l1);
-  }
-
-  utri_alloc(&u_par->split);
-
-  /* Initialize the split update and return whether the update is
-   * causal from the call to `utri_init`. */
-  *causal = utri_init(u_par->split, &spec);
-}
-
 bool utri_init(utri_s *u, utri_spec_s const *spec) {
   dbl const atol = 1e-15;
 
-  /* Validate spec before doing anything else */
-
   bool passed_lhat = spec->lhat != (size_t)NO_INDEX;
+  bool passed_l0 = spec->l[0] != (size_t)NO_INDEX;
+  bool passed_l1 = spec->l[1] != (size_t)NO_INDEX;
+  bool passed_l = passed_l0 && passed_l1;
+
+  bool passed_jet0 = spec->state[0] == VALID && jet3_is_finite(&spec->jet[0]);
+  bool passed_jet1 = spec->state[1] == VALID && jet3_is_finite(&spec->jet[1]);
+  bool passed_jet = passed_jet0 && passed_jet1;
+
+#if JMM_DEBUG
+  /* Validate spec before doing anything else */
 
   bool passed_xhat = dbl3_isfinite(spec->xhat);
   assert(passed_lhat ^ passed_xhat); // exactly one of these
 
-  bool passed_l0 = spec->l[0] != (size_t)NO_INDEX;
-  bool passed_l1 = spec->l[1] != (size_t)NO_INDEX;
-  bool passed_l = passed_l0 && passed_l1;
   if (passed_l0 || passed_l1)
     assert(passed_l);
 
@@ -251,13 +174,11 @@ bool utri_init(utri_s *u, utri_spec_s const *spec) {
   if (passed_state0 || passed_state1)
     assert(passed_state);
 
-  bool passed_jet0 = spec->state[0] == VALID && jet3_is_finite(&spec->jet[0]);
-  bool passed_jet1 = spec->state[1] == VALID && jet3_is_finite(&spec->jet[1]);
-  bool passed_jet = passed_jet0 && passed_jet1;
   if (passed_jet0 || passed_jet1)
     assert(passed_jet);
 
   assert(passed_jet ^ passed_l); // exactly one of these
+#endif
 
   /* Initialize `u` */
 
@@ -307,19 +228,7 @@ bool utri_init(utri_s *u, utri_spec_s const *spec) {
   dbl3_copy(u->x1, Xt[1]);
   bb31_init_from_3d_data(&u->T, T, DT, Xt);
 
-  u->num_shadow = 0;
-  for (size_t i = 0; i < 2; ++i)
-    u->num_shadow += u->state[i] == SHADOW;
-
   u->orig_index = spec->orig_index;
-
-  u->split = NULL;
-  if (u->num_shadow == 1) {
-    bool split, causal;
-    init_split(u, spec->eik, &split, &causal);
-    if (split)
-      return causal;
-  }
 
   /* Check if the update point is on the right side of the base of the
    * update. First, we compute the closest point on the line spanned
@@ -335,21 +244,10 @@ bool utri_init(utri_s *u, utri_spec_s const *spec) {
 }
 
 void utri_deinit(utri_s *u) {
-  if (is_split(u)) {
-    assert(u->split != NULL);
-    utri_deinit(u->split);
-    utri_dealloc(&u->split);
-  } else {
-    assert(u->split == NULL);
-  }
+  (void)u;
 }
 
 void utri_solve(utri_s *utri) {
-  if (is_split(utri)) {
-    utri_solve(utri->split);
-    return;
-  }
-
   dbl lam, f[2];
 
   if (hybrid((hybrid_cost_func_t)utri_hybrid_f, 0, 1, utri, &lam))
@@ -375,41 +273,22 @@ static void get_update_inds(utri_s const *utri, size_t l[2]) {
 }
 
 static void get_bary_coords(utri_s const *utri, dbl b[2]) {
-  assert(!is_split(utri));
   b[0] = 1 - utri->lam;
   b[1] = utri->lam;
 }
 
-static void get_x(utri_s const *u, dbl x[3]) {
-  if (is_split(u))
-    return get_x(u->split, x);
-  dbl3_saxpy(u->lam, u->x1_minus_x0, u->x0, x);
-}
-
 par3_s utri_get_par(utri_s const *u) {
   par3_s par = {.l = {[2] = NO_PARENT}, .b = {[2] = NAN}};
-
   get_update_inds(u, par.l);
-
-  if (is_split(u)) {
-    dbl xt[3]; get_x(u, xt);
-    par.b[1] = dbl3_dot(u->x1_minus_x0, xt);
-    par.b[0] = 1 - par.b[1];
-  } else {
-    get_bary_coords(u, par.b);
-  }
-
+  get_bary_coords(u, par.b);
   return par;
 }
 
 dbl utri_get_value(utri_s const *u) {
-  return is_split(u) ? utri_get_value(u->split) : u->f;
+  return u->f;
 }
 
 void utri_get_jet(utri_s const *utri, jet3 *jet) {
-  if (is_split(utri))
-    return utri_get_jet(utri->split, jet);
-
   jet->f = utri->f;
   jet->fx = utri->x_minus_xb[0]/utri->L;
   jet->fy = utri->x_minus_xb[1]/utri->L;
@@ -417,7 +296,6 @@ void utri_get_jet(utri_s const *utri, jet3 *jet) {
 }
 
 static dbl get_lag_mult(utri_s const *utri) {
-  assert(!is_split(utri));
   dbl const atol = 1e-15;
   if (utri->lam < atol) {
     return utri->Df;
@@ -429,9 +307,6 @@ static dbl get_lag_mult(utri_s const *utri) {
 }
 
 static ray3 get_ray(utri_s const *utri) {
-  if (is_split(utri))
-    return get_ray(utri->split);
-
   ray3 ray;
   dbl3_saxpy(utri->lam, utri->x1_minus_x0, utri->x0, ray.org);
   dbl3_normalized(utri->x_minus_xb, ray.dir);
@@ -439,7 +314,7 @@ static ray3 get_ray(utri_s const *utri) {
 }
 
 static dbl get_L(utri_s const *u) {
-  return is_split(u) ? u->split->L : u->L;
+  return u->L;
 }
 
 bool utri_update_ray_is_physical(utri_s const *utri, eik3_s const *eik) {
@@ -496,8 +371,8 @@ bool utri_update_ray_is_physical(utri_s const *utri, eik3_s const *eik) {
   bool xm_in_cell = false, xp_in_cell = false;
   for (size_t i = 0; i < array_size(cells); ++i) {
     array_get(cells, i, &lc);
-    xm_in_cell |= mesh3_dbl3_in_cell(mesh, lc, xm, NULL);
-    xp_in_cell |= mesh3_dbl3_in_cell(mesh, lc, xp, NULL);
+    xm_in_cell |= mesh3_cell_contains_point(mesh, lc, xm);
+    xp_in_cell |= mesh3_cell_contains_point(mesh, lc, xp);
     if (xm_in_cell && xp_in_cell)
       break;
   }
@@ -537,7 +412,7 @@ bool utri_update_ray_is_physical(utri_s const *utri, eik3_s const *eik) {
 
   bool xhatm_in_cell = false;
   for (int i = 0; i < nvc; ++i) {
-    xhatm_in_cell = mesh3_dbl3_in_cell(mesh, vc[i], xhatm, NULL);
+    xhatm_in_cell = mesh3_cell_contains_point(mesh, vc[i], xhatm);
     if (xhatm_in_cell)
       break;
   }
@@ -570,8 +445,6 @@ int utri_cmp(utri_s const **h1, utri_s const **h2) {
 }
 
 bool utri_has_interior_point_solution(utri_s const *utri) {
-  if (is_split(utri))
-    return utri_has_interior_point_solution(utri->split);
   dbl const atol = 1e-14;
   return (atol < utri->lam && utri->lam < 1 - atol)
     || fabs(get_lag_mult(utri)) <= atol;
@@ -582,12 +455,11 @@ bool utri_has_orig_index(utri_s const *utri) {
 }
 
 size_t utri_get_orig_index(utri_s const *utri) {
-  assert(!is_split(utri));
   return utri->orig_index;
 }
 
 bool utri_is_finite(utri_s const *u) {
-  return isfinite(is_split(u) ? u->split->f : u->f);
+  return isfinite(u->f);
 }
 
 size_t utri_get_active_ind(utri_s const *utri) {
@@ -613,7 +485,7 @@ bool utri_contains_update_ind(utri_s const *u, size_t l) {
 }
 
 static dbl get_lambda(utri_s const *u) {
-  return is_split(u) ? u->split->lam : u->lam;
+  return u->lam;
 }
 
 bool utris_yield_same_update(utri_s const *utri1, utri_s const *utri2) {
@@ -637,8 +509,6 @@ bool utris_yield_same_update(utri_s const *utri1, utri_s const *utri2) {
 
 #if JMM_TEST
 bool utri_is_causal(utri_s const *utri) {
-  assert(!is_split(utri));
-
   dbl dx0[3], dx1[3];
   dbl3_sub(utri->x0, utri->x, dx0);
   dbl3_sub(utri->x1, utri->x, dx1);

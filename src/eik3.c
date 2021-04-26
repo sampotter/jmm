@@ -9,7 +9,7 @@
 
 #include "array.h"
 #include "bb.h"
-#include "edgemap.h"
+#include "edge.h"
 #include "heap.h"
 #include "log.h"
 #include "macros.h"
@@ -52,13 +52,6 @@ struct eik3 {
   int *pos;
   par3_s *par;
   heap_s *heap;
-  edgemap_s *cutset;
-
-  /* A margin for the cutedge parameter `t`. When being computed, and
-   * before clamping to [0, 1], we assert that t falls in the range
-   * [-`tlim`, 1 + `tlim`], where `tlim` is set to the square of
-   * `mesh3_get_min_tetra_alt(eik->mesh)`. */
-  dbl tlim;
 
   /**
    * In some cases, we'll skip old updates that might be useful at a
@@ -132,11 +125,6 @@ void eik3_init(eik3_s *eik, mesh3_s *mesh) {
 
   eik->num_accepted = 0;
 
-  edgemap_alloc(&eik->cutset);
-  edgemap_init(eik->cutset, sizeof(cutedge_s));
-
-  eik->tlim = pow(mesh3_get_min_tetra_alt(eik->mesh), 2);
-
   array_alloc(&eik->old_updates);
   array_init(eik->old_updates, sizeof(utetra_s *), 16);
 }
@@ -157,9 +145,6 @@ void eik3_deinit(eik3_s *eik) {
   heap_deinit(eik->heap);
   heap_dealloc(&eik->heap);
 
-  edgemap_deinit(eik->cutset);
-  edgemap_dealloc(&eik->cutset);
-
   utetra_s *utetra;
   for (size_t i = 0; i < array_size(eik->old_updates); ++i) {
     array_get(eik->old_updates, i, &utetra);
@@ -170,215 +155,8 @@ void eik3_deinit(eik3_s *eik) {
   array_dealloc(&eik->old_updates);
 }
 
-static cutedge_s get_cutedge(eik3_s const *eik, size_t l0, size_t l1) {
-  cutedge_s cutedge;
-  bool found = edgemap_get(eik->cutset, make_edge(l0, l1), &cutedge);
-  assert(found);
-
-  // Reverse `cutedge.t` if we need to. Remember that we want (1 -
-  // t)*x0 + t*x1 to equal to point where the shadow boundary
-  // intersects each edge in the shadow cut.
-  if (l0 > l1)
-    cutedge.t = 1 - cutedge.t;
-
-  return cutedge;
-}
-
-static void reset_cutedge(cutedge_s *cutedge) {
-  cutedge->jet.f = cutedge->jet.fx = cutedge->jet.fy = cutedge->jet.fz
-    = cutedge->t = cutedge->n[0] = cutedge->n[1] = cutedge->n[1] = NAN;
-}
-
-static bool is_shadow_p1_diff(eik3_s const *eik, size_t l0, size_t l) {
-  dbl const atol = 1e-14;
-  dbl n[3];
-  dbl3_cross(&eik->jet[l0].fx, &eik->jet[l].fx, n);
-  return dbl3_norm(n) > atol;
-}
-
-/* Reorients a normal so that it points into the interior of `mesh`.
- * This assumes that `(l[0], l[1])` is a boundary edge, and that the
- * normal originates from `(1 - t)*x0 + t*x1`. */
-static
-void orient_edge_normal(mesh3_s const *mesh,
-                        size_t const l[2], dbl t, dbl n[3]) {
-  dbl const *x[2];
-  for (size_t i = 0; i < 2; ++i)
-    x[i] = mesh3_get_vert_ptr(mesh, l[i]);
-
-  /* Compute the midpoint of the edge indexed by `l[0]` and `l[1]`,
-   * call it `y`. */
-  dbl xt[3];
-  dbl3_cc(x[0], x[1], t, xt);
-
-  /* Compute the point just ahead of `xt` in the direction indicated by
-   * `n`. We'll use this below to check whether `xt` is pointing into
-   * the wall or not. */
-  dbl xtp[3];
-  dbl3_saxpy(mesh3_get_min_tetra_alt(mesh), n, xt, xtp);
-
-  array_s *lc_arr;
-  array_alloc(&lc_arr);
-  array_init(lc_arr, sizeof(size_t), ARRAY_DEFAULT_CAPACITY);
-
-  /* Get all of the cells incident on either `l[0]` or `l[1]`. */
-  for (size_t i = 0, nvc, *vc; i < 2; ++i) {
-    nvc = mesh3_nvc(mesh, l[i]);
-    vc = malloc(nvc*sizeof(size_t));
-    mesh3_vc(mesh, l[i], vc);
-    for (size_t j = 0; j < nvc; ++j)
-      if (!array_contains(lc_arr, &vc[j]))
-        array_append(lc_arr, &vc[j]);
-    free(vc);
-  }
-
-  /* Check whether `yp` lies in any of the cells indexed by
-   * `lc_arr`. */
-  for (size_t i = 0, lc; i < array_size(lc_arr); ++i) {
-    array_get(lc_arr, i, &lc);
-    if (!mesh3_dbl3_in_cell(mesh, lc, xtp, NULL)) {
-      dbl3_negate(n);
-      break;
-    }
-  }
-
-  array_deinit(lc_arr);
-  array_dealloc(&lc_arr);
-}
-
-/* Determine if a node with two parents that was updated from a
-run  * diffracting edge (l0, l1) is a 15 node. */
-static bool is_shadow_p2_diff(eik3_s const *eik, size_t l0, size_t const *l) {
-  dbl const atol = 1e-14;
-
-  par3_s par = eik3_get_par(eik, l0);
-  assert(par3_size(&par) == 2);
-  dbl t = par.b[1];
-
-  dbl n[3];
-  dbl3_cross(&eik->jet[l[0]].fx, &eik->jet[l[1]].fx, n);
-
-  orient_edge_normal(eik->mesh, l, t, n);
-
-  dbl dot = dbl3_dot(&eik->jet[l0].fx, n);
-  return fabs(dot) > atol;
-}
-
-static bool is_shadow_p2(eik3_s const *eik, par3_s const *parent) {
-  size_t const *l = parent->l;
-
-  if (eik->state[l[0]] == eik->state[l[1]])
-    return eik->state[l[0]] == SHADOW;
-
-  dbl t = parent->b[1], t_shadow = get_cutedge(eik, l[0], l[1]).t;
-
-  if (eik->state[l[0]] == VALID)
-    return t >= t_shadow;
-  else
-    return t <= t_shadow;
-}
-
-static bool is_shadow_p3(eik3_s const *eik, par3_s par) {
-  dbl const atol = 1e-14;
-
-  assert(par3_size(&par) == 3);
-
-  size_t num_shadow = 0;
-  for (int i = 0; i < 3; ++i)
-    num_shadow += eik3_is_shadow(eik, par.l[i]);
-
-  assert(num_shadow <= 3);
-
-  // Handle the easy cases first (if all the nodes are `SHADOW` or
-  // `VALID`).
-  if (num_shadow == 0 || num_shadow == 3)
-    return num_shadow == 3;
-
-  // We use a different "check state" depending on whether two of the
-  // nodes are shadow, or only one is. In either case, we move the
-  // node with the "check state" to `par.l[0]`. This lets us easily
-  // use the standard triangle to check whether the optimum is
-  // emanating from the shadow zone or not.
-  state_e check_state = num_shadow == 1 ? SHADOW : VALID;
-
-  // First, swap the entries of `par` so that the first entry
-  // corresponds to the "check state" node.
-  if (eik->state[par.l[1]] == check_state) {
-    SWAP(par.b[1], par.b[0]);
-    SWAP(par.l[1], par.l[0]);
-  }
-  if (eik->state[par.l[2]] == check_state) {
-    SWAP(par.b[2], par.b[0]);
-    SWAP(par.l[2], par.l[0]);
-  }
-
-  // Get coefficients of the optimum in the standard triangle after
-  // permuting.
-  dbl t[2] = {par.b[1], par.b[2]};
-
-  // Get the coordinates of the intersection of dZ with the two shadow
-  // cutset edges.
-  dbl ts[2] = {
-    get_cutedge(eik, par.l[0], par.l[1]).t,
-    get_cutedge(eik, par.l[0], par.l[2]).t
-  };
-
-  // TODO: deal with this case here to avoid NaNs below
-  if (ts[0] == 0 && ts[1] == 0) {
-    if (check_state == SHADOW)
-      return t[0] == 0 && t[1] == 0;
-    else
-      return t[0] > 0 || t[1] > 0;
-  }
-
-  // Return `true` if the optimum is on the side of the line
-  // connecting the intersection points on the shadow cutset nearer to
-  // x0.
-  if (check_state == SHADOW)
-    return t[0] <= ts[0] + atol && t[1] <= ts[1]*(1 - t[0]/ts[0]) + atol;
-  else
-    return t[0] >= ts[0] - atol || t[1] >= ts[1]*(1 - t[0]/ts[0]) - atol;
-}
-
-static bool is_shadow(eik3_s const *eik, size_t l0) {
-  if (eik3_is_point_source(eik, l0))
-    return false;
-
-  mesh3_s const *mesh = eik3_get_mesh(eik);
-
-  par3_s const *parent = &eik->par[l0];
-
-  int num_parents = par3_size(parent);
-
-  size_t const *l = parent->l;
-
-  // TODO: eventually, we should order these cases in decreasing order
-  // of frequency to optimize this
-
-  if (num_parents == 1 && eik3_is_point_source(eik, l[0]))
-    return eik3_is_shadow(eik, l[0]);
-
-  if (num_parents == 1 && mesh3_vert_incident_on_diff_edge(mesh, l[0]))
-    return is_shadow_p1_diff(eik, l0, l[0]);
-
-  if (num_parents == 1)
-    return eik3_is_shadow(eik, l[0]);
-
-  if (num_parents == 2 && mesh3_is_diff_edge(mesh, l))
-    return is_shadow_p2_diff(eik, l0, l);
-
-  if (num_parents == 2)
-    return is_shadow_p2(eik, parent);
-
-  if (num_parents == 3)
-    return is_shadow_p3(eik, *parent);
-
-  die();
-}
-
 static bool can_update_from_point(eik3_s const *eik, size_t l) {
-  return (eik->state[l] == VALID || eik->state[l] == SHADOW) &&
-    !eik3_is_point_source(eik, l);
+  return eik->state[l] == VALID && !eik3_is_point_source(eik, l);
 }
 
 static void do_1pt_update(eik3_s *eik, size_t l, size_t l0) {
@@ -485,40 +263,11 @@ static void do_2pt_bd_updates(eik3_s *eik, size_t l, size_t l0) {
   free(ve);
 }
 
-static bool has_cutedge(eik3_s const *eik, size_t l0, size_t l1) {
-  edge_s edge = make_edge(l0, l1);
-  return edgemap_contains(eik->cutset, edge);
-}
-
 static bool can_update_from_face(eik3_s const *eik,
                                  size_t l0, size_t l1, size_t l2) {
-  if (!can_update_from_point(eik, l0) ||
-      !can_update_from_point(eik, l1) ||
-      !can_update_from_point(eik, l2))
-    return false;
-
-  size_t num_shadow = (eik->state[l0] == SHADOW) +
-    (eik->state[l1] == SHADOW) + (eik->state[l2] == SHADOW);
-
-  if (num_shadow == 1) {
-    if (eik->state[l1] == SHADOW)
-      SWAP(l0, l1);
-    if (eik->state[l2] == SHADOW)
-      SWAP(l0, l2);
-    if (!has_cutedge(eik, l0, l1) || !has_cutedge(eik, l0, l2))
-      return false;
-  }
-
-  if (num_shadow == 2) {
-    if (eik->state[l1] == VALID)
-      SWAP(l0, l1);
-    if (eik->state[l2] == VALID)
-      SWAP(l0, l2);
-    if (!has_cutedge(eik, l0, l1) || !has_cutedge(eik, l0, l2))
-      return false;
-  }
-
-  return true;
+  return can_update_from_point(eik, l0) &&
+    can_update_from_point(eik, l1) &&
+    can_update_from_point(eik, l2);
 }
 
 static
@@ -883,8 +632,7 @@ static void update(eik3_s *eik, size_t l, size_t l0) {
   for (size_t i = 0; i < num_utetra; ++i) {
     if (!isfinite(utetra_get_value(utetra[i])))
       break;
-    if (utetra_has_interior_point_solution(utetra[i]) ||
-        utetra_has_shadow_boundary_solution(utetra[i])) {
+    if (utetra_has_interior_point_solution(utetra[i])) {
       if (utetra_update_ray_is_physical(utetra[i], eik) &&
           commit_tetra_update(eik, l, utetra[i]))
         break;
@@ -926,13 +674,6 @@ static void adjust(eik3_s *eik, size_t l) {
 
 size_t eik3_peek(eik3_s const *eik) {
   return heap_front(eik->heap);
-}
-
-static bool edges_overlap(edge_s edge, void const *elt, edge_s const *other) {
-  (void)elt;
-  size_t const *l = other->l;
-  return edge.l[0] == l[0] || edge.l[1] == l[0] ||
-    edge.l[0] == l[1] || edge.l[1] == l[1];
 }
 
 void do_diff_edge_updates_and_adjust(eik3_s *eik, size_t l0, size_t l1,
@@ -1021,7 +762,7 @@ void do_all_diff_edge_updates_and_adjust(eik3_s *eik, size_t l0, size_t *l0_nb,
 
 void update_neighbors(eik3_s *eik, size_t l0) {
   state_e l0_state = eik->state[l0];
-  assert(l0_state == VALID || l0_state == SHADOW);
+  assert(l0_state == VALID);
 
   size_t l; // Node l is a neighbor of node l0
 
@@ -1059,137 +800,6 @@ void update_neighbors(eik3_s *eik, size_t l0) {
   }
 
   free(nb);
-}
-
-/**
- * Compute the surface normal at a diffraction edge when `l0` has two
- * parents. The index `l0` indicates a new `SHADOW` point, which we
- * use to orient the surface normal, computed as the cross product of
- * the eikonal gradients at indices `l[0]` and `l[1]`. The result goes
- * in `n`.
- */
-static void get_diff_edge_surf_normal_p2(eik3_s const *eik, size_t l0,
-                                         size_t l[2], dbl n[3]) {
-  assert(eik3_is_shadow(eik, l0));
-
-  // Get DT at each parent and compute their cross product.
-  dbl DT[2][3];
-  eik3_get_DT(eik, l[0], DT[0]);
-  eik3_get_DT(eik, l[1], DT[1]);
-  dbl3_cross(DT[0], DT[1], n);
-  dbl3_normalize(n);
-
-  mesh3_s const *mesh = eik3_get_mesh(eik);
-
-  // Reorient the surface normal by checking which side of the tangent
-  // plane at (x[l[0]] + x[l[1]])/2 the point x[l0] is on.
-  dbl dx[3], lm[3];
-  dbl3_add(mesh3_get_vert_ptr(mesh, l[0]), mesh3_get_vert_ptr(mesh, l[1]), lm);
-  dbl3_dbl_div_inplace(lm, 2);
-  dbl3_sub(mesh3_get_vert_ptr(mesh, l0), lm, dx);
-  if (dbl3_dot(n, dx) > 0)
-    dbl3_negate(n);
-}
-
-static bool get_cutedge_jet_diff(eik3_s const *eik, size_t const l[2],
-                                 dbl const xt[3], jet3 *jet) {
-  mesh3_s const *mesh = eik3_get_mesh(eik);
-
-  assert(mesh3_is_diff_edge(mesh, l));
-
-  utri_s *utri;
-  utri_alloc(&utri);
-  utri_spec_s spec = utri_spec_from_eik_without_l(eik, xt, l[0], l[1]);
-  if (!utri_init(utri, &spec)) {
-    utri_deinit(utri);
-    utri_dealloc(&utri);
-    return false;
-  }
-
-  utri_solve(utri);
-
-  if (utri_has_interior_point_solution(utri) &&
-      utri_update_ray_is_physical(utri, eik)) {
-    par3_s utri_par = utri_get_par(utri);
-    assert(!is_shadow_p2(eik, &utri_par));
-
-    utri_get_jet(utri, jet);
-    assert(jet3_is_finite(jet));
-
-    utri_deinit(utri);
-    utri_dealloc(&utri);
-
-    return true;
-  }
-
-  /* If we haven't found an interior point solution, we assume that
-   * we're on a diffracting edge, and that we need to explore the
-   * surrounding edges to find the correct update.
-   *
-   * First, we find the active endpoint, then find all of the
-   * diffracting edges adjacent to it. */
-
-  bool found = false;
-
-  size_t l_active = utri_get_active_ind(utri);
-  if (l_active == (size_t)NO_INDEX)
-    return false;
-
-  size_t num_inc = mesh3_get_num_inc_diff_edges(mesh, l_active);
-
-  /* If there's only one active index and only one incident
-   * diffracting edge, we should be on a diffracting edge where it
-   * meets a flat part of the boundary. So, we can just use the jet
-   * from `utri` and return early. */
-  if (num_inc == 1) {
-    utri_get_jet(utri, jet);
-    assert(jet3_is_finite(jet));
-    found = true;
-    goto cleanup;
-  }
-
-  size_t (*le)[2] = malloc(num_inc*sizeof(size_t[2]));
-  mesh3_get_inc_diff_edges(mesh, l_active, le);
-
-  utri_s **u = malloc(num_inc*sizeof(utri_s *));
-
-  for (size_t i = 0; i < num_inc; ++i) {
-    utri_alloc(&u[i]);
-    utri_spec_s spec_ = utri_spec_from_eik_without_l(eik, xt, le[i][0], le[i][1]);
-    if (utri_init(u[i], &spec_))
-      utri_solve(u[i]);
-  }
-
-  qsort(u, num_inc, sizeof(utri_s *), (compar_t)utri_cmp);
-
-  for (size_t i = 0; i < num_inc; ++i) {
-    if (!utri_is_finite(u[i]))
-      assert(false); // should never happen...
-    if (utri_has_interior_point_solution(u[i]) ||
-        (i + 1 < num_inc &&
-         utris_yield_same_update(u[i], u[i + 1]))) {
-      // TODO: check whether ray is physical? ugh
-      utri_get_jet(u[i], jet);
-      assert(jet3_is_finite(jet));
-      found = true;
-      break;
-    }
-  }
-
-  for (size_t i = 0; i < num_inc; ++i) {
-    if (u[i] == NULL) continue;
-    utri_deinit(u[i]);
-    utri_dealloc(&u[i]);
-  }
-
-  free(u);
-  free(le);
-
-cleanup:
-  utri_deinit(utri);
-  utri_dealloc(&utri);
-
-  return found;
 }
 
 static jet3 get_opt_from_utetras(size_t n, utetra_s const **u) {
@@ -1354,576 +964,6 @@ cleanup:
   free(l2);
 }
 
-static size_t find_nearby_l2_for_edge(eik3_s const *eik, size_t l[2]) {
-  size_t *l2;
-  size_t nup = get_update_pencil(eik, l, &l2); // TODO: wasteful, but whatever
-  assert(nup > 0);
-  size_t tmp = l2[0];
-  free(l2);
-  return tmp;
-}
-
-static void set_cutedge_jet(eik3_s const *eik, edge_s edge, cutedge_s *cutedge) {
-  dbl const atol = 1e-14;
-
-  /* First, check if the cut point coincides with either of the edge
-   * endpoints... */
-
-  if (cutedge->t < atol) {
-    assert(eik->state[edge.l[0]] == VALID);
-    cutedge->jet = eik->jet[edge.l[0]];
-    return;
-  }
-
-  if (cutedge->t > 1 - atol) {
-    assert(eik->state[edge.l[1]] == VALID);
-    cutedge->jet = eik->jet[edge.l[1]];
-    return;
-  }
-
-  /* Next, check if either of the parents are diffracting edges. */
-  par3_s par[2] = {eik3_get_par(eik, edge.l[0]), eik3_get_par(eik, edge.l[1])};
-  size_t par_size[2] = {par3_size(&par[0]), par3_size(&par[1])};
-
-  assert(par_size[0] != 1);
-  assert(par_size[1] != 1);
-
-  dbl xt[3];
-  edge_get_xt(edge, eik->mesh, cutedge->t, xt);
-
-  /* First, try to handle diffracting edge cases */
-  jet3 jet[2] = {jet3_make_empty(), jet3_make_empty()};
-  bool found[2];
-  for (size_t i = 0; i < 2; ++i)
-    found[i] = par_size[i] == 2 &&
-      mesh3_is_diff_edge(eik->mesh, par[i].l) &&
-      get_cutedge_jet_diff(eik, par[i].l, xt, &jet[i]);
-  if (found[0] && found[1])
-    cutedge->jet = jet[0].f < jet[1].f ? jet[0] : jet[1];
-  else if (found[0])
-    cutedge->jet = jet[0];
-  else if (found[1])
-    cutedge->jet = jet[1];
-  if (found[0] || found[1])
-    return;
-
-  utetra_spec_s spec[2];
-  utetra_s *u[2];
-  for (size_t i = 0, l[3]; i < 2; ++i) {
-    memcpy(l, par[i].l, par_size[i]*sizeof(size_t));
-    switch (par_size[i]) {
-    case 2:
-      l[2] = find_nearby_l2_for_edge(eik, l);
-    case 3:
-      spec[i] = utetra_spec_from_eik_without_l(eik, xt, l[0], l[1], l[2]);
-      utetra_alloc(&u[i]);
-      if (utetra_init(u[i], &spec[i]))
-        utetra_solve(u[i], NULL);
-      break;
-    case 1:
-    default:
-      assert(false);
-    }
-  }
-
-  dbl f[2];
-  for (size_t i = 0; i < 2; ++i)
-    f[i] = u[i] == NULL ? INFINITY : utetra_get_value(u[i]);
-
-  assert(isfinite(f[0]) || isfinite(f[1]));
-
-  utetra_s *u_sel = f[0] < f[1] ? u[0] : u[1];
-
-  if (utetra_has_interior_point_solution(u_sel)) {
-    utetra_get_jet(u_sel, &cutedge->jet);
-    assert(jet3_is_finite(&cutedge->jet));
-    goto cleanup;
-  }
-
-  size_t la[3];
-  switch (utetra_get_active_inds(u_sel, la)) {
-  case 1:
-    set_cutedge_jet_a1(eik, xt, la[0], cutedge);
-    break;
-  case 2:
-    set_cutedge_jet_a2(eik, xt, la[0], la[1], cutedge);
-    break;
-  default:
-    assert(utetra_has_shadow_boundary_solution(u_sel));
-    utetra_get_jet(u_sel, &cutedge->jet);
-    assert(jet3_is_finite(&cutedge->jet));
-    break;
-  }
-
-cleanup:
-  for (size_t i = 0; i < 2; ++i) {
-    utetra_deinit(u[i]);
-    utetra_dealloc(&u[i]);
-  }
-}
-
-static bool estimate_cutedge_data_from_incident_cutedges(
-  eik3_s const *eik, edge_s edge, cutedge_s *cutedge, edgemap_s const *inc)
-{
-  assert(!edgemap_is_empty(inc));
-
-  mesh3_s const *mesh = eik->mesh;
-
-  dbl x0[3], dx[3], yt[3];
-
-  edge_get_x0_and_dx(edge, mesh, x0, dx);
-
-  cutedge->t = 0;
-  dbl3_zero(cutedge->n);
-
-  edgemap_iter_s *iter;
-  edgemap_iter_alloc(&iter);
-  edgemap_iter_init(iter, inc);
-
-  edge_s inc_edge;
-  cutedge_s inc_cutedge;
-
-  while (edgemap_iter_next(iter, &inc_edge, &inc_cutedge)) {
-    // Get the location of the intersection between the shadow
-    // boundary and the current cut edge
-
-    edge_get_xt(inc_edge, mesh, inc_cutedge.t, yt);
-
-    dbl t = dbl3_dot(inc_cutedge.n, yt);
-    t -= dbl3_dot(inc_cutedge.n, x0);
-    if (t != 0) {
-      dbl denom = dbl3_dot(inc_cutedge.n, dx);
-      assert(denom != 0);
-      t /= denom;
-    }
-
-    cutedge->t += t;
-
-    dbl3_add_inplace(cutedge->n, inc_cutedge.n);
-  }
-
-  edgemap_iter_dealloc(&iter);
-
-  size_t num_inc = edgemap_size(inc);
-
-  cutedge->t /= num_inc;
-
-  // Verify that t is (up to machine precision) in the interval [0,
-  // 1]. If it's slightly outside of the interval due to roundoff
-  // error, clamp it back before returning.
-  /* assert(-eik->tlim <= cutedge->t && cutedge->t <= 1 + eik->tlim); */
-  /* cutedge->t = fmax(0, fmin(1, cutedge->t)); */
-  if (cutedge->t < 0 || cutedge->t > 1) {
-    reset_cutedge(cutedge);
-    return false;
-  }
-
-  // TODO: this is the perfect place to do a weighted spherical
-  // average instead of just normalizing!
-  dbl3_normalize(cutedge->n);
-
-  /* Finally, set the cutedge jet. */
-  set_cutedge_jet(eik, edge, cutedge);
-
-  return true;
-}
-
-typedef enum cutedge_status {
-  CUTEDGE_CONTINUE,
-  CUTEDGE_SWITCH_STATE,
-  CUTEDGE_VALID,
-  CUTEDGE_REINSERT,
-  CUTEDGE_SKIP
-} cutedge_status_e;
-
-static bool edge_inc_on_index(edge_s edge, void const *elt, size_t const *l) {
-  (void)elt;
-  return edge.l[0] == *l || edge.l[1] == *l;
-}
-
-static void get_cutpoint(mesh3_s const *mesh, edge_s const *edge,
-                         cutedge_s const *cutedge, dbl xt[3]) {
-  dbl const *x[2];
-  for (size_t i = 0; i < 2; ++i)
-    x[i] = mesh3_get_vert_ptr(mesh, edge->l[i]);
-  dbl3_cc(x[0], x[1], cutedge->t, xt);
-}
-
-static bool
-orient_normals_using_incident_cutpoints(eik3_s const *eik, size_t l0,
-                                        size_t n_size, dbl (*n)[3]) {
-  dbl const atol = 1e-14;
-
-  assert(eik3_is_valid(eik, l0));
-
-  bool found = false;
-
-  /* First, try to steal the normal from a cutpoint incident on
-   * `x[lv]`. Start by getting the edges that are incident on `l0`, if
-   * any. */
-  edgemap_s *inc;
-  edgemap_alloc(&inc);
-  edgemap_init(inc, sizeof(cutedge_s));
-  edgemap_filter(eik->cutset, inc, (edgemap_prop_t)edge_inc_on_index, &l0);
-
-  /* Failed to find any incident cutedges---bail, indicating that we
-   * failed to orient the normals */
-  if (edgemap_is_empty(inc))
-    goto cleanup;
-
-  dbl const *x0 = mesh3_get_vert_ptr(eik->mesh, l0), *n0;
-  dbl xt[3];
-
-  edgemap_iter_s *iter;
-  edgemap_iter_alloc(&iter);
-  edgemap_iter_init(iter, inc);
-
-  /* Iterate over the incident edges and try to find a cutpoint that
-   * coincides with `x0`.
-   *
-   * We should actually look at all of the normals incident on `x0`,
-   * but let's just start with one for now... */
-  edge_s edge;
-  cutedge_s cutedge;
-  while (edgemap_iter_next(iter, &edge, &cutedge)) {
-    get_cutpoint(eik->mesh, &edge, &cutedge, xt);
-    if (dbl3_dist(x0, xt) < atol) {
-      found = true;
-      n0 = cutedge.n;
-      break;
-    }
-  }
-
-  edgemap_iter_dealloc(&iter);
-
-  /* Now, reorient each `n[i]`... */
-  if (found)
-    for (size_t i = 0; i < n_size; ++i)
-      if (dbl3_dot(n0, n[i]) < -atol)
-        dbl3_negate(n[i]);
-
-cleanup:
-  edgemap_deinit(inc);
-  edgemap_dealloc(&inc);
-
-  return found;
-}
-
-static void
-orient_normals_using_mesh(mesh3_s const *mesh, size_t l0, size_t n_size,
-                          dbl (*n)[3]) {
-  assert(mesh3_bdv(mesh, l0));
-
-  dbl const *x0 = mesh3_get_vert_ptr(mesh, l0);
-
-  size_t nvc = mesh3_nvc(mesh, l0);
-  assert(nvc > 0);
-  size_t *vc = malloc(nvc*sizeof(size_t));
-  mesh3_vc(mesh, l0, vc);
-
-  for (size_t i = 0; i < n_size; ++i) {
-    dbl xp[3];
-    dbl3_saxpy(mesh3_get_min_tetra_alt(mesh), n[i], x0, xp);
-    for (size_t j = 0; j < nvc; ++j) {
-      if (!mesh3_dbl3_in_cell(mesh, vc[j], xp, NULL)) {
-        dbl3_negate(n[i]);
-        break;
-      }
-    }
-  }
-
-  free(vc);
-}
-
-static
-bool set_cutedge_for_diff_vert(eik3_s const *eik,
-                               edge_s edge, cutedge_s *cutedge) {
-  dbl const atol = 1e-13;
-
-  mesh3_s const *mesh = eik->mesh;
-
-  size_t lv = edge_get_valid_index(edge, eik);
-  assert(mesh3_vert_incident_on_diff_edge(mesh, lv));
-
-  // TODO: inefficient, lift!
-  size_t nde = mesh3_get_num_inc_diff_edges(eik->mesh, lv);
-  size_t (*de)[2] = malloc(nde*sizeof(size_t[2]));
-  mesh3_get_inc_diff_edges(eik->mesh, lv, de);
-  assert(nde <= 2); // TODO: handle corners later...
-
-  dbl (*N)[3] = malloc(nde*sizeof(dbl[3]));
-
-  dbl DT1[3];
-  eik3_get_DT(eik, lv, DT1);
-
-  dbl const *xv = mesh3_get_vert_ptr(mesh, lv);
-
-  dbl dx[3];
-
-  /* Start by computing the normalized cross product between the ray
-   * vector at `xv` and each diffracting edge incident on `xv`. */
-  for (size_t i = 0, j; i < nde; ++i) {
-    assert(de[i][0] == lv || de[i][1] == lv);
-    j = de[i][0] == lv ? 1 : 0;
-    dbl3_sub(mesh3_get_vert_ptr(mesh, de[i][j]), xv, dx);
-    dbl3_cross(DT1, dx, N[i]);
-    dbl3_normalize(N[i]);
-    // orient_edge_normal(mesh, de[i], 0.5, N[i]);
-  }
-
-  free(de);
-
-  /* We need to orient the normals in `N`. First, we'll try stealing
-   * the normals from any cutpoints incident on `x[lv]`, and using
-   * those. */
-  if (!orient_normals_using_incident_cutpoints(eik, lv, nde, N))
-    /* If that failed, orient `N` using the nearby geometry.  */
-    orient_normals_using_mesh(eik->mesh, lv, nde, N);
-
-  /* Ensure that all these normals are the same at this point. This is
-   * because we assume that the edges are all entirely
-   * straight. Later, when we relax this assumption, we'll need to
-   * handle this. */
-  for (size_t i = 1; i < nde; ++i)
-    assert(dbl3_dist(N[i], N[i - 1]) < atol);
-
-  /* Set the surface normal (arbitrarily) to be the first of these
-   * surface normals, since we're assuming they're all the same at
-   * this point, anyway. */
-  dbl3_copy(N[0], cutedge->n);
-
-  free(N);
-
-  cutedge->t = lv == edge.l[0] ? 0 : 1;
-  cutedge->jet = eik->jet[lv];
-
-  return true;
-}
-
-/* In this function, we want to fill in the cutedge information for a
- * node that was updated from a diffracting edge. This is only the
- * case when l0 has two parents. This is the second "base case": check
- * and see if l0's parents are incident on a diffracting edge.
- *
- * What we're checking here:
- * - l1 is one of l0's parents
- * - l0 has exactly two parents (why not just one == l1?)
- * - l2 is the other parent
- * - [l1, l2] is a diffracting edge
- */
-static cutedge_status_e
-set_cutedge_for_diff_update(eik3_s const *eik, edge_s edge, cutedge_s *cutedge) {
-  size_t lv = edge_get_valid_index(edge, eik);
-  size_t ls = edge_get_shadow_index(edge, eik);
-
-  par3_s par = eik3_get_par(eik, ls);
-
-  if (par3_size(&par) != 2)
-    return CUTEDGE_CONTINUE;
-
-  size_t *l = par.l;
-
-  if (lv != l[0] && lv != l[1])
-    return CUTEDGE_CONTINUE;
-
-  if (!mesh3_is_diff_edge(eik->mesh, l))
-    return CUTEDGE_CONTINUE;
-
-  // TODO: I think we can simplify this a bit...
-  if (lv == l[0] || lv == l[1]) {
-    if (lv == l[0])
-      SWAP(l[0], l[1]);
-  } else if (mesh3_is_diff_edge(eik->mesh, (size_t[2]) {lv, l[1]})) {
-    SWAP(l[0], l[1]);
-  } else if (!mesh3_is_diff_edge(eik->mesh, (size_t[2]) {lv, l[0]})) {
-    log_warn("failed to insert cutedge (%lu, %lu)\n", MIN(lv, ls), MAX(lv, ls));
-    return CUTEDGE_SKIP;
-  }
-
-  assert(ls != lv && lv != l[0]);
-
-  get_diff_edge_surf_normal_p2(eik, ls, (size_t[2]) {lv, l[0]}, cutedge->n);
-
-  cutedge->t = lv == edge.l[0] ? 0 : 1; // This assumes that l1 is valid
-
-  cutedge->jet = eik->jet[lv];
-
-  return CUTEDGE_VALID;
-}
-
-/**
- * Compute the coefficient for the new edge in shadow cutset. This is
- * a double t such that 0 <= t <= 1 and where the shadow boundary
- * (approximately) passes through (1 - t)*x[l0] + t*x[l1].
- *
- * The index l0 corresponds to the node that has just been accepted,
- * and l1 is some neighbor of l0 which has the "opposite" state from
- * l0 (i.e., VALID if l0 is SHADOW and vice versa). So, one of
- * eik->state[l0] and eik->state[l1] is VALID and the other is
- * SHADOW. No assumption is made about which is which.
- */
-static
-cutedge_status_e set_cutedge(eik3_s const *eik, edge_s edge, cutedge_s *cutedge) {
-  cutedge_status_e status;
-
-  status = set_cutedge_for_diff_update(eik, edge, cutedge);
-  if (status != CUTEDGE_CONTINUE)
-    return status;
-
-  size_t lv = edge_get_valid_index(edge, eik);
-  if (mesh3_vert_incident_on_diff_edge(eik->mesh, lv) &&
-      set_cutedge_for_diff_vert(eik, edge, cutedge))
-    return CUTEDGE_VALID;
-
-  /* "Inductive step": find all other cutset edges incident on `edge`
-   * use them to extrapolate the shadow boundary in order to find the
-   * intersection point. */
-
-  // TODO: not sure if this is the *best* way to find nearby cutedges,
-  // but seems reasonable...
-
-  edgemap_s *inc;
-  edgemap_alloc(&inc);
-  edgemap_init(inc, sizeof(cutedge_s));
-  edgemap_filter(eik->cutset, inc, (edgemap_prop_t)edges_overlap, &edge);
-
-  status = edgemap_is_empty(inc) ? CUTEDGE_REINSERT : CUTEDGE_VALID;
-
-  if (status == CUTEDGE_VALID)
-    if (!estimate_cutedge_data_from_incident_cutedges(
-          eik, edge, cutedge, inc))
-      status = CUTEDGE_SWITCH_STATE;
-
-  edgemap_deinit(inc);
-  edgemap_dealloc(&inc);
-
-  return status;
-}
-
-static void insert_cutedge(eik3_s *eik, edge_s edge, cutedge_s *cutedge) {
-  state_e state[2];
-  for (size_t i = 0; i < 2; ++i) {
-    state[i] = eik->state[edge.l[i]];
-    assert(state[i] == VALID || state[i] == SHADOW);
-  }
-  assert(state[0] != state[1]);
-
-  assert(0 <= cutedge->t && cutedge->t <= 1);
-  assert(fabs(1 - dbl3_norm(cutedge->n)) < 1e-15);
-
-  cutedge_s old_cutedge;
-
-  /* If the edge is already contained in the cutset, check to see if
-   * the cut point indicated by `cutedge` has a lower eikonal value
-   * than the cut point already stored in the cutset. If it does,
-   * replace it. (What's our rationale for this? We need a way to
-   * break ties, and this seems like a reasonable way to break the
-   * tie. We might find that there's a more principled way of doing
-   * this later. */
-  if (edgemap_get(eik->cutset, edge, &old_cutedge)) {
-    // TODO: just using linear interpolation here, which is probably
-    // OK. Would be good to replace this with cubic interpolation.
-    dbl T0 = eik->jet[edge.l[0]].f, T1 = eik->jet[edge.l[1]].f;
-    dbl t = cutedge->t, old_t = old_cutedge.t;
-    dbl T_old = (1 - old_t)*T0 + old_t*T1, T = (1 - t)*T0 + t*T1;
-    if (T < T_old)
-      edgemap_set(eik->cutset, edge, cutedge);
-  } else {
-    edgemap_set(eik->cutset, edge, cutedge);
-  }
-}
-
-static void remove_bad_cutset_edges(eik3_s *eik, size_t l0) {
-  edgemap_s *inc;
-  edgemap_alloc(&inc);
-  edgemap_init(inc, sizeof(cutedge_s));
-  edgemap_filter(eik->cutset, inc, (edgemap_prop_t)edge_inc_on_index, &l0);
-
-  edgemap_iter_s *iter;
-  edgemap_iter_alloc(&iter);
-  edgemap_iter_init(iter, inc);
-
-  edge_s edge;
-  while (edgemap_iter_next(iter, &edge, NULL))
-    edgemap_remove(eik->cutset, edge);
-
-  edgemap_iter_dealloc(&iter);
-
-  edgemap_deinit(inc);
-  edgemap_dealloc(&inc);
-}
-
-static bool update_shadow_cutset(eik3_s *eik, size_t l0) {
-  size_t l1;
-  edge_s edge;
-  cutedge_s cutedge;
-
-  // Cutset edges consist of two nodes with opposite states
-  state_e op_state = eik->state[l0] == VALID ? SHADOW : VALID;
-
-  // Get l0's neighbors
-  int nvv = mesh3_nvv(eik->mesh, l0);
-  size_t *vv = malloc(nvv*sizeof(size_t));
-  mesh3_vv(eik->mesh, l0, vv);
-
-  array_s *l1_arr;
-  array_alloc(&l1_arr);
-  array_init(l1_arr, sizeof(size_t), nvv);
-
-  // Fill `l1_arr` with neighbors of the opposite state
-  for (int i = 0; i < nvv; ++i)
-    if (eik->state[l1 = vv[i]] == op_state)
-      array_append(l1_arr, &l1);
-
-  // TODO: document me!
-  if (eik3_is_valid(eik, l0) &&
-      mesh3_vert_incident_on_diff_edge(eik->mesh, l0))
-    for (size_t i = 0; i < array_size(l1_arr); ++i) {
-      array_get(l1_arr, i, &l1);
-      edge = make_edge(l0, l1);
-      set_cutedge_for_diff_vert(eik, edge, &cutedge);
-      insert_cutedge(eik, edge, &cutedge);
-    }
-
-  // We process the nodes neighboring l0 that have the opposite state
-  // using a queue. When we try to compute the data for each new
-  // cutedge, because of the way we do it right now, we need to
-  // compute this data for each node in a certain order. If we fail
-  // the first time, we reinsert the node into the queue and try
-  // again.
-  while (!array_is_empty(l1_arr)) {
-    array_pop_front(l1_arr, &l1);
-    edge_s edge = make_edge(l0, l1);
-    switch (set_cutedge(eik, edge, &cutedge)) {
-    case CUTEDGE_CONTINUE:
-      die();
-    case CUTEDGE_SWITCH_STATE:
-      eik->state[l0] = op_state;
-      goto cleanup;
-    case CUTEDGE_VALID:
-      break;
-    case CUTEDGE_REINSERT:
-      array_append(l1_arr, &l1);
-      /* Fall through */
-    case CUTEDGE_SKIP:
-      continue;
-    }
-    insert_cutedge(eik, edge, &cutedge);
-  }
-
-cleanup:
-  if (eik->state[l0] == op_state)
-    remove_bad_cutset_edges(eik, l0);
-
-  array_deinit(l1_arr);
-  array_dealloc(&l1_arr);
-  free(vv);
-
-  /* Return whether we switched states (will need to re-run
-   * `update_shadow_cutset`) */
-  return eik->state[l0] != op_state;
-}
-
 static void update_statistics(eik3_s *eik) {
   ++eik->num_accepted;
 }
@@ -1932,14 +972,10 @@ size_t eik3_step(eik3_s *eik) {
   size_t l0 = heap_front(eik->heap);
   assert(eik->state[l0] == TRIAL);
   heap_pop(eik->heap);
+  eik->state[l0] = VALID;
 
-  /* When we accept a node with an infinite jet, we can conclude
-   * immediately that it must be a `SHADOW` node, since this should
-   * only happen when a node wasn't reachable by any update. */
-  if (isinf(eik->jet[l0].f)) {
-    eik->state[l0] = SHADOW;
-    update_shadow_cutset(eik, l0);
-    update_neighbors(eik, l0);
+  if (!isfinite(eik->jet[l0].f)) {
+    log_error("accepted an inf node! (l0 = %lu)", l0);
     return l0;
   }
 
@@ -1954,20 +990,6 @@ size_t eik3_step(eik3_s *eik) {
       array_delete(eik->old_updates, i - 1);
     }
   }
-
-  eik->state[l0] = is_shadow(eik, l0) ? SHADOW : VALID;
-
-  /* Reset a `SHADOW` node's jet upon accepting it. We never want to
-   * do an update using information from a `SHADOW` node, since it's
-   * garbage! Instead, we avoid this by using split updates (see
-   * `utetra` and `utri`).  */
-  if (eik->state[l0] == SHADOW)
-    eik->jet[l0] = jet3_make_empty();
-  assert(update_shadow_cutset(eik, l0));
-
-  if (!eik3_is_point_source(eik, l0) &&
-      !jet3_is_finite(&eik->jet[l0]))
-    assert(eik3_is_shadow(eik, l0));
 
   update_neighbors(eik, l0);
   update_statistics(eik);
@@ -2022,10 +1044,6 @@ bool eik3_is_valid(eik3_s const *eik, size_t l) {
   return eik->state[l] == VALID;
 }
 
-bool eik3_is_shadow(eik3_s const *eik, size_t l) {
-  return eik->state[l] == SHADOW;
-}
-
 mesh3_s *eik3_get_mesh(eik3_s const *eik) {
   return eik->mesh;
 }
@@ -2056,26 +1074,4 @@ void eik3_set_par(eik3_s *eik, size_t l, par3_s par) {
 
 void eik3_get_DT(eik3_s const *eik, size_t l, dbl DT[3]) {
   memcpy(DT, &eik->jet[l].fx, 3*sizeof(dbl));
-}
-
-edgemap_s const *eik3_get_cutset(eik3_s const *eik) {
-  return eik->cutset;
-}
-
-bool eik3_get_cutedge_t(eik3_s const *eik, size_t l0, size_t l1, dbl *t) {
-  cutedge_s cutedge;
-  if (!edgemap_get(eik->cutset, make_edge(l0, l1), &cutedge))
-    return false;
-  *t = cutedge.t;
-  if (l0 > l1)
-    *t = 1 - *t;
-  return true;
-}
-
-bool eik3_get_cutedge_jet(eik3_s const *eik, size_t l0, size_t l1, jet3 *jet) {
-  cutedge_s cutedge;
-  if (!edgemap_get(eik->cutset, make_edge(l0, l1), &cutedge))
-    return false;
-  *jet = cutedge.jet;
-  return true;
 }

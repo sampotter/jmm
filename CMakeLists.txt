@@ -91,7 +91,6 @@ set (JMM_SRCS
   src/cubic.c
   src/dial.c
   src/edge.c
-  src/edgemap.c
   src/eik.c
   src/eik_F3.c
   src/eik_F4.c
@@ -186,7 +185,6 @@ if (BUILD_TESTS)
     test/test_bb3tet.c
     test/test_bmesh33.c
     test/test_camera.c
-    test/test_edgemap.c
     test/test_eik3.c
     test/test_geom.c
     test/test_opt.c

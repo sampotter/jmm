@@ -1,6 +1,5 @@
 from defs cimport dbl, state
 
-from edgemap cimport *
 from jet cimport *
 from par cimport *
 from mesh3 cimport *
@@ -25,8 +24,6 @@ cdef extern from "eik3.h":
     bool eik3_is_far(const eik3 *eik, size_t ind)
     bool eik3_is_trial(const eik3 *eik, size_t ind)
     bool eik3_is_valid(const eik3 *eik, size_t ind)
-    bool eik3_is_shadow(const eik3 *eik, size_t l)
     jet3 *eik3_get_jet_ptr(const eik3 *eik)
     state *eik3_get_state_ptr(const eik3 *eik)
     par3 eik3_get_par(const eik3 *eik, size_t l)
-    const edgemap *eik3_get_cutset(const eik3 *eik)

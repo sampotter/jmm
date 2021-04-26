@@ -17,7 +17,6 @@ from bmesh cimport *
 from camera cimport *
 from dial cimport *
 from edge cimport *
-from edgemap cimport *
 from eik3 cimport *
 from grid3 cimport *
 from jet cimport *
@@ -37,7 +36,6 @@ class State(Enum):
     Boundary = 3
     AdjacentToBoundary = 4
     NewValid = 5
-    Shadow = 6
 
 cdef class ArrayView:
     cdef:
@@ -994,30 +992,6 @@ cdef class Parent3:
         memcpy(&b[0], self.par.b, self.size*sizeof(dbl))
         return np.asarray(b)
 
-cdef class Cutedge:
-    cdef:
-        dbl t
-        dbl[::1] n
-        jet3 jet
-
-    def __cinit__(self, dbl t, dbl[::1] n, jet3 jet):
-        self.t = t
-        self.n = np.empty((3,), dtype=np.float64)
-        self.n[:] = n[:]
-        self.jet = jet
-
-    @property
-    def t(self):
-        return self.t
-
-    @property
-    def n(self):
-        return np.asarray(self.n)
-
-    @property
-    def jet(self):
-        return Jet3(self.jet.f, self.jet.fx, self.jet.fy, self.jet.fz)
-
 cdef class Eik3:
     cdef:
         eik3 *eik
@@ -1072,9 +1046,6 @@ cdef class Eik3:
     def is_valid(self, size_t ind):
         return eik3_is_valid(self.eik, ind)
 
-    def is_shadow(self, size_t ind):
-        return eik3_is_shadow(self.eik, ind)
-
     def transfer_solution_to_grid(self, Grid3 grid):
         cdef dbl[::1] y = np.empty((grid.size,), dtype=np.float64)
         xfer(eik3_get_mesh(self.eik), eik3_get_jet_ptr(self.eik),
@@ -1101,20 +1072,6 @@ cdef class Eik3:
     def get_parent(self, ind):
         cdef par3 p = eik3_get_par(self.eik, ind)
         return Parent3(p)
-
-    @property
-    def shadow_cutset(self):
-        cdef:
-            edgemap_iter *it
-            edge e
-            cutedge c
-        edgemap_iter_alloc(&it)
-        edgemap_iter_init(it, eik3_get_cutset(self.eik))
-        cutset = dict()
-        while edgemap_iter_next(it, &e, &c):
-            cutset[e.l[0], e.l[1]] = Cutedge(c.t, <double[:3]>c.n, c.jet)
-        edgemap_iter_dealloc(&it)
-        return cutset
 
     @property
     def mesh(self):
