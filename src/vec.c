@@ -187,7 +187,7 @@ dbl dbl3_ndot(dbl const u[3], dbl const v[3]) {
 }
 
 bool dbl3_valid_bary_coord(dbl const b[3]) {
-  dbl const atol = 1e-15;
+  dbl const atol = 1e-14;
   return b[0] > -atol && b[1] > -atol && b[2] > -atol
     && fabs(1 - dbl3_sum(b)) < atol;
 }
@@ -236,6 +236,13 @@ bool dbl3_equal(dbl const x[3], dbl const y[3]) {
   return x[0] == y[0] && x[1] == y[1] && x[2] == y[2];
 }
 
+void dbl4_dbl_div_inplace(dbl u[4], dbl a) {
+  u[0] /= a;
+  u[1] /= a;
+  u[2] /= a;
+  u[3] /= a;
+}
+
 dbl dbl4_dist(dbl const u[4], dbl const v[4]) {
   dbl tmp[4] = {u[0] - v[0], u[1] - v[1], u[2] - v[2], u[3] - v[3]};
   return sqrt(tmp[0]*tmp[0] + tmp[1]*tmp[1] + tmp[2]*tmp[2] + tmp[3]*tmp[3]);
@@ -271,6 +278,15 @@ bool dbl4_valid_bary_coord(dbl const b[4]) {
   dbl const atol = 1e-15;
   return b[0] > -atol && b[1] > -atol && b[2] > -atol && b[3] > -atol
     && fabs(1 - dbl4_sum(b)) < atol;
+}
+
+void dbl4_normalize1(dbl u[4]) {
+  dbl4_dbl_div_inplace(u, fabs(dbl4_nsum(u)));
+}
+
+dbl dbl4_nsum(dbl const u[4]) {
+  // TODO: implement fast inline version of this
+  return dblN_nsum(u, 4);
 }
 
 dbl dblN_mean(dbl const *x, size_t n) {

@@ -7,6 +7,7 @@
 #include "mat.h"
 #include "mesh2.h"
 #include "mesh3.h"
+#include "util.h"
 #include "vec.h"
 
 void line3_get_closest_point(line3 const *line, dbl const x[3], dbl y[3]) {
@@ -153,15 +154,27 @@ dbl tri3_dist(tri3 const *tri, dbl const x[3]) {
   return dbl3_dist(x, y);
 }
 
+static bool same_side(dbl const a[3], dbl const b[3], dbl const c[3],
+                      dbl const p[3], dbl const q[3]) {
+  dbl ab[3]; dbl3_sub(b, a, ab);
+  dbl ac[3]; dbl3_sub(c, a, ac);
+  dbl ap[3]; dbl3_sub(p, a, ap);
+  dbl aq[3]; dbl3_sub(q, a, aq);
+  dbl n[3]; dbl3_cross(ab, ac, n);
+  dbl n_dot_ap = dbl3_ndot(n, ap);
+  dbl n_dot_aq = dbl3_ndot(n, aq);
+  return signum(n_dot_ap) == signum(n_dot_aq);
+}
+
 bool tetra3_contains_point(tetra3 const *tetra, dbl const x[3]) {
-  dbl b[4];
-  tetra3_get_bary_coords(tetra, x, b);
-  return dbl4_valid_bary_coord(b);
+  dbl const (*v)[3] = tetra->v;
+  return same_side(v[0], v[1], v[2], v[3], x) &&
+         same_side(v[1], v[2], v[3], v[0], x) &&
+         same_side(v[2], v[3], v[0], v[1], x) &&
+         same_side(v[3], v[0], v[1], v[2], x);
 }
 
 void tetra3_get_bary_coords(tetra3 const *tetra, dbl const x[3], dbl b[4]) {
-  dbl const atol = 1e-13;
-
   // Set up the LHS of the problem. The first three rows consist of
   // the components of the tetrahedron vertices, and the last row is
   // all ones.
@@ -183,7 +196,7 @@ void tetra3_get_bary_coords(tetra3 const *tetra, dbl const x[3], dbl b[4]) {
   // close to machine precision.
   dbl44_dbl4_solve(lhs, rhs, b);
 
-  assert(fabs(1 - dbl4_sum(b)) < atol);
+  dbl4_normalize1(b);
 }
 
 void tetra3_get_centroid(tetra3 const *tetra, dbl c[3]) {

@@ -54,6 +54,7 @@ void dbl3_normalize1(dbl x[3]);
 bool dbl3_isfinite(dbl const x[3]);
 bool dbl3_equal(dbl const x[3], dbl const y[3]);
 
+void dbl4_dbl_div_inplace(dbl u[4], dbl a);
 dbl dbl4_dist(dbl const u[4], dbl const v[4]);
 bool dbl4_nonneg(dbl const u[4]);
 dbl dbl4_norm(dbl const u[4]);
@@ -61,6 +62,8 @@ void dbl4_saxpy(dbl a, dbl const x[4], dbl const y[4], dbl z[4]);
 void dbl4_sub(dbl const u[4], dbl const v[4], dbl w[4]);
 dbl dbl4_sum(dbl const u[4]);
 bool dbl4_valid_bary_coord(dbl const b[3]);
+void dbl4_normalize1(dbl u[4]);
+dbl dbl4_nsum(dbl const u[4]);
 
 dbl dblN_mean(dbl const *x, size_t n);
 void dblN_minmax(dbl const *x, size_t n, dbl *min, dbl *max);

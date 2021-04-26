@@ -42,7 +42,9 @@ static void xfer_tetra(int const subgrid_ind[3], xfer_tetra_wkspc_t *wkspc) {
    * coordinates along the way.
    */
   dbl b[4];
-  if (mesh3_dbl3_in_cell(wkspc->mesh, wkspc->lc, point, b)) {
+  tetra3 tetra = mesh3_get_tetra(wkspc->mesh, wkspc->lc);
+  if (tetra3_contains_point(&tetra, point)) {
+    tetra3_get_bary_coords(&tetra, point, b);
     size_t l = ind2l3(dim, grid_ind);
     dbl y = bb33_f(&wkspc->bb, b);
     // If the grid value is NaN, just set it. Otherwise, set it to the
