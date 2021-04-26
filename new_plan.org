@@ -3,15 +3,15 @@
 
   Where am I at? I have a good solver for an unstructured mesh.
 
-  - [ ] Switch to Sethian-style shadows
-    - [ ] make L + bounding box
-    - [ ] make room + bounding box
-    - [ ] branch and get rid of shadow cutset stuff
+  - [-] Switch to Sethian-style shadows
+    - [X] make L + bounding box
+    - [X] make room + bounding box
+    - [X] get interior mesh
+    - [X] branch and separate shadow cutset stuff
     - [ ] re-run and compute difference
-    - [ ] when doing an update from a diffracting edge, treat it as a point source
-      - [ ] do 2D minimization over edges (no diff edges in convex domain)
-  - [ ] use BVH to compare shadow on xy slice and see if it makes sense
   - [ ] reinitialize reflections
+    - [ ] reflect grad(T)
+    - [ ] solve reflected & plot
     - [ ] transport t0
     - [ ] check reflection condition
   - [ ] reinitialize from diffracting edge
@@ -22,4 +22,5 @@
     - [ ] reflection coefficient
     - [ ] UTD coefficient
   - [ ] compute several arrivals for whatever domain i get to
+  - [ ] make nice plots of shadows
   - [ ] finish IEEE paper
