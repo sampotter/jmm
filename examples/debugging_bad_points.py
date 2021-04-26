@@ -13,15 +13,16 @@ plotter = pvqt.BackgroundPlotter()
 ################################################################################
 # parameters
 
-scene = 'L'
+vtu_path = 'room.vtu'
 
-verts_path = 'visualize_cutset/%s_verts.bin' % scene
-cells_path = 'visualize_cutset/%s_cells.bin' % scene
+scene = 'L'
+verts_path = None # 'visualize_cutset/%s_verts.bin' % scene
+cells_path = None # 'visualize_cutset/%s_cells.bin' % scene
 
 lsrc = 0
 l = None
-l0 = 48
-l1 = 124
+l0 = 807
+l1 = None
 l2 = None
 l3 = None
 lbad = None
@@ -35,20 +36,30 @@ lbad_color = 'green'
 
 plot_surf_tris = False
 plot_wavefront = False
-plot_cutset = True
 plot_ray_from_lsrc_to_l = False
 plot_states = False
 
 ################################################################################
 # GEOMETRY SETUP
 
-verts = np.fromfile(verts_path, dtype=np.float64)
-verts = verts.reshape(verts.size//3, 3)
+if vtu_path:
+    grid = pv.read(vtu_path)
 
+if vtu_path:
+    verts = grid.points.astype(np.float64)
+else:
+    verts = np.fromfile(verts_path, dtype=np.float64)
+    verts = verts.reshape(verts.size//3, 3)
 num_verts = verts.shape[0]
 
-cells = np.fromfile(cells_path, dtype=np.uintp)
-cells = cells.reshape(cells.size//4, 4)
+if vtu_path:
+    cells = grid.cells.reshape(-1, 5)[:, 1:].astype(np.uintp)
+else:
+    cells = np.fromfile(cells_path, dtype=np.uintp)
+    cells = cells.reshape(cells.size//4, 4)
+
+################################################################################
+# COMPUTE FACES FOR SURFACE MESH
 
 faces = set()
 for C in cells:
@@ -63,10 +74,10 @@ for C in cells:
             faces.add(f)
 faces = np.array(list(faces), dtype=np.uintp)
 
-mesh = jmm.Mesh3.from_verts_and_cells(verts, cells)
-
 ################################################################################
 # SOLVE
+
+mesh = jmm.Mesh3.from_verts_and_cells(verts, cells)
 
 eik = jmm.Eik3(mesh)
 eik.add_trial(lsrc, jmm.Jet3(0.0, np.nan, np.nan, np.nan))
@@ -112,23 +123,6 @@ def plot_tri(L):
 def plot_point(points, l, scale=1.25, color='white', opacity=1):
     plotter.add_mesh(
         pv.Sphere(scale*sphere_radius, points[l]), color=color, opacity=opacity)
-
-def plot_edge(l0, l1, color='white', opacity=1):
-    x0, x1 = verts[l0], verts[l1]
-    xm, xd = (x0 + x1)/2, x1 - x0
-    r, h = 0.5*sphere_radius, np.linalg.norm(xd)
-    plotter.add_mesh(
-        pv.Cylinder(xm, xd, r, h), color=color, opacity=opacity)
-
-def plot_cutset_edge(l0, l1):
-    try:
-        t = eik.shadow_cutset[min(l0, l1), max(l0, l1)].t
-        plot_edge(l0, l1)
-        xt = (1 - t)*verts[l0] + t*verts[l1]
-        plotter.add_mesh(
-            pv.Sphere(sphere_radius, xt), color='white', opacity=1)
-    except:
-        pass
 
 def plot_jet(x, jet=None):
     if isinstance(jet, jmm.Jet3):
@@ -233,22 +227,6 @@ if plot_ray_from_lsrc_to_l:
     r, h = 0.5*sphere_radius, np.linalg.norm(xd)
     plotter.add_mesh(
         pv.Cylinder(xm, xd, r, h), color=highlight_inds[l], opacity=1)
-
-if plot_cutset:
-    for (m0, m1), cutedge in eik.shadow_cutset.items():
-        plot_point(verts, m0, color='purple' if eik.is_shadow(m0) else 'green')
-        plot_point(verts, m1, color='purple' if eik.is_shadow(m1) else 'green')
-        x0, x1 = verts[m0], verts[m1]
-        xm, xd = (x0 + x1)/2, x1 - x0
-        r, h = 0.5*sphere_radius, np.linalg.norm(xd)
-        plotter.add_mesh(
-            pv.Cylinder(xm, xd, r, h), color='white', opacity=1)
-        t = cutedge.t
-        xt = (1 - t)*verts[m0] + t*verts[m1]
-        plotter.add_mesh(
-            pv.Sphere(sphere_radius, xt), color='white', opacity=1)
-        jet = cutedge.jet
-        plot_jet(xt, jet)
 
 if plot_states:
     for l_ in range(num_verts):
