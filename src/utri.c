@@ -344,9 +344,9 @@ bool utri_update_ray_is_physical(utri_s const *utri, eik3_s const *eik) {
   // perturbations are small enough to stay inside neighboring
   // tetrahedra, but also large enough to take into consideration the
   // characteristic length scale of the mesh.
-  dbl xm[3], xp[3], t = mesh3_get_min_tetra_alt(mesh)/2;
-  ray3_get_point(&ray, -t/2, xm);
-  ray3_get_point(&ray, t/2, xp);
+  dbl xm[3], xp[3], h = mesh3_get_min_edge_length(mesh)/4;
+  ray3_get_point(&ray, -h, xm);
+  ray3_get_point(&ray, h, xp);
 
   array_s *cells;
   array_alloc(&cells);
@@ -398,7 +398,7 @@ bool utri_update_ray_is_physical(utri_s const *utri, eik3_s const *eik) {
   dbl L = get_L(utri);
 
   dbl xhatm[3];
-  ray3_get_point(&ray, L - t, xhatm);
+  ray3_get_point(&ray, L - h, xhatm);
 
   /* If `utri->l` is unset, we're probably computing a jet for a cut
    * point, in which case we can fairly safely assume we're OK

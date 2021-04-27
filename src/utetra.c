@@ -610,9 +610,9 @@ bool utetra_update_ray_is_physical(utetra_s const *utetra, eik3_s const *eik) {
   // perturbations are small enough to stay inside neighboring
   // tetrahedra, but also large enough to take into consideration the
   // characteristic length scale of the mesh.
-  dbl xm[3], xp[3], t = mesh3_get_min_tetra_alt(mesh)/2; // TODO: rename t...
-  ray3_get_point(&ray, -t, xm);
-  ray3_get_point(&ray, t, xp);
+  dbl xm[3], xp[3], h = mesh3_get_min_edge_length(mesh)/4; // TODO: rename t...
+  ray3_get_point(&ray, -h, xm);
+  ray3_get_point(&ray, h, xp);
   assert(dbl3_isfinite(xm));
   assert(dbl3_isfinite(xp));
 
@@ -702,7 +702,7 @@ bool utetra_update_ray_is_physical(utetra_s const *utetra, eik3_s const *eik) {
    * lies in a cell. */
 
   dbl xhatm[3];
-  ray3_get_point(&ray, L - t, xhatm);
+  ray3_get_point(&ray, L - h, xhatm);
 
   int nvc = mesh3_nvc(mesh, utetra->lhat);
   size_t *vc = malloc(nvc*sizeof(size_t));
