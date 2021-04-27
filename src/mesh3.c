@@ -89,6 +89,7 @@ struct mesh3 {
 
   // Geometric quantities
   dbl min_tetra_alt; // The minimum of all tetrahedron altitudes in the mesh.
+  dbl min_edge_length;
 };
 
 tri3 mesh3_tetra_get_face(mesh3_tetra_s const *tetra, int f[3]) {
@@ -367,6 +368,18 @@ static void compute_geometric_quantities(mesh3_s *mesh) {
       mesh3_copy_vert(mesh, mesh->cells->data[i], x[i]);
     dbl h = min_tetra_altitude(x);
     mesh->min_tetra_alt = fmin(mesh->min_tetra_alt, h);
+  }
+
+  mesh->min_edge_length = INFINITY;
+  for (size_t l = 0, nvv, *vv; l < mesh->nverts; ++l) {
+    nvv = mesh3_nvv(mesh, l);
+    vv = malloc(nvv*sizeof(size_t));
+    mesh3_vv(mesh, l, vv);
+    for (size_t i = 0; i < nvv; ++i) {
+      dbl h = dbl3_dist(&mesh->verts[l].data[0], &mesh->verts[vv[i]].data[0]);
+      mesh->min_edge_length = fmin(mesh->min_edge_length, h);
+    }
+    free(vv);
   }
 }
 
@@ -1182,6 +1195,10 @@ bool mesh3_vert_incident_on_diff_edge(mesh3_s const *mesh, size_t l) {
 
 dbl mesh3_get_min_tetra_alt(mesh3_s const *mesh) {
   return mesh->min_tetra_alt;
+}
+
+dbl mesh3_get_min_edge_length(mesh3_s const *mesh) {
+  return mesh->min_edge_length;
 }
 
 /**

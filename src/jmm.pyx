@@ -935,6 +935,14 @@ instance of `jmm.Mesh3`.
         '''
         return mesh3_get_min_tetra_alt(self.mesh)
 
+    @property
+    def min_edge_length(self):
+        '''The minimum edge length of the tetrahedron mesh, taken over all
+cell edges of `jmm.Mesh3`.
+
+        '''
+        return mesh3_get_min_edge_length(self.mesh)
+
     def get_surface_mesh(self):
         if not self.has_bd_info:
             raise Exception("mesh wasn't built with boundary info");
