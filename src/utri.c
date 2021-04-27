@@ -474,6 +474,15 @@ size_t utri_get_l(utri_s const *utri) {
   return utri->l;
 }
 
+bool utri_opt_inc_on_other_utri(utri_s const *u, utri_s const *other_u) {
+  dbl const atol = 1e-14;
+  dbl xlam[3];
+  dbl3_saxpy(u->lam, u->x1_minus_x0, u->x0, xlam);
+  dbl dist0 = dbl3_dist(other_u->x0, xlam);
+  dbl dist1 = dbl3_dist(other_u->x1, xlam);
+  return dist0 < atol || dist1 < atol;
+}
+
 static dbl get_lambda(utri_s const *u) {
   return u->lam;
 }
