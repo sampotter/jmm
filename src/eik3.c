@@ -205,7 +205,7 @@ static void do_2pt_bd_updates(eik3_s *eik, size_t l, size_t l0) {
   size_t (*ve)[2] = malloc(nve*sizeof(size_t[2]));
   mesh3_ve(eik->mesh, l, ve);
 
-  utri_s **utri = malloc(nve*sizeof(utri_s *));
+  utri_s **utri = calloc(nve, sizeof(size_t *));
 
   size_t l1;
   size_t nup = 0;
