@@ -3,13 +3,15 @@
 
   Where am I at? I have a good solver for an unstructured mesh.
 
-  - [-] Switch to Sethian-style shadows
+  - [X] Switch to Sethian-style shadows
     - [X] make L + bounding box
     - [X] make room + bounding box
     - [X] get interior mesh
     - [X] branch and separate shadow cutset stuff
-    - [ ] re-run and compute difference
+    - [X] re-run and compute difference
+  - [ ] make version of room without columns
   - [ ] reinitialize reflections
+    - [ ] restrict to surfaces
     - [ ] reflect grad(T)
     - [ ] solve reflected & plot
     - [ ] transport t0
