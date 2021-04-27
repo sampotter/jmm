@@ -224,6 +224,7 @@ static void do_2pt_bd_updates(eik3_s *eik, size_t l, size_t l0) {
       }
     }
   }
+
   qsort(utri, nve, sizeof(utri_s *), (compar_t)utri_cmp);
 
   // An edge on the boundary is incident on two boundary faces
