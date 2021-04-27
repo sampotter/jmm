@@ -201,15 +201,15 @@ static bool commit_tri_update(eik3_s *eik, size_t lhat, utri_s const *utri) {
 }
 
 static void do_2pt_bd_updates(eik3_s *eik, size_t l, size_t l0) {
-  int nve = mesh3_nve(eik->mesh, l);
+  size_t nve = mesh3_nve(eik->mesh, l);
   size_t (*ve)[2] = malloc(nve*sizeof(size_t[2]));
   mesh3_ve(eik->mesh, l, ve);
 
   utri_s **utri = malloc(nve*sizeof(utri_s *));
 
   size_t l1;
-  int nup = 0;
-  for (int i = 0; i < nve; ++i) {
+  size_t nup = 0;
+  for (size_t i = 0; i < nve; ++i) {
     utri[i] = NULL;
     if (ve[i][0] == l0 || ve[i][1] == l0) {
       l1 = ve[i][0] == l0 ? ve[i][1] : ve[i][0];
@@ -252,8 +252,8 @@ static void do_2pt_bd_updates(eik3_s *eik, size_t l, size_t l0) {
     }
   }
 
-  for (int i = 0; i < nve; ++i) {
     if (utri[i] == NULL) continue;
+  for (size_t i = 0; i < nup; ++i) {
     utri_deinit(utri[i]);
     utri_dealloc(&utri[i]);
   }
