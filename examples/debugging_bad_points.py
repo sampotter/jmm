@@ -6,36 +6,33 @@ import jmm
 import numpy as np
 import pyvista as pv
 import pyvistaqt as pvqt
-
-plotter = pvqt.BackgroundPlotter()
-# plotter = pv.Plotter()
+import vtk
 
 ################################################################################
 # parameters
 
-vtu_path = 'room.vtu'
+vtu_path = None # 'room.vtu'
 
-scene = 'L'
-verts_path = None # 'visualize_cutset/%s_verts.bin' % scene
-cells_path = None # 'visualize_cutset/%s_cells.bin' % scene
+verts_path = 'sethian_shadow/room_verts.bin'
+cells_path = 'sethian_shadow/room_cells.bin'
 
 lsrc = 0
-l = None
-l0 = 807
-l1 = None
-l2 = None
+l = 5265
+l0 = 3460
+l1 = 6995
+l2 = 5304
 l3 = None
 lbad = None
 
-l_color = 'black'
-l0_color = 'white'
-l1_color = 'black'
-l2_color = 'cyan'
+l_color = 'red'
+l0_color = 'yellow'
+l1_color = 'blue'
+l2_color = 'green'
 l3_color = 'black'
 lbad_color = 'green'
 
 plot_surf_tris = False
-plot_wavefront = False
+plot_wavefront = True
 plot_ray_from_lsrc_to_l = False
 plot_states = False
 
@@ -115,10 +112,19 @@ else:
 ################################################################################
 # HELPER FUNCTIONS FOR PLOTTING
 
+plotter = pvqt.BackgroundPlotter()
+
 def plot_tri(L):
     plotter.add_mesh(
         pv.make_tri_mesh(verts, np.array(L).reshape(1, 3)),
         opacity=0.95, color='white', show_edges=True)
+
+def plot_cell(lc, **kwargs):
+    plotter.add_mesh(
+        pv.UnstructuredGrid(
+            {vtk.VTK_TETRA: cells[lc].reshape(1, 4)},
+            verts),
+        **kwargs)
 
 def plot_point(points, l, scale=1.25, color='white', opacity=1):
     plotter.add_mesh(
@@ -135,6 +141,11 @@ def plot_jet(x, jet=None):
     plotter.add_mesh(
         pv.Arrow(x, d, scale=0.1),
         color='white', opacity=1)
+
+def plot_x(x, scale=1, **kwargs):
+    plotter.add_mesh(
+        pv.Sphere(scale*sphere_radius, x),
+        **kwargs)
 
 ################################################################################
 # MAKE PLOTS
@@ -272,8 +283,28 @@ if plot_states:
 #     c = ['white', 'grey', 'black'][i]
 #     plotter.add_mesh(pv.Sphere(2.1*sphere_radius, x), color=c)
 
-# plotter.add_mesh(pv.Sphere(2.0*sphere_radius, [1.2879954987745708, 0.71429170686278221, 0.5117742261003202]), color='pink')
+# plotter.add_mesh(pv.Sphere(0.5*sphere_radius, [-9.3470075886632351, 0.22555979371580434, 9.9999997924193682]), color='grey')
+# plotter.add_mesh(pv.Sphere(0.5*sphere_radius, [-9.5940848658052111, 0.13950179712771429, 9.9999998709630962]), color='grey')
 
 # n = [0.0034659509079279886, 0.31743167482835211, -0.007794063362845877]
 # n /= np.linalg.norm(n)
 # plot_jet((verts[5] + verts[113])/2, n)
+
+################################################################################
+# PRINT BAD POINT
+
+R = np.sqrt(np.sum((verts - verts[lsrc])**2, axis=1))
+L = np.argsort(R)
+L = [l for l in L if not eik.is_valid(l)]
+print(f'! first bad in is {L[0]}')
+
+# plot_point(verts, L[0], 2.0, 'red')
+
+for l_ in mesh.vv(l0):
+    if eik.is_valid(l_):
+        plot_jet(verts[l_], eik.jet[l_])
+
+h = np.inf
+for l in range(num_verts):
+    for m in mesh.vv(l):
+        h = min(h, np.linalg.norm(verts[m] - verts[l]))
