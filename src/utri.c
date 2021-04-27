@@ -139,9 +139,7 @@ static dbl utri_hybrid_f(dbl lam, utri_s *utri) {
   return utri->Df;
 }
 
-bool utri_init(utri_s *u, utri_spec_s const *spec) {
-  dbl const atol = 1e-15;
-
+void utri_init(utri_s *u, utri_spec_s const *spec) {
   bool passed_lhat = spec->lhat != (size_t)NO_INDEX;
   bool passed_l0 = spec->l[0] != (size_t)NO_INDEX;
   bool passed_l1 = spec->l[1] != (size_t)NO_INDEX;
@@ -229,18 +227,6 @@ bool utri_init(utri_s *u, utri_spec_s const *spec) {
   bb31_init_from_3d_data(&u->T, T, DT, Xt);
 
   u->orig_index = spec->orig_index;
-
-  /* Check if the update point is on the right side of the base of the
-   * update. First, we compute the closest point on the line spanned
-   * by the update base (`xp`), then check whether vector pointing
-   * from `xp` to `utri->x` makes a positive angle with the gradients
-   * at `utri->x0` and `utri->x1`. */
-  line3 line;
-  dbl3_copy(u->x0, line.x);
-  dbl3_copy(u->x1, line.y);
-  dbl xp[3]; line3_get_closest_point(&line, u->x, xp);
-  dbl dx[3]; dbl3_sub(u->x, xp, dx);
-  return dbl3_dot(dx, &jet[0].fx) > -atol && dbl3_dot(dx, &jet[1].fx) > -atol;
 }
 
 void utri_deinit(utri_s *u) {
