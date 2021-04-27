@@ -42,6 +42,7 @@ bool utri_is_finite(utri_s const *utri);
 size_t utri_get_active_ind(utri_s const *utri);
 size_t utri_get_inactive_ind(utri_s const *utri);
 bool utri_contains_update_ind(utri_s const *utri, size_t l);
+size_t utri_get_l(utri_s const *utri);
 
 bool utris_yield_same_update(utri_s const *utri1, utri_s const *utri2);
 

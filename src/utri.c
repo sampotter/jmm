@@ -484,6 +484,10 @@ bool utri_contains_update_ind(utri_s const *u, size_t l) {
   return l == u->l0 || l == u->l1;
 }
 
+size_t utri_get_l(utri_s const *utri) {
+  return utri->l;
+}
+
 static dbl get_lambda(utri_s const *u) {
   return u->lam;
 }
