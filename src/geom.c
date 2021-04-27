@@ -160,10 +160,15 @@ static bool same_side(dbl const a[3], dbl const b[3], dbl const c[3],
   dbl ac[3]; dbl3_sub(c, a, ac);
   dbl ap[3]; dbl3_sub(p, a, ap);
   dbl aq[3]; dbl3_sub(q, a, aq);
+
   dbl n[3]; dbl3_cross(ab, ac, n);
-  dbl n_dot_ap = dbl3_ndot(n, ap);
-  dbl n_dot_aq = dbl3_ndot(n, aq);
-  return signum(n_dot_ap) == signum(n_dot_aq);
+
+  dbl const atol = 1e-14;
+
+  dbl n_dot_ap = shrink(dbl3_ndot(n, ap), atol);
+  dbl n_dot_aq = shrink(dbl3_ndot(n, aq), atol);
+
+  return !(signum(n_dot_ap) == -signum(n_dot_aq));
 }
 
 bool tetra3_contains_point(tetra3 const *tetra, dbl const x[3]) {

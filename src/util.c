@@ -58,3 +58,7 @@ int signum(dbl x) {
     return -1;
   }
 }
+
+dbl shrink(dbl x, dbl eps) {
+  return fmax(0, x - eps) + fmin(0, x + eps);
+}
