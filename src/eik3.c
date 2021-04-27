@@ -58,6 +58,7 @@ struct eik3 {
    * later stage. We keep track of them here.
    */
   array_s *old_updates;
+  array_s *old_bd_utri; // old two-point boundary `utri`
 
   /* Statistics... */
   int num_accepted; // number of nodes fixed using `eik3_step`
@@ -127,6 +128,9 @@ void eik3_init(eik3_s *eik, mesh3_s *mesh) {
 
   array_alloc(&eik->old_updates);
   array_init(eik->old_updates, sizeof(utetra_s *), 16);
+
+  array_alloc(&eik->old_bd_utri);
+  array_init(eik->old_bd_utri, sizeof(utri_s *), 16);
 }
 
 void eik3_deinit(eik3_s *eik) {
@@ -153,6 +157,15 @@ void eik3_deinit(eik3_s *eik) {
   }
   array_deinit(eik->old_updates);
   array_dealloc(&eik->old_updates);
+
+  utri_s *utri;
+  for (size_t i = 0; i < array_size(eik->old_bd_utri); ++i) {
+    array_get(eik->old_bd_utri, i, &utri);
+    utri_deinit(utri);
+    utri_dealloc(&utri);
+  }
+  array_deinit(eik->old_bd_utri);
+  array_dealloc(&eik->old_bd_utri);
 }
 
 static bool can_update_from_point(eik3_s const *eik, size_t l) {
@@ -227,11 +240,41 @@ static void do_2pt_bd_updates(eik3_s *eik, size_t l, size_t l0) {
 
   qsort(utri, nve, sizeof(utri_s *), (compar_t)utri_cmp);
 
-  // An edge on the boundary is incident on two boundary faces
-  // (assuming the surface is manifold, which we do). The other
-  // vertices of these faces are the `l1`s we find above. So, we can't
-  // have done more than two updates.
-  assert(nup <= 2);
+  for (size_t i = 0; i < nup; ++i)
+    assert(utri[i] != NULL);
+  for (size_t i = nup; i < nve; ++i)
+    assert(utri[i] == NULL);
+
+  /* Go through old boundary triangle updates and append any that have
+   * the same update index and share an edge with the current updates
+   * in `utri`. We will have solved these already, so don't need to
+   * resolve them. */
+  size_t copied_utri = 0;
+  for (size_t i = 0; i < nve; ++i) {
+    if (utri[i] == NULL)
+      continue;
+    utri_s *u_old;
+    for (size_t j = array_size(eik->old_bd_utri); j > 0; --j) {
+      array_get(eik->old_bd_utri, j - 1, &u_old);
+      if (utri_get_l(u_old) != l ||
+          !utri_opt_inc_on_other_utri(u_old, utri[i]))
+        continue;
+      array_delete(eik->old_bd_utri, j - 1);
+      if (nup + copied_utri + 1 > nve)
+        utri = realloc(utri, (nup + copied_utri + 1)*sizeof(utri_s *));
+      utri[nup + copied_utri++] = u_old;
+    }
+  }
+  nup += copied_utri;
+
+  qsort(utri, nup, sizeof(utri_s *), (compar_t)utri_cmp);
+
+  // Keep track of which utri to free. If we copy any over to
+  // `old_bd_utri`, we want to make sure we don't accidentally free
+  // them.
+  bool *free_utri = malloc(nup*sizeof(bool));
+  for (size_t i = 0; i < nup; ++i)
+    free_utri[i] = true;
 
   // Try to commit a triangle update
   //
@@ -250,15 +293,19 @@ static void do_2pt_bd_updates(eik3_s *eik, size_t l, size_t l0) {
                utri_update_ray_is_physical(utri[i], eik) &&
                commit_tri_update(eik, l, utri[i])) {
       break;
+    } else {
+      array_append(eik->old_bd_utri, &utri[i]);
+      free_utri[i] = false;
     }
   }
 
-    if (utri[i] == NULL) continue;
   for (size_t i = 0; i < nup; ++i) {
+    if (utri[i] == NULL || !free_utri[i]) continue;
     utri_deinit(utri[i]);
     utri_dealloc(&utri[i]);
   }
 
+  free(free_utri);
   free(utri);
   free(ve);
 }
@@ -964,19 +1011,9 @@ static void update_statistics(eik3_s *eik) {
   ++eik->num_accepted;
 }
 
-size_t eik3_step(eik3_s *eik) {
-  size_t l0 = heap_front(eik->heap);
-  assert(eik->state[l0] == TRIAL);
-  heap_pop(eik->heap);
-  eik->state[l0] = VALID;
-
-  if (!isfinite(eik->jet[l0].f)) {
-    log_error("accepted an inf node! (l0 = %lu)", l0);
-    return l0;
-  }
-
-  /* Once we accept a node, we can clear out the old updates that
-   * are targeting it */
+/* Remove old tetrahedron and two-point boundary updates targeting
+ * `l0` from `eik`. */
+static void purge_old_updates(eik3_s *eik, size_t l0) {
   utetra_s *old_utetra;
   for (size_t i = array_size(eik->old_updates); i > 0; --i) {
     array_get(eik->old_updates, i - 1, &old_utetra);
@@ -987,6 +1024,28 @@ size_t eik3_step(eik3_s *eik) {
     }
   }
 
+  utri_s *old_utri;
+  for (size_t i = array_size(eik->old_bd_utri); i > 0; --i) {
+    array_get(eik->old_bd_utri, i - 1, &old_utri);
+    if (utri_get_l(old_utri) == l0) {
+      utri_deinit(old_utri);
+      utri_dealloc(&old_utri);
+      array_delete(eik->old_bd_utri, i - 1);
+    }
+  }
+}
+
+size_t eik3_step(eik3_s *eik) {
+  size_t l0 = heap_front(eik->heap);
+
+  assert(eik->state[l0] == TRIAL);
+  assert(isfinite(eik->jet[l0].f));
+
+  heap_pop(eik->heap);
+
+  eik->state[l0] = VALID;
+
+  purge_old_updates(eik, l0);
   update_neighbors(eik, l0);
   update_statistics(eik);
 
