@@ -17,7 +17,6 @@ extern "C" {
 #define ORDERING ROW_MAJOR_ORDERING
 
 #define EPS 1e-13
-#define NO_INDEX -1
 #define PI 3.141592653589793
 #define PI_OVER_FOUR 0.7853981633974483
 #define SQRT2 1.414213562373095
@@ -26,7 +25,8 @@ extern "C" {
 #define SQRT10 3.1622776601683795
 #define SQRT13 3.605551275463989
 #define SQRT17 4.123105625617661
-#define UNFACTORED -1
+
+#define NO_INDEX -1
 #define NO_PARENT SIZE_MAX
 
 typedef enum state {
