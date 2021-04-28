@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 import argparse
 import colorcet as cc
 import jmm
