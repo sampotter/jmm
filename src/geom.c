@@ -154,6 +154,15 @@ dbl tri3_dist(tri3 const *tri, dbl const x[3]) {
   return dbl3_dist(x, y);
 }
 
+bool tri3_coplanar(tri3 const *tri, tri3 const *other_tri, dbl const *atol) {
+  dbl const atol_ = atol ? *atol : 1e-14;
+  dbl n[3], other_n[3];
+  tri3_get_normal(tri, n);
+  tri3_get_normal(other_tri, other_n);
+  dbl dot = dbl3_dot(n, other_n);
+  return dot > 1 - atol_ || dot < atol_ - 1;
+}
+
 static bool same_side(dbl const a[3], dbl const b[3], dbl const c[3],
                       dbl const p[3], dbl const q[3]) {
   dbl ab[3]; dbl3_sub(b, a, ab);

@@ -31,6 +31,7 @@ bool tri3_contains_point(tri3 const *tri, dbl x[3]);
 void tri3_get_bary_coords(tri3 const *tri, dbl const x[3], dbl b[3]);
 void tri3_get_closest_point(tri3 const *tri, dbl const x[3], dbl y[3]);
 dbl tri3_dist(tri3 const *tri, dbl const x[3]);
+bool tri3_coplanar(tri3 const *tri, tri3 const *other_tri, dbl const *atol);
 
 typedef struct {
   dbl v[4][3];
