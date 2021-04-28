@@ -87,6 +87,9 @@ struct mesh3 {
   size_t nbde;
   diff_edge_s *bde;
 
+  size_t nlabels;
+  int *bdf_label; // Labels for distinct reflecting surfaces
+
   // Geometric quantities
   dbl min_tetra_alt; // The minimum of all tetrahedron altitudes in the mesh.
   dbl min_edge_length;
@@ -222,6 +225,125 @@ static bool edge_is_diff(mesh3_s const *mesh, diff_edge_s *e) {
   free(ec);
 
   return angle_sum > PI + atol;
+}
+
+static size_t find_bdf(mesh3_s const *mesh, tagged_face_s const *bdf) {
+  tagged_face_s const *found = bsearch(
+    bdf, mesh->bdf, mesh->nbdf, sizeof(tagged_face_s),
+    (compar_t)tagged_face_cmp);
+  return found ? found - mesh->bdf : (size_t)NO_INDEX;
+}
+
+/* Find all of the boundary faces that are adjacent to `mesh->bdf[l]`
+ * and append them to `nb`. This doesn't assume that `nb` is empty. */
+static void get_bdf_nbs(mesh3_s const *mesh, size_t l, array_s *nb) {
+  tagged_face_s const *bdf = &mesh->bdf[l];
+  tagged_face_s nb_bdf;
+
+  for (size_t i = 0, lv, nve, (*ve)[2]; i < 3; ++i) {
+    lv = bdf->lf[i];
+
+    nve = mesh3_nve(mesh, lv);
+    ve = malloc(nve*sizeof(size_t[2]));
+    mesh3_ve(mesh, lv, ve);
+
+    for (size_t j = 0, l_nb; j < nve; ++j) {
+      nb_bdf = make_tagged_face(lv, ve[j][0], ve[j][1], (size_t)NO_INDEX);
+      if (tagged_face_cmp(bdf, &nb_bdf) == 0)
+        continue;
+      l_nb = find_bdf(mesh, &nb_bdf);
+      if (l_nb != (size_t)NO_INDEX && !array_contains(nb, &l_nb))
+        array_append(nb, &l_nb);
+    }
+
+    free(ve);
+  }
+}
+
+static bool bdfs_are_coplanar(mesh3_s const *mesh, size_t l0, size_t l1) {
+  tri3 const tri0 = mesh3_get_tri(mesh, mesh->bdf[l0].lf);
+  tri3 const tri1 = mesh3_get_tri(mesh, mesh->bdf[l1].lf);
+  dbl const atol = 1e-10;
+  return tri3_coplanar(&tri0, &tri1, &atol);
+}
+
+static bool label_reflector(mesh3_s *mesh) {
+  /* Set up a queue for the breadth-first search */
+  array_s *queue;
+  array_alloc(&queue);
+  array_init(queue, sizeof(size_t), ARRAY_DEFAULT_CAPACITY);
+
+  /* Set up a queue for streaming the neighbors of each face */
+  array_s *nb;
+  array_alloc(&nb);
+  array_init(nb, sizeof(size_t), ARRAY_DEFAULT_CAPACITY);
+
+  /* Find the first unlabeled face. */
+  size_t lf = 0;
+  while (lf < mesh->nbdf
+         && mesh->bdf_label[lf] != NO_LABEL)
+    ++lf;
+
+  /* If we couldn't find an unlabeled face, we're done, so we can
+   * return `false`, signaling no more reflectors to process. */
+  if (lf == mesh->nbdf)
+    return false;
+
+  /* Push `lf` onto `queue` to start the BFS. */
+  array_append(queue, &lf);
+
+  /* Traverse the faces of the current reflector and label them. */
+  do {
+    array_pop_front(queue, &lf);
+
+    /* Set the label of the face to the current label. */
+    mesh->bdf_label[lf] = mesh->nlabels;
+
+    /* Get `lf`'s neighbors, and store them in `nb`. */
+    get_bdf_nbs(mesh, lf, nb);
+
+    /* Traverse the neighboring boundary faces. If the neighboring
+     * faces are coplanar, append them to `queue`. */
+    size_t lf_nb;
+    while (!array_is_empty(nb)) {
+      array_pop_front(nb, &lf_nb);
+
+      /* If face `lf_nb` is already labeled, skip it. */
+      if (mesh->bdf_label[lf_nb] != NO_LABEL)
+        continue;
+
+      /* If `lf_nb` and `lf` are coplanar, try to add it to
+       * `queue`. Either way, continue the iteration. We only want
+       * to set `lf_next = `lf_nb` if they aren't coplanar. */
+      if (bdfs_are_coplanar(mesh, lf, lf_nb)
+          && !array_contains(queue, &lf_nb))
+        array_append(queue, &lf_nb);
+    }
+  } while (!array_is_empty(queue));
+
+  array_deinit(nb);
+  array_dealloc(&nb);
+
+  array_deinit(queue);
+  array_dealloc(&queue);
+
+  /* We successfully labeled a component. */
+  return true;
+}
+
+static void init_bdf_labels(mesh3_s *mesh) {
+  /* Allocate and initialize all labels with `NO_LABEL` */
+  mesh->bdf_label = malloc(mesh->nbdf*sizeof(int));
+  for (size_t i = 0; i < mesh->nbdf; ++i)
+    mesh->bdf_label[i] = NO_LABEL;
+
+  /* No labels initially */
+  mesh->nlabels = 0;
+
+  /* Label each reflecting component, incrementing the label count as
+   * we go */
+  while (label_reflector(mesh))
+    ++mesh->nlabels;
 }
 
 /**
@@ -410,8 +532,10 @@ void mesh3_init(mesh3_s *mesh,
   init_vc(mesh);
 
   mesh->has_bd_info = compute_bd_info;
-  if (compute_bd_info)
+  if (compute_bd_info) {
     init_bd(mesh);
+    init_bdf_labels(mesh);
+  }
 
   compute_geometric_quantities(mesh);
 }
@@ -432,11 +556,13 @@ void mesh3_deinit(mesh3_s *mesh) {
     free(mesh->bdv);
     free(mesh->bdf);
     free(mesh->bde);
+    free(mesh->bdf_label);
 
     mesh->bdc = NULL;
     mesh->bdv = NULL;
     mesh->bdf = NULL;
     mesh->bde = NULL;
+    mesh->bdf_label = NULL;
   }
 }
 
@@ -1280,4 +1406,22 @@ void mesh3_get_inc_diff_edges(mesh3_s const *mesh, size_t l, size_t (*le)[2]) {
   }
 
   free(vv);
+}
+
+size_t mesh3_get_num_reflectors(mesh3_s const *mesh) {
+  return mesh->nlabels;
+}
+
+size_t mesh3_get_reflector_size(mesh3_s const *mesh, int r) {
+  size_t count = 0;
+  for (size_t l = 0; l < mesh->nbdf; ++l)
+    count += mesh->bdf_label[l] == r;
+  return count;
+}
+
+void mesh3_get_reflector(mesh3_s const *mesh, int r, size_t (*lf)[3]) {
+  size_t nf = 0;
+  for (size_t l = 0; l < mesh->nbdf; ++l)
+    if (mesh->bdf_label[l] == r)
+      memcpy(lf[nf++], mesh->bdf[l].lf, sizeof(size_t[3]));
 }

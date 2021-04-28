@@ -949,6 +949,21 @@ cell edges of `jmm.Mesh3`.
         cdef mesh2 *surface_mesh = mesh3_get_surface_mesh(self.mesh)
         return Mesh2.from_ptr(surface_mesh, ptr_owner=True)
 
+    @property
+    def num_reflectors(self):
+        '''The number of distinct reflecting components that partition the
+surface of the mesh.
+
+        '''
+        return mesh3_get_num_reflectors(self.mesh)
+
+    def get_reflector(self, int r):
+        '''Get the faces that make up the `r`th reflector.'''
+        cdef size_t num_faces = mesh3_get_reflector_size(self.mesh, r)
+        cdef size_t[:, ::1] lf = np.empty((num_faces, 3), dtype=np.uintp)
+        mesh3_get_reflector(self.mesh, r, <size_t[3]*>&lf[0, 0])
+        return np.asarray(lf)
+
 cdef class Jet3:
     cdef jet3 jet
 

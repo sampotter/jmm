@@ -27,6 +27,7 @@ extern "C" {
 #define SQRT17 4.123105625617661
 
 #define NO_INDEX -1
+#define NO_LABEL -1
 #define NO_PARENT SIZE_MAX
 
 typedef enum state {
