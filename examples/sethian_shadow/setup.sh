@@ -1,6 +1,6 @@
 #!/bin/bash
 
-SCENE=room
+SCENE=Building
 
 MAX_VOLUME=0.1
 
