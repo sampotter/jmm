@@ -19,6 +19,7 @@
 *.so
 *.txt
 *.vtk
+*.vtkjs
 *.vtu
 *~
 .#*
