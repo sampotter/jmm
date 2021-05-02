@@ -56,11 +56,18 @@ struct eik3 {
   array_s *old_updates;
   array_s *old_bd_utri; // old two-point boundary `utri`
 
-  /* Vertices incident on faces with "reflection" boundary data. */
-  bool *refl_bdv;
+  /* Whether a point on the boundary has usable boundary
+   * conditions. This is needed to prevent the checks that determine
+   * whether a ray is physical from ruling out boundary points with
+   * good data.
+   *
+   * Right now, the array has length `mesh3_nverts(eik->mesh)`, so
+   * `bdv_has_bc[l]` isn't used if `mesh3_bdv(eik->mesh, l)` is
+   * `false`. */
+  bool *bdv_has_bc;
 
-  /* Statistics... */
-  int num_accepted; // number of nodes fixed using `eik3_step`
+  /* Useful statistics for debugging */
+  int num_accepted; /* number of nodes fixed by `eik3_step` */
 };
 
 void eik3_alloc(eik3_s **eik) {
@@ -131,7 +138,7 @@ void eik3_init(eik3_s *eik, mesh3_s *mesh) {
   array_alloc(&eik->old_bd_utri);
   array_init(eik->old_bd_utri, sizeof(utri_s *), 16);
 
-  eik->refl_bdv = calloc(mesh3_nverts(mesh), sizeof(bool));
+  eik->bdv_has_bc = calloc(mesh3_nverts(mesh), sizeof(bool));
 }
 
 void eik3_deinit(eik3_s *eik) {
@@ -168,8 +175,8 @@ void eik3_deinit(eik3_s *eik) {
   array_deinit(eik->old_bd_utri);
   array_dealloc(&eik->old_bd_utri);
 
-  free(eik->refl_bdv);
-  eik->refl_bdv = NULL;
+  free(eik->bdv_has_bc);
+  eik->bdv_has_bc = NULL;
 }
 
 static bool can_update_from_point(eik3_s const *eik, size_t l) {
@@ -885,7 +892,7 @@ void eik3_add_trial(eik3_s *eik, size_t l, jet3 jet) {
   heap_insert(eik->heap, l);
 
   /* Update whether this is a vertex with a reflection BC */
-  eik->refl_bdv[l] = mesh3_bdv(eik->mesh, l);
+  eik->bdv_has_bc[l] = mesh3_bdv(eik->mesh, l);
 }
 
 bool eik3_is_point_source(eik3_s const *eik, size_t l) {
@@ -941,6 +948,6 @@ void eik3_get_DT(eik3_s const *eik, size_t l, dbl DT[3]) {
 }
 
 bool eik3_is_refl_bdf(eik3_s const *eik, size_t const l[3]) {
-  return eik->refl_bdv[l[0]] || eik->refl_bdv[l[1]] ||
-    eik->refl_bdv[l[2]];
+  return eik->bdv_has_bc[l[0]] || eik->bdv_has_bc[l[1]] ||
+    eik->bdv_has_bc[l[2]];
 }
