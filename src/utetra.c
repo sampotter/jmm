@@ -589,8 +589,8 @@ bool utetra_update_ray_is_physical(utetra_s const *utetra, eik3_s const *eik) {
       return false;
   }
 
-  if (num_int == 3 && mesh3_bdf(mesh, l))
-    return false;
+  if (num_int == 3 && mesh3_bdf(mesh, utetra->l))
+    return eik3_is_refl_bdf(eik, utetra->l);
 
   // TODO: the following section where we check to see if the stuff
   // below gives "an interior ray" can be wrapped up and reused for

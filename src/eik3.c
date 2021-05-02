@@ -60,6 +60,9 @@ struct eik3 {
   array_s *old_updates;
   array_s *old_bd_utri; // old two-point boundary `utri`
 
+  /* Vertices incident on faces with "reflection" boundary data. */
+  bool *refl_bdv;
+
   /* Statistics... */
   int num_accepted; // number of nodes fixed using `eik3_step`
 };
@@ -131,6 +134,8 @@ void eik3_init(eik3_s *eik, mesh3_s *mesh) {
 
   array_alloc(&eik->old_bd_utri);
   array_init(eik->old_bd_utri, sizeof(utri_s *), 16);
+
+  eik->refl_bdv = calloc(mesh3_nverts(mesh), sizeof(bool));
 }
 
 void eik3_deinit(eik3_s *eik) {
@@ -166,6 +171,9 @@ void eik3_deinit(eik3_s *eik) {
   }
   array_deinit(eik->old_bd_utri);
   array_dealloc(&eik->old_bd_utri);
+
+  free(eik->refl_bdv);
+  eik->refl_bdv = NULL;
 }
 
 static bool can_update_from_point(eik3_s const *eik, size_t l) {
@@ -885,6 +893,9 @@ void eik3_add_valid(eik3_s *eik, size_t l, jet3 jet) {
 
   eik->jet[l] = jet;
   eik->state[l] = VALID;
+
+  /* Update whether this is a vertex with a reflection BC */
+  eik->refl_bdv[l] = mesh3_bdv(eik->mesh, l);
 }
 
 bool eik3_is_point_source(eik3_s const *eik, size_t l) {
@@ -933,4 +944,9 @@ void eik3_set_par(eik3_s *eik, size_t l, par3_s par) {
 
 void eik3_get_DT(eik3_s const *eik, size_t l, dbl DT[3]) {
   memcpy(DT, &eik->jet[l].fx, 3*sizeof(dbl));
+}
+
+bool eik3_is_refl_bdf(eik3_s const *eik, size_t const l[3]) {
+  return eik->refl_bdv[l[0]] || eik->refl_bdv[l[1]] ||
+    eik->refl_bdv[l[2]];
 }
