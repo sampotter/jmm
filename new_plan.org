@@ -10,21 +10,23 @@
     - [X] branch and separate shadow cutset stuff
     - [X] re-run and compute difference
   - [X] make version of room without columns
-  - [ ] reinitialize reflections
-    - [ ] restrict eikonal to surfaces
-    - [ ] reflect grad(T)
-    - [ ] solve reflected & plot
-    - [ ] transport t0
-    - [ ] check reflection condition
+  - [-] reinitialize reflections
+    - [X] restrict eikonal to surfaces
+    - [X] reflect grad(T)
+    - [X] solve reflected
+    - [X] compute shadow & plot
+    - [ ] transport x0
+    - [ ] check refl condition
   - [ ] reinitialize from diffracting edge
     - [ ] restrict eikonal to diffracting edges
-    - [ ] transport t0
-    - [ ] transport exterior angle
+    - [ ] solve
+    - [ ] compute shadow & plot
+    - [ ] transport x0
+    - [ ] check diff angle cond
   - [ ] compute amplitude
-    - [ ] 1/r (no paraxial for now)
+    - [ ] 1/r = 1/(c*tau) (no paraxial for now)
     - [ ] reflection coefficient
     - [ ] UTD coefficient
-  - [ ] extract shadow boundary
   - [ ] compute several arrivals for whatever domain i get to
   - [ ] make nice plots of shadows
   - [ ] finish IEEE paper
