@@ -48,7 +48,7 @@ void tri3_get_centroid(tri3 const *tri, dbl c[3]) {
   }
 }
 
-bool tri3_contains_point(tri3 const *tri, dbl x[3]) {
+bool tri3_contains_point(tri3 const *tri, dbl const x[3]) {
   dbl const atol = 1e-13;
   dbl normal[3];
   tri3_get_normal(tri, normal);
