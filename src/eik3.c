@@ -203,11 +203,7 @@ static void do_1pt_update(eik3_s *eik, size_t l, size_t l0) {
 
   eik3_set_jet(eik, l, jet);
 
-  par3_s par = {
-    .l = {l0, NO_PARENT, NO_PARENT},
-    .b = {1, NAN, NAN}
-  };
-
+  par3_s par = {.l = {l0, NO_PARENT, NO_PARENT}, .b = {1, NAN, NAN}};
   eik3_set_par(eik, l, par);
 }
 
@@ -219,7 +215,8 @@ static bool commit_tri_update(eik3_s *eik, size_t lhat, utri_s const *utri) {
   utri_get_jet(utri, &jet);
   eik3_set_jet(eik, lhat, jet);
 
-  eik3_set_par(eik, lhat, utri_get_par(utri));
+  par3_s par = utri_get_par(utri);
+  eik3_set_par(eik, lhat, par);
 
   return true;
 }
@@ -403,7 +400,8 @@ static bool commit_tetra_update(eik3_s *eik, size_t lhat, utetra_s const *utetra
   utetra_get_jet(utetra, &jet);
   eik3_set_jet(eik, lhat, jet);
 
-  eik3_set_par(eik, lhat, utetra_get_parent(utetra));
+  par3_s par = utetra_get_parent(utetra);
+  eik3_set_par(eik, lhat, par);
 
   return true;
 }
