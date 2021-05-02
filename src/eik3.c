@@ -38,13 +38,11 @@
 //   code in this file much easier to understand and likely suss out a
 //   few bugs.
 
-/**
- * A structure managing a jet marching method solving the eikonal
+/* A structure managing a jet marching method solving the eikonal
  * equation in 3D on an unstructured tetrahedron mesh.
  *
  * NOTE: this is just for s = 1 at the moment. Will extend this to
- * handle s != later.
- */
+ * handle s != later. */
 struct eik3 {
   mesh3_s *mesh;
   jet3 *jet;
@@ -53,10 +51,8 @@ struct eik3 {
   par3_s *par;
   heap_s *heap;
 
-  /**
-   * In some cases, we'll skip old updates that might be useful at a
-   * later stage. We keep track of them here.
-   */
+  /* In some cases, we'll skip old updates that might be useful at a
+   * later stage. We keep track of them here. */
   array_s *old_updates;
   array_s *old_bd_utri; // old two-point boundary `utri`
 
