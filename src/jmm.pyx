@@ -1057,9 +1057,6 @@ cdef class Eik3:
     def add_trial(self, size_t ind, Jet3 jet):
         eik3_add_trial(self.eik, ind, jet.jet)
 
-    def add_valid(self, size_t ind, Jet3 jet):
-        eik3_add_valid(self.eik, ind, jet.jet)
-
     def is_far(self, size_t ind):
         return eik3_is_far(self.eik, ind)
 
@@ -1108,7 +1105,6 @@ cdef class Eik3:
         cdef dbl[:, ::1] Df = np.array([(_[1], _[2], _[3]) for _ in jets])
         cdef dbl[:, ::1] x = self.mesh.verts[vert_inds]
         return Bb33(f, Df, x)
-
 
 def get_camera_basis(origin, target, up):
     '''Get a triple of a vectors (left, front, up), indicating an

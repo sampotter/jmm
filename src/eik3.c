@@ -366,37 +366,6 @@ cleanup:
 }
 
 static
-size_t get_update_pencil(eik3_s const *eik, size_t l[2], size_t **l2) {
-  /* Get vertices surrounding `l` */
-  size_t nev = mesh3_nev(eik->mesh, l);
-  size_t *ev = malloc(nev*sizeof(size_t));
-  mesh3_ev(eik->mesh, l, ev);
-
-  bool *can_update = malloc(nev*sizeof(bool));
-
-  size_t nup = 0;
-  for (size_t i = 0; i < nev; ++i)
-    nup += can_update[i] = can_update_from_face(eik, l[0], l[1], ev[i]);
-
-  if (nup == 0)
-    goto cleanup;
-
-  *l2 = malloc(nup*sizeof(size_t));
-
-  size_t j = 0;
-  for (size_t i = 0; i < nev; ++i)
-    if (can_update[i])
-      (*l2)[j++] = ev[i];
-  assert(j == nup);
-
-cleanup:
-  free(can_update);
-  free(ev);
-
-  return nup;
-}
-
-static
 void get_valid_incident_diff_edges(eik3_s const *eik, size_t l0, array_s *l1) {
   mesh3_s const *mesh = eik3_get_mesh(eik);
 
@@ -845,172 +814,6 @@ void update_neighbors(eik3_s *eik, size_t l0) {
   free(nb);
 }
 
-static jet3 get_opt_from_utetras(size_t n, utetra_s const **u) {
-  qsort(u, n, sizeof(utetra_s *), (compar_t)utetra_cmp);
-
-  jet3 jet = jet3_make_empty();
-
-  for (size_t i = 0; i < n; ++i) {
-    if (!isfinite(utetra_get_value(u[i])))
-      break;
-
-    // TODO: if ray unphysical, continue
-
-    if (utetra_has_interior_point_solution(u[i])) {
-      utetra_get_jet(u[i], &jet);
-      break;
-    }
-
-    size_t num_int = utetra_get_num_interior_coefs(u[i]);
-    assert(num_int == 1 || num_int == 2);
-
-    size_t num_adj = 4 - num_int;
-    if (i + num_adj > n)
-      continue;
-
-    if (utetras_yield_same_update(&u[i], num_adj)) {
-      utetra_get_jet(u[i], &jet);
-      break;
-    }
-  }
-
-  return jet;
-}
-
-static void set_cutedge_jet_a2(eik3_s const *eik, dbl const xt[3],
-                                  size_t l0, size_t l1, cutedge_s *cutedge);
-
-static void set_cutedge_jet_a1(eik3_s const *eik, dbl const xt[3],
-                                  size_t l0, cutedge_s *cutedge) {
-  assert(l0 != (size_t)NO_INDEX);
-
-  size_t *l1, *l2;
-  size_t num_utetra = get_update_fan(eik, l0, &l1, &l2);
-  assert(num_utetra != 0);
-
-  utetra_s **u = malloc(num_utetra*sizeof(utetra_s *));
-
-  utetra_spec_s spec;
-
-  for (size_t i = 0; i < num_utetra; ++i) {
-    utetra_alloc(&u[i]);
-
-    spec = utetra_spec_from_eik_without_l(eik, xt, l0, l1[i], l2[i]);
-    if (!utetra_init(u[i], &spec))
-      continue;
-
-    if (utetra_is_degenerate(u[i]))
-      continue;
-
-    utetra_solve(u[i], NULL);
-  }
-
-  jet3 jet = get_opt_from_utetras(num_utetra, (utetra_s const **)u);
-  bool found_opt = jet3_is_finite(&jet);
-  if (found_opt) {
-    cutedge->jet = jet;
-    goto cleanup;
-  }
-
-  assert(isfinite(utetra_get_value(u[0])));
-
-  size_t la[3];
-  switch (utetra_get_active_inds(u[0], la)) {
-  case 1:
-    assert(la[0] != l0);
-    set_cutedge_jet_a1(eik, xt, la[0], cutedge);
-    break;
-  case 2:
-    set_cutedge_jet_a2(eik, xt, la[0], la[1], cutedge);
-    break;
-  default:
-    assert(utetra_has_shadow_boundary_solution(u[0]));
-    utetra_get_jet(u[0], &cutedge->jet);
-    assert(jet3_is_finite(&cutedge->jet));
-    break;
-  }
-
-cleanup:
-  for (size_t i = 0; i < num_utetra; ++i) {
-    utetra_deinit(u[i]);
-    utetra_dealloc(&u[i]);
-  }
-
-  free(u);
-
-  free(l1);
-  free(l2);
-}
-
-static void set_cutedge_jet_a2(eik3_s const *eik, dbl const xt[3],
-                                  size_t l0, size_t l1, cutedge_s *cutedge) {
-  assert(l0 != (size_t)NO_INDEX && l1 != (size_t)NO_INDEX);
-
-  size_t *l2;
-  size_t nup = get_update_pencil(eik, (size_t[2]) {l0, l1}, &l2);
-  assert(nup != 0);
-
-  utetra_spec_s spec;
-  utetra_s **u = malloc(nup*sizeof(utetra_s *));
-  for (size_t i = 0; i < nup; ++i) {
-    utetra_alloc(&u[i]);
-    spec = utetra_spec_from_eik_without_l(eik, xt, l0, l1, l2[i]);
-    if (utetra_init(u[i], &spec) &&
-        !utetra_is_degenerate(u[i]))
-      utetra_solve(u[i], NULL);
-  }
-
-  jet3 jet = get_opt_from_utetras(nup, (utetra_s const **)u);
-  bool found_opt = jet3_is_finite(&jet);
-  if (found_opt) {
-    cutedge->jet = jet;
-    goto cleanup;
-  }
-
-  assert(isfinite(utetra_get_value(u[0])));
-
-  size_t la[3];
-  size_t na = utetra_get_active_inds(u[0], la);
-
-  /* Try to handle some exceptional cases first */
-  if (((na == 1 || na == 3) &&
-       utetra_has_shadow_boundary_solution(u[0])) ||
-      (na == 2 && mesh3_bde(eik->mesh, la))) {
-    utetra_get_jet(u[0], &jet);
-    assert(jet3_is_finite(&jet));
-    cutedge->jet = jet;
-    goto cleanup;
-  }
-
-  /* Descend on the number of active indices */
-  switch (na) {
-  case 1:
-    set_cutedge_jet_a1(eik, xt, la[0], cutedge);
-    break;
-  case 2:
-    /* Ensure that recursion terminates! */
-    assert(!(l0 == la[0] && l1 == la[1] || l0 == la[1] && l1 == la[0]));
-    set_cutedge_jet_a2(eik, xt, la[0], la[1], cutedge);
-    break;
-  default:
-    assert(false);
-    break;
-  }
-
-cleanup:
-  for (size_t i = 0; i < nup; ++i) {
-    utetra_deinit(u[i]);
-    utetra_dealloc(&u[i]);
-  }
-
-  free(u);
-  free(l2);
-}
-
-static void update_statistics(eik3_s *eik) {
-  ++eik->num_accepted;
-}
-
 /* Remove old tetrahedron and two-point boundary updates targeting
  * `l0` from `eik`. */
 static void purge_old_updates(eik3_s *eik, size_t l0) {
@@ -1047,7 +850,8 @@ size_t eik3_step(eik3_s *eik) {
 
   purge_old_updates(eik, l0);
   update_neighbors(eik, l0);
-  update_statistics(eik);
+
+  ++eik->num_accepted;
 
   return l0;
 }
