@@ -932,6 +932,10 @@ void eik3_set_par(eik3_s *eik, size_t l, par3_s par) {
   eik->par[l] = par;
 }
 
+bool eik3_has_par(eik3_s const *eik, size_t l) {
+  return !par3_is_empty(&eik->par[l]);
+}
+
 void eik3_get_DT(eik3_s const *eik, size_t l, dbl DT[3]) {
   memcpy(DT, &eik->jet[l].fx, 3*sizeof(dbl));
 }
