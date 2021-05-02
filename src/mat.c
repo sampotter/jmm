@@ -32,6 +32,13 @@ bool dbl22_isfinite(dbl const A[2][2]) {
     && isfinite(A[1][1]);
 }
 
+void dbl3_dbl33_mul(dbl const x[3], dbl const A[3][3], dbl b[3]) {
+  b[0] = b[1] = b[2] = 0;
+  for (size_t i = 0; i < 3; ++i)
+    for (size_t j = 0; j < 3; ++j)
+      b[j] += x[i]*A[i][j];
+}
+
 void dbl3_outer(dbl u[3], dbl v[3], dbl uv[3][3]) {
   for (int i = 0; i < 3; ++i) {
     for (int j = 0; j < 3; ++j) {
