@@ -964,6 +964,13 @@ surface of the mesh.
         mesh3_get_reflector(self.mesh, r, <size_t[3]*>&lf[0, 0])
         return np.asarray(lf)
 
+    def get_active_reflectors(self, shadow_mask):
+        for i in range(self.num_reflectors):
+            faces = self.get_reflector(i)
+            refl_shadow_mask = np.logical_not(shadow_mask[faces]).any(1)
+            if refl_shadow_mask.any():
+                yield i, faces
+
 cdef class Jet3:
     cdef jet3 jet
 
