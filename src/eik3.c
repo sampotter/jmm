@@ -872,27 +872,21 @@ void eik3_solve(eik3_s *eik) {
 
 void eik3_add_trial(eik3_s *eik, size_t l, jet3 jet) {
   if (eik->state[l] == VALID) {
+    log_warn("failed to add TRIAL node %lu (already VALID)", l);
     return;
-  } else if (eik->pos[l] == NO_INDEX) {
-    assert(eik->state[l] == FAR);
-    eik->jet[l] = jet;
-    eik->state[l] = TRIAL;
-    heap_insert(eik->heap, l);
-  } else if (jet.f < eik->jet[l].f) {
-    assert(eik->state[l] == TRIAL);
-    eik->jet[l] = jet;
-    adjust(eik, l);
   }
-}
 
-void eik3_add_valid(eik3_s *eik, size_t l, jet3 jet) {
-  // TODO: need to decide what to do if the state is TRIAL
-  if (eik->state[l] == TRIAL) {
-    abort();
+  if (isfinite(eik->jet[l].f)) {
+    log_warn("failed to add TRIAL node %lu (finite jet)", l);
+    return;
   }
+
+  assert(eik->pos[l] == NO_INDEX);
+  assert(eik->state[l] == FAR);
 
   eik->jet[l] = jet;
-  eik->state[l] = VALID;
+  eik->state[l] = TRIAL;
+  heap_insert(eik->heap, l);
 
   /* Update whether this is a vertex with a reflection BC */
   eik->refl_bdv[l] = mesh3_bdv(eik->mesh, l);
