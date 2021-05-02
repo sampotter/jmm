@@ -1,3 +1,4 @@
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -7,8 +8,8 @@
 #define R0 0.1
 
 int main(int argc, char *argv[]) {
-  if (argc != 5) {
-    printf("usage: %s <verts.bin> <cells.bin> <indsrc> <jets.bin>\n",
+  if (argc != 4) {
+    printf("usage: %s <verts.bin> <cells.bin> <indsrc or bcpath>\n",
            argv[0]);
     exit(EXIT_FAILURE);
   }
@@ -47,28 +48,30 @@ int main(int argc, char *argv[]) {
   mesh3_alloc(&mesh);
   mesh3_init(mesh, verts, nverts, cells, ncells, true);
 
-  /**
-   * Solve point source problem
-   */
-
-  // Get index of point source
-  size_t indsrc = atoi(argv[3]);
-
-  // Set up and run solver
+  // Set up solver
   eik3_s *eik;
   eik3_alloc(&eik);
   eik3_init(eik, mesh);
-  eik3_add_trial(eik, indsrc, jet3_make_point_source(0));
+
+  // Set boundary conditions from passed index or file
+
+  errno = 0;
+  char *endptr;
+  size_t indsrc = strtol(argv[3], &endptr, 10);
+  if (endptr != argv[3]) {
+    eik3_add_trial(eik, indsrc, jet3_make_point_source(0));
+  } else {
+    fp = fopen(argv[3], "r");
+    jet3 jet;
+    while (fscanf(fp, "%lu %lf %lf %lf %lf\n",
+                  &indsrc, &jet.f, &jet.fx, &jet.fy, &jet.fz)
+           != EOF)
+      eik3_add_trial(eik, indsrc, jet);
+  }
+
   eik3_solve(eik);
 
-  // Write jets to disk
-  fp = fopen(argv[4], "wb");
-  fwrite(eik3_get_jet_ptr(eik), sizeof(jet3), nverts, fp);
-  fclose(fp);
-
-  /**
-   * Teardown
-   */
+  /* Clean everything up */
 
   eik3_deinit(eik);
   eik3_dealloc(&eik);
