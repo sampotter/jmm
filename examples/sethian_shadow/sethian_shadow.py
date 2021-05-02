@@ -57,18 +57,21 @@ if __name__ == '__main__':
     dom_cells = cells[:num_dom_cells]
     dom_points = points[:num_dom_points]
 
+    mesh_dom = jmm.Mesh3.from_verts_and_cells(dom_points, dom_cells)
+    mesh = jmm.Mesh3.from_verts_and_cells(points, cells)
+
     print(f'- set up meshes [%1.2fs]' % toc())
 
     tic()
 
-    mesh = jmm.Mesh3.from_verts_and_cells(points, cells)
     eik = jmm.Eik3(mesh)
     eik.add_trial(args.lsrc, jmm.Jet3(0, np.nan, np.nan, np.nan))
     eik.solve()
 
     print('- solved on extended domain [%1.2fs]' % toc())
 
-    mesh_dom = jmm.Mesh3.from_verts_and_cells(dom_points, dom_cells)
+    tic()
+
     eik_dom = jmm.Eik3(mesh_dom)
     eik_dom.add_trial(args.lsrc, jmm.Jet3(0, np.nan, np.nan, np.nan))
     eik_dom.solve()
