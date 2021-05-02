@@ -60,3 +60,7 @@ void par3_get_xb(par3_s const *par, eik3_s const *eik, dbl xb[3]) {
     }
   }
 }
+
+bool par3_is_empty(par3_s const *par) {
+  return par->l[0] == NO_PARENT;
+}
