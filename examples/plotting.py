@@ -3,7 +3,7 @@ import jmm
 import numpy as np
 import pyvista as pv
 
-def plot_wavefront(plotter, eik):
+def plot_wavefront(plotter, eik, opacity=1):
     verts = eik.mesh.verts
     cells = eik.mesh.cells
 
@@ -52,4 +52,4 @@ def plot_wavefront(plotter, eik):
 
         # Add it to the plotter and plot the values of the eikonal
         plotter.add_mesh(poly_data, scalars='T', cmap=cc.cm.rainbow,
-                         opacity=1.0, show_edges=True)
+                         opacity=opacity, show_edges=True)

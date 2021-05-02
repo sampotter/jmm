@@ -22,8 +22,8 @@ bc_path = 'refl_bcs.txt'
 
 lsrc = 0 if bc_path is None else None
 # l = [1657, 1384, 5658, 6228]
-l = 1384
-l0 = 2010
+l = None
+l0 = 7511
 l1 = None
 l2 = None
 l3 = None
@@ -98,24 +98,23 @@ else:
     eik.add_trial(lsrc, jmm.Jet3(0.0, np.nan, np.nan, np.nan))
     lsrcs.append(lsrc)
 
-# if l0 is None:
-#     eik.solve()
-# else:
-#     while eik.peek() != l0:
-#         eik.step()
+if l0 is None:
+    eik.solve()
+else:
+    while eik.peek() != l0:
+        eik.step()
 
-for _ in range(int(np.round(8*len(lsrcs)))):
-    eik.step()
+# for _ in range(int(np.round(8*len(lsrcs)))):
+#     eik.step()
 
 ################################################################################
 # HELPER FUNCTIONS FOR PLOTTING
 
 plotter = pvqt.BackgroundPlotter()
 
-def plot_tri(L):
+def plot_tri(L, **kwargs):
     plotter.add_mesh(
-        pv.make_tri_mesh(verts, np.array(L).reshape(1, 3)),
-        opacity=0.95, color='white', show_edges=True)
+        pv.make_tri_mesh(verts, np.array(L).reshape(1, 3)), **kwargs)
 
 def plot_cell(lc, **kwargs):
     plotter.add_mesh(
@@ -149,6 +148,18 @@ def plot_x(x, scale=1, **kwargs):
         pv.Sphere(scale*sphere_radius, x),
         **kwargs)
 
+def plot_line(x, y, scale=1, color='white'):
+    plot_x(x, scale=scale, color=color)
+    plot_x(y, scale=scale, color=color)
+    xm = (x + y)/2
+    xd = x - y
+    d = np.linalg.norm(xd)
+    xd /= d
+    r = scale*sphere_radius
+    plotter.add_mesh(
+        pv.Cylinder(xm, xd, scale*sphere_radius, d, capping=False),
+        color=color)
+
 ################################################################################
 # MAKE PLOTS
 
@@ -164,7 +175,7 @@ if l0 is not None:   highlight_inds[l0] = l0_color
 if isinstance(l, list):
     for l_ in l:
         highlight_inds[l_] = l_color
-else:
+elif l is not None:
     highlight_inds[l] = l_color
 if lbad is not None: highlight_inds[lbad] = lbad_color
 if l1 is not None:   highlight_inds[l1] = l1_color
@@ -175,7 +186,7 @@ h = eik.mesh.min_tetra_alt/2
 sphere_radius = h/6
 
 if plot_wavefront:
-    plotting.plot_wavefront(plotter, eik)
+    plotting.plot_wavefront(plotter, eik, opacity=0.25)
 
 for l_, color in highlight_inds.items():
     plot_point(verts, l_, 1.5, color)
