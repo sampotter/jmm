@@ -15,13 +15,13 @@
     - [X] reflect grad(T)
     - [X] solve reflected
     - [X] compute shadow & plot
-    - [ ] transport x0
+    - [ ] transport t0
     - [ ] check refl condition
   - [ ] reinitialize from diffracting edge
     - [ ] restrict eikonal to diffracting edges
     - [ ] solve
     - [ ] compute shadow & plot
-    - [ ] transport x0
+    - [ ] transport t0
     - [ ] check diff angle cond
   - [ ] compute amplitude
     - [ ] 1/r = 1/(c*tau) (no paraxial for now)
