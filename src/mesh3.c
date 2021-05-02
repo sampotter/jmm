@@ -1408,6 +1408,47 @@ void mesh3_get_inc_diff_edges(mesh3_s const *mesh, size_t l, size_t (*le)[2]) {
   free(vv);
 }
 
+size_t mesh3_get_num_inc_bdf(mesh3_s const *mesh, size_t l) {
+  assert(mesh->has_bd_info);
+
+  if (!mesh3_bdv(mesh, l))
+    return 0;
+
+  size_t nve = mesh3_nve(mesh, l);
+  size_t (*ve)[2] = malloc(nve*sizeof(size_t[2]));
+  mesh3_ve(mesh, l, ve);
+
+  size_t nbdf = 0;
+  for (size_t i = 0; i < nve; ++i)
+    nbdf += mesh3_bdf(mesh, (size_t[3]) {l, ve[i][0], ve[i][1]});
+
+  free(ve);
+
+  return nbdf;
+}
+
+void mesh3_get_inc_bdf(mesh3_s const *mesh, size_t l, size_t (*lf)[3]) {
+  assert(mesh->has_bd_info);
+
+  if (!mesh3_bdv(mesh, l))
+    return;
+
+  size_t nve = mesh3_nve(mesh, l);
+  size_t (*ve)[2] = malloc(nve*sizeof(size_t[2]));
+  mesh3_ve(mesh, l, ve);
+
+  size_t next_lf[3] = {[0] = l};
+
+  size_t j = 0;
+  for (size_t i = 0; i < nve; ++i) {
+    memcpy(&next_lf[1], ve[i], sizeof(size_t[2]));
+    if (mesh3_bdf(mesh, next_lf))
+      memcpy(lf[j++], next_lf, sizeof(size_t[3]));
+  }
+
+  free(ve);
+}
+
 size_t mesh3_get_num_reflectors(mesh3_s const *mesh) {
   return mesh->nlabels;
 }

@@ -98,6 +98,8 @@ dbl mesh3_get_min_edge_length(mesh3_s const *mesh);
 mesh2_s *mesh3_get_surface_mesh(mesh3_s const *mesh);
 size_t mesh3_get_num_inc_diff_edges(mesh3_s const *mesh, size_t l);
 void mesh3_get_inc_diff_edges(mesh3_s const *mesh, size_t l, size_t (*le)[2]);
+size_t mesh3_get_num_inc_bdf(mesh3_s const *mesh, size_t l);
+void mesh3_get_inc_bdf(mesh3_s const *mesh, size_t l, size_t (*lf)[3]);
 size_t mesh3_get_num_reflectors(mesh3_s const *mesh);
 size_t mesh3_get_reflector_size(mesh3_s const *mesh, int r);
 void mesh3_get_reflector(mesh3_s const *mesh, int r, size_t (*lf)[3]);
