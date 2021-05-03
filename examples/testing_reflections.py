@@ -28,6 +28,7 @@ lsrc = 0
 
 should_plot_reflectors = False
 should_plot_BCs = False
+should_plot_dom_refl_t0 = True
 
 ############################################################################
 
@@ -185,8 +186,8 @@ print('- computed reflection on original domain [%1.2fs]' % toc())
 
 tic()
 
-T = np.array([_[0] for _ in eik.jet[:num_dom_points]])
-T_diff = np.array([_[0] for _ in eik_dom.jet])
+T = np.array([_[0] for _ in eik_refl.jet[:num_dom_points]])
+T_diff = np.array([_[0] for _ in eik_dom_refl.jet])
 
 T[~np.isfinite(T)] = -abs(T[np.isfinite(T)]).max()
 T_diff[~np.isfinite(T_diff)] = -abs(T_diff[np.isfinite(T_diff)]).max()
@@ -204,3 +205,13 @@ plotter.background_color = 'white'
 plotter.add_mesh(dom_grid, scalars='Z', cmap=cc.cm.gray_r,
                  show_scalar_bar=False)
 plotter.show()
+
+
+if should_plot_dom_refl_t0:
+    plotter = pv.Plotter()
+    plotter.background_color = 'white'
+    dom_grid.vectors = (1 - Z).reshape(num_dom_points, 1)*eik_dom_refl.t0
+    dom_grid.vectors /= 2
+    plotter.add_mesh(
+        dom_grid.arrows,cmap=cc.cm.gray,lighting=False,show_scalar_bar=False)
+    plotter.show()

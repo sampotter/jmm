@@ -15,15 +15,18 @@ import plotting
 
 vtu_path = None # 'room.vtu'
 
-verts_path = 'Building_dom_verts.bin'
-cells_path = 'Building_dom_cells.bin'
+# verts_path = 'Building_dom_verts.bin'
+# cells_path = 'Building_dom_cells.bin'
+# bc_path = 'refl_bcs.txt'
 
-bc_path = 'refl_bcs.txt'
+verts_path = 'Building_verts.bin'
+cells_path = 'Building_cells.bin'
+bc_path = None
 
 lsrc = 0 if bc_path is None else None
 # l = [1657, 1384, 5658, 6228]
 l = None
-l0 = 7511
+l0 = 5768
 l1 = None
 l2 = None
 l3 = None
@@ -205,3 +208,6 @@ if plot_ray_from_lsrc_to_l:
         pv.Cylinder(xm, xd, r, h), color=highlight_inds[l], opacity=1)
 
 ############################################################################
+
+for l_ in eik.get_parent(l0).l:
+    plot_jet(verts[l_], eik.jet[l_])
