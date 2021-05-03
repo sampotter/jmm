@@ -143,7 +143,7 @@ void eik3_init(eik3_s *eik, mesh3_s *mesh) {
   array_alloc(&eik->old_bd_utri);
   array_init(eik->old_bd_utri, sizeof(utri_s *), 16);
 
-  eik->bdv_has_bc = calloc(mesh3_nverts(mesh), sizeof(bool));
+  eik->bdv_has_bc = calloc(nverts, sizeof(bool));
 
   eik->h = mesh3_get_min_edge_length(mesh);
   eik->h2 = eik->h*eik->h;
