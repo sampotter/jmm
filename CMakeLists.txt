@@ -111,6 +111,7 @@ set (JMM_SRCS
   src/par.c
   src/pool.c
   src/rtree.c
+  src/slerp.c
   src/solve_cubic.c
   src/stats.c
   src/triBoxOverlap.c
