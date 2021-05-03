@@ -57,6 +57,11 @@ bool dbl2_isfinite(dbl const u[2]) {
   return isfinite(u[0]) && isfinite(u[1]);
 }
 
+bool dbl2_bary(dbl const u[2]) {
+  dbl const atol = 1e-14;
+  return u[0] > -atol && u[1] > -atol && fabs(1 - u[0] - u[1]) < atol;
+}
+
 void dbl3_add(dbl const u[3], dbl const v[3], dbl w[3]) {
   w[0] = u[0] + v[0];
   w[1] = u[1] + v[1];
