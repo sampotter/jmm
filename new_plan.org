@@ -15,11 +15,12 @@
     - [X] reflect grad(T)
     - [X] solve reflected
     - [X] compute shadow & plot
-    - [ ] transport t0
+    - [X] transport t0s
     - [ ] check refl condition
   - [ ] reinitialize from diffracting edge
     - [ ] restrict eikonal to diffracting edges
     - [ ] solve
+      - [ ] need 2pt update
     - [ ] compute shadow & plot
     - [ ] transport t0
     - [ ] check diff angle cond
