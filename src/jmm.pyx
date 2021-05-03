@@ -1027,6 +1027,7 @@ cdef class Eik3:
         eik3 *eik
         ArrayView jet_view
         ArrayView state_view
+        ArrayView t0_view
 
     def __cinit__(self, Mesh3 mesh):
         eik3_alloc(&self.eik)
@@ -1047,6 +1048,16 @@ cdef class Eik3:
         self.state_view.strides[0] = sizeof(state)
         self.state_view.format = 'i'
         self.state_view.itemsize = sizeof(state)
+
+        self.t0_view = ArrayView(2)
+        self.t0_view.readonly = True
+        self.t0_view.ptr = <void *>eik3_get_t0_ptr(self.eik)
+        self.t0_view.shape[0] = self.size
+        self.t0_view.shape[1] = 3
+        self.t0_view.strides[0] = 3*sizeof(dbl)
+        self.t0_view.strides[1] = 1*sizeof(dbl)
+        self.t0_view.format = 'd'
+        self.t0_view.itemsize = sizeof(dbl)
 
     def __dealloc__(self):
         eik3_deinit(self.eik)
@@ -1112,6 +1123,10 @@ cdef class Eik3:
         cdef dbl[:, ::1] Df = np.array([(_[1], _[2], _[3]) for _ in jets])
         cdef dbl[:, ::1] x = self.mesh.verts[vert_inds]
         return Bb33(f, Df, x)
+
+    @property
+    def t0(self):
+        return np.asarray(self.t0_view)
 
 def get_camera_basis(origin, target, up):
     '''Get a triple of a vectors (left, front, up), indicating an

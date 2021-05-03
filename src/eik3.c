@@ -15,6 +15,7 @@
 #include "macros.h"
 #include "mat.h"
 #include "mesh3.h"
+#include "slerp.h"
 #include "utetra.h"
 #include "util.h"
 #include "utri.h"
@@ -65,6 +66,12 @@ struct eik3 {
    * `bdv_has_bc[l]` isn't used if `mesh3_bdv(eik->mesh, l)` is
    * `false`. */
   bool *bdv_has_bc;
+
+  /* The `t0` field.
+   *
+   * This a field of unit vectors, where `t0[l]` indicates the ray
+   * direction at the beginning of the ray leading to node `l`.*/
+  dbl (*t0)[3];
 
   /* Convergence tolerances. The parameter `h` is an estimate of the
    * fineness of the mesh. The variables `h2` and `h3` are convenience
@@ -144,6 +151,11 @@ void eik3_init(eik3_s *eik, mesh3_s *mesh) {
   array_init(eik->old_bd_utri, sizeof(utri_s *), 16);
 
   eik->bdv_has_bc = calloc(nverts, sizeof(bool));
+
+  eik->t0 = malloc(nverts*sizeof(dbl[3]));
+  for (size_t l = 0; l < nverts; ++l)
+    for (size_t i = 0; i < 3; ++i)
+      eik->t0[l][i] = NAN;
 
   eik->h = mesh3_get_min_edge_length(mesh);
   eik->h2 = eik->h*eik->h;
@@ -832,6 +844,35 @@ void update_neighbors(eik3_s *eik, size_t l0) {
   free(nb);
 }
 
+static void compute_t0(eik3_s *eik, size_t l0) {
+  par3_s par = eik3_get_par(eik, l0);
+
+  size_t npar = par3_size(&par);
+
+  size_t const *l = par.l;
+  mesh3_s const *mesh = eik->mesh;
+  dbl const *x0 = mesh3_get_vert_ptr(mesh, l0);
+
+  dbl t0[npar][3];
+  for (size_t i = 0; i < npar; ++i) {
+    if (eik3_is_point_source(eik, par.l[i])) {
+      dbl3_sub(x0, mesh3_get_vert_ptr(mesh, l[i]), t0[i]);
+      dbl3_normalize(t0[i]);
+    } else {
+      dbl3_copy(eik->t0[l[i]], t0[i]);
+    }
+  }
+
+  if (npar == 0)
+    dbl3_copy(&eik->jet[l0].fx, eik->t0[l0]);
+  else if (npar == 1)
+    dbl3_copy(t0[0], eik->t0[l0]);
+  else if (npar == 2)
+    slerp2(t0[0], t0[1], par.b, eik->t0[l0]);
+  else
+    slerp3(t0, par.b, eik->t0[l0], eik->h3);
+}
+
 /* Remove old tetrahedron and two-point boundary updates targeting
  * `l0` from `eik`. */
 static void purge_old_updates(eik3_s *eik, size_t l0) {
@@ -866,6 +907,7 @@ size_t eik3_step(eik3_s *eik) {
 
   eik->state[l0] = VALID;
 
+  compute_t0(eik, l0);
   purge_old_updates(eik, l0);
   update_neighbors(eik, l0);
 
@@ -957,4 +999,8 @@ void eik3_get_DT(eik3_s const *eik, size_t l, dbl DT[3]) {
 bool eik3_is_refl_bdf(eik3_s const *eik, size_t const l[3]) {
   return eik->bdv_has_bc[l[0]] || eik->bdv_has_bc[l[1]] ||
     eik->bdv_has_bc[l[2]];
+}
+
+dbl *eik3_get_t0_ptr(eik3_s const *eik) {
+  return eik->t0[0];
 }

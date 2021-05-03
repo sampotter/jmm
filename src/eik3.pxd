@@ -26,3 +26,4 @@ cdef extern from "eik3.h":
     jet3 *eik3_get_jet_ptr(const eik3 *eik)
     state *eik3_get_state_ptr(const eik3 *eik)
     par3 eik3_get_par(const eik3 *eik, size_t l)
+    dbl *eik3_get_t0_ptr(const eik3 *eik)

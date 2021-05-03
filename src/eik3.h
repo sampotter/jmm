@@ -31,6 +31,7 @@ void eik3_set_par(eik3_s *eik, size_t l, par3_s par);
 bool eik3_has_par(eik3_s const *eik, size_t l);
 void eik3_get_DT(eik3_s const *eik, size_t l, dbl DT[3]);
 bool eik3_is_refl_bdf(eik3_s const *eik, size_t const l[3]);
+dbl *eik3_get_t0_ptr(eik3_s const *eik);
 
 #ifdef __cplusplus
 }
