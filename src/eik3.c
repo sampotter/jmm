@@ -66,6 +66,11 @@ struct eik3 {
    * `false`. */
   bool *bdv_has_bc;
 
+  /* Convergence tolerances. The parameter `h` is an estimate of the
+   * fineness of the mesh. The variables `h2` and `h3` are convenience
+   * variables containing `h^2` and `h^3`. */
+  dbl h, h2, h3;
+
   /* Useful statistics for debugging */
   int num_accepted; /* number of nodes fixed by `eik3_step` */
 };
@@ -139,6 +144,10 @@ void eik3_init(eik3_s *eik, mesh3_s *mesh) {
   array_init(eik->old_bd_utri, sizeof(utri_s *), 16);
 
   eik->bdv_has_bc = calloc(mesh3_nverts(mesh), sizeof(bool));
+
+  eik->h = mesh3_get_min_edge_length(mesh);
+  eik->h2 = eik->h*eik->h;
+  eik->h3 = eik->h*eik->h*eik->h;
 }
 
 void eik3_deinit(eik3_s *eik) {
