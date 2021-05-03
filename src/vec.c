@@ -103,7 +103,7 @@ dbl dbl3_normsq(dbl const u[3]) {
   return u[0]*u[0] + u[1]*u[1] + u[2]*u[2];
 }
 
-void dbl3_dbl_div(dbl u[3], dbl a, dbl v[3]) {
+void dbl3_dbl_div(dbl const u[3], dbl a, dbl v[3]) {
   v[0] = u[0]/a;
   v[1] = u[1]/a;
   v[2] = u[2]/a;
