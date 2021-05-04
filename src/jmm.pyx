@@ -965,6 +965,10 @@ cell edges of `jmm.Mesh3`.
         return np.asarray(lf)
 
     def get_active_reflectors(self, shadow_mask):
+        '''Return the reflectors which contain any points that don't lie in
+        the shadow indicated by `shadow_mask`.
+
+        '''
         for i in range(self.num_reflectors):
             faces = self.get_reflector(i)
             refl_shadow_mask = np.logical_not(shadow_mask[faces]).any(1)
