@@ -87,7 +87,7 @@ struct mesh3 {
   size_t nbde;
   diff_edge_s *bde;
 
-  size_t nlabels;
+  size_t num_bdf_labels;
   int *bdf_label; // Labels for distinct reflecting surfaces
 
   // Geometric quantities
@@ -297,7 +297,7 @@ static bool label_reflector(mesh3_s *mesh) {
     array_pop_front(queue, &lf);
 
     /* Set the label of the face to the current label. */
-    mesh->bdf_label[lf] = mesh->nlabels;
+    mesh->bdf_label[lf] = mesh->num_bdf_labels;
 
     /* Get `lf`'s neighbors, and store them in `nb`. */
     get_bdf_nbs(mesh, lf, nb);
@@ -338,12 +338,12 @@ static void init_bdf_labels(mesh3_s *mesh) {
     mesh->bdf_label[i] = NO_LABEL;
 
   /* No labels initially */
-  mesh->nlabels = 0;
+  mesh->num_bdf_labels = 0;
 
   /* Label each reflecting component, incrementing the label count as
    * we go */
   while (label_reflector(mesh))
-    ++mesh->nlabels;
+    ++mesh->num_bdf_labels;
 }
 
 /**
@@ -1450,7 +1450,7 @@ void mesh3_get_inc_bdf(mesh3_s const *mesh, size_t l, size_t (*lf)[3]) {
 }
 
 size_t mesh3_get_num_reflectors(mesh3_s const *mesh) {
-  return mesh->nlabels;
+  return mesh->num_bdf_labels;
 }
 
 size_t mesh3_get_reflector_size(mesh3_s const *mesh, int r) {
