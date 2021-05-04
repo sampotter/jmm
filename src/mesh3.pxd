@@ -41,5 +41,5 @@ cdef extern from "mesh3.h":
     dbl mesh3_get_min_edge_length(const mesh3 *mesh)
     mesh2 *mesh3_get_surface_mesh(const mesh3 *mesh)
     size_t mesh3_get_num_reflectors(const mesh3 *mesh)
-    size_t mesh3_get_reflector_size(const mesh3 *mesh, int r)
-    void mesh3_get_reflector(const mesh3 *mesh, int r, size_t (*lf)[3])
+    size_t mesh3_get_reflector_size(const mesh3 *mesh, size_t i)
+    void mesh3_get_reflector(const mesh3 *mesh, size_t i, size_t (*lf)[3])

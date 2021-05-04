@@ -957,11 +957,11 @@ surface of the mesh.
         '''
         return mesh3_get_num_reflectors(self.mesh)
 
-    def get_reflector(self, int r):
-        '''Get the faces that make up the `r`th reflector.'''
-        cdef size_t num_faces = mesh3_get_reflector_size(self.mesh, r)
+    def get_reflector(self, size_t i):
+        '''Get the faces that make up the `i`th reflector.'''
+        cdef size_t num_faces = mesh3_get_reflector_size(self.mesh, i)
         cdef size_t[:, ::1] lf = np.empty((num_faces, 3), dtype=np.uintp)
-        mesh3_get_reflector(self.mesh, r, <size_t[3]*>&lf[0, 0])
+        mesh3_get_reflector(self.mesh, i, <size_t[3]*>&lf[0, 0])
         return np.asarray(lf)
 
     def get_active_reflectors(self, shadow_mask):

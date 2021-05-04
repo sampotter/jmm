@@ -88,7 +88,7 @@ struct mesh3 {
   diff_edge_s *bde;
 
   size_t num_bdf_labels;
-  int *bdf_label; // Labels for distinct reflecting surfaces
+  size_t *bdf_label; // Labels for distinct reflecting surfaces
 
   // Geometric quantities
   dbl min_tetra_alt; // The minimum of all tetrahedron altitudes in the mesh.
@@ -333,7 +333,7 @@ static bool label_reflector(mesh3_s *mesh) {
 
 static void init_bdf_labels(mesh3_s *mesh) {
   /* Allocate and initialize all labels with `NO_LABEL` */
-  mesh->bdf_label = malloc(mesh->nbdf*sizeof(int));
+  mesh->bdf_label = malloc(mesh->nbdf*sizeof(size_t));
   for (size_t i = 0; i < mesh->nbdf; ++i)
     mesh->bdf_label[i] = NO_LABEL;
 
@@ -1453,16 +1453,16 @@ size_t mesh3_get_num_reflectors(mesh3_s const *mesh) {
   return mesh->num_bdf_labels;
 }
 
-size_t mesh3_get_reflector_size(mesh3_s const *mesh, int r) {
+size_t mesh3_get_reflector_size(mesh3_s const *mesh, size_t i) {
   size_t count = 0;
   for (size_t l = 0; l < mesh->nbdf; ++l)
-    count += mesh->bdf_label[l] == r;
+    count += mesh->bdf_label[l] == i;
   return count;
 }
 
-void mesh3_get_reflector(mesh3_s const *mesh, int r, size_t (*lf)[3]) {
+void mesh3_get_reflector(mesh3_s const *mesh, size_t i, size_t (*lf)[3]) {
   size_t nf = 0;
   for (size_t l = 0; l < mesh->nbdf; ++l)
-    if (mesh->bdf_label[l] == r)
+    if (mesh->bdf_label[l] == i)
       memcpy(lf[nf++], mesh->bdf[l].lf, sizeof(size_t[3]));
 }
