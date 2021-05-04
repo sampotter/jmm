@@ -12,6 +12,7 @@ typedef struct {
 } line3;
 
 void line3_get_closest_point(line3 const *line, dbl const x[3], dbl y[3]);
+bool line3_point_colinear(line3 const *line, dbl const x[3], dbl atol);
 
 typedef struct {
   dbl min[3], max[3];

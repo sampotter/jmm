@@ -16,6 +16,12 @@ void line3_get_closest_point(line3 const *line, dbl const x[3], dbl y[3]) {
   dbl3_saxpy(t, xy, line->x, y);
 }
 
+bool line3_point_colinear(line3 const *line, dbl const x[3], dbl atol) {
+  dbl y[3];
+  line3_get_closest_point(line, x, y);
+  return dbl3_dist(x, y) < atol;
+}
+
 bool mesh3_tetra_contains_point(mesh3_tetra_s const *tetra, dbl const x[3]) {
   tetra3 tetra_ = mesh3_get_tetra(tetra->mesh, tetra->l);
   return tetra3_contains_point(&tetra_, x);
