@@ -975,6 +975,33 @@ cell edges of `jmm.Mesh3`.
             if refl_shadow_mask.any():
                 yield i, faces
 
+    @property
+    def num_diffractors(self):
+        '''The number of distinct diffracting components. For a `Mesh3`, these
+        are maximal straight line components embedded in the boundary.
+
+        '''
+        return mesh3_get_num_diffractors(self.mesh)
+
+    def get_diffractor(self, size_t i):
+        '''Get the edges that make up the `i`th diffractor.'''
+        cdef size_t num_edges = mesh3_get_diffractor_size(self.mesh, i)
+        cdef size_t[:, ::1] le = np.empty((num_edges, 2), dtype=np.uintp)
+        mesh3_get_diffractor(self.mesh, i, <size_t[2]*>&le[0, 0])
+        return np.asarray(le)
+
+    def get_active_diffractors(self, shadow_mask):
+        '''Return the diffractors that contain any points that don't lie in
+        the shadow specified by `shadow_mask`.
+
+        '''
+        for i in range(self.num_diffractors):
+            edges = self.get_diffractor(i)
+            restricted_mask = np.logical_not(shadow_mask[edges]).any(1)
+            if restricted_mask.any():
+                yield i, edges
+
+
 cdef class Jet3:
     cdef jet3 jet
 
@@ -1133,6 +1160,7 @@ cdef class Eik3:
         return np.asarray(self.t0_view)
 
 def get_camera_basis(origin, target, up):
+
     '''Get a triple of a vectors (left, front, up), indicating an
     orthonormal basis for the camera.
 

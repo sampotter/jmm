@@ -43,3 +43,6 @@ cdef extern from "mesh3.h":
     size_t mesh3_get_num_reflectors(const mesh3 *mesh)
     size_t mesh3_get_reflector_size(const mesh3 *mesh, size_t i)
     void mesh3_get_reflector(const mesh3 *mesh, size_t i, size_t (*lf)[3])
+    size_t mesh3_get_num_diffractors(const mesh3 *mesh)
+    size_t mesh3_get_diffractor_size(const mesh3 *mesh, size_t i)
+    void mesh3_get_diffractor(const mesh3 *mesh, size_t i, size_t (*le)[2])

@@ -90,6 +90,9 @@ struct mesh3 {
   size_t num_bdf_labels;
   size_t *bdf_label; // Labels for distinct reflecting surfaces
 
+  size_t num_bde_labels;
+  size_t *bde_label;
+
   // Geometric quantities
   dbl min_tetra_alt; // The minimum of all tetrahedron altitudes in the mesh.
   dbl min_edge_length;
@@ -211,7 +214,7 @@ static dbl get_dihedral_angle(mesh3_s const *mesh, size_t lc, diff_edge_s const 
  * 180 degrees. So, we traverse the tetrahedra surrounding it, and sum of the angles they make with
  */
 static bool edge_is_diff(mesh3_s const *mesh, diff_edge_s *e) {
-  dbl const atol = 1e-14;
+  dbl const atol = 1e-5;
 
   int nec = mesh3_nec(mesh, e->le[0], e->le[1]);
   size_t *ec = malloc(nec*sizeof(size_t));
@@ -344,6 +347,120 @@ static void init_bdf_labels(mesh3_s *mesh) {
    * we go */
   while (label_reflector(mesh))
     ++mesh->num_bdf_labels;
+}
+
+static size_t find_bde(mesh3_s const *mesh, diff_edge_s const *bde) {
+  diff_edge_s const *found = bsearch(
+    bde, mesh->bde, mesh->nbde, sizeof(diff_edge_s),
+    (compar_t)diff_edge_cmp);
+  return found ? found - mesh->bde : (size_t)NO_INDEX;
+}
+
+static void get_diff_bde_nbs(mesh3_s const *mesh, size_t le, array_s *nb) {
+  diff_edge_s const *bde = &mesh->bde[le];
+  diff_edge_s nb_bde;
+
+  assert(bde->diff);
+
+  for (size_t i = 0, l, nvv, *vv; i < 2; ++i) {
+    l = bde->le[i];
+
+    nvv = mesh3_nvv(mesh, l);
+    vv = malloc(nvv*sizeof(size_t));
+    mesh3_vv(mesh, l, vv);
+
+    for (size_t j = 0, le_nb; j < nvv; ++j) {
+      nb_bde = make_diff_edge(l, vv[j]);
+      if (diff_edge_cmp(bde, &nb_bde) == 0)
+        continue;
+      le_nb = find_bde(mesh, &nb_bde);
+      if (le_nb != (size_t)NO_INDEX
+          && mesh->bde[le_nb].diff /* only append diffracting edges! */
+          && !array_contains(nb, &le_nb))
+        array_append(nb, &le_nb);
+    }
+
+    free(vv);
+  }
+}
+
+static bool bdes_are_colinear(mesh3_s const *mesh, size_t l0, size_t l1) {
+  size_t const *le[2] = {mesh->bde[l0].le, mesh->bde[l1].le};
+
+  line3 line;
+  mesh3_copy_vert(mesh, le[0][0], line.x);
+  mesh3_copy_vert(mesh, le[0][1], line.y);
+
+  dbl const *x1[2];
+  x1[0] = mesh3_get_vert_ptr(mesh, le[1][0]);
+  x1[1] = mesh3_get_vert_ptr(mesh, le[1][1]);
+
+  dbl const atol = 1e-10;
+  return line3_point_colinear(&line, x1[0], atol)
+    && line3_point_colinear(&line, x1[1], atol);
+}
+
+static bool label_diffractor(mesh3_s *mesh) {
+  array_s *queue;
+  array_alloc(&queue);
+  array_init(queue, sizeof(size_t), ARRAY_DEFAULT_CAPACITY);
+
+  array_s *nb;
+  array_alloc(&nb);
+  array_init(nb, sizeof(size_t), ARRAY_DEFAULT_CAPACITY);
+
+  size_t le = 0;
+  while (le < mesh->nbde
+         && (mesh->bde_label[le] != NO_LABEL
+             || !mesh->bde[le].diff))
+    ++le;
+
+  if (le == mesh->nbde)
+    return false;
+
+  array_append(queue, &le);
+
+  do {
+    array_pop_front(queue, &le);
+
+    mesh->bde_label[le] = mesh->num_bde_labels;
+
+    get_diff_bde_nbs(mesh, le, nb);
+
+    size_t le_nb;
+    while (!array_is_empty(nb)) {
+      array_pop_front(nb, &le_nb);
+
+      if (mesh->bde_label[le_nb] != NO_LABEL)
+        continue;
+
+      if (bdes_are_colinear(mesh, le, le_nb)
+          && !array_contains(queue, &le_nb))
+        array_append(queue, &le_nb);
+    }
+  } while (!array_is_empty(queue));
+
+  array_deinit(nb);
+  array_dealloc(&nb);
+
+  array_deinit(queue);
+  array_dealloc(&queue);
+
+  return true;
+}
+
+static void init_bde_labels(mesh3_s *mesh) {
+  /* Allocate and initialize all labels with `NO_LABEL` */
+  mesh->bde_label = malloc(mesh->nbde*sizeof(size_t));
+  for (size_t i = 0; i < mesh->nbde; ++i)
+    mesh->bde_label[i] = NO_LABEL;
+
+  /* No labels initially */
+  mesh->num_bde_labels = 0;
+
+  /* Label each diffractor */
+  while (label_diffractor(mesh))
+    ++mesh->num_bde_labels;
 }
 
 /**
@@ -535,6 +652,7 @@ void mesh3_init(mesh3_s *mesh,
   if (compute_bd_info) {
     init_bd(mesh);
     init_bdf_labels(mesh);
+    init_bde_labels(mesh);
   }
 
   compute_geometric_quantities(mesh);
@@ -557,12 +675,14 @@ void mesh3_deinit(mesh3_s *mesh) {
     free(mesh->bdf);
     free(mesh->bde);
     free(mesh->bdf_label);
+    free(mesh->bde_label);
 
     mesh->bdc = NULL;
     mesh->bdv = NULL;
     mesh->bdf = NULL;
     mesh->bde = NULL;
     mesh->bdf_label = NULL;
+    mesh->bde_label = NULL;
   }
 }
 
@@ -1465,4 +1585,22 @@ void mesh3_get_reflector(mesh3_s const *mesh, size_t i, size_t (*lf)[3]) {
   for (size_t l = 0; l < mesh->nbdf; ++l)
     if (mesh->bdf_label[l] == i)
       memcpy(lf[nf++], mesh->bdf[l].lf, sizeof(size_t[3]));
+}
+
+size_t mesh3_get_num_diffractors(mesh3_s const *mesh) {
+  return mesh->num_bde_labels;
+}
+
+size_t mesh3_get_diffractor_size(mesh3_s const *mesh, size_t i) {
+  size_t count = 0;
+  for (size_t l = 0; l < mesh->nbde; ++l)
+    count += mesh->bde_label[l] == i;
+  return count;
+}
+
+void mesh3_get_diffractor(mesh3_s const *mesh, size_t i, size_t (*le)[2]) {
+  size_t k = 0;
+  for (size_t l = 0; l < mesh->nbde; ++l)
+    if (mesh->bde_label[l] == i)
+      memcpy(le[k++], mesh->bde[l].le, sizeof(size_t[2]));
 }
