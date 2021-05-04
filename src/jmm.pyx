@@ -952,7 +952,7 @@ cell edges of `jmm.Mesh3`.
     @property
     def num_reflectors(self):
         '''The number of distinct reflecting components that partition the
-surface of the mesh.
+        surface of the mesh.
 
         '''
         return mesh3_get_num_reflectors(self.mesh)
