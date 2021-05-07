@@ -218,6 +218,14 @@ bool utetra_init(utetra_s *u, utetra_spec_s const *spec) {
   for (size_t i = 0; i < 3; ++i)
     jet[i] = passed_jet ? spec->jet[i] : eik3_get_jet(spec->eik, spec->l[i]);
 
+  /* Check if any of the jets we're about to try to use for
+   * interpolation are point source jets (i.e., only have a function
+   * value, and not a gradient value). If this is the case, we return
+   * `false` now. */
+  for (size_t i = 0; i < 3; ++i)
+    if (jet3_is_point_source(&jet[i]))
+      return false;
+
   dbl T[3], DT[3][3];
   for (int i = 0; i < 3; ++i) {
     T[i] = jet[i].f;
