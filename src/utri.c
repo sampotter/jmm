@@ -332,10 +332,43 @@ static dbl get_L(utri_s const *u) {
   return u->L;
 }
 
+bool utri_emits_terminal_diffracted_ray(utri_s const *utri, eik3_s const *eik) {
+  assert(!utri_has_interior_point_solution(utri));
+
+  size_t l0 = utri_get_active_ind(utri);
+
+  mesh3_s const *mesh = eik3_get_mesh(eik);
+
+  size_t nvv = mesh3_nvv(mesh, l0);
+  size_t *vv = malloc(nvv*sizeof(size_t));
+  mesh3_vv(mesh, l0, vv);
+
+  size_t num_inc_bde_bc_edges = 0;
+
+  size_t le[2] = {[0] = l0};
+
+  for (size_t i = 0; i < nvv; ++i) {
+    le[1] = vv[i];
+    if (eik3_has_bde_bc(eik, le))
+      ++num_inc_bde_bc_edges;
+  }
+
+  free(vv);
+
+  return num_inc_bde_bc_edges <= 1;
+}
+
 bool utri_update_ray_is_physical(utri_s const *utri, eik3_s const *eik) {
   mesh3_s const *mesh = eik3_get_mesh(eik);
 
   size_t l[2] = {utri->l0, utri->l1};
+
+  /* Check if we're trying to update from a diffracting edge with
+   * precomputed boundary conditions. If this is the case, we're
+   * solving an edge diffraction problem and are updating from the
+   * original diffracting edge. */
+  if (eik3_has_bde_bc(eik, l))
+    return true;
 
   /**
    * First, we check if the ray is spuriously emanating from the
@@ -478,7 +511,7 @@ bool utri_is_finite(utri_s const *u) {
 }
 
 size_t utri_get_active_ind(utri_s const *utri) {
-  dbl const atol = 1e-15;
+  dbl const atol = 1e-14;
   if (utri->lam < atol)
     return utri->l0;
   if (utri->lam > 1 - atol)

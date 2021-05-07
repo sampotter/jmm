@@ -769,7 +769,8 @@ void do_diff_edge_updates_and_adjust(eik3_s *eik, size_t l0, size_t l1,
     utri_solve(utri[i]);
 
     // ... and attempt to commit it.
-    if (utri_has_interior_point_solution(utri[i]) &&
+    if ((utri_has_interior_point_solution(utri[i]) ||
+         utri_emits_terminal_diffracted_ray(utri[i], eik)) &&
         utri_update_ray_is_physical(utri[i], eik) &&
         commit_tri_update(eik, l, utri[i]))
       adjust(eik, l);
