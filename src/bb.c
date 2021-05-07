@@ -201,6 +201,12 @@ dbl bb31_d2f(bb31 const *bb, dbl const *b, dbl const *a) {
   return 3*(b[0]*tmp[0] + b[1]*tmp[1]);
 }
 
+void bb31_reverse(bb31 *bb) {
+  dbl tmp[4];
+  for (size_t i = 0; i < 4; ++i) tmp[i] = bb->c[3 - i];
+  for (size_t i = 0; i < 4; ++i) bb->c[i] = tmp[i];
+}
+
 void bb32_init_from_3d_data(bb32 *bb, dbl const f[3], dbl const Df[3][3], dbl const x[3][3]) {
   dbl *c = bb->c;
 

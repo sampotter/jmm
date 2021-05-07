@@ -17,6 +17,7 @@ void bb31_init_from_3d_data(bb31 *bb, dbl const f[2], dbl const Df[2][3], dbl co
 dbl bb31_f(bb31 const *bb, dbl const *b);
 dbl bb31_df(bb31 const *bb, dbl const *b, dbl const *a);
 dbl bb31_d2f(bb31 const *bb, dbl const *b, dbl const *a);
+void bb31_reverse(bb31 *bb);
 
 typedef struct {
   dbl c[10];
