@@ -6,3 +6,4 @@ cdef extern from "jet.h":
         dbl fx
         dbl fy
         dbl fz
+    jet3 jet3_make_point_source(dbl tau)

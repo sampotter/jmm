@@ -919,6 +919,13 @@ cdef class Mesh3:
         l[2] = k
         return mesh3_bdf(self.mesh, l)
 
+    def get_diff_edges(self):
+        cdef size_t le[2]
+        for l in range(mesh3_nbde(self.mesh)):
+            mesh3_get_bde_inds(self.mesh, l, le)
+            if mesh3_is_diff_edge(self.mesh, le):
+                yield np.array([le[0], le[1]], dtype=np.uintp)
+
     def is_diff_edge(self, size_t i, size_t j):
         if not self.has_bd_info:
             raise Exception("mesh wasn't built with boundary info");
@@ -1016,6 +1023,11 @@ cdef class Jet3:
         self.jet.fx = fx
         self.jet.fy = fy
         self.jet.fz = fz
+
+    @staticmethod
+    def make_point_source(dbl tau):
+        cdef jet3 jet = jet3_make_point_source(tau)
+        return Jet3(jet.f, jet.fx, jet.fy, jet.fz)
 
     def __repr__(self):
         return 'Jet3(f = %f, fx = %f, fy = %f, fz = %f)' % (
@@ -1164,6 +1176,15 @@ cdef class Eik3:
     @property
     def t0(self):
         return np.asarray(self.t0_view)
+
+    def add_valid_bde(self, size_t l0, size_t l1, Jet3 jet0, Jet3 jet1):
+        cdef size_t le[2]
+        le[0] = l0
+        le[1] = l1
+        cdef jet3 jet[2]
+        jet[0] = jet0.jet
+        jet[1] = jet1.jet
+        eik3_add_valid_bde(self.eik, le, jet)
 
 def get_camera_basis(origin, target, up):
 
