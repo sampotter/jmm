@@ -34,6 +34,7 @@ cdef extern from "mesh3.h":
     bool mesh3_has_bd_info(const mesh3 *mesh)
     bool mesh3_bdc(const mesh3 *mesh, size_t i)
     bool mesh3_bdv(const mesh3 *mesh, size_t i)
+    size_t mesh3_nbde(const mesh3 *mesh)
     bool mesh3_bde(const mesh3 *mesh, const size_t l[2])
     bool mesh3_bdf(const mesh3 *mesh, const size_t l[3])
     bool mesh3_is_diff_edge(const mesh3 *mesh, const size_t l[2])
@@ -46,3 +47,5 @@ cdef extern from "mesh3.h":
     size_t mesh3_get_num_diffractors(const mesh3 *mesh)
     size_t mesh3_get_diffractor_size(const mesh3 *mesh, size_t i)
     void mesh3_get_diffractor(const mesh3 *mesh, size_t i, size_t (*le)[2])
+    void mesh3_get_bde_inds(const mesh3 *mesh, size_t l, size_t le[2])
+    void mesh3_set_bde(mesh3 *mesh, const size_t le[2], bool diff)

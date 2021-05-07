@@ -4,6 +4,7 @@
 extern "C" {
 #endif
 
+#include "bb.h"
 #include "common.h"
 #include "jet.h"
 #include "par.h"
@@ -32,6 +33,10 @@ bool eik3_has_par(eik3_s const *eik, size_t l);
 void eik3_get_DT(eik3_s const *eik, size_t l, dbl DT[3]);
 bool eik3_is_refl_bdf(eik3_s const *eik, size_t const l[3]);
 dbl *eik3_get_t0_ptr(eik3_s const *eik);
+void eik3_add_valid_bde(eik3_s *eik, size_t const le[2], jet3 const jet[2]);
+void eik3_set_bde_bc(eik3_s *eik, size_t const le[2], bb31 const *bb);
+bool eik3_get_bde_bc(eik3_s const *eik, size_t const le[2], bb31 *bb);
+bool eik3_has_bde_bc(eik3_s const *eik, size_t const le[2]);
 
 #ifdef __cplusplus
 }

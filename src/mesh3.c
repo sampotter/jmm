@@ -1604,3 +1604,32 @@ void mesh3_get_diffractor(mesh3_s const *mesh, size_t i, size_t (*le)[2]) {
     if (mesh->bde_label[l] == i)
       memcpy(le[k++], mesh->bde[l].le, sizeof(size_t[2]));
 }
+
+void mesh3_get_bde_inds(mesh3_s const *mesh, size_t l, size_t le[2]) {
+  memcpy(le, mesh->bde[l].le, sizeof(size_t[2]));
+}
+
+void mesh3_set_bde(mesh3_s *mesh, size_t const le[2], bool diff) {
+  // TODO: this is done really inefficiently! We shold implement a
+  // balanced binary tree (or interval tree?) to store the boundary
+  // edges, but this a low priority.
+
+  diff_edge_s bde = {.le = {le[0], le[1]}, .diff = diff};
+
+  int cmp;
+  size_t l = 0;
+  while ((cmp = diff_edge_cmp(&bde, &mesh->bde[l])) >= 0)
+    ++l;
+
+  if (cmp == 0) {
+    mesh->bde[l].diff = diff;
+  } else if (cmp < 0) {
+    mesh->bde = realloc(mesh->bde, (mesh->nbde + 1)*sizeof(diff_edge_s));
+    memmove(&mesh->bde[l + 1], &mesh->bde[l],
+            (mesh->nbde - l)*sizeof(diff_edge_s));
+    mesh->bde[l] = bde;
+    ++mesh->nbde;
+  } else {
+    assert(false);
+  }
+}

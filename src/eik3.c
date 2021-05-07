@@ -21,6 +21,21 @@
 #include "utri.h"
 #include "vec.h"
 
+typedef struct bde_bc {
+  size_t le[2];
+  bb31 bb;
+} bde_bc_s;
+
+bde_bc_s make_bde_bc(size_t const le[2], bb31 const *bb) {
+  assert(le[0] != le[1]);
+  bde_bc_s bc = {.le = {le[0], le[1]}, .bb = *bb};
+  if (le[0] > le[1]) {
+    SWAP(bc.le[0], bc.le[1]);
+    bb31_reverse(&bc.bb);
+  }
+  return bc;
+}
+
 // TODO:
 //
 // - There's a common pattern that gets reused here a lot:
@@ -66,6 +81,12 @@ struct eik3 {
    * `bdv_has_bc[l]` isn't used if `mesh3_bdv(eik->mesh, l)` is
    * `false`. */
   bool *bdv_has_bc;
+
+  /* Boundary conditions for a (diffracting) boundary edge, which are
+   * just cubic polynomials defined over the edge. These are used to
+   * perform two-point updates from diffracting edges initially when
+   * solving edge diffraction problems. */
+  array_s *bde_bc;
 
   /* The `t0` field.
    *
@@ -152,6 +173,9 @@ void eik3_init(eik3_s *eik, mesh3_s *mesh) {
 
   eik->bdv_has_bc = calloc(nverts, sizeof(bool));
 
+  array_alloc(&eik->bde_bc);
+  array_init(eik->bde_bc, sizeof(bde_bc_s), ARRAY_DEFAULT_CAPACITY);
+
   eik->t0 = malloc(nverts*sizeof(dbl[3]));
   for (size_t l = 0; l < nverts; ++l)
     for (size_t i = 0; i < 3; ++i)
@@ -198,6 +222,9 @@ void eik3_deinit(eik3_s *eik) {
 
   free(eik->bdv_has_bc);
   eik->bdv_has_bc = NULL;
+
+  array_deinit(eik->bde_bc);
+  array_dealloc(&eik->bde_bc);
 }
 
 static bool can_update_from_point(eik3_s const *eik, size_t l) {
@@ -205,21 +232,19 @@ static bool can_update_from_point(eik3_s const *eik, size_t l) {
 }
 
 static void do_1pt_update(eik3_s *eik, size_t l, size_t l0) {
-  // Compute new jet for one point update
+  // TODO: check if the updating ray is physical... should probably
+  // just design a new ADT, `uline`... UGH...
+
+  /* Compute the new jet */
   jet3 jet;
   dbl const *x = mesh3_get_vert_ptr(eik->mesh, l);
   dbl const *x0 = mesh3_get_vert_ptr(eik->mesh, l0);
   dbl3_sub(x, x0, &jet.fx);
-  jet.f = dbl3_normalize(&jet.fx);
+  jet.f = eik->jet[l0].f + dbl3_normalize(&jet.fx);
 
-  // TODO: we should try to check if this update leaves the domain...
-
-  // Commit the update
-  //
-  // TODO: we assume here that if we're actually doing a one-point
-  // update "for keeps", we know that it's going to improve the
-  // solution. This may not be a great approach, but it's what we're
-  // doing for now...
+  /* For now, we require that we're always able to commit the update,
+   * because we assume that we only do 1pt updates from point
+   * sources. */
   assert(jet.f <= eik->jet[l].f);
 
   eik3_set_jet(eik, l, jet);
@@ -850,6 +875,8 @@ static void compute_t0(eik3_s *eik, size_t l0) {
   par3_s par = eik3_get_par(eik, l0);
 
   size_t npar = par3_size(&par);
+  if (npar == 0)
+    return;
 
   size_t const *l = par.l;
   mesh3_s const *mesh = eik->mesh;
@@ -860,19 +887,28 @@ static void compute_t0(eik3_s *eik, size_t l0) {
     if (eik3_is_point_source(eik, par.l[i])) {
       dbl3_sub(x0, mesh3_get_vert_ptr(mesh, l[i]), t0[i]);
       dbl3_normalize(t0[i]);
-    } else {
+    } else if (dbl3_isfinite(eik->t0[l[i]])) {
       dbl3_copy(eik->t0[l[i]], t0[i]);
+    } else {
+      dbl3_copy(&eik->jet[l[i]].fx, t0[i]);
     }
   }
 
-  if (npar == 0)
-    dbl3_copy(&eik->jet[l0].fx, eik->t0[l0]);
-  else if (npar == 1)
+  bool t0_finite = dbl3_isfinite(t0[0]);
+  if (t0_finite)
+    for (size_t i = 1; i < npar; ++i)
+      assert(dbl3_isfinite(t0[i]));
+
+  if (npar == 1)
     dbl3_copy(t0[0], eik->t0[l0]);
-  else if (npar == 2)
+  else if (npar == 2 && t0_finite)
     slerp2(t0[0], t0[1], par.b, eik->t0[l0]);
-  else
+  else if (npar == 2)
+    dbl3_copy(&eik->jet[l0].fx, eik->t0[l0]);
+  else if (npar == 3)
     slerp3(t0, par.b, eik->t0[l0], eik->h3);
+  else
+    assert(false);
 }
 
 /* Remove old tetrahedron and two-point boundary updates targeting
@@ -942,12 +978,46 @@ void eik3_add_trial(eik3_s *eik, size_t l, jet3 jet) {
   eik->state[l] = TRIAL;
   heap_insert(eik->heap, l);
 
-  /* Update whether this is a vertex with a reflection BC */
   eik->bdv_has_bc[l] = mesh3_bdv(eik->mesh, l);
 }
 
 bool eik3_is_point_source(eik3_s const *eik, size_t l) {
-  return isfinite(eik->jet[l].f) && jet3_is_nan(&eik->jet[l]);
+  /* First, check whether the jet satisfies the conditions for being a
+   * point source. If it doesn't, return early. */
+  if (!jet3_is_point_source(&eik->jet[l]))
+    return false;
+
+  /* Next, check if this point source is adjacent to any other jets
+   * that satisfy the conditions for being a point source. If it is,
+   * then this is actually a point with boundary data for an edge
+   * diffraction problem. */
+
+  size_t nvv = mesh3_nvv(eik->mesh, l);
+  size_t *vv = malloc(nvv*sizeof(size_t));
+  mesh3_vv(eik->mesh, l, vv);
+
+  bool is_point_source = true;
+
+  size_t le[2] = {[0] = l};
+
+  for (size_t i = 0; i < nvv; ++i) {
+    /* Skip `vv[i]` if its jet doesn't look like a point source. */
+    if (!jet3_is_point_source(&eik->jet[vv[i]]))
+      continue;
+
+    /* If `l` and `vv[i]` have a diffracting edge BC, then this
+     * definitely isn't a point source. Bail. */
+    le[1] = vv[i];
+    if (eik3_has_bde_bc(eik, le)) {
+      assert(mesh3_is_diff_edge(eik->mesh, le)); /* sanity check */
+      is_point_source = false;
+      break;
+    }
+  }
+
+  free(vv);
+
+  return is_point_source;
 }
 
 bool eik3_is_far(eik3_s const *eik, size_t l) {
@@ -1005,4 +1075,94 @@ bool eik3_is_refl_bdf(eik3_s const *eik, size_t const l[3]) {
 
 dbl *eik3_get_t0_ptr(eik3_s const *eik) {
   return eik->t0[0];
+}
+
+void eik3_add_valid_bde(eik3_s *eik, size_t const le[2], jet3 const jet[2]) {
+  assert(mesh3_is_diff_edge(eik->mesh, le));
+
+  dbl f[2] = {jet[0].f, jet[1].f};
+
+  dbl Df[2][3];
+  for (size_t i = 0; i < 2; ++i)
+    dbl3_copy(&jet[i].fx, Df[i]);
+
+  dbl x[2][3];
+  for (size_t i = 0; i < 2; ++i)
+    mesh3_copy_vert(eik->mesh, le[i], x[i]);
+
+  for (size_t i = 0; i < 2; ++i)
+    if (!eik3_is_trial(eik, le[i]))
+      eik3_add_trial(eik, le[i], jet3_make_point_source(f[i]));
+
+  bb31 bb;
+  bb31_init_from_3d_data(&bb, f, Df, x);
+  eik3_set_bde_bc(eik, le, &bb);
+}
+
+void eik3_set_bde_bc(eik3_s *eik, size_t const le[2], bb31 const *bb) {
+  bde_bc_s bc = make_bde_bc(le, bb), *this_bc;
+
+  /* Check if a boundary condition for the current edge exists
+   * already, and if so, replace the boundary data.  */
+  for (size_t i = 0; i < array_size(eik->bde_bc); ++i) {
+    this_bc = array_get_ptr(eik->bde_bc, i);
+    if (bc.le[0] == this_bc->le[0] && bc.le[1] == this_bc->le[1]) {
+      this_bc->bb = *bb;
+      return;
+    }
+  }
+
+  /* Didn't find an existing BC for edge `le`, so add one. */
+  array_append(eik->bde_bc, &bc);
+}
+
+bool eik3_get_bde_bc(eik3_s const *eik, size_t const le[2], bb31 *bb) {
+  size_t le_sorted[2] = {le[0], le[1]};
+  SORT2(le_sorted[0], le_sorted[1]);
+
+  bool swapped = le_sorted[0] != le[0];
+
+  /* Scan through `eik->bde_bc` for `le` and grab the corresponding
+   * boundary, making sure to reverse `bb` in case the indices of `le`
+   * weren't initially sorted.
+   *
+   * (This makes it so that from the perspective of the caller,
+   * everything behaves correctly and transparently. Evaluating the
+   * resulting `bb31` stored in `bb` at one of the edge endpoints just
+   * does the right thing.) */
+  bde_bc_s *bc;
+  for (size_t i = 0; i < array_size(eik->bde_bc); ++i) {
+    bc = array_get_ptr(eik->bde_bc, i);
+    if (le_sorted[0] == bc->le[0] && le_sorted[1] == bc->le[1]) {
+      *bb = bc->bb;
+      if (swapped)
+        bb31_reverse(bb);
+      return true;
+    }
+  }
+
+  /* We didn't find any boundary data for the edge indexed by `le`. */
+  return false;
+
+  // TODO: one little improvement we could make here is, if we *don't*
+  // find any boundary data in `bde_bc`, but `le` *does* correspond to
+  // a diffracting edge, we could just compute the boundary data and
+  // return it now. This would make setting up edge diffraction
+  // problems a little more streamlined. That is, after solving the
+  // incident wave, grab use `eik3_get_bde_bc` to get the relevant
+  // boundary data from an enveloped diffracting edge.
+}
+
+bool eik3_has_bde_bc(eik3_s const *eik, size_t const le[2]) {
+  assert(le[0] != le[1]);
+  size_t le_sorted[2] = {MIN(le[0], le[1]), MAX(le[0], le[1])};
+  bde_bc_s *bc;
+  for (size_t i = 0; i < array_size(eik->bde_bc); ++i) {
+    bc = array_get_ptr(eik->bde_bc, i);
+    if (bc->le[0] == le_sorted[0] && bc->le[1] == le_sorted[1]) {
+      assert(mesh3_is_diff_edge(eik->mesh, bc->le));
+      return true;
+    }
+  }
+  return false;
 }

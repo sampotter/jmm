@@ -1001,6 +1001,12 @@ cell edges of `jmm.Mesh3`.
             if restricted_mask.any():
                 yield i, edges
 
+    def set_boundary_edge(self, size_t i, size_t j, bool diff):
+        cdef size_t le[2]
+        le[0] = i
+        le[1] = j
+        mesh3_set_bde(self.mesh, le, diff)
+
 
 cdef class Jet3:
     cdef jet3 jet
