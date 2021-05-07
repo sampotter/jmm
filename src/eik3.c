@@ -261,8 +261,8 @@ static void do_2pt_bd_updates(eik3_s *eik, size_t l, size_t l0) {
         utri_alloc(&utri[i]);
         utri_spec_s spec = utri_spec_from_eik(eik, l, l0, l1);
         ++nup;
-        utri_init(utri[i], &spec);
-        utri_solve(utri[i]);
+        if (utri_init(utri[i], &spec))
+          utri_solve(utri[i]);
       }
     }
   }
@@ -502,8 +502,8 @@ static void update(eik3_s *eik, size_t l, size_t l0) {
 
     spec = utri_spec_from_eik(eik, l, l1[i], l2[i]);
     spec.orig_index = i;
-    utri_init(u, &spec);
-    utri_solve(u);
+    if (utri_init(u, &spec))
+      utri_solve(u);
 
     if (utri_has_interior_point_solution(u))
       continue;
@@ -544,8 +544,8 @@ static void update(eik3_s *eik, size_t l, size_t l0) {
       utri_alloc(&u);
       array_append(diff_utri, &u);
       spec = utri_spec_from_eik(eik, l, le[k][0], le[k][1]);
-      utri_init(u, &spec);
-      utri_solve(u);
+      if (utri_init(u, &spec))
+        utri_solve(u);
     }
 
     free(le);
@@ -764,7 +764,8 @@ void do_diff_edge_updates_and_adjust(eik3_s *eik, size_t l0, size_t l1,
     // edge (l0, l1)...
     utri_alloc(&utri[i]);
     utri_spec_s spec = utri_spec_from_eik(eik, l, l0, l1);
-    utri_init(utri[i], &spec);
+    if (!utri_init(utri[i], &spec))
+      continue;
     utri_solve(utri[i]);
 
     // ... and attempt to commit it.

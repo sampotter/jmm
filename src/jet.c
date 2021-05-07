@@ -36,3 +36,7 @@ bool jet3_is_nan(jet3 const *jet) {
   }
   return is_nan;
 }
+
+bool jet3_is_point_source(jet3 const *jet) {
+  return isfinite(jet->f) && jet3_is_nan(jet);
+}

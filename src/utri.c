@@ -139,7 +139,7 @@ static dbl utri_hybrid_f(dbl lam, utri_s *utri) {
   return utri->Df;
 }
 
-void utri_init(utri_s *u, utri_spec_s const *spec) {
+bool utri_init(utri_s *u, utri_spec_s const *spec) {
   bool passed_lhat = spec->lhat != (size_t)NO_INDEX;
   bool passed_l0 = spec->l[0] != (size_t)NO_INDEX;
   bool passed_l1 = spec->l[1] != (size_t)NO_INDEX;
@@ -211,22 +211,51 @@ void utri_init(utri_s *u, utri_spec_s const *spec) {
 
   memcpy(u->state, spec->state, sizeof(state_e[2]));
 
+  /* Grab the jets for interpolating over the base of the
+   * update. These will come from `eik` or `spec`, depending on if we
+   * passed them. */
   jet3 jet[2];
   for (size_t i = 0; i < 2; ++i)
     jet[i] = passed_jet ? spec->jet[i] : eik3_get_jet(spec->eik, spec->l[i]);
 
-  dbl T[2], DT[2][3];
-  for (int i = 0; i < 2; ++i) {
-    T[i] = jet[i].f;
-    memcpy(DT[i], &jet[i].fx, sizeof(dbl[3]));
+  bool pt_src[2];
+  for (size_t i = 0; i < 2; ++i)
+    pt_src[i] = jet3_is_point_source(&jet[i]);
+
+  /* If exactly one of the jets is a point source jet, we don't want
+   * to do this update. Most likely, that jet is incident on a
+   * boundary edge with diffraction BCs, although it might be an
+   * actual point source. */
+  if (pt_src[0] ^ pt_src[1])
+    return false;
+
+  /* If the jets at the update vertices are finite, we can go ahead
+   * and do the interpolation now. On the other hand, if they aren't,
+   * we assume that: 1) this is a diffracting update, and 2) we have
+   * supplied precomputed boundary data for this update. */
+  if (pt_src[0] && pt_src[1]) {
+    /* use the precomputed boundary data */
+    assert(passed_l);
+    assert(mesh3_is_diff_edge(mesh, spec->l));
+    assert(eik3_get_bde_bc(spec->eik, spec->l, &u->T));
+  } else {
+    /* do the interpolation using the jets */
+    dbl T[2], DT[2][3], Xt[2][3];
+
+    for (int i = 0; i < 2; ++i) {
+      T[i] = jet[i].f;
+      memcpy(DT[i], &jet[i].fx, sizeof(dbl[3]));
+    }
+
+    dbl3_copy(u->x0, Xt[0]);
+    dbl3_copy(u->x1, Xt[1]);
+
+    bb31_init_from_3d_data(&u->T, T, DT, Xt);
   }
 
-  dbl Xt[2][3];
-  dbl3_copy(u->x0, Xt[0]);
-  dbl3_copy(u->x1, Xt[1]);
-  bb31_init_from_3d_data(&u->T, T, DT, Xt);
-
   u->orig_index = spec->orig_index;
+
+  return true;
 }
 
 void utri_deinit(utri_s *u) {
