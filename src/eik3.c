@@ -88,11 +88,14 @@ struct eik3 {
    * solving edge diffraction problems. */
   array_s *bde_bc;
 
-  /* The `t0` field.
-   *
-   * This a field of unit vectors, where `t0[l]` indicates the ray
+  /* Field of unit vectors where `t_in[l]` indicates the ray direction
+   * of the ray leading into the point of reflection or
+   * diffraction. This will be `NAN` for a point source problem. */
+  dbl (*t_in)[3];
+
+  /* Field of unit vectors where `t_out[l]` indicates the ray
    * direction at the beginning of the ray leading to node `l`.*/
-  dbl (*t0)[3];
+  dbl (*t_out)[3];
 
   /* Convergence tolerances. The parameter `h` is an estimate of the
    * fineness of the mesh. The variables `h2` and `h3` are convenience
@@ -176,10 +179,15 @@ void eik3_init(eik3_s *eik, mesh3_s *mesh) {
   array_alloc(&eik->bde_bc);
   array_init(eik->bde_bc, sizeof(bde_bc_s), ARRAY_DEFAULT_CAPACITY);
 
-  eik->t0 = malloc(nverts*sizeof(dbl[3]));
+  eik->t_in = malloc(nverts*sizeof(dbl[3]));
   for (size_t l = 0; l < nverts; ++l)
     for (size_t i = 0; i < 3; ++i)
-      eik->t0[l][i] = NAN;
+      eik->t_in[l][i] = NAN;
+
+  eik->t_out = malloc(nverts*sizeof(dbl[3]));
+  for (size_t l = 0; l < nverts; ++l)
+    for (size_t i = 0; i < 3; ++i)
+      eik->t_out[l][i] = NAN;
 
   eik->h = mesh3_get_min_edge_length(mesh);
   eik->h2 = eik->h*eik->h;
@@ -225,6 +233,12 @@ void eik3_deinit(eik3_s *eik) {
 
   array_deinit(eik->bde_bc);
   array_dealloc(&eik->bde_bc);
+
+  free(eik->t_in);
+  eik->t_in = NULL;
+
+  free(eik->t_out);
+  eik->t_out = NULL;
 }
 
 static bool can_update_from_point(eik3_s const *eik, size_t l) {
@@ -871,7 +885,43 @@ void update_neighbors(eik3_s *eik, size_t l0) {
   free(nb);
 }
 
-static void compute_t0(eik3_s *eik, size_t l0) {
+static void compute_t_in(eik3_s *eik, size_t l0) {
+  assert(eik->state[l0] == VALID);
+
+  par3_s par = eik3_get_par(eik, l0);
+
+  size_t npar = par3_size(&par);
+  if (npar == 0) {
+    if (!dbl3_isfinite(eik->t_in[l0]))
+      dbl3_normalized(&eik->jet[l0].fx, eik->t_in[l0]);
+    return;
+  }
+
+  dbl t_in[npar][3];
+  for (size_t i = 0; i < npar; ++i)
+    dbl3_copy(eik->t_in[par.l[i]], t_in[i]);
+
+  bool t_in_finite = dbl3_isfinite(t_in[0]);
+  for (size_t i = 1; i < npar; ++i)
+    assert(dbl3_isfinite(t_in[i]) == t_in_finite);
+  if (!t_in_finite) {
+    dbl3_copy(t_in[0], eik->t_in[l0]);
+    return;
+  }
+
+  if (npar == 1)
+    dbl3_copy(t_in[0], eik->t_in[l0]);
+  else if (npar == 2)
+    slerp2(t_in[0], t_in[1], par.b, eik->t_in[l0]);
+  else if (npar == 3)
+    slerp3(t_in, par.b, eik->t_in[l0], eik->h3);
+  else
+    assert(false);
+}
+
+static void compute_t_out(eik3_s *eik, size_t l0) {
+  assert(eik->state[l0] == VALID);
+
   par3_s par = eik3_get_par(eik, l0);
 
   size_t npar = par3_size(&par);
@@ -882,31 +932,31 @@ static void compute_t0(eik3_s *eik, size_t l0) {
   mesh3_s const *mesh = eik->mesh;
   dbl const *x0 = mesh3_get_vert_ptr(mesh, l0);
 
-  dbl t0[npar][3];
+  dbl t_out[npar][3];
   for (size_t i = 0; i < npar; ++i) {
     if (eik3_is_point_source(eik, par.l[i])) {
-      dbl3_sub(x0, mesh3_get_vert_ptr(mesh, l[i]), t0[i]);
-      dbl3_normalize(t0[i]);
-    } else if (dbl3_isfinite(eik->t0[l[i]])) {
-      dbl3_copy(eik->t0[l[i]], t0[i]);
+      dbl3_sub(x0, mesh3_get_vert_ptr(mesh, l[i]), t_out[i]);
+      dbl3_normalize(t_out[i]);
+    } else if (dbl3_isfinite(eik->t_out[l[i]])) {
+      dbl3_copy(eik->t_out[l[i]], t_out[i]);
     } else {
-      dbl3_copy(&eik->jet[l[i]].fx, t0[i]);
+      dbl3_copy(&eik->jet[l[i]].fx, t_out[i]);
     }
   }
 
-  bool t0_finite = dbl3_isfinite(t0[0]);
-  if (t0_finite)
+  bool t_out_finite = dbl3_isfinite(t_out[0]);
+  if (t_out_finite)
     for (size_t i = 1; i < npar; ++i)
-      assert(dbl3_isfinite(t0[i]));
+      assert(dbl3_isfinite(t_out[i]));
 
   if (npar == 1)
-    dbl3_copy(t0[0], eik->t0[l0]);
-  else if (npar == 2 && t0_finite)
-    slerp2(t0[0], t0[1], par.b, eik->t0[l0]);
+    dbl3_copy(t_out[0], eik->t_out[l0]);
+  else if (npar == 2 && t_out_finite)
+    slerp2(t_out[0], t_out[1], par.b, eik->t_out[l0]);
   else if (npar == 2)
-    dbl3_copy(&eik->jet[l0].fx, eik->t0[l0]);
+    dbl3_copy(&eik->jet[l0].fx, eik->t_out[l0]);
   else if (npar == 3)
-    slerp3(t0, par.b, eik->t0[l0], eik->h3);
+    slerp3(t_out, par.b, eik->t_out[l0], eik->h3);
   else
     assert(false);
 }
@@ -945,7 +995,8 @@ size_t eik3_step(eik3_s *eik) {
 
   eik->state[l0] = VALID;
 
-  compute_t0(eik, l0);
+  compute_t_in(eik, l0);
+  compute_t_out(eik, l0);
   purge_old_updates(eik, l0);
   update_neighbors(eik, l0);
 
@@ -1073,30 +1124,61 @@ bool eik3_is_refl_bdf(eik3_s const *eik, size_t const l[3]) {
     eik->bdv_has_bc[l[2]];
 }
 
-dbl *eik3_get_t0_ptr(eik3_s const *eik) {
-  return eik->t0[0];
+dbl *eik3_get_t_in_ptr(eik3_s const *eik) {
+  return eik->t_in[0];
+}
+
+dbl *eik3_get_t_out_ptr(eik3_s const *eik) {
+  return eik->t_out[0];
+}
+
+void eik3_add_valid_bdf(eik3_s *eik, size_t const lf[3], jet3 const jet[3]) {
+  /* We'd like to uncomment the following line, but it creates some
+   * problems if the domain is extended. Might need to introduce an
+   * "extended" flag to eik3. */
+  // assert(mesh3_bdf(eik->mesh, lf));
+
+  for (size_t i = 0; i < 3; ++i)
+    if (!eik3_is_trial(eik, lf[i]))
+      eik3_add_trial(eik, lf[i], jet[i]);
+
+  dbl t_in[3];
+  for (size_t i = 0; i < 3; ++i) {
+    dbl3_normalized(&jet[i].fx, t_in);
+    if (dbl3_isfinite(eik->t_in[lf[i]]))
+      assert(dbl3_dist(t_in, eik->t_in[lf[i]]) < 1e-14);
+    dbl3_copy(t_in, eik->t_in[lf[i]]);
+  }
 }
 
 void eik3_add_valid_bde(eik3_s *eik, size_t const le[2], jet3 const jet[2]) {
   assert(mesh3_is_diff_edge(eik->mesh, le));
 
-  dbl f[2] = {jet[0].f, jet[1].f};
-
-  dbl Df[2][3];
+  /* Get data for setting up cubic polynomial with boundary data. */
+  dbl f[2] = {jet[0].f, jet[1].f}, Df[2][3], x[2][3];
   for (size_t i = 0; i < 2; ++i)
     dbl3_copy(&jet[i].fx, Df[i]);
-
-  dbl x[2][3];
   for (size_t i = 0; i < 2; ++i)
     mesh3_copy_vert(eik->mesh, le[i], x[i]);
 
+  /* Set up boundary cubic using */
+  bb31 bb;
+  bb31_init_from_3d_data(&bb, f, Df, x);
+  eik3_set_bde_bc(eik, le, &bb);
+
+  /* Add trial nodes at endpoints of `le` */
   for (size_t i = 0; i < 2; ++i)
     if (!eik3_is_trial(eik, le[i]))
       eik3_add_trial(eik, le[i], jet3_make_point_source(f[i]));
 
-  bb31 bb;
-  bb31_init_from_3d_data(&bb, f, Df, x);
-  eik3_set_bde_bc(eik, le, &bb);
+  /* Set `t_in` using ray directions taken from `jet` */
+  dbl t_in[3];
+  for (size_t i = 0; i < 2; ++i) {
+    dbl3_normalized(&jet[i].fx, t_in);
+    if (dbl3_isfinite(eik->t_in[le[i]]))
+      assert(dbl3_dist(t_in, eik->t_in[le[i]]) < 1e-14);
+    dbl3_copy(t_in, eik->t_in[le[i]]);
+  }
 }
 
 void eik3_set_bde_bc(eik3_s *eik, size_t const le[2], bb31 const *bb) {

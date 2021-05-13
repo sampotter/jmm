@@ -1076,7 +1076,8 @@ cdef class Eik3:
         eik3 *eik
         ArrayView jet_view
         ArrayView state_view
-        ArrayView t0_view
+        ArrayView t_in_view
+        ArrayView t_out_view
 
     def __cinit__(self, Mesh3 mesh):
         eik3_alloc(&self.eik)
@@ -1098,15 +1099,25 @@ cdef class Eik3:
         self.state_view.format = 'i'
         self.state_view.itemsize = sizeof(state)
 
-        self.t0_view = ArrayView(2)
-        self.t0_view.readonly = True
-        self.t0_view.ptr = <void *>eik3_get_t0_ptr(self.eik)
-        self.t0_view.shape[0] = self.size
-        self.t0_view.shape[1] = 3
-        self.t0_view.strides[0] = 3*sizeof(dbl)
-        self.t0_view.strides[1] = 1*sizeof(dbl)
-        self.t0_view.format = 'd'
-        self.t0_view.itemsize = sizeof(dbl)
+        self.t_in_view = ArrayView(2)
+        self.t_in_view.readonly = True
+        self.t_in_view.ptr = <void *>eik3_get_t_in_ptr(self.eik)
+        self.t_in_view.shape[0] = self.size
+        self.t_in_view.shape[1] = 3
+        self.t_in_view.strides[0] = 3*sizeof(dbl)
+        self.t_in_view.strides[1] = 1*sizeof(dbl)
+        self.t_in_view.format = 'd'
+        self.t_in_view.itemsize = sizeof(dbl)
+
+        self.t_out_view = ArrayView(2)
+        self.t_out_view.readonly = True
+        self.t_out_view.ptr = <void *>eik3_get_t_out_ptr(self.eik)
+        self.t_out_view.shape[0] = self.size
+        self.t_out_view.shape[1] = 3
+        self.t_out_view.strides[0] = 3*sizeof(dbl)
+        self.t_out_view.strides[1] = 1*sizeof(dbl)
+        self.t_out_view.format = 'd'
+        self.t_out_view.itemsize = sizeof(dbl)
 
     def __dealloc__(self):
         eik3_deinit(self.eik)
@@ -1174,8 +1185,24 @@ cdef class Eik3:
         return Bb33(f, Df, x)
 
     @property
-    def t0(self):
-        return np.asarray(self.t0_view)
+    def t_in(self):
+        return np.asarray(self.t_in_view)
+
+    @property
+    def t_out(self):
+        return np.asarray(self.t_out_view)
+
+    def add_valid_bdf(self, size_t l0, size_t l1, size_t l2,
+                      Jet3 jet0, Jet3 jet1, Jet3 jet2):
+        cdef size_t lf[3]
+        lf[0] = l0
+        lf[1] = l1
+        lf[2] = l2
+        cdef jet3 jet[3]
+        jet[0] = jet0.jet
+        jet[1] = jet1.jet
+        jet[2] = jet2.jet
+        eik3_add_valid_bdf(self.eik, lf, jet)
 
     def add_valid_bde(self, size_t l0, size_t l1, Jet3 jet0, Jet3 jet1):
         cdef size_t le[2]
