@@ -15,19 +15,22 @@
     - [X] reflect grad(T)
     - [X] solve reflected
     - [X] compute shadow & plot
-    - [X] transport t0s
+    - [X] transport t_out field
+    - [X] transport t_in field
     - [ ] check refl condition
-  - [ ] reinitialize from diffracting edge
-    - [ ] restrict eikonal to diffracting edges
-    - [ ] solve
-      - [ ] need 2pt update
-    - [ ] compute shadow & plot
-    - [ ] transport t0
-    - [ ] check diff angle cond
+  - [X] reinitialize from diffracting edge
+    - [X] restrict eikonal to diffracting edges
+    - [X] compute cubic polys on diff edges for 2pt updates
+    - [X] solves
+    - [X] compute shadow & plot
+    - [X] transport t_out field
+    - [X] transport t_in field
+    - [X] check diff angle cond
   - [ ] compute amplitude
     - [ ] 1/r = 1/(c*tau) (no paraxial for now)
     - [ ] reflection coefficient
     - [ ] UTD coefficient
-  - [ ] compute several arrivals for whatever domain i get to
+  - [ ] compute multiple arrivals
+  - [ ] make nice plot of helmholtz sol'n
   - [ ] make nice plots of shadows
   - [ ] finish IEEE paper
