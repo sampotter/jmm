@@ -28,7 +28,10 @@ lsrc = 0
 
 should_plot_reflectors = False
 should_plot_BCs = False
-should_plot_dom_refl_t0 = True
+should_plot_refl_t_in = True
+should_plot_refl_t_out = True
+should_plot_refl_hists = True
+should_plot_refl_angle_cond = True
 
 ############################################################################
 
@@ -53,7 +56,10 @@ dom_cells = cells[:num_dom_cells]
 dom_points = points[:num_dom_points]
 
 mesh_dom = jmm.Mesh3.from_verts_and_cells(dom_points, dom_cells)
+
 mesh = jmm.Mesh3.from_verts_and_cells(points, cells)
+for le in mesh_dom.get_diff_edges():
+    mesh.set_boundary_edge(*le, True)
 
 print(f'- set up meshes [%1.2fs]' % toc())
 
@@ -62,7 +68,7 @@ print(f'- set up meshes [%1.2fs]' % toc())
 tic()
 
 eik = jmm.Eik3(mesh)
-eik.add_trial(lsrc, jmm.Jet3(0, np.nan, np.nan, np.nan))
+eik.add_trial(lsrc, jmm.Jet3.make_point_source(0))
 eik.solve()
 
 print('- solved on extended domain [%1.2fs]' % toc())
@@ -70,7 +76,7 @@ print('- solved on extended domain [%1.2fs]' % toc())
 tic()
 
 eik_dom = jmm.Eik3(mesh_dom)
-eik_dom.add_trial(lsrc, jmm.Jet3(0, np.nan, np.nan, np.nan))
+eik_dom.add_trial(lsrc, jmm.Jet3.make_point_source(0))
 eik_dom.solve()
 
 print('- solved on domain [%1.2fs]' % toc())
@@ -164,11 +170,13 @@ if should_plot_BCs:
 
 tic()
 eik_refl, eik_dom_refl = jmm.Eik3(mesh), jmm.Eik3(mesh_dom)
-for l, tau, Dtau in zip(L, Tau, DTau):
-    assert l < num_dom_points
-    jet = jmm.Jet3(tau, *Dtau)
-    eik_refl.add_trial(l, jet)
-    eik_dom_refl.add_trial(l, jet)
+for lf in faces:
+    assert (lf < num_dom_points).all()
+    if Z[lf].any():
+        continue
+    jets = [jmm.Jet3(*_) for _ in eik.jet[lf]]
+    eik_refl.add_valid_bdf(*lf, *jets)
+    eik_dom_refl.add_valid_bdf(*lf, *jets)
 print('- set up BCs for reflection [%1.2fs]' % toc())
 
 tic()
@@ -206,11 +214,19 @@ plotter.add_mesh(dom_grid, scalars='Z', cmap=cc.cm.gray_r,
                  show_scalar_bar=False)
 plotter.show()
 
-
-if should_plot_dom_refl_t0:
+if should_plot_refl_t_in:
     plotter = pv.Plotter()
     plotter.background_color = 'white'
-    dom_grid.vectors = (1 - Z).reshape(num_dom_points, 1)*eik_dom_refl.t0
+    dom_grid.vectors = (1 - Z).reshape(num_dom_points, 1)*eik_dom_refl.t_in
+    dom_grid.vectors /= 2
+    plotter.add_mesh(
+        dom_grid.arrows,cmap=cc.cm.gray,lighting=False,show_scalar_bar=False)
+    plotter.show()
+
+if should_plot_refl_t_out:
+    plotter = pv.Plotter()
+    plotter.background_color = 'white'
+    dom_grid.vectors = (1 - Z).reshape(num_dom_points, 1)*eik_dom_refl.t_out
     dom_grid.vectors /= 2
     plotter.add_mesh(
         dom_grid.arrows,cmap=cc.cm.gray,lighting=False,show_scalar_bar=False)
