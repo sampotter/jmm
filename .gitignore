@@ -45,3 +45,4 @@ jmm.c
 scratch
 srcs
 vgcore.*
+src/jmm/*.c
