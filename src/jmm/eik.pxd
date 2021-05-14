@@ -1,16 +1,18 @@
-from defs cimport dbl, state
-
-from jet cimport *
-from par cimport *
-from mesh3 cimport *
+from jmm.array_view cimport ArrayView
+from jmm.defs cimport bool, dbl, state
+from jmm.jet cimport jet3
+from jmm.par cimport par3
+from jmm.mesh cimport mesh3
 
 cdef extern from "eik3.h":
     cdef struct cutedge:
         dbl t
         dbl n[3]
         jet3 jet
+
     cdef struct eik3:
         pass
+
     void eik3_alloc(eik3 **eik)
     void eik3_dealloc(eik3 **eik)
     void eik3_init(eik3 *eik, const mesh3 *mesh)
@@ -30,3 +32,11 @@ cdef extern from "eik3.h":
     dbl *eik3_get_t_out_ptr(const eik3 *eik)
     void eik3_add_valid_bdf(eik3 *eik, const size_t lf[3], const jet3 jet[3])
     void eik3_add_valid_bde(eik3 *eik, const size_t le[2], const jet3 jet[2])
+
+cdef class Eik3:
+    cdef:
+        eik3 *eik
+        ArrayView jet_view
+        ArrayView state_view
+        ArrayView t_in_view
+        ArrayView t_out_view

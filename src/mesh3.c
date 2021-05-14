@@ -93,6 +93,11 @@ struct mesh3 {
   size_t num_bde_labels;
   size_t *bde_label;
 
+  /* "Mesh epsilon": a small parameter derived from the mesh, used to
+   * make geometric calculations a bit more robust. Right now, this is
+   * set by default to `min_edge_length^3`. */
+  dbl eps;
+
   // Geometric quantities
   dbl min_tetra_alt; // The minimum of all tetrahedron altitudes in the mesh.
   dbl min_edge_length;
@@ -214,8 +219,6 @@ static dbl get_dihedral_angle(mesh3_s const *mesh, size_t lc, diff_edge_s const 
  * 180 degrees. So, we traverse the tetrahedra surrounding it, and sum of the angles they make with
  */
 static bool edge_is_diff(mesh3_s const *mesh, diff_edge_s *e) {
-  dbl const atol = 1e-5;
-
   int nec = mesh3_nec(mesh, e->le[0], e->le[1]);
   size_t *ec = malloc(nec*sizeof(size_t));
   mesh3_ec(mesh, e->le[0], e->le[1], ec);
@@ -227,7 +230,7 @@ static bool edge_is_diff(mesh3_s const *mesh, diff_edge_s *e) {
 
   free(ec);
 
-  return angle_sum > PI + atol;
+  return angle_sum > PI + mesh->eps;
 }
 
 static size_t find_bdf(mesh3_s const *mesh, tagged_face_s const *bdf) {
@@ -620,6 +623,8 @@ static void compute_geometric_quantities(mesh3_s *mesh) {
     }
     free(vv);
   }
+
+  mesh->eps = pow(mesh->min_edge_length, 3);
 }
 
 void mesh3_init(mesh3_s *mesh,
@@ -791,7 +796,7 @@ void mesh3_get_cell_bbox(mesh3_s const *mesh, size_t i, rect3 *bbox) {
 
 bool mesh3_cell_contains_point(mesh3_s const *mesh, size_t lc, dbl const x[3]) {
   tetra3 tetra = mesh3_get_tetra(mesh, lc);
-  return tetra3_contains_point(&tetra, x);
+  return tetra3_contains_point(&tetra, x, &mesh->eps);
 }
 
 int mesh3_nvc(mesh3_s const *mesh, size_t i) {
@@ -1632,4 +1637,8 @@ void mesh3_set_bde(mesh3_s *mesh, size_t const le[2], bool diff) {
   } else {
     assert(false);
   }
+}
+
+dbl mesh3_get_eps(mesh3_s const *mesh) {
+  return mesh->eps;
 }

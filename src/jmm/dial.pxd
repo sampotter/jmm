@@ -1,8 +1,10 @@
-from defs cimport bool, dbl, error, state, stype
+from jmm.array_view cimport ArrayView
+from jmm.defs cimport bool, dbl, error, state, stype
 
 cdef extern from "dial.h":
     cdef struct dial3:
         pass
+
     void dial3_alloc(dial3 **dial)
     error dial3_init(dial3 *dial, stype stype, const int *shape, dbl h)
     void dial3_deinit(dial3 *dial)
@@ -16,3 +18,11 @@ cdef extern from "dial.h":
     dbl *dial3_get_Toff_ptr(const dial3 *dial)
     dbl *dial3_get_xsrc_ptr(const dial3 *dial)
     state *dial3_get_state_ptr(const dial3 *dial)
+
+cdef class _Dial3:
+    cdef:
+        dial3 *dial
+        Py_ssize_t shape[3]
+        ArrayView Toff_view
+        ArrayView xsrc_view
+        ArrayView state_view

@@ -18,7 +18,7 @@ typedef struct {
   dbl min[3], max[3];
 } rect3;
 
-bool mesh3_tetra_contains_point(mesh3_tetra_s const *tetra, dbl const x[3]);
+bool mesh3_tetra_contains_point(mesh3_tetra_s const *tetra, dbl const x[3], dbl const *eps);
 void mesh3_tetra_get_bary_coords(mesh3_tetra_s const *tetra, dbl const x[3], dbl b[4]);
 void mesh3_tetra_get_point(mesh3_tetra_s const *tetra, dbl const b[4], dbl x[3]);
 
@@ -38,7 +38,7 @@ typedef struct {
   dbl v[4][3];
 } tetra3;
 
-bool tetra3_contains_point(tetra3 const *tetra, dbl const x[3]);
+bool tetra3_contains_point(tetra3 const *tetra, dbl const x[3], dbl const *eps);
 void tetra3_get_bary_coords(tetra3 const *tetra, dbl const x[3], dbl b[4]);
 void tetra3_get_centroid(tetra3 const *tetra, dbl centroid[3]);
 void tetra3_get_point(tetra3 const *tetra, dbl const b[4], dbl x[3]);

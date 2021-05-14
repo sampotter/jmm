@@ -1,7 +1,8 @@
 import colorcet as cc
-import jmm
 import numpy as np
 import pyvista as pv
+
+import jmm.defs
 
 def plot_x(plotter, x, scale=1, sphere_radius=0.05, **kwargs):
     plotter.add_mesh(
@@ -33,7 +34,7 @@ def plot_wavefront(plotter, eik, opacity=1):
     # First, find the cells on the front---we initially take these to
     # be the cells which have exactly three VALID vertices.
     cells_on_front = \
-        cells[(eik.state[cells] == jmm.State.Valid.value).sum(1) == 3]
+        cells[(eik.state[cells] == jmm.defs.State.Valid.value).sum(1) == 3]
 
     # Next, we want to filter out any cells on the front that contain
     # the same triangle. To do this, we count the corresponding
@@ -41,7 +42,7 @@ def plot_wavefront(plotter, eik, opacity=1):
     tris_on_front = dict()
     for cell, state in zip(cells_on_front, eik.state[cells_on_front]):
         sorted_tri_inds = sorted(
-            i for i, s in zip(cell, state) if s == jmm.State.Valid.value)
+            i for i, s in zip(cell, state) if s == jmm.defs.State.Valid.value)
         key = tuple(sorted_tri_inds)
         if key not in tris_on_front:
             tris_on_front[key] = 1

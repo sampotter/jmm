@@ -109,6 +109,7 @@ void mesh3_get_diffractor(mesh3_s const *mesh, size_t i, size_t (*le)[2]);
 size_t mesh3_nbde(mesh3_s const *mesh);
 void mesh3_get_bde_inds(mesh3_s const *mesh, size_t l, size_t le[2]);
 void mesh3_set_bde(mesh3_s *mesh, size_t const le[2], bool diff);
+dbl mesh3_get_eps(mesh3_s const *mesh);
 
 #ifdef __cplusplus
 }

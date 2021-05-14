@@ -1,6 +1,48 @@
-from defs cimport bool, dbl
-from geom cimport rect3
-from mesh2 cimport mesh2
+from jmm.array_view cimport ArrayView
+from jmm.defs cimport bool, dbl
+from jmm.geom cimport rect3, tri3
+from jmm.rtree cimport robj
+
+cdef extern from "mesh2.h":
+    cdef struct mesh2:
+        pass
+
+    cdef struct mesh2_tri:
+        mesh2 *mesh
+        size_t l
+
+    void mesh2_alloc(mesh2 **mesh)
+    void mesh2_dealloc(mesh2 **mesh)
+    void mesh2_init(mesh2 *mesh, const dbl *verts, size_t nverts,
+                    const size_t *faces, size_t nfaces)
+    void mesh2_deinit(mesh2 *mesh)
+    size_t mesh2_get_num_points(const mesh2 *mesh)
+    dbl *mesh2_get_points_ptr(const mesh2 *mesh)
+    size_t mesh2_get_num_faces(const mesh2 *mesh)
+    size_t *mesh2_get_faces_ptr(const mesh2 *mesh)
+    rect3 mesh2_get_bounding_box(const mesh2 *mesh)
+    void mesh2_get_centroid(const mesh2 *mesh, size_t i, dbl *centroid)
+    void mesh2_get_vertex(const mesh2 *mesh, size_t i, size_t j, dbl *v)
+    bool mesh2_tri_bbox_overlap(const mesh2 *mesh, size_t i, const rect3 *bbox)
+    tri3 mesh2_get_tri(const mesh2 *mesh, size_t i)
+
+cdef class Mesh2Tri:
+    cdef mesh2_tri *_tri
+
+    @staticmethod
+    cdef from_robj_ptr(const robj *obj)
+
+cdef class Mesh2:
+    cdef:
+        bool ptr_owner
+        mesh2 *mesh
+        ArrayView verts_view
+        ArrayView faces_view
+
+    @staticmethod
+    cdef from_ptr(const mesh2 *mesh_ptr, ptr_owner=?)
+
+    cdef _set_views(self)
 
 cdef extern from "mesh3.h":
     cdef struct mesh3:
@@ -49,3 +91,21 @@ cdef extern from "mesh3.h":
     void mesh3_get_diffractor(const mesh3 *mesh, size_t i, size_t (*le)[2])
     void mesh3_get_bde_inds(const mesh3 *mesh, size_t l, size_t le[2])
     void mesh3_set_bde(mesh3 *mesh, const size_t le[2], bool diff)
+
+cdef class Mesh3Tetra:
+    cdef mesh3_tetra *_tetra
+
+    @staticmethod
+    cdef from_robj_ptr(const robj *obj)
+
+cdef class Mesh3:
+    cdef:
+        bool ptr_owner
+        mesh3 *mesh
+        ArrayView verts_view
+        ArrayView cells_view
+
+    @staticmethod
+    cdef from_ptr(mesh3 *mesh_ptr)
+
+    cdef _set_views(self)

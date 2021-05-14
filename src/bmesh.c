@@ -69,7 +69,7 @@ bool bmesh33_cell_intersect(bmesh33_cell_s const *cell, ray3 const *ray, dbl *t)
     // check whether we hit the level set by evaluating the Bezier
     // tetra to check if the ray hit (which is now parametrized by t =
     // t1) lies on the level set.
-    if (!mesh3_tetra_contains_point(&tetra, x0)) {
+    if (!mesh3_tetra_contains_point(&tetra, x0, &atol)) {
       mesh3_tetra_get_bary_coords(&tetra, x1, b1);
       bool hit = fabs(bb33_f(cell->bb, b1) - cell->level) < atol;
       if (hit)

@@ -2,34 +2,31 @@
 # running the rest of the script if running from python-mode in Emacs
 
 import colorcet as cc
-import jmm
 import numpy as np
 import pyvista as pv
 import pyvistaqt as pvqt
 import vtk
 
+import jmm.eik
+import jmm.jet
+import jmm.mesh
 import plotting
 
 ############################################################################
 # parameters
 
-vtu_path = None # 'room.vtu'
+vtu_path = 'sethian_shadow/Building.vtu'
+bc_path = None
 
-verts_path = 'Building_verts.bin'
-cells_path = 'Building_cells.bin'
-bc_path = 'bcs.pickle'
-
-dom_verts_path = 'Building_dom_verts.bin'
-dom_cells_path = 'Building_dom_cells.bin'
-
-lsrc = 0 if bc_path is None else None
+lsrc = 0
 l = None
-l0 = 6121
+l0 = None
 l1 = None
 l2 = None
 l3 = None
 lbad = None
 
+lsrc_color = 'pink'
 l_color = 'red'
 l0_color = 'purple'
 l1_color = 'blue'
@@ -40,8 +37,8 @@ lbad_color = 'green'
 plot_surf_tris = False
 plot_wavefront = True
 plot_ray_from_lsrc_to_l = False
-plot_lsrc = False
-plot_diffractors = True
+plot_lsrc = True
+plot_diffractors = False
 
 ############################################################################
 # GEOMETRY SETUP
@@ -54,13 +51,17 @@ if vtu_path:
 else:
     verts = np.fromfile(verts_path, dtype=np.float64)
     verts = verts.reshape(verts.size//3, 3)
-num_verts = verts.shape[0]
 
 if vtu_path:
     cells = grid.cells.reshape(-1, 5)[:, 1:].astype(np.uintp)
 else:
     cells = np.fromfile(cells_path, dtype=np.uintp)
     cells = cells.reshape(cells.size//4, 4)
+
+verts = verts[:7613]
+cells = cells[:31419]
+
+num_verts = verts.shape[0]
 
 ############################################################################
 # COMPUTE FACES FOR SURFACE MESH
@@ -81,24 +82,24 @@ faces = np.array(list(faces), dtype=np.uintp)
 ############################################################################
 # SOLVE
 
-mesh = jmm.Mesh3.from_verts_and_cells(verts, cells)
+mesh = jmm.mesh.Mesh3.from_verts_and_cells(verts, cells)
 for le in mesh.get_diff_edges():
     mesh.set_boundary_edge(*le, True)
 
-dom_mesh = None
-if dom_verts_path is not None:
-    assert dom_cells_path is not None
-    dom_verts = np.fromfile(dom_verts_path, dtype=np.float64)
-    dom_verts = dom_verts.reshape(dom_verts.size//3, 3)
-    dom_cells = np.fromfile(dom_cells_path, dtype=np.uintp)
-    dom_cells = dom_cells.reshape(dom_cells.size//4, 4)
-    dom_mesh = jmm.Mesh3.from_verts_and_cells(dom_verts, dom_cells)
-    diff_edges = list(dom_mesh.get_diff_edges())
-    assert len(diff_edges) > 0
-    for le in diff_edges:
-        mesh.set_boundary_edge(*le, True)
+# dom_mesh = None
+# if dom_verts_path is not None:
+#     assert dom_cells_path is not None
+#     dom_verts = np.fromfile(dom_verts_path, dtype=np.float64)
+#     dom_verts = dom_verts.reshape(dom_verts.size//3, 3)
+#     dom_cells = np.fromfile(dom_cells_path, dtype=np.uintp)
+#     dom_cells = dom_cells.reshape(dom_cells.size//4, 4)
+#     dom_mesh = jmm.Mesh3.from_verts_and_cells(dom_verts, dom_cells)
+#     diff_edges = list(dom_mesh.get_diff_edges())
+#     assert len(diff_edges) > 0
+#     for le in diff_edges:
+#         mesh.set_boundary_edge(*le, True)
 
-eik = jmm.Eik3(mesh)
+eik = jmm.eik.Eik3(mesh)
 
 # set up BCs
 lsrcs = []
@@ -127,17 +128,14 @@ if bc_path is not None:
             jet1 = jmm.Jet3(f[1], *Df[1])
             eik.add_valid_bde(*le, jet0, jet1)
 else:
-    eik.add_trial(lsrc, jmm.Jet3(0.0, np.nan, np.nan, np.nan))
+    eik.add_trial(lsrc, jmm.jet.Jet3.make_point_source(0))
     lsrcs.append(lsrc)
 
-# if l0 is None:
-#     eik.solve()
-# else:
-#     while eik.peek() != l0:
-#         eik.step()
-
-for _ in range(1000):
-    eik.step()
+if l0 is None:
+    eik.solve()
+else:
+    while eik.peek() != l0:
+        eik.step()
 
 ############################################################################
 # HELPER FUNCTIONS FOR PLOTTING
@@ -165,7 +163,7 @@ def plot_point(points, l, scale=1.25, color='white', opacity=1):
         color=color, opacity=opacity)
 
 def plot_jet(x, jet=None):
-    if isinstance(jet, jmm.Jet3):
+    if isinstance(jet, jmm.jet.Jet3):
         d = np.array([jet.fx, jet.fy, jet.fz])
     elif len(jet) > 3:
         d = np.array([jet[1], jet[2], jet[3]])
@@ -196,7 +194,7 @@ def plot_line(plotter, x, y, scale=1, color='white'):
         pv.Cylinder(xm, xd, scale*sphere_radius, d, capping=False),
         color=color)
 
-############################################################################
+
 # MAKE PLOTS
 
 surf_mesh = pv.PolyData(
@@ -206,7 +204,7 @@ surf_mesh = pv.PolyData(
 plotter.add_mesh(surf_mesh, color='white', opacity=0.25, show_edges=plot_surf_tris)
 
 highlight_inds = dict()
-if lsrc is not None: highlight_inds[lsrc] = 'pink'
+if lsrc is not None: highlight_inds[lsrc] = lsrc_color
 if l0 is not None:   highlight_inds[l0] = l0_color
 if isinstance(l, list):
     for l_ in l:
@@ -250,35 +248,5 @@ if plot_diffractors:
 
 ############################################################################
 
-if dom_mesh is not None:
-    for le in dom_mesh.get_diffractor(0):
-        plot_line(plotter, *verts[le], color='black')
-
-lvalid = []
-for m in range(num_verts):
-    if eik.is_valid(m):
-        plot_point(verts, m, 0.75, 'green')
-        plot_jet(verts[m], eik.jet[m])
-        if m not in lvalid:
-            lvalid.append(m)
-lvalid = np.array(lvalid)
-
-ltrial = []
-for m0 in lvalid:
-    for m1 in mesh.vv(m0):
-        if eik.is_valid(m1):
-            continue
-        elif eik.is_trial(m1):
-            plot_point(verts, m1, 0.75, 'yellow')
-            if m1 not in ltrial:
-                ltrial.append(m1)
-        else:
-            assert False
-ltrial = np.array(ltrial)
-
-D = []
-for m in ltrial:
-    dx = verts[np.unique(edges)] - verts[m]
-    D.append(np.sqrt(np.sum(dx**2, axis=1)).min())
-
-print(ltrial[np.argmin(D)])
+for _ in [_ for _ in range(num_verts) if eik.is_valid(_)]:
+    plot_point(verts, _, 0.75, 'green')

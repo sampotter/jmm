@@ -13,6 +13,6 @@ make -j || exit 1
 rm -r lib.macosx-10.15-x86_64-3.7
 rm -r temp.macosx-10.15-x86_64-3.7
 cd -
-python setup.py build_ext || exit 1
+python setup.py build || exit 1
 pip uninstall -y jmm
 python setup.py install || exit 1

@@ -1,4 +1,4 @@
-from defs cimport dbl
+from jmm.defs cimport dbl
 
 cdef extern from "jet.h":
     ctypedef struct jet3:
@@ -7,3 +7,6 @@ cdef extern from "jet.h":
         dbl fy
         dbl fz
     jet3 jet3_make_point_source(dbl tau)
+
+cdef class Jet3:
+    cdef jet3 jet

@@ -19,6 +19,8 @@ typedef struct {
 } xfer_tetra_wkspc_t;
 
 static void xfer_tetra(int const subgrid_ind[3], xfer_tetra_wkspc_t *wkspc) {
+  dbl const atol = 1e-14;
+
   // Get the Cartesian coordinates of the point in the subgrid indexed
   // by `subgrid_ind`.
   dbl point[3];
@@ -43,7 +45,7 @@ static void xfer_tetra(int const subgrid_ind[3], xfer_tetra_wkspc_t *wkspc) {
    */
   dbl b[4];
   tetra3 tetra = mesh3_get_tetra(wkspc->mesh, wkspc->lc);
-  if (tetra3_contains_point(&tetra, point)) {
+  if (tetra3_contains_point(&tetra, point, &atol)) {
     tetra3_get_bary_coords(&tetra, point, b);
     size_t l = ind2l3(dim, grid_ind);
     dbl y = bb33_f(&wkspc->bb, b);

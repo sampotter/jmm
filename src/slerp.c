@@ -66,9 +66,19 @@ static dbl slerp3_f(dbl const q[3], dbl const p[3][3], dbl const w[3]) {
 void slerp3(dbl const p[3][3], dbl const w[3], dbl q[3], dbl tol) {
   dbl const atol = 1e-14;
 
+  assert(dbl3_valid_bary_coord(w));
+
+  /* If one of the `w[i]` is nearly 1, then we just copy `p[i]` to `q`
+   * and return early. */
+  for (size_t i = 0; i < 3; ++i) {
+    if (w[i] > 1 - atol) {
+      dbl3_copy(p[i], q);
+      return;
+    }
+  }
+
   for (size_t i = 0; i < 3; ++i)
     assert(fabs(1 - dbl3_norm(p[i])) < atol);
-  assert(dbl3_valid_bary_coord(w));
 
   /* Initialize iterate is the normalized weighted combination of the
    * `p[i]`s. */

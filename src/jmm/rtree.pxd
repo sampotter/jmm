@@ -1,8 +1,7 @@
-from bmesh cimport bmesh33
-from defs cimport bool, dbl
-from geom cimport rect3, ray3
-from mesh2 cimport mesh2
-from mesh3 cimport mesh3
+from jmm.bmesh cimport bmesh33, Bmesh33
+from jmm.defs cimport bool, dbl
+from jmm.geom cimport rect3, ray3
+from jmm.mesh cimport mesh2, mesh3, Mesh2, Mesh3
 
 cdef extern from "rtree.h":
     cdef enum robj_type:
@@ -47,3 +46,24 @@ cdef extern from "rtree.h":
     bool rtree_query_bbox(const rtree *rtree, const rect3 *bbox)
     void rtree_intersect(const rtree *rtree, const ray3 *ray, isect *isect)
     void rtree_intersectN(const rtree *rtree, const ray3 *ray, size_t n, isect *isects)
+
+cdef class Robj:
+    cdef const robj *_obj
+
+    @staticmethod
+    cdef from_ptr(const robj *obj)
+
+cdef class Isect:
+    cdef isect _isect
+
+cdef class Rtree:
+    cdef:
+        bool ptr_owner
+        rtree *_rtree
+
+    @staticmethod
+    cdef from_ptr(rtree *rtree_ptr, ptr_owner=?)
+
+    cdef insert_bmesh33(self, Bmesh33 bmesh)
+    cdef insert_mesh2(self, Mesh2 mesh)
+    cdef insert_mesh3(self, Mesh3 mesh)

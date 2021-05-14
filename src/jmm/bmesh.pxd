@@ -1,8 +1,9 @@
-from bb cimport bb33
-from defs cimport bool, dbl
-from geom cimport ray3
-from jet cimport jet3
-from mesh3 cimport mesh3
+from jmm.bb cimport bb33
+from jmm.defs cimport bool, dbl
+from jmm.geom cimport ray3
+from jmm.jet cimport jet3
+from jmm.mesh cimport mesh3
+from jmm.rtree cimport robj
 
 cdef extern from "bmesh.h":
     cdef struct bmesh33_cell:
@@ -25,3 +26,20 @@ cdef extern from "bmesh.h":
     const mesh3 *bmesh33_get_mesh_ptr(const bmesh33 *bmesh)
     bmesh33 *bmesh33_restrict_to_level(const bmesh33 *bmesh, dbl level)
     bmesh33_cell bmesh33_get_cell(const bmesh33 *bmesh, size_t l)
+
+cdef class Bmesh33Cell:
+    cdef bmesh33_cell cell
+
+    @staticmethod
+    cdef from_robj_ptr(const robj *obj)
+
+    @staticmethod
+    cdef from_cell(bmesh33_cell cell)
+
+cdef class Bmesh33:
+    cdef:
+        bool ptr_owner
+        bmesh33 *bmesh
+
+    @staticmethod
+    cdef from_ptr(bmesh33 *bmesh_ptr, ptr_owner=?)

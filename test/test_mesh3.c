@@ -301,3 +301,11 @@ Ensure (mesh3, bdv_works_for_cube) {
 
   TEAR_DOWN_MESH();
 }
+
+Ensure (mesh3, get_num_diffractors_for_cube) {
+  SET_UP_CUBE_MESH();
+
+  assert_that(mesh3_get_num_diffractors(mesh), is_equal_to(0));
+
+  TEAR_DOWN_MESH();
+}

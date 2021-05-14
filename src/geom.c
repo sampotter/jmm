@@ -22,9 +22,9 @@ bool line3_point_colinear(line3 const *line, dbl const x[3], dbl atol) {
   return dbl3_dist(x, y) < atol;
 }
 
-bool mesh3_tetra_contains_point(mesh3_tetra_s const *tetra, dbl const x[3]) {
+bool mesh3_tetra_contains_point(mesh3_tetra_s const *tetra, dbl const x[3], dbl const *eps) {
   tetra3 tetra_ = mesh3_get_tetra(tetra->mesh, tetra->l);
-  return tetra3_contains_point(&tetra_, x);
+  return tetra3_contains_point(&tetra_, x, eps);
 }
 
 void mesh3_tetra_get_bary_coords(mesh3_tetra_s const *tetra, dbl const x[3], dbl b[4]) {
@@ -170,7 +170,8 @@ bool tri3_coplanar(tri3 const *tri, tri3 const *other_tri, dbl const *atol) {
 }
 
 static bool same_side(dbl const a[3], dbl const b[3], dbl const c[3],
-                      dbl const p[3], dbl const q[3]) {
+                      dbl const p[3], dbl const q[3],
+                      dbl const atol) {
   dbl ab[3]; dbl3_sub(b, a, ab);
   dbl ac[3]; dbl3_sub(c, a, ac);
   dbl ap[3]; dbl3_sub(p, a, ap);
@@ -178,20 +179,19 @@ static bool same_side(dbl const a[3], dbl const b[3], dbl const c[3],
 
   dbl n[3]; dbl3_cross(ab, ac, n);
 
-  dbl const atol = 1e-14;
-
   dbl n_dot_ap = shrink(dbl3_ndot(n, ap), atol);
   dbl n_dot_aq = shrink(dbl3_ndot(n, aq), atol);
 
   return !(signum(n_dot_ap) == -signum(n_dot_aq));
 }
 
-bool tetra3_contains_point(tetra3 const *tetra, dbl const x[3]) {
+bool tetra3_contains_point(tetra3 const *tetra, dbl const x[3], dbl const *eps) {
+  dbl const atol = eps ? *eps : 1e-14;
   dbl const (*v)[3] = tetra->v;
-  return same_side(v[0], v[1], v[2], v[3], x) &&
-         same_side(v[1], v[2], v[3], v[0], x) &&
-         same_side(v[2], v[3], v[0], v[1], x) &&
-         same_side(v[3], v[0], v[1], v[2], x);
+  return same_side(v[0], v[1], v[2], v[3], x, atol) &&
+         same_side(v[1], v[2], v[3], v[0], x, atol) &&
+         same_side(v[2], v[3], v[0], v[1], x, atol) &&
+         same_side(v[3], v[0], v[1], v[2], x, atol);
 }
 
 void tetra3_get_bary_coords(tetra3 const *tetra, dbl const x[3], dbl b[4]) {
