@@ -1,5 +1,7 @@
 import numpy as np
 
+from libc.string cimport memcpy
+
 from jmm.geom cimport Rect3
 from jmm.rtree cimport robj, robj_get_data
 
@@ -105,26 +107,49 @@ cdef class Mesh3:
             mesh3_deinit(self.mesh)
             mesh3_dealloc(&self.mesh)
 
+    def __init__(self, dbl[:, ::1] verts, size_t[:, ::1] cells,
+                 bool compute_bd_info=True):
+        self.ptr_owner = True
+        mesh3_alloc(&self.mesh)
+        cdef size_t nverts = verts.shape[0]
+        cdef size_t ncells = cells.shape[0]
+        mesh3_init(self.mesh, &verts[0, 0], nverts, &cells[0, 0], ncells,
+                   compute_bd_info)
+        self._set_views()
+
     @staticmethod
     def from_verts_and_cells(dbl[:, ::1] verts, size_t[:, ::1] cells,
                              compute_bd_info=True):
-        mesh = Mesh3()
-        mesh.ptr_owner = True
-        mesh3_alloc(&mesh.mesh)
-        cdef size_t nverts = verts.shape[0]
-        cdef size_t ncells = cells.shape[0]
-        mesh3_init(mesh.mesh, &verts[0, 0], nverts, &cells[0, 0], ncells,
-                   compute_bd_info)
-        mesh._set_views()
-        return mesh
+        return Mesh3(verts, cells, compute_bd_info)
 
     @staticmethod
     cdef from_ptr(mesh3 *mesh_ptr):
-        mesh = Mesh3()
+        cdef Mesh3 mesh = Mesh3.__new__(Mesh3)
         mesh.ptr_owner = False
         mesh.mesh = mesh_ptr
         mesh._set_views()
         return mesh
+
+    def __reduce__(self):
+        # TODO: each time we do this, we rebuild the mesh and
+        # recompute all the boundary information. We should be able to
+        # do this faster by reaching into mesh3 and pulling out that
+        # info. This is just a quick fix.
+
+        cdef dbl[:, ::1] verts = np.empty((self.num_verts, 3), dtype=np.float64)
+        memcpy(&verts[0, 0], mesh3_get_verts_ptr(self.mesh),
+               3*self.num_verts*sizeof(dbl))
+
+        cdef size_t[:, ::1] cells = np.empty((self.num_cells, 4), dtype=np.uintp)
+        memcpy(&cells[0, 0], mesh3_get_cells_ptr(self.mesh),
+               4*self.num_cells*sizeof(size_t))
+
+        cdef bool compute_bd_info = mesh3_has_bd_info(self.mesh)
+
+        return (
+            self.__class__,
+            (np.asarray(verts), np.asarray(cells), compute_bd_info)
+        )
 
     cdef _set_views(self):
         self.verts_view = ArrayView(2)
@@ -132,7 +157,7 @@ cdef class Mesh3:
         self.verts_view.ptr = <void *>mesh3_get_verts_ptr(self.mesh)
         self.verts_view.shape[0] = self.num_verts
         self.verts_view.shape[1] = 3
-        self.verts_view.strides[0] = 4*sizeof(dbl)
+        self.verts_view.strides[0] = 3*sizeof(dbl)
         self.verts_view.strides[1] = 1*sizeof(dbl)
         self.verts_view.format = 'd'
         self.verts_view.itemsize = sizeof(dbl)
@@ -323,3 +348,15 @@ cell edges of `jmm.Mesh3`.
         le[0] = i
         le[1] = j
         mesh3_set_bde(self.mesh, le, diff)
+
+    @property
+    def eps(self):
+        return mesh3_get_eps(self.mesh)
+
+    def get_face_normal(self, size_t l0, size_t l1, size_t l2):
+        if not self.bdf(l0, l1, l2):
+            raise KeyError('(%d, %d, %d) is not a face' % sorted([l0, l1, l2]))
+        cdef size_t[3] lf = [l0, l1, l2]
+        cdef dbl[::1] normal = np.empty((3,), dtype=np.float64)
+        mesh3_get_face_normal(self.mesh, lf, &normal[0])
+        return np.asarray(normal)

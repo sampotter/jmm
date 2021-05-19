@@ -194,7 +194,7 @@ def plot_line(plotter, x, y, scale=1, color='white'):
         pv.Cylinder(xm, xd, scale*sphere_radius, d, capping=False),
         color=color)
 
-
+############################################################################
 # MAKE PLOTS
 
 surf_mesh = pv.PolyData(

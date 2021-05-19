@@ -110,7 +110,7 @@ cdef class Eik3:
         cdef dbl[::1] f = np.array([_[0] for _ in jets])
         cdef dbl[:, ::1] Df = np.array([(_[1], _[2], _[3]) for _ in jets])
         cdef dbl[:, ::1] x = self.mesh.verts[vert_inds]
-        return Bb33(f, Df, x)
+        return Bb33.from_3d_data(f, Df, x)
 
     @property
     def t_in(self):

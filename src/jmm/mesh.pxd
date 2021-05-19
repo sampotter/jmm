@@ -91,6 +91,8 @@ cdef extern from "mesh3.h":
     void mesh3_get_diffractor(const mesh3 *mesh, size_t i, size_t (*le)[2])
     void mesh3_get_bde_inds(const mesh3 *mesh, size_t l, size_t le[2])
     void mesh3_set_bde(mesh3 *mesh, const size_t le[2], bool diff)
+    dbl mesh3_get_eps(const mesh3 *mesh)
+    void mesh3_get_face_normal(const mesh3 *mesh, const size_t lf[3], dbl normal[3])
 
 cdef class Mesh3Tetra:
     cdef mesh3_tetra *_tetra

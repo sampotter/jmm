@@ -72,10 +72,12 @@ int tagged_face_cmp(tagged_face_s const *f1, tagged_face_s const *f2) {
 }
 
 struct mesh3 {
-  dvec3 *verts;
+  dbl (*verts)[3];
   size_t nverts;
-  ind4 *cells;
+
+  size_t (*cells)[4];
   size_t ncells;
+
   size_t *vc;
   size_t *vc_offsets;
 
@@ -104,12 +106,12 @@ struct mesh3 {
 };
 
 tri3 mesh3_tetra_get_face(mesh3_tetra_s const *tetra, int f[3]) {
-  size_t *cv = &tetra->mesh->cells[tetra->l].data[0];
-  dvec3 *verts = tetra->mesh->verts;
+  size_t *cv = tetra->mesh->cells[tetra->l];
+  dbl (*verts)[3] = tetra->mesh->verts;
   tri3 tri;
-  memcpy(tri.v[0], &verts[cv[f[0]]].data[0], sizeof(dbl[3]));
-  memcpy(tri.v[1], &verts[cv[f[1]]].data[0], sizeof(dbl[3]));
-  memcpy(tri.v[2], &verts[cv[f[2]]].data[0], sizeof(dbl[3]));
+  memcpy(tri.v[0], verts[cv[f[0]]], sizeof(dbl[3]));
+  memcpy(tri.v[1], verts[cv[f[1]]], sizeof(dbl[3]));
+  memcpy(tri.v[2], verts[cv[f[2]]], sizeof(dbl[3]));
   return tri;
 }
 
@@ -131,7 +133,7 @@ static void init_vc(mesh3_s *mesh) {
   // vertex.
   for (size_t i = 0; i < mesh->ncells; ++i) {
     for (int j = 0; j < 4; ++j) {
-      size_t k = mesh->cells[i].data[j];
+      size_t k = mesh->cells[i][j];
       assert(k < mesh->nverts);
       ++nvc[k];
     }
@@ -155,7 +157,7 @@ static void init_vc(mesh3_s *mesh) {
   size_t *vc = malloc(sizeof(size_t)*vc_offsets[mesh->nverts]);
   for (size_t i = 0; i < mesh->ncells; ++i) {
     for (int j = 0; j < 4; ++j) {
-      size_t k = mesh->cells[i].data[j];
+      size_t k = mesh->cells[i][j];
       vc[vc_offsets[k] + nvc[k]++] = i;
     }
   }
@@ -269,8 +271,7 @@ static void get_bdf_nbs(mesh3_s const *mesh, size_t l, array_s *nb) {
 static bool bdfs_are_coplanar(mesh3_s const *mesh, size_t l0, size_t l1) {
   tri3 const tri0 = mesh3_get_tri(mesh, mesh->bdf[l0].lf);
   tri3 const tri1 = mesh3_get_tri(mesh, mesh->bdf[l1].lf);
-  dbl const atol = 1e-10;
-  return tri3_coplanar(&tri0, &tri1, &atol);
+  return tri3_coplanar(&tri0, &tri1, &mesh->eps);
 }
 
 static bool label_reflector(mesh3_s *mesh) {
@@ -398,7 +399,7 @@ static bool bdes_are_colinear(mesh3_s const *mesh, size_t l0, size_t l1) {
   x1[0] = mesh3_get_vert_ptr(mesh, le[1][0]);
   x1[1] = mesh3_get_vert_ptr(mesh, le[1][1]);
 
-  dbl const atol = 1e-10;
+  dbl const atol = mesh->eps;
   return line3_point_colinear(&line, x1[0], atol)
     && line3_point_colinear(&line, x1[1], atol);
 }
@@ -489,7 +490,7 @@ static void init_bd(mesh3_s *mesh) {
   // cell.
   size_t *C;
   for (size_t lc = 0; lc < mesh->ncells; ++lc) {
-    C = &mesh->cells[lc].data[0];
+    C = mesh->cells[lc];
     f[4*lc] = make_tagged_face(C[0], C[1], C[2], lc);
     f[4*lc + 1] = make_tagged_face(C[0], C[1], C[3], lc);
     f[4*lc + 2] = make_tagged_face(C[0], C[2], C[3], lc);
@@ -607,7 +608,7 @@ static void compute_geometric_quantities(mesh3_s *mesh) {
   for (size_t l = 0; l < mesh->ncells; ++l) {
     dbl x[4][3];
     for (int i = 0; i < 4; ++i)
-      mesh3_copy_vert(mesh, mesh->cells->data[i], x[i]);
+      mesh3_copy_vert(mesh, mesh->cells[l][i], x[i]);
     dbl h = min_tetra_altitude(x);
     mesh->min_tetra_alt = fmin(mesh->min_tetra_alt, h);
   }
@@ -618,12 +619,14 @@ static void compute_geometric_quantities(mesh3_s *mesh) {
     vv = malloc(nvv*sizeof(size_t));
     mesh3_vv(mesh, l, vv);
     for (size_t i = 0; i < nvv; ++i) {
-      dbl h = dbl3_dist(&mesh->verts[l].data[0], &mesh->verts[vv[i]].data[0]);
+      dbl h = dbl3_dist(mesh->verts[l], mesh->verts[vv[i]]);
       mesh->min_edge_length = fmin(mesh->min_edge_length, h);
     }
     free(vv);
   }
 
+  /* Compute mesh epsilon now. We need this to be set before computing
+   * any of the boundary information below. */
   mesh->eps = pow(mesh->min_edge_length, 3);
 }
 
@@ -633,25 +636,23 @@ void mesh3_init(mesh3_s *mesh,
                 bool compute_bd_info) {
   size_t k = 0;
 
-  mesh->verts = malloc(sizeof(dvec3)*nverts);
-  for (size_t i = 0; i < nverts; ++i) {
-    for (int j = 0; j < 3; ++j) {
-      mesh->verts[i].data[j] = verts[k++];
-    }
-  }
+  mesh->verts = malloc(nverts*sizeof(dbl[3]));
+  for (size_t i = 0; i < nverts; ++i)
+    for (int j = 0; j < 3; ++j)
+      mesh->verts[i][j] = verts[k++];
   mesh->nverts = nverts;
 
   k = 0;
 
-  mesh->cells = malloc(sizeof(ind4)*ncells);
-  for (size_t i = 0; i < ncells; ++i) {
-    for (int j = 0; j < 4; ++j) {
-      mesh->cells[i].data[j] = cells[k++];
-    }
-  }
+  mesh->cells = malloc(ncells*sizeof(size_t[4]));
+  for (size_t i = 0; i < ncells; ++i)
+    for (int j = 0; j < 4; ++j)
+      mesh->cells[i][j] = cells[k++];
   mesh->ncells = ncells;
 
   init_vc(mesh);
+
+  compute_geometric_quantities(mesh);
 
   mesh->has_bd_info = compute_bd_info;
   if (compute_bd_info) {
@@ -659,8 +660,6 @@ void mesh3_init(mesh3_s *mesh,
     init_bdf_labels(mesh);
     init_bde_labels(mesh);
   }
-
-  compute_geometric_quantities(mesh);
 }
 
 void mesh3_deinit(mesh3_s *mesh) {
@@ -692,35 +691,31 @@ void mesh3_deinit(mesh3_s *mesh) {
 }
 
 dbl const *mesh3_get_verts_ptr(mesh3_s const *mesh) {
-  return &mesh->verts[0].data[0];
+  return mesh->verts[0];
 }
 
 size_t const *mesh3_get_cells_ptr(mesh3_s const *mesh) {
-  return &mesh->cells[0].data[0];
-}
-
-dvec3 mesh3_get_vert(mesh3_s const *mesh, size_t i) {
-  return mesh->verts[i];
+  return mesh->cells[0];
 }
 
 dbl const *mesh3_get_vert_ptr(mesh3_s const *mesh, size_t i) {
-  return &mesh->verts[i].data[0];
+  return mesh->verts[i];
 }
 
 void mesh3_get_vert_ptrs(mesh3_s const *mesh, size_t const *l, int n,
                          dbl const **x) {
   for (int i = 0; i < n; ++i)
-    x[i] = &mesh->verts[l[i]].data[0];
+    x[i] = mesh->verts[l[i]];
 }
 
 void mesh3_copy_vert(mesh3_s const *mesh, size_t i, dbl *v) {
-  memcpy(v, &mesh->verts[i].data[0], 3*sizeof(dbl));
+  memcpy(v, mesh->verts[i], 3*sizeof(dbl));
 }
 
 tetra3 mesh3_get_tetra(mesh3_s const *mesh, size_t lc) {
   tetra3 tetra;
   for (int i = 0; i < 4; ++i)
-    mesh3_copy_vert(mesh, mesh->cells[lc].data[i], tetra.v[i]);
+    mesh3_copy_vert(mesh, mesh->cells[lc][i], tetra.v[i]);
   return tetra;
 }
 
@@ -743,7 +738,7 @@ void mesh3_get_centroid(mesh3_s const *mesh, size_t lc, dbl c[3]) {
 
 void mesh3_get_edge_centroid(mesh3_s const *mesh, size_t e[2], dbl c[3]) {
   assert(mesh3_is_edge(mesh, e));
-  dbl3_cc(mesh->verts[e[0]].data, mesh->verts[e[1]].data, 0.5, c);
+  dbl3_cc(mesh->verts[e[0]], mesh->verts[e[1]], 0.5, c);
 }
 
 size_t mesh3_ncells(mesh3_s const *mesh) {
@@ -759,7 +754,7 @@ void mesh3_get_bbox(mesh3_s const *mesh, rect3 *bbox) {
 
   min[0] = min[1] = min[2] = INFINITY;
   for (size_t l = 0; l < mesh->nverts; ++l) {
-    v = &mesh->verts[l].data[0];
+    v = mesh->verts[l];
     min[0] = fmin(min[0], v[0]);
     min[1] = fmin(min[1], v[1]);
     min[2] = fmin(min[2], v[2]);
@@ -767,7 +762,7 @@ void mesh3_get_bbox(mesh3_s const *mesh, rect3 *bbox) {
 
   max[0] = max[1] = max[2] = -INFINITY;
   for (size_t l = 0; l < mesh->nverts; ++l) {
-    v = &mesh->verts[l].data[0];
+    v = mesh->verts[l];
     max[0] = fmax(max[0], v[0]);
     max[1] = fmax(max[1], v[1]);
     max[2] = fmax(max[2], v[2]);
@@ -775,22 +770,24 @@ void mesh3_get_bbox(mesh3_s const *mesh, rect3 *bbox) {
 }
 
 void mesh3_get_cell_bbox(mesh3_s const *mesh, size_t i, rect3 *bbox) {
-  size_t const *cell = &mesh->cells[i].data[0];
+  size_t const *cell = mesh->cells[i];
 
-  dbl *min = bbox->min, *max = bbox->max;
+  dbl *min = bbox->min, *max = bbox->max, *v;
 
   min[0] = min[1] = min[2] = INFINITY;
   for (int i = 0; i < 4; ++i) {
-    min[0] = fmin(min[0], mesh->verts[cell[i]].data[0]);
-    min[1] = fmin(min[1], mesh->verts[cell[i]].data[1]);
-    min[2] = fmin(min[2], mesh->verts[cell[i]].data[2]);
+    v = mesh->verts[cell[i]];
+    min[0] = fmin(min[0], v[0]);
+    min[1] = fmin(min[1], v[1]);
+    min[2] = fmin(min[2], v[2]);
   }
 
   max[0] = max[1] = max[2] = -INFINITY;
   for (int i = 0; i < 4; ++i) {
-    max[0] = fmax(max[0], mesh->verts[cell[i]].data[0]);
-    max[1] = fmax(max[1], mesh->verts[cell[i]].data[1]);
-    max[2] = fmax(max[2], mesh->verts[cell[i]].data[2]);
+    v = mesh->verts[cell[i]];
+    max[0] = fmax(max[0], v[0]);
+    max[1] = fmax(max[1], v[1]);
+    max[2] = fmax(max[2], v[2]);
   }
 }
 
@@ -945,9 +942,9 @@ int mesh3_nvv(mesh3_s const *mesh, size_t i) {
 
   int nvv = 0;
   for (int p = 0; p < nvc; ++p) {
-    ind4 cell = mesh->cells[vc[p]];
+    size_t const *cell = mesh->cells[vc[p]];
     for (int q = 0; q < 4; ++q) {
-      size_t j = cell.data[q];
+      size_t j = cell[q];
       if (i == j || contains((void *)vv, nvv, &j, sizeof(size_t))) {
         continue;
       }
@@ -968,9 +965,9 @@ void mesh3_vv(mesh3_s const *mesh, size_t i, size_t *vv) {
 
   int k = 0;
   for (int p = 0; p < nvc; ++p) {
-    ind4 cell = mesh->cells[vc[p]];
+    size_t const *cell = mesh->cells[vc[p]];
     for (int q = 0; q < 4; ++q) {
-      size_t j = cell.data[q];
+      size_t j = cell[q];
       if (i == j || contains((void *)vv, k, &j, sizeof(size_t))) {
         continue;
       }
@@ -981,12 +978,12 @@ void mesh3_vv(mesh3_s const *mesh, size_t i, size_t *vv) {
   free(vc);
 }
 
-static int num_shared_verts(ind4 const *c1, ind4 const *c2) {
+static int num_shared_verts(size_t const *cell1, size_t const *cell2) {
   // TODO: speed up using SIMD?
   int n = 0;
   for (int p = 0; p < 4; ++p) {
     for (int q = 0; q < 4; ++q) {
-      if (c1->data[p] == c2->data[q]) {
+      if (cell1[p] == cell2[q]) {
         ++n;
         continue;
       }
@@ -996,11 +993,11 @@ static int num_shared_verts(ind4 const *c1, ind4 const *c2) {
 }
 
 int mesh3_ncc(mesh3_s const *mesh, size_t i) {
-  ind4 c = mesh->cells[i];
+  size_t const *cell = mesh->cells[i];
 
   int nvc[4], max_nvc = -1;
   for (int p = 0; p < 4; ++p) {
-    nvc[p] = mesh3_nvc(mesh, c.data[p]);
+    nvc[p] = mesh3_nvc(mesh, cell[p]);
     if (nvc[p] > max_nvc) max_nvc = nvc[p];
   }
 
@@ -1012,12 +1009,12 @@ int mesh3_ncc(mesh3_s const *mesh, size_t i) {
 
   size_t j, k;
   for (int p = 0; p < 4; ++p) {
-    j = c.data[p];
+    j = cell[p];
     mesh3_vc(mesh, j, vc);
     for (int q = 0; q < nvc[p]; ++q) {
       k = vc[q];
       if (i != k
-          && num_shared_verts(&c, &mesh->cells[k]) == 3
+          && num_shared_verts(cell, mesh->cells[k]) == 3
           && !contains(cc, ncc, &k, sizeof(size_t))) {
         cc[ncc++] = k;
       }
@@ -1031,11 +1028,11 @@ int mesh3_ncc(mesh3_s const *mesh, size_t i) {
 }
 
 void mesh3_cc(mesh3_s const *mesh, size_t i, size_t *cc) {
-  ind4 c = mesh->cells[i];
+  size_t const *cell = mesh->cells[i];
 
   int nvc[4], max_nvc = -1;
   for (int p = 0; p < 4; ++p) {
-    nvc[p] = mesh3_nvc(mesh, c.data[p]);
+    nvc[p] = mesh3_nvc(mesh, cell[p]);
     if (nvc[p] > max_nvc) max_nvc = nvc[p];
   }
 
@@ -1045,12 +1042,12 @@ void mesh3_cc(mesh3_s const *mesh, size_t i, size_t *cc) {
 
   size_t j, k;
   for (int p = 0; p < 4; ++p) {
-    j = c.data[p];
+    j = cell[p];
     mesh3_vc(mesh, j, vc);
     for (int q = 0; q < nvc[p]; ++q) {
       k = vc[q];
       if (i != k
-          && num_shared_verts(&c, &mesh->cells[k]) == 3
+          && num_shared_verts(cell, mesh->cells[k]) == 3
           && !contains(cc, ncc, &k, sizeof(size_t))) {
         cc[ncc++] = k;
       }
@@ -1064,7 +1061,7 @@ void mesh3_cc(mesh3_s const *mesh, size_t i, size_t *cc) {
  * different sets of vertices comprising the faces of the cell indexed
  * by `lc`, but returned in sorted order. */
 void mesh3_cf(mesh3_s const *mesh, size_t lc, size_t lf[4][3]) {
-  size_t const *cv = mesh->cells[lc].data;
+  size_t const *cv = mesh->cells[lc];
   for (size_t i = 0; i < 4; ++i) {
     for (size_t j = 0, k = 0; k < 4; ++k) {
       if (i == k)
@@ -1076,7 +1073,7 @@ void mesh3_cf(mesh3_s const *mesh, size_t lc, size_t lf[4][3]) {
 }
 
 void mesh3_cv(mesh3_s const *mesh, size_t i, size_t *cv) {
-  memcpy((void *)cv, (void *)&mesh->cells[i].data, 4*sizeof(size_t));
+  memcpy(cv, mesh->cells[i], 4*sizeof(size_t));
 }
 
 int mesh3_nec(mesh3_s const *mesh, size_t i, size_t j) {
@@ -1470,10 +1467,14 @@ mesh2_s *mesh3_get_surface_mesh(mesh3_s const *mesh) {
   // Grab all of the referenced vertices and splat them into a new
   // array. There will be duplicate vertices!
   dbl *verts = malloc(3*mesh->nbdf*sizeof(dbl[3]));
-  for (size_t lf = 0; lf < mesh->nbdf; ++lf)
-    for (int i = 0; i < 3; ++i)
+  for (size_t lf = 0; lf < mesh->nbdf; ++lf) {
+    tagged_face_s const *face = &mesh->bdf[lf];
+    for (int i = 0; i < 3; ++i) {
+      size_t lv = face->lf[i];
       for (int j = 0; j < 3; ++j)
-        verts[3*(3*lf + i) + j] = mesh->verts[mesh->bdf[lf].lf[i]].data[j];
+        verts[3*(3*lf + i) + j] = mesh->verts[lv][j];
+    }
+  }
 
   // The faces array is very easy to construct at this point---it's
   // just an array of 3*nbdf size_t's, filled with the values 0, ...,
@@ -1641,4 +1642,46 @@ void mesh3_set_bde(mesh3_s *mesh, size_t const le[2], bool diff) {
 
 dbl mesh3_get_eps(mesh3_s const *mesh) {
   return mesh->eps;
+}
+
+void mesh3_get_face_normal(mesh3_s const *mesh, size_t const lf[3], dbl normal[3]) {
+  assert(mesh3_bdf(mesh, lf));
+
+  dbl const *x0 = mesh3_get_vert_ptr(mesh, lf[0]);
+  dbl const *x1 = mesh3_get_vert_ptr(mesh, lf[1]);
+  dbl const *x2 = mesh3_get_vert_ptr(mesh, lf[2]);
+
+  dbl dx1[3], dx2[3];
+  dbl3_sub(x1, x0, dx1);
+  dbl3_sub(x2, x0, dx2);
+
+  dbl3_cross(dx1, dx2, normal);
+  dbl3_normalize(normal);
+
+  dbl h = mesh->min_edge_length/4;
+
+  dbl xp[3] = {
+    (x0[0] + x1[0] + x2[0])/3 + h*normal[0],
+    (x0[1] + x1[1] + x2[1])/3 + h*normal[1],
+    (x0[2] + x1[2] + x2[2])/3 + h*normal[2]
+  };
+
+  bool cell_contains_xp = false;
+
+  size_t nvc, *vc;
+  for (size_t i = 0; i < 3; ++i) {
+    nvc = mesh3_nvc(mesh, lf[i]);
+    vc = malloc(nvc*sizeof(size_t));
+    mesh3_vc(mesh, lf[i], vc);
+    for (size_t j = 0; j < nvc; ++j) {
+      if (mesh3_cell_contains_point(mesh, vc[j], xp)) {
+        cell_contains_xp = true;
+        break;
+      }
+    }
+    free(vc);
+  }
+
+  if (!cell_contains_xp)
+    dbl3_negate(normal);
 }
