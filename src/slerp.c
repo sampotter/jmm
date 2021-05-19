@@ -68,13 +68,29 @@ void slerp3(dbl const p[3][3], dbl const w[3], dbl q[3], dbl tol) {
 
   assert(dbl3_valid_bary_coord(w));
 
-  /* If one of the `w[i]` is nearly 1, then we just copy `p[i]` to `q`
-   * and return early. */
-  for (size_t i = 0; i < 3; ++i) {
-    if (w[i] > 1 - atol) {
-      dbl3_copy(p[i], q);
-      return;
-    }
+  /* Count and check which coefficients are approximately nonzero */
+  bool active[3];
+  size_t num_active = 0, active_inds[3];
+  for (size_t i = 0; i < 3; ++i)
+    if ((active[i] = w[i] > tol))
+      active_inds[num_active++] = i;
+
+  if (num_active == 1) {
+    dbl3_copy(p[active_inds[0]], q);
+    return;
+  }
+
+  if (num_active == 2) {
+    dbl v[2];
+    for (size_t i = 0; i < 2; ++i)
+      v[i] = w[active_inds[i]];
+
+    dbl normalize = fabs(v[0]) + fabs(v[1]);
+    v[0] /= normalize;
+    v[1] /= normalize;
+
+    slerp2(p[active_inds[0]], p[active_inds[1]], v, q);
+    return;
   }
 
   for (size_t i = 0; i < 3; ++i)
