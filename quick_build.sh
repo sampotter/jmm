@@ -48,7 +48,7 @@ cmake $CMAKE_ARGS .. || exit 1
 make -j || exit 1
 mv compile_commands.json ..
 cd ..
-python setup.py build || exit 1
+python setup.py build -j`nproc` || exit 1
 if pip list | grep jmm > /dev/null; then
     pip uninstall -y jmm
 fi
