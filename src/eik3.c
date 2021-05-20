@@ -387,50 +387,60 @@ static bool can_update_from_face(eik3_s const *eik,
 
 static
 size_t get_update_fan(eik3_s const *eik, size_t l0, size_t **l1, size_t **l2) {
-  // 1. get faces surrounding l0
+  size_t nvc = mesh3_nvc(eik->mesh, l0);
+  size_t *vc = malloc(nvc*sizeof(size_t));
+  mesh3_vc(eik->mesh, l0, vc);
 
-  int nve = mesh3_nve(eik->mesh, l0);
-  size_t (*ve)[2] = malloc(nve*sizeof(size_t[2]));
-  mesh3_ve(eik->mesh, l0, ve);
+  array_s *le_arr;
+  array_alloc(&le_arr);
+  array_init(le_arr, sizeof(size_t[2]), ARRAY_DEFAULT_CAPACITY);
 
-  // 2. count number of cells with exactly three valid or shadow states
+  bool is_valid[4];
+  size_t cv[4], le[2], num_valid;
+  for (size_t i = 0; i < nvc; ++i) {
+    mesh3_cv(eik->mesh, vc[i], cv);
 
-  int ntri = 0;
-  bool *updateable_tri = malloc(nve*sizeof(bool));
-  for (int i = 0; i < nve; ++i)
-    ntri += updateable_tri[i] =
-      can_update_from_face(eik, l0, ve[i][0], ve[i][1]);
+    num_valid = 0;
+    for (size_t j = 0; j < 4; ++j)
+      num_valid += is_valid[j] = eik->state[cv[j]] == VALID;
 
-  // 3. return if we didn't find any triangles we can update from
-
-  if (ntri == 0)
-    goto cleanup;
-
-  // 4. allocate some space for the l1 and l2 indices that we're going
-  // to pull out of these update triangles
-
-  *l1 = malloc(ntri*sizeof(size_t));
-  *l2 = malloc(ntri*sizeof(size_t));
-
-  // 5. walk the update triangles and grab the vertices that are
-  // distinct from l0, storing them in l1 and l2
-
-  int k = 0;
-  for (int i = 0; i < nve; ++i) {
-    if (!updateable_tri[i])
+    if (num_valid != 3)
       continue;
-    (*l1)[k] = ve[i][0];
-    (*l2)[k++] = ve[i][1];
+
+    size_t k = 0;
+    for (size_t j = 0; j < 4; ++j)
+      if (cv[j] != l0 && is_valid[j])
+        le[k++] = cv[j];
+    assert(k == 2);
+
+    SORT2(le[0], le[1]);
+
+    if (!can_update_from_face(eik, l0, le[0], le[1]))
+      continue;
+
+    if (array_contains(le_arr, &le))
+      continue;
+
+    array_append(le_arr, &le);
   }
-  assert(k == ntri);
 
-  // 6. clean up and return
+  size_t num_updates = array_size(le_arr);
 
-cleanup:
-  free(updateable_tri);
-  free(ve);
+  *l1 = malloc(num_updates*sizeof(size_t));
+  *l2 = malloc(num_updates*sizeof(size_t));
 
-  return ntri;
+  for (size_t i = 0; i < array_size(le_arr); ++i) {
+    array_get(le_arr, i, &le);
+    (*l1)[i] = le[0];
+    (*l2)[i] = le[1];
+  }
+
+  array_deinit(le_arr);
+  array_dealloc(&le_arr);
+
+  free(vc);
+
+  return num_updates;
 }
 
 static
