@@ -611,9 +611,6 @@ bool utetra_update_ray_is_physical(utetra_s const *utetra, eik3_s const *eik) {
       return false;
   }
 
-  if (num_int == 3 && mesh3_bdf(mesh, utetra->l))
-    return eik3_is_refl_bdf(eik, utetra->l);
-
   // TODO: the following section where we check to see if the stuff
   // below gives "an interior ray" can be wrapped up and reused for
   // both this and the corresponding section in utri.c...
@@ -665,7 +662,7 @@ bool utetra_update_ray_is_physical(utetra_s const *utetra, eik3_s const *eik) {
   if (!xm_in_cell || !xp_in_cell) {
     array_deinit(cells);
     array_dealloc(&cells);
-    return false;
+    return eik3_is_refl_bdf(eik, utetra->l);
   }
 
   /* Next, we'll pull out the boundary faces incident on these cells
