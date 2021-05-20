@@ -935,8 +935,13 @@ static void compute_t_out(eik3_s *eik, size_t l0) {
   par3_s par = eik3_get_par(eik, l0);
 
   size_t npar = par3_size(&par);
-  if (npar == 0)
+  if (npar == 0) {
+    /* If `l0` has no parents but it does have a BC for grad(T), then
+     * set `t_out[l0] = grad_T[l0]` before returning. */
+    if (eik->bdv_has_bc[l0] && dbl3_isfinite(&eik->jet[l0].fx))
+      dbl3_copy(&eik->jet[l0].fx, eik->t_out[l0]);
     return;
+  }
 
   size_t const *l = par.l;
   mesh3_s const *mesh = eik->mesh;
