@@ -130,21 +130,11 @@ cdef class Eik3:
 
     def add_valid_bdf(self, size_t l0, size_t l1, size_t l2,
                       Jet3 jet0, Jet3 jet1, Jet3 jet2):
-        cdef size_t lf[3]
-        lf[0] = l0
-        lf[1] = l1
-        lf[2] = l2
-        cdef jet3 jet[3]
-        jet[0] = jet0.jet
-        jet[1] = jet1.jet
-        jet[2] = jet2.jet
         eik3_add_valid_bdf(self.eik, lf, jet)
+        cdef size_t[3] lf = [l0, l1, l2]
+        cdef jet3[3] jet = [jet0.jet, jet1.jet, jet2.jet]
 
     def add_valid_bde(self, size_t l0, size_t l1, Jet3 jet0, Jet3 jet1):
-        cdef size_t le[2]
-        le[0] = l0
-        le[1] = l1
-        cdef jet3 jet[2]
-        jet[0] = jet0.jet
-        jet[1] = jet1.jet
+        cdef size_t[2] le = [l0, l1]
+        cdef jet3[2] jet = [jet0.jet, jet1.jet]
         eik3_add_valid_bde(self.eik, le, jet)
