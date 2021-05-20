@@ -187,8 +187,30 @@ void dbl3_copy(dbl const u[3], dbl v[3]) {
   v[2] = u[2];
 }
 
-dbl dbl3_ndot(dbl const u[3], dbl const v[3]) {
-  return dblN_ndot(u, v, 3); // TODO: inline and optimize me!
+dbl dbl3_ndot(dbl const * restrict u, dbl const * restrict v) {
+  dbl uv[3] = {u[0]*v[0], u[1]*v[1], u[2]*v[2]};
+  return dbl3_nsum(uv);
+}
+
+dbl dbl3_nsum(dbl const *u) {
+  volatile dbl sum = 0, c = 0, t, z;
+
+  z = u[0];
+  t = sum + z;
+  c += fabs(sum) < fabs(z) ? (z - t) + sum : (sum - t) + z;
+  sum = t;
+
+  z = u[1];
+  t = sum + z;
+  c += fabs(sum) < fabs(z) ? (z - t) + sum : (sum - t) + z;
+  sum = t;
+
+  z = u[2];
+  t = sum + z;
+  c += fabs(sum) < fabs(z) ? (z - t) + sum : (sum - t) + z;
+  sum = t;
+
+  return sum + c;
 }
 
 bool dbl3_valid_bary_coord(dbl const b[3]) {
@@ -313,7 +335,7 @@ void dblN_minmax(dbl const *x, size_t n, dbl *min, dbl *max) {
 /**
  * Dot product implemented using a Neumaier sum (see `dblN_nsum`).
  */
-dbl dblN_ndot(dbl const *x, dbl const *y, size_t n) {
+dbl dblN_ndot(dbl const * restrict x, dbl const * restrict y, size_t n) {
   volatile dbl sum = 0, c = 0, t, z;
   for (size_t i = 0; i < n; ++i) {
     z = x[i]*y[i];
