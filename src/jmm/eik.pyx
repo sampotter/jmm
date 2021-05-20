@@ -93,6 +93,14 @@ cdef class Eik3:
         return np.asarray(self.jet_view)
 
     @property
+    def T(self):
+        return np.array([_[0] for _ in self.jet])
+
+    @property
+    def grad_T(self):
+        return np.array([(_[1], _[2], _[3]) for _ in self.jet])
+
+    @property
     def state(self):
         return np.asarray(self.state_view)
 
