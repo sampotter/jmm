@@ -39,14 +39,11 @@ void slerp2(dbl const p0[3], dbl const p1[3], dbl const w[2], dbl q[3]) {
 static dbl arclength(dbl const p[3], dbl const q[3]) {
   dbl dot = dbl3_dot(p, q);
 
+  assert(dot >= -1 + 1e-7);
+
   /* If `q` and `q0` are very close together, `acos` is singular, so
    * we just compute the Euclidean distance instead. */
-  if (dot > 1 - 1e-7)
-    return dbl3_dist(p, q);
-  else if (dot < -1 + 1e-7)
-    assert(false);
-  else
-    return acos(dot);
+  return dot > 1 - 1e-7 ? dbl3_dist(p, q) : acos(dot);
 }
 
 static dbl slerp3_f(dbl const q[3], dbl const p[3][3], dbl const w[3]) {
@@ -64,7 +61,9 @@ static dbl slerp3_f(dbl const q[3], dbl const p[3][3], dbl const w[3]) {
  * vectors to average, `w` is a vector of barycentric coordinates, and
  * the result is written to `q`. */
 void slerp3(dbl const p[3][3], dbl const w[3], dbl q[3], dbl tol) {
+#if JMM_DEBUG
   dbl const atol = 1e-14;
+#endif
 
   assert(dbl3_valid_bary_coord(w));
 
@@ -104,12 +103,16 @@ void slerp3(dbl const p[3][3], dbl const w[3], dbl q[3], dbl tol) {
 
   dbl f0 = slerp3_f(q0, p, w), f;
 
+#if JMM_DEBUG
   size_t niter = 0, max_niter = 20;
+#endif
 
   /* Fixed point iteration to find `q`: */
   dbl alpha[3], qt[3], P[3][3], dist, t;
   do {
+#if JMM_DEBUG
     assert(niter++ < max_niter);
+#endif
 
     /* Compute the normalize factor used to project each `p[i]`. */
     for (size_t i = 0; i < 3; ++i)
