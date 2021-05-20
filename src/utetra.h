@@ -15,6 +15,11 @@ typedef struct utetra_spec {
   state_e state[3];
   dbl xhat[3], x[3][3];
   jet3 jet[3];
+
+  /* Tolerance for SQP iteration. Method has converged if |p| <=
+   * tol*(1 + |p0|), where p is the constrained Newton step at each
+   * iteration. */
+  dbl tol;
 } utetra_spec_s;
 
 utetra_spec_s utetra_spec_empty();

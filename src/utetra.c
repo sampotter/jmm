@@ -32,12 +32,15 @@ utetra_spec_s utetra_spec_empty() {
       {.f = INFINITY, .fx = NAN, .fy = NAN, .fz = NAN},
       {.f = INFINITY, .fx = NAN, .fy = NAN, .fz = NAN},
       {.f = INFINITY, .fx = NAN, .fy = NAN, .fz = NAN}
-    }
+    },
+    .tol = NAN
   };
 }
 
 utetra_spec_s utetra_spec_from_eik_and_inds(eik3_s const *eik, size_t l,
                                             size_t l0, size_t l1, size_t l2) {
+  dbl h = mesh3_get_min_edge_length(eik3_get_mesh(eik));
+
   state_e const *state = eik3_get_state_ptr(eik);
   return (utetra_spec_s) {
     .eik = eik,
@@ -54,12 +57,15 @@ utetra_spec_s utetra_spec_from_eik_and_inds(eik3_s const *eik, size_t l,
       {.f = INFINITY, .fx = NAN, .fy = NAN, .fz = NAN},
       {.f = INFINITY, .fx = NAN, .fy = NAN, .fz = NAN},
       {.f = INFINITY, .fx = NAN, .fy = NAN, .fz = NAN}
-    }
+    },
+    .tol = pow(h, 4)
   };
 }
 
 utetra_spec_s utetra_spec_from_eik_without_l(eik3_s const *eik, dbl const x[3],
                                              size_t l0, size_t l1, size_t l2) {
+  dbl h = mesh3_get_min_edge_length(eik3_get_mesh(eik));
+
   state_e const *state = eik3_get_state_ptr(eik);
   return (utetra_spec_s) {
     .eik = eik,
@@ -76,18 +82,22 @@ utetra_spec_s utetra_spec_from_eik_without_l(eik3_s const *eik, dbl const x[3],
       {.f = INFINITY, .fx = NAN, .fy = NAN, .fz = NAN},
       {.f = INFINITY, .fx = NAN, .fy = NAN, .fz = NAN},
       {.f = INFINITY, .fx = NAN, .fy = NAN, .fz = NAN}
-    }
+    },
+    .tol = pow(h, 4)
   };
 }
 
 utetra_spec_s utetra_spec_from_ptrs(mesh3_s const *mesh, jet3 const *jet,
                                     size_t l, size_t l0, size_t l1, size_t l2) {
+  dbl h = mesh3_get_min_edge_length(mesh);
+
   utetra_spec_s spec = {
     .eik = NULL,
     .lhat = NO_INDEX,
     .l = {NO_INDEX, NO_INDEX, NO_INDEX},
     .state = {UNKNOWN, UNKNOWN, UNKNOWN},
-    .jet = {jet[l0], jet[l1], jet[l2]}
+    .jet = {jet[l0], jet[l1], jet[l2]},
+    .tol = pow(h, 4)
   };
 
   mesh3_copy_vert(mesh, l, spec.xhat);
@@ -106,6 +116,8 @@ struct utetra {
   dbl p[2]; // Newton step
   dbl x_minus_xb[3];
   dbl L;
+
+  dbl tol;
   int niter;
 
   size_t lhat, l[3];
@@ -187,6 +199,8 @@ bool utetra_init(utetra_s *u, utetra_spec_s const *spec) {
   u->p[0] = u->p[1] = NAN;
   u->x_minus_xb[0] = u->x_minus_xb[1] = u->x_minus_xb[2] = NAN;
   u->L = NAN;
+
+  u->tol = spec->tol;
 
   mesh3_s const *mesh = spec->eik ? eik3_get_mesh(spec->eik) : NULL;
 
@@ -427,7 +441,7 @@ void utetra_solve(utetra_s *cf, dbl const *lam) {
   // Newton's method, since it takes into account the constraints
   // while cf->p doesn't.
   int const max_niter = 100;
-  dbl const atol = 1e-15, rtol = 1e-15, tol = rtol*dbl2_norm(cf->p) + atol;
+  dbl const tol = cf->tol*(1 + dbl2_norm(cf->p));
   for (int _ = 0; _ < max_niter; ++_) {
     if (dbl2_norm(cf->p) <= tol)
       break;
