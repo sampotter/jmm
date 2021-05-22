@@ -26,9 +26,14 @@ class Domain(Logger):
         self.log.info('domain has %d vertices and %d cells',
                       num_dom_verts, num_dom_cells)
 
+        # Create extended mesh. When we do this, we need to insert the
+        # boundary faces and diffracting edges into the new mesh to
+        # ensure consistency between the computed solutions.
         self.extended_mesh = jmm.mesh.Mesh3(extended_verts, extended_cells)
         for le in self.mesh.get_diff_edges():
             self.extended_mesh.set_boundary_edge(*le, True)
+        for lf in self.mesh.get_boundary_faces():
+            self.extended_mesh.set_boundary_face(*lf, True)
 
         self.log.info('extended domain has %d vertices and %d cells',
                       extended_verts.shape[0], extended_cells.shape[0])
