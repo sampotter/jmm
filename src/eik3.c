@@ -933,10 +933,16 @@ static void compute_t_in(eik3_s *eik, size_t l0) {
 static void compute_t_out(eik3_s *eik, size_t l0) {
   assert(eik->state[l0] == VALID);
 
-  par3_s par = eik3_get_par(eik, l0);
+  size_t num_active;
+  size_t l[3] = {NO_PARENT, NO_PARENT, NO_PARENT};
+  dbl b[3] = {NAN, NAN, NAN};
+  {
+    par3_s par = eik3_get_par(eik, l0);
+    num_active = par3_num_active(&par);
+    par3_get_active(&par, l, b);
+  }
 
-  size_t npar = par3_size(&par);
-  if (npar == 0) {
+  if (num_active == 0) {
     /* If `l0` has no parents but it does have a BC for grad(T), then
      * set `t_out[l0] = grad_T[l0]` before returning. */
     if (eik->bdv_has_bc[l0] && dbl3_isfinite(&eik->jet[l0].fx))
@@ -944,13 +950,12 @@ static void compute_t_out(eik3_s *eik, size_t l0) {
     return;
   }
 
-  size_t const *l = par.l;
   mesh3_s const *mesh = eik->mesh;
   dbl const *x0 = mesh3_get_vert_ptr(mesh, l0);
 
-  dbl t_out[npar][3];
-  for (size_t i = 0; i < npar; ++i) {
-    if (eik3_is_point_source(eik, par.l[i])) {
+  dbl t_out[num_active][3];
+  for (size_t i = 0; i < num_active; ++i) {
+    if (eik3_is_point_source(eik, l[i])) {
       dbl3_sub(x0, mesh3_get_vert_ptr(mesh, l[i]), t_out[i]);
       dbl3_normalize(t_out[i]);
     } else if (dbl3_isfinite(eik->t_out[l[i]])) {
@@ -960,19 +965,40 @@ static void compute_t_out(eik3_s *eik, size_t l0) {
     }
   }
 
-  bool t_out_finite = dbl3_isfinite(t_out[0]);
-  if (t_out_finite)
-    for (size_t i = 1; i < npar; ++i)
-      assert(dbl3_isfinite(t_out[i]));
+  bool finite_t_out[num_active];
+  for (size_t i = 0; i < num_active; ++i)
+    finite_t_out[i] = dbl3_isfinite(t_out[i]);
 
-  if (npar == 1)
-    dbl3_copy(t_out[0], eik->t_out[l0]);
-  else if (npar == 2 && t_out_finite)
-    slerp2(t_out[0], t_out[1], par.b, eik->t_out[l0]);
-  else if (npar == 2)
+  /* If `l0` was updated from a diffracting edge, set `t_out[l0]`
+   * using `jet[l0`. */
+  if (num_active == 2 && !finite_t_out[0] && !finite_t_out[1]) {
+    assert(mesh3_bde(mesh, l));
     dbl3_copy(&eik->jet[l0].fx, eik->t_out[l0]);
-  else if (npar == 3)
-    slerp3(t_out, par.b, eik->t_out[l0], eik->h3);
+    return;
+  }
+
+  /* Now we fill in any missing `t_out` vectors, assuming that these
+   * points must coincide with vertices that are terminal points of a
+   * diffracting edge. */
+  for (size_t i = 0; i < num_active; ++i) {
+    if (finite_t_out[i])
+      continue;
+    assert(mesh3_vert_incident_on_diff_edge(mesh, l[i]));
+    assert(eik->bdv_has_bc[l[i]]);
+    dbl3_sub(x0, mesh3_get_vert_ptr(mesh, l[i]), t_out[i]);
+    dbl3_normalize(t_out[i]);
+  }
+
+  /* All of the `t_out` vectors should be finite at this point */
+  for (size_t i = 0; i < num_active; ++i)
+    assert(dbl3_isfinite(t_out[i]));
+
+  if (num_active == 1)
+    dbl3_copy(t_out[0], eik->t_out[l0]);
+  else if (num_active == 2)
+    slerp2(t_out[0], t_out[1], b, eik->t_out[l0]);
+  else if (num_active == 3)
+    slerp3(t_out, b, eik->t_out[l0], eik->h3);
   else
     assert(false);
 }
