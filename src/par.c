@@ -64,3 +64,28 @@ void par3_get_xb(par3_s const *par, eik3_s const *eik, dbl xb[3]) {
 bool par3_is_empty(par3_s const *par) {
   return par->l[0] == NO_PARENT;
 }
+
+size_t par3_num_active(par3_s const *par) {
+  dbl const atol = 1e-14;
+  size_t num_active = 0;
+  for (size_t i = 0; i < 3; ++i)
+    num_active += par->l[i] != NO_PARENT && par->b[i] > atol;
+  return num_active;
+}
+
+void par3_get_active(par3_s const *par, size_t *l, dbl *b) {
+  dbl const atol = 1e-14;
+  size_t j = 0;
+  for (size_t i = 0; i < 3; ++i)
+    if (par->l[i] != NO_PARENT && par->b[i] > atol) {
+      l[j] = par->l[i];
+      b[j++] = par->b[i];
+    }
+
+  /* Normalize the active coefficients */
+  dbl b_norm1 = 0;
+  for (size_t i = 0; i < j; ++i)
+    b_norm1 += fabs(b[i]);
+  for (size_t i = 0; i < j; ++i)
+    b[i] /= b_norm1;
+}
