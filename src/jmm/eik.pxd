@@ -25,7 +25,8 @@ cdef extern from "eik3.h":
     par3 eik3_get_par(const eik3 *eik, size_t l)
     dbl *eik3_get_t_in_ptr(const eik3 *eik)
     dbl *eik3_get_t_out_ptr(const eik3 *eik)
-    void eik3_add_valid_bdf(eik3 *eik, const size_t lf[3], const jet3 jet[3])
+    void eik3_add_valid_bdf(eik3 *eik, const size_t lf[3], const jet3 jet[3],
+                            const dbl t_in[3][3])
     void eik3_add_valid_bde(eik3 *eik, const size_t le[2], const jet3 jet[2])
 
 cdef class Eik3:
