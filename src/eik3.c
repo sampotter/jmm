@@ -1148,7 +1148,8 @@ dbl *eik3_get_t_out_ptr(eik3_s const *eik) {
   return eik->t_out[0];
 }
 
-void eik3_add_valid_bdf(eik3_s *eik, size_t const lf[3], jet3 const jet[3]) {
+void eik3_add_valid_bdf(eik3_s *eik, size_t const lf[3], jet3 const jet[3],
+                        dbl const t_in[3][3]) {
   /* We'd like to uncomment the following line, but it creates some
    * problems if the domain is extended. Might need to introduce an
    * "extended" flag to eik3. */
@@ -1160,10 +1161,9 @@ void eik3_add_valid_bdf(eik3_s *eik, size_t const lf[3], jet3 const jet[3]) {
 
   dbl t_in[3];
   for (size_t i = 0; i < 3; ++i) {
-    dbl3_normalized(&jet[i].fx, t_in);
     if (dbl3_isfinite(eik->t_in[lf[i]]))
-      assert(dbl3_dist(t_in, eik->t_in[lf[i]]) < 1e-14);
-    dbl3_copy(t_in, eik->t_in[lf[i]]);
+      assert(dbl3_dist(t_in[i], eik->t_in[lf[i]]) < 1e-14);
+    dbl3_copy(t_in[i], eik->t_in[lf[i]]);
   }
 }
 
