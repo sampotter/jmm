@@ -40,6 +40,12 @@ typedef enum state {
   UNKNOWN
 } state_e;
 
+typedef enum ftype {
+  FTYPE_POINT_SOURCE,
+  FTYPE_REFLECTION,
+  FTYPE_EDGE_DIFFRACTION
+} ftype_e;
+
 /**
  * An enum encoding the "type" of slowness function to be
  * used. Specifically, this encodes the manner in which slowness data

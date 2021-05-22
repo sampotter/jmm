@@ -104,6 +104,8 @@ struct eik3 {
 
   /* Useful statistics for debugging */
   int num_accepted; /* number of nodes fixed by `eik3_step` */
+
+  ftype_e ftype;
 };
 
 void eik3_alloc(eik3_s **eik) {
@@ -128,8 +130,9 @@ static void setpos(void *ptr, int l, int pos) {
   eik->pos[l] = pos;
 }
 
-void eik3_init(eik3_s *eik, mesh3_s *mesh) {
+void eik3_init(eik3_s *eik, mesh3_s *mesh, ftype_e ftype) {
   eik->mesh = mesh;
+  eik->ftype = ftype;
 
   size_t nverts = mesh3_nverts(mesh);
 
@@ -1174,8 +1177,15 @@ dbl *eik3_get_t_out_ptr(eik3_s const *eik) {
   return eik->t_out[0];
 }
 
-void eik3_add_valid_bdf(eik3_s *eik, size_t const lf[3], jet3 const jet[3],
-                        dbl const t_in[3][3]) {
+void eik3_add_pt_src_BCs(eik3_s *eik, size_t l, jet3 jet) {
+  assert(eik->ftype == FTYPE_POINT_SOURCE);
+  eik3_add_trial(eik, l, jet);
+}
+
+void eik3_add_refl_BCs(eik3_s *eik, size_t const lf[3], jet3 const jet[3],
+                       dbl const t_in[3][3]) {
+  assert(eik->ftype == FTYPE_REFLECTION);
+
   /* We'd like to uncomment the following line, but it creates some
    * problems if the domain is extended. Might need to introduce an
    * "extended" flag to eik3. */
@@ -1213,7 +1223,9 @@ void eik3_add_valid_bdf(eik3_s *eik, size_t const lf[3], jet3 const jet[3],
   }
 }
 
-void eik3_add_valid_bde(eik3_s *eik, size_t const le[2], jet3 const jet[2]) {
+void eik3_add_diff_edge_BCs(eik3_s *eik, size_t const le[2], jet3 const jet[2]) {
+  assert(eik->ftype == FTYPE_EDGE_DIFFRACTION);
+
   assert(mesh3_is_diff_edge(eik->mesh, le));
 
   /* Get data for setting up cubic polynomial with boundary data. */
@@ -1309,4 +1321,8 @@ bool eik3_has_bde_bc(eik3_s const *eik, size_t const le[2]) {
     }
   }
   return false;
+}
+
+ftype_e eik3_get_ftype(eik3_s const *eik) {
+  return eik->ftype;
 }

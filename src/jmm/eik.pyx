@@ -1,5 +1,9 @@
 import numpy as np
 
+from jmm.defs import Ftype
+
+cimport jmm.defs
+
 from jmm.bb cimport Bb33
 from jmm.grid cimport Grid3
 from jmm.jet cimport Jet3
@@ -8,10 +12,26 @@ from jmm.par cimport par3, Parent3
 from jmm.xfer cimport xfer
 
 cdef class Eik3:
-    def __cinit__(self, Mesh3 mesh):
-        eik3_alloc(&self.eik)
-        eik3_init(self.eik, mesh.mesh)
+    def __init__(self, *args):
+        if len(args) > 0:
+            raise RuntimeError('construct Eik3 using factory functions')
 
+    def __cinit__(self, *args):
+        if len(args) > 0:
+            raise RuntimeError('construct Eik3 using factory functions')
+
+    @staticmethod
+    def from_mesh_and_ftype(Mesh3 mesh, ftype):
+        if not isinstance(ftype, Ftype):
+            raise ValueError('ftype argument not an jmm.defs.Ftype instance')
+
+        eik = Eik3()
+        eik3_alloc(&eik.eik)
+        eik3_init(eik.eik, mesh.mesh, ftype.value)
+        eik._init_views()
+        return eik
+
+    def _init_views(self):
         self.jet_view = ArrayView(1)
         self.jet_view.readonly = True
         self.jet_view.ptr = <void *>eik3_get_jet_ptr(self.eik)
@@ -60,9 +80,6 @@ cdef class Eik3:
 
     def solve(self):
         eik3_solve(self.eik)
-
-    def add_trial(self, size_t ind, Jet3 jet):
-        eik3_add_trial(self.eik, ind, jet.jet)
 
     def is_far(self, size_t ind):
         return eik3_is_far(self.eik, ind)
@@ -128,15 +145,32 @@ cdef class Eik3:
     def t_out(self):
         return np.asarray(self.t_out_view)
 
-    def add_valid_bdf(self, size_t l0, size_t l1, size_t l2,
-                      Jet3 jet0, Jet3 jet1, Jet3 jet2, dbl[:, ::1] t_in):
+    @property
+    def ftype(self):
+        ftype = Ftype(eik3_get_ftype(self.eik))
+        return ftype
+
+    def add_pt_src_BCs(self, size_t l, Jet3 jet):
+        if self.ftype != Ftype.PointSource:
+            raise RuntimeError(
+                'tried to add point source BCs to %s field' % str(self.ftype))
+        eik3_add_pt_src_BCs(self.eik, l, jet.jet)
+
+    def add_refl_BCs(self, size_t l0, size_t l1, size_t l2,
+                     Jet3 jet0, Jet3 jet1, Jet3 jet2, dbl[:, ::1] t_in):
+        if self.ftype != Ftype.Reflection:
+            raise RuntimeError(
+                'tried to add reflection BCs to %s field' % str(self.ftype))
         if t_in.shape[0] != 3 or t_in.shape[1] != 3:
             raise ValueError('t_in should have shape (3, 3)')
         cdef size_t[3] lf = [l0, l1, l2]
         cdef jet3[3] jet = [jet0.jet, jet1.jet, jet2.jet]
-        eik3_add_valid_bdf(self.eik, lf, jet, <const dbl(*)[3]>&t_in[0, 0])
+        eik3_add_refl_BCs(self.eik, lf, jet, <const dbl(*)[3]>&t_in[0, 0])
 
-    def add_valid_bde(self, size_t l0, size_t l1, Jet3 jet0, Jet3 jet1):
+    def add_diff_edge_BCs(self, size_t l0, size_t l1, Jet3 jet0, Jet3 jet1):
+        if self.ftype != Ftype.EdgeDiffraction:
+            raise RuntimeError(
+                'tried to add edge diffraction BCs to %s field' % str(self.ftype))
         cdef size_t[2] le = [l0, l1]
         cdef jet3[2] jet = [jet0.jet, jet1.jet]
-        eik3_add_valid_bde(self.eik, le, jet)
+        eik3_add_diff_edge_BCs(self.eik, le, jet)

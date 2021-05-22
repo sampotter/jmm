@@ -11,7 +11,7 @@ extern "C" {
 
 void eik3_alloc(eik3_s **eik);
 void eik3_dealloc(eik3_s **eik);
-void eik3_init(eik3_s *eik, mesh3_s *mesh);
+void eik3_init(eik3_s *eik, mesh3_s *mesh, ftype_e ftype);
 void eik3_deinit(eik3_s *eik);
 size_t eik3_peek(eik3_s const *eik);
 size_t eik3_step(eik3_s *eik);
@@ -34,12 +34,14 @@ void eik3_get_DT(eik3_s const *eik, size_t l, dbl DT[3]);
 bool eik3_is_refl_bdf(eik3_s const *eik, size_t const l[3]);
 dbl *eik3_get_t_in_ptr(eik3_s const *eik);
 dbl *eik3_get_t_out_ptr(eik3_s const *eik);
-void eik3_add_valid_bdf(eik3_s *eik, size_t const lf[3], jet3 const jet[3],
-                        dbl const t_in[3][3]);
-void eik3_add_valid_bde(eik3_s *eik, size_t const le[2], jet3 const jet[2]);
+void eik3_add_pt_src_BCs(eik3_s *eik, size_t l, jet3 jet);
+void eik3_add_refl_BCs(eik3_s *eik, size_t const lf[3], jet3 const jet[3],
+                       dbl const t_in[3][3]);
+void eik3_add_diff_edge_BCs(eik3_s *eik, size_t const le[2], jet3 const jet[2]);
 void eik3_set_bde_bc(eik3_s *eik, size_t const le[2], bb31 const *bb);
 bool eik3_get_bde_bc(eik3_s const *eik, size_t const le[2], bb31 *bb);
 bool eik3_has_bde_bc(eik3_s const *eik, size_t const le[2]);
+ftype_e eik3_get_ftype(eik3_s const *eik);
 
 #ifdef __cplusplus
 }

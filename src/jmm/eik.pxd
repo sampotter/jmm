@@ -1,5 +1,5 @@
 from jmm.array_view cimport ArrayView
-from jmm.defs cimport bool, dbl, state
+from jmm.defs cimport bool, dbl, ftype, state
 from jmm.jet cimport jet3
 from jmm.par cimport par3
 from jmm.mesh cimport mesh3
@@ -10,12 +10,11 @@ cdef extern from "eik3.h":
 
     void eik3_alloc(eik3 **eik)
     void eik3_dealloc(eik3 **eik)
-    void eik3_init(eik3 *eik, const mesh3 *mesh)
+    void eik3_init(eik3 *eik, const mesh3 *mesh, ftype ftype)
     void eik3_deinit(eik3 *eik)
     size_t eik3_peek(const eik3 *eik)
     size_t eik3_step(eik3 *eik)
     void eik3_solve(eik3 *eik)
-    void eik3_add_trial(eik3 *eik, size_t ind, jet3 jet)
     const mesh3 *eik3_get_mesh(const eik3 *eik)
     bool eik3_is_far(const eik3 *eik, size_t ind)
     bool eik3_is_trial(const eik3 *eik, size_t ind)
@@ -25,9 +24,11 @@ cdef extern from "eik3.h":
     par3 eik3_get_par(const eik3 *eik, size_t l)
     dbl *eik3_get_t_in_ptr(const eik3 *eik)
     dbl *eik3_get_t_out_ptr(const eik3 *eik)
-    void eik3_add_valid_bdf(eik3 *eik, const size_t lf[3], const jet3 jet[3],
-                            const dbl t_in[3][3])
-    void eik3_add_valid_bde(eik3 *eik, const size_t le[2], const jet3 jet[2])
+    void eik3_add_pt_src_BCs(eik3 *eik, size_t l, jet3 jet)
+    void eik3_add_refl_BCs(eik3 *eik, const size_t lf[3], const jet3 jet[3],
+                           const dbl t_in[3][3])
+    void eik3_add_diff_edge_BCs(eik3 *eik, const size_t le[2], const jet3 jet[2])
+    ftype eik3_get_ftype(const eik3 *eik)
 
 cdef class Eik3:
     cdef:

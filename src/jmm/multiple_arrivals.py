@@ -7,6 +7,7 @@ import pickle
 from abc import ABC
 from cached_property import threaded_cached_property
 
+import jmm.defs
 import jmm.eik
 import jmm.jet
 import jmm.mesh
@@ -64,15 +65,16 @@ class Field(ABC, Logger):
     speed_of_sound = 343
     num_mask_threshold_bins = 513
 
-    def __init__(self, domain, bd_inds, bd_T, bd_grad_T):
+    def __init__(self, domain, ftype, bd_inds, bd_T, bd_grad_T):
         super().__init__()
 
         self.domain = domain
         self.bd_inds = bd_inds
         self.bd_T = bd_T
         self.bd_grad_T = bd_grad_T
-        self.eik = jmm.eik.Eik3(self.domain.mesh)
-        self.extended_eik = jmm.eik.Eik3(self.domain.extended_mesh)
+        self.eik = jmm.eik.Eik3.from_mesh_and_ftype(self.domain.mesh, ftype)
+        self.extended_eik = jmm.eik.Eik3.from_mesh_and_ftype(
+            self.domain.extended_mesh, ftype)
         self.solved = False
         self._scattered_fields = []
 
@@ -211,13 +213,14 @@ class PointSourceField(Field):
     def __init__(self, domain, src_index):
         jet = jmm.jet.Jet3.make_point_source()
 
+        ftype = jmm.defs.Ftype.PointSource
         bd_inds = np.array([src_index])
         bd_T = np.array([jet.f])
         bd_grad_T = np.array([jet.fx, jet.fy, jet.fz])
-        super().__init__(domain, bd_inds, bd_T, bd_grad_T)
+        super().__init__(domain, ftype, bd_inds, bd_T, bd_grad_T)
 
-        self.eik.add_trial(src_index, jet)
-        self.extended_eik.add_trial(src_index, jet)
+        self.eik.add_pt_src_BCs(src_index, jet)
+        self.extended_eik.add_pt_src_BCs(src_index, jet)
 
     def __reduce__(self):
         return (self.__class__, (self.domain, self.bd_inds[0]))
@@ -232,13 +235,14 @@ class ReflectedField(Field):
         if bd_T.shape[0] != num_faces or bd_grad_T.shape[0] != num_faces:
             raise ValueError('boundary faces and BCs must have the same shape')
 
-        super().__init__(domain, bd_faces, bd_T, bd_grad_T)
+        ftype = jmm.defs.Ftype.Reflection
+        super().__init__(domain, ftype, bd_faces, bd_T, bd_grad_T)
         self.bd_t_in = bd_t_in
 
         for lf, T, grad_T, t_in in zip(bd_faces, bd_T, bd_grad_T, bd_t_in):
             jets = [jmm.jet.Jet3(t, *dt) for t, dt in zip(T, grad_T)]
-            self.eik.add_valid_bdf(*lf, *jets, t_in)
-            self.extended_eik.add_valid_bdf(*lf, *jets, t_in)
+            self.eik.add_refl_BCs(*lf, *jets, t_in)
+            self.extended_eik.add_refl_BCs(*lf, *jets, t_in)
 
     def __reduce__(self):
         return (self.__class__, (self.domain, self.bd_inds, self.bd_T,
@@ -270,12 +274,13 @@ class DiffractedField(Field):
         if bd_T.shape[0] != num_edges or bd_grad_T.shape[0] != num_edges:
             raise ValueError('boundary faces and BCs must have the same shape')
 
-        super().__init__(domain, bd_edges, bd_T, bd_grad_T)
+        ftype = jmm.defs.Ftype.EdgeDiffraction
+        super().__init__(domain, ftype, bd_edges, bd_T, bd_grad_T)
 
         for le, T, grad_T in zip(bd_edges, bd_T, bd_grad_T):
             jets = [jmm.jet.Jet3(t, *dt) for t, dt in zip(T, grad_T)]
-            self.eik.add_valid_bde(*le, *jets)
-            self.extended_eik.add_valid_bde(*le, *jets)
+            self.eik.add_diff_edge_BCs(*le, *jets)
+            self.extended_eik.add_diff_edge_BCs(*le, *jets)
 
     @property
     def valid_angle_mask(self):
