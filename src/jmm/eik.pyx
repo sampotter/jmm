@@ -129,10 +129,12 @@ cdef class Eik3:
         return np.asarray(self.t_out_view)
 
     def add_valid_bdf(self, size_t l0, size_t l1, size_t l2,
-                      Jet3 jet0, Jet3 jet1, Jet3 jet2):
-        eik3_add_valid_bdf(self.eik, lf, jet)
+                      Jet3 jet0, Jet3 jet1, Jet3 jet2, dbl[:, ::1] t_in):
+        if t_in.shape[0] != 3 or t_in.shape[1] != 3:
+            raise ValueError('t_in should have shape (3, 3)')
         cdef size_t[3] lf = [l0, l1, l2]
         cdef jet3[3] jet = [jet0.jet, jet1.jet, jet2.jet]
+        eik3_add_valid_bdf(self.eik, lf, jet, <const dbl(*)[3]>&t_in[0, 0])
 
     def add_valid_bde(self, size_t l0, size_t l1, Jet3 jet0, Jet3 jet1):
         cdef size_t[2] le = [l0, l1]
