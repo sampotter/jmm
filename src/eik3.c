@@ -525,7 +525,7 @@ static void update(eik3_s *eik, size_t l, size_t l0) {
   // Count and mark the non-adjacent edges are diffracting edges
 
   size_t num_diff_edges = 0;
-  bool *is_diff_edge = malloc(num_utetra*sizeof(bool));
+  bool *is_diff_edge = calloc(num_utetra, sizeof(bool));
   for (size_t i = 0; i < num_utetra; ++i) {
     if (l_l1_adj[i] || l_l2_adj[i]) {
       is_diff_edge[i] = false;
