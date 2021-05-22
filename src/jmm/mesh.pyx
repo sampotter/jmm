@@ -245,16 +245,21 @@ cdef class Mesh3:
         l[1] = j
         return mesh3_bde(self.mesh, l)
 
-    def bdf(self, size_t i, size_t j, size_t k):
+    def is_bdf(self, size_t i, size_t j, size_t k, bool virtual_OK=False):
         if not self.has_bd_info:
             raise Exception("mesh wasn't built with boundary info");
         cdef size_t l[3]
         l[0] = i
         l[1] = j
         l[2] = k
-        return mesh3_bdf(self.mesh, l)
+        return mesh3_is_bdf(self.mesh, l, virtual_OK)
+
+    def set_boundary_face(self, size_t i, size_t j, size_t k, bool virtual=False):
+        cdef size_t[3] le = [i, j, k]
+        mesh3_set_bdf(self.mesh, le, virtual)
 
     def get_diff_edges(self):
+        cdef size_t l
         cdef size_t le[2]
         for l in range(mesh3_nbde(self.mesh)):
             mesh3_get_bde_inds(self.mesh, l, le)
@@ -268,6 +273,19 @@ cdef class Mesh3:
         l[0] = i
         l[1] = j
         return mesh3_is_diff_edge(self.mesh, l)
+
+    def set_boundary_edge(self, size_t i, size_t j, bool diff):
+        cdef size_t le[2]
+        le[0] = i
+        le[1] = j
+        mesh3_set_bde(self.mesh, le, diff)
+
+    def get_boundary_faces(self):
+        cdef size_t l
+        cdef size_t lf[3]
+        for l in range(mesh3_nbdf(self.mesh)):
+            mesh3_get_bdf_inds(self.mesh, l, lf)
+            yield lf[0], lf[1], lf[2]
 
     @property
     def min_tetra_alt(self):
@@ -343,20 +361,22 @@ cell edges of `jmm.Mesh3`.
             if restricted_mask.any():
                 yield i, edges
 
-    def set_boundary_edge(self, size_t i, size_t j, bool diff):
-        cdef size_t le[2]
-        le[0] = i
-        le[1] = j
-        mesh3_set_bde(self.mesh, le, diff)
-
     @property
     def eps(self):
         return mesh3_get_eps(self.mesh)
 
     def get_face_normal(self, size_t l0, size_t l1, size_t l2):
-        if not self.bdf(l0, l1, l2):
-            raise KeyError('(%d, %d, %d) is not a face' % sorted([l0, l1, l2]))
+        if not self.is_bdf(l0, l1, l2, False):
+            raise KeyError('(%d, %d, %d) is not a face' % (l0, l1, l2))
         cdef size_t[3] lf = [l0, l1, l2]
         cdef dbl[::1] normal = np.empty((3,), dtype=np.float64)
         mesh3_get_face_normal(self.mesh, lf, &normal[0])
         return np.asarray(normal)
+
+    def get_tangent_plane_basis(self, size_t l0, size_t l1, size_t l2):
+        n = self.get_face_normal(l0, l1, l2)
+        t = self.verts[l1] - self.verts[l0]
+        t /= np.linalg.norm(t)
+        b = np.cross(t, n)
+        b /= np.linalg.norm(b)
+        return np.array([t, b]).T

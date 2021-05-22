@@ -685,7 +685,10 @@ bool utetra_update_ray_is_physical(utetra_s const *utetra, eik3_s const *eik) {
        * intersection test simpler */
       if (point_in_face(utetra->lhat, cf[j]))
         continue;
-      if (mesh3_bdf(mesh, cf[j]))
+
+      /* Check if `cf[j]` indexes a real boundary face. We don't want
+       * to accidentally intersect a virtual boundary face here. */
+      if (mesh3_is_bdf(mesh, cf[j], false /* virtual not OK */))
         array_append(bdf, cf[j]);
     }
   }

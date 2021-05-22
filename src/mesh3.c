@@ -47,26 +47,33 @@ int diff_edge_cmp(diff_edge_s const *e1, diff_edge_s const *e2) {
 typedef struct {
   size_t lf[3];
   size_t lc;
-} tagged_face_s;
 
-tagged_face_s make_tagged_face(size_t l0, size_t l1, size_t l2, size_t lc) {
-  tagged_face_s f = {.lf = {l0, l1, l2}, .lc = lc};
+  /* Whether or not this is a "virtual" boundary face, which are faces
+   * that we artifically insert into the mesh to make it possible to
+   * do "free space boundary two-point updates". This is a little
+   * trick to get the extended solution and domain solution to match
+   * along the boundaries (since the extended domain is assumed to
+   * conform to the original boundaries of the domain). */
+  bool virtual;
+} bdf_s;
+
+bdf_s make_bdf(size_t l0, size_t l1, size_t l2, size_t lc, bool virtual) {
+  bdf_s f = {.lf = {l0, l1, l2}, .lc = lc, .virtual = virtual};
   qsort(f.lf, 3, sizeof(size_t), (compar_t)compar_size_t);
   return f;
 }
 
-void tagged_face_init(tagged_face_s *f, size_t const *lf, size_t lc) {
+void bdf_init(bdf_s *f, size_t const *lf, size_t lc) {
   memcpy(f->lf, lf, 3*sizeof(size_t));
   qsort(f->lf, 3, sizeof(size_t), (compar_t)compar_size_t);
   f->lc = lc;
 }
 
-int tagged_face_cmp(tagged_face_s const *f1, tagged_face_s const *f2) {
+int bdf_cmp(bdf_s const *f1, bdf_s const *f2) {
   for (int i = 0, cmp; i < 3; ++i) {
     cmp = compar_size_t(&f1->lf[i], &f2->lf[i]);
-    if (cmp != 0) {
+    if (cmp != 0)
       return cmp;
-    }
   }
   return 0;
 }
@@ -85,7 +92,7 @@ struct mesh3 {
   bool *bdc;
   bool *bdv;
   size_t nbdf;
-  tagged_face_s *bdf;
+  bdf_s *bdf;
   size_t nbde;
   diff_edge_s *bde;
 
@@ -235,18 +242,17 @@ static bool edge_is_diff(mesh3_s const *mesh, diff_edge_s *e) {
   return angle_sum > PI + mesh->eps;
 }
 
-static size_t find_bdf(mesh3_s const *mesh, tagged_face_s const *bdf) {
-  tagged_face_s const *found = bsearch(
-    bdf, mesh->bdf, mesh->nbdf, sizeof(tagged_face_s),
-    (compar_t)tagged_face_cmp);
+static size_t find_bdf(mesh3_s const *mesh, bdf_s const *bdf) {
+  bdf_s const *found = bsearch(
+    bdf, mesh->bdf, mesh->nbdf, sizeof(bdf_s), (compar_t)bdf_cmp);
   return found ? found - mesh->bdf : (size_t)NO_INDEX;
 }
 
 /* Find all of the boundary faces that are adjacent to `mesh->bdf[l]`
  * and append them to `nb`. This doesn't assume that `nb` is empty. */
 static void get_bdf_nbs(mesh3_s const *mesh, size_t l, array_s *nb) {
-  tagged_face_s const *bdf = &mesh->bdf[l];
-  tagged_face_s nb_bdf;
+  bdf_s const *bdf = &mesh->bdf[l];
+  bdf_s nb_bdf;
 
   for (size_t i = 0, lv, nve, (*ve)[2]; i < 3; ++i) {
     lv = bdf->lf[i];
@@ -256,8 +262,8 @@ static void get_bdf_nbs(mesh3_s const *mesh, size_t l, array_s *nb) {
     mesh3_ve(mesh, lv, ve);
 
     for (size_t j = 0, l_nb; j < nve; ++j) {
-      nb_bdf = make_tagged_face(lv, ve[j][0], ve[j][1], (size_t)NO_INDEX);
-      if (tagged_face_cmp(bdf, &nb_bdf) == 0)
+      nb_bdf = make_bdf(lv, ve[j][0], ve[j][1], (size_t)NO_INDEX, false);
+      if (bdf_cmp(bdf, &nb_bdf) == 0)
         continue;
       l_nb = find_bdf(mesh, &nb_bdf);
       if (l_nb != (size_t)NO_INDEX && !array_contains(nb, &l_nb))
@@ -483,7 +489,7 @@ static void init_bd(mesh3_s *mesh) {
 
   // Allocate some space for the faces of each cell in the mesh.
   size_t nf = 4*mesh->ncells;
-  tagged_face_s *f = malloc(nf*sizeof(tagged_face_s));
+  bdf_s *f = malloc(nf*sizeof(bdf_s));
 
   // Traverse the cells in the mesh, and populate `f`. These faces are
   // "tagged", meaning that they have a backpointer to the originating
@@ -491,14 +497,14 @@ static void init_bd(mesh3_s *mesh) {
   size_t *C;
   for (size_t lc = 0; lc < mesh->ncells; ++lc) {
     C = mesh->cells[lc];
-    f[4*lc] = make_tagged_face(C[0], C[1], C[2], lc);
-    f[4*lc + 1] = make_tagged_face(C[0], C[1], C[3], lc);
-    f[4*lc + 2] = make_tagged_face(C[0], C[2], C[3], lc);
-    f[4*lc + 3] = make_tagged_face(C[1], C[2], C[3], lc);
+    f[4*lc] = make_bdf(C[0], C[1], C[2], lc, false);
+    f[4*lc + 1] = make_bdf(C[0], C[1], C[3], lc, false);
+    f[4*lc + 2] = make_bdf(C[0], C[2], C[3], lc, false);
+    f[4*lc + 3] = make_bdf(C[1], C[2], C[3], lc, false);
   }
 
   // Sort the tagged faces themselves into a dictionary order.
-  qsort(f, nf, sizeof(tagged_face_s), (compar_t)tagged_face_cmp);
+  qsort(f, nf, sizeof(bdf_s), (compar_t)bdf_cmp);
 
   /**
    * Set up the boundary vertex, cell, face data structures (stored in
@@ -511,7 +517,7 @@ static void init_bd(mesh3_s *mesh) {
   // whether it's equal to the succeeding face in `f`. If there's a
   // duplicate, we update the relevant boundary information.
   for (size_t l = 0; l < nf - 1; ++l) {
-    if (!tagged_face_cmp(&f[l], &f[l + 1])) {
+    if (!bdf_cmp(&f[l], &f[l + 1])) {
       ++l;
       continue;
     }
@@ -524,7 +530,7 @@ static void init_bd(mesh3_s *mesh) {
 
   // Don't forget to check the last face! It could be a boundary face,
   // too, in which case the foregoing loop will miss it
-  if (tagged_face_cmp(&f[nf - 2], &f[nf - 1])) {
+  if (bdf_cmp(&f[nf - 2], &f[nf - 1])) {
     mesh->bdc[f[nf - 1].lc] = true;
     mesh->bdv[f[nf - 1].lf[0]] = true;
     mesh->bdv[f[nf - 1].lf[1]] = true;
@@ -536,18 +542,18 @@ static void init_bd(mesh3_s *mesh) {
 
   // Traverse the sorted list again and pull out the boundary faces
   // now that we know how many there are
-  mesh->bdf = malloc(mesh->nbdf*sizeof(tagged_face_s));
+  mesh->bdf = malloc(mesh->nbdf*sizeof(bdf_s));
   for (size_t l = 0; l < nf - 1; ++l) {
-    if (!tagged_face_cmp(&f[l], &f[l + 1])) {
+    if (!bdf_cmp(&f[l], &f[l + 1])) {
       ++l; // Increment here to skip equal pairs
       continue;
     }
-    tagged_face_init(&mesh->bdf[lf++], f[l].lf, f[l].lc);
+    bdf_init(&mesh->bdf[lf++], f[l].lf, f[l].lc);
   }
 
   // ... and the last face
-  if (tagged_face_cmp(&f[nf - 2], &f[nf - 1])) {
-    tagged_face_init(&mesh->bdf[lf++], f[nf - 1].lf, f[nf - 1].lc);
+  if (bdf_cmp(&f[nf - 2], &f[nf - 1])) {
+    bdf_init(&mesh->bdf[lf++], f[nf - 1].lf, f[nf - 1].lc);
   }
 
   assert(lf == mesh->nbdf); // sanity
@@ -555,7 +561,7 @@ static void init_bd(mesh3_s *mesh) {
 
   // Sort the faces so that we can quickly query whether a face is a
   // boundary face or not.
-  qsort(mesh->bdf, mesh->nbdf, sizeof(tagged_face_s), (compar_t)tagged_face_cmp);
+  qsort(mesh->bdf, mesh->nbdf, sizeof(bdf_s), (compar_t)bdf_cmp);
 
   /**
    * Set up the boundary edge data structure (stored in `mesh->bde`)
@@ -1383,11 +1389,46 @@ size_t mesh3_nbdf(mesh3_s const *mesh) {
   return mesh->nbdf;
 }
 
-bool mesh3_bdf(mesh3_s const *mesh, size_t const lf[3]) {
+void mesh3_get_bdf_inds(mesh3_s const *mesh, size_t l, size_t lf[3]) {
   assert(mesh->has_bd_info);
-  tagged_face_s f = make_tagged_face(lf[0], lf[1], lf[2], NO_PARENT);
-  return bsearch(&f, mesh->bdf, mesh->nbdf, sizeof(tagged_face_s),
-                 (compar_t)tagged_face_cmp);
+  assert(l < mesh->nbdf);
+  memcpy(lf, mesh->bdf[l].lf, sizeof(size_t[3]));
+}
+
+void mesh3_set_bdf(mesh3_s *mesh, size_t lf[3], bool virtual) {
+  // TODO: this is very inefficient!
+
+  mesh->bdv[lf[0]] = mesh->bdv[lf[1]] = mesh->bdv[lf[2]] = true;
+
+  assert(mesh->has_bd_info);
+  bdf_s bdf = make_bdf(lf[0], lf[1], lf[2], NO_PARENT, virtual);
+
+  int cmp;
+  size_t l = 0;
+  while ((cmp = bdf_cmp(&bdf, &mesh->bdf[l])) >= 0)
+    ++l;
+
+  if (cmp == 0)
+    return;
+
+  mesh->bdf = realloc(mesh->bdf, (mesh->nbdf + 1)*sizeof(bdf_s));
+  memmove(&mesh->bdf[l + 1], &mesh->bdf[l],
+          (mesh->nbdf - l)*sizeof(bdf_s));
+  mesh->bdf[l] = bdf;
+  ++mesh->nbdf;
+}
+
+/* Check whether `lf` indexes a boundary face. If `virtual` is `true`,
+ * then this will return `true` if a virtual boundary face is found,
+ * otherwise false.  */
+bool mesh3_is_bdf(mesh3_s const *mesh, size_t const lf[3], bool virtual_OK) {
+  assert(mesh->has_bd_info);
+  bdf_s f = make_bdf(lf[0], lf[1], lf[2], NO_PARENT, false);
+  bdf_s *f_ptr = bsearch(
+    &f, mesh->bdf, mesh->nbdf, sizeof(bdf_s), (compar_t)bdf_cmp);
+  return virtual_OK ?
+    f_ptr != NULL :
+    f_ptr != NULL && !f_ptr->virtual;
 }
 
 bool mesh3_is_edge(mesh3_s const *mesh, size_t const l[2]) {
@@ -1468,7 +1509,7 @@ mesh2_s *mesh3_get_surface_mesh(mesh3_s const *mesh) {
   // array. There will be duplicate vertices!
   dbl *verts = malloc(3*mesh->nbdf*sizeof(dbl[3]));
   for (size_t lf = 0; lf < mesh->nbdf; ++lf) {
-    tagged_face_s const *face = &mesh->bdf[lf];
+    bdf_s const *face = &mesh->bdf[lf];
     for (int i = 0; i < 3; ++i) {
       size_t lv = face->lf[i];
       for (int j = 0; j < 3; ++j)
@@ -1534,7 +1575,7 @@ void mesh3_get_inc_diff_edges(mesh3_s const *mesh, size_t l, size_t (*le)[2]) {
   free(vv);
 }
 
-size_t mesh3_get_num_inc_bdf(mesh3_s const *mesh, size_t l) {
+size_t mesh3_get_num_inc_bdf(mesh3_s const *mesh, size_t l, bool virtual_OK) {
   assert(mesh->has_bd_info);
 
   if (!mesh3_bdv(mesh, l))
@@ -1546,14 +1587,15 @@ size_t mesh3_get_num_inc_bdf(mesh3_s const *mesh, size_t l) {
 
   size_t nbdf = 0;
   for (size_t i = 0; i < nve; ++i)
-    nbdf += mesh3_bdf(mesh, (size_t[3]) {l, ve[i][0], ve[i][1]});
+    nbdf += mesh3_is_bdf(mesh, (size_t[3]) {l, ve[i][0], ve[i][1]}, virtual_OK);
 
   free(ve);
 
   return nbdf;
 }
 
-void mesh3_get_inc_bdf(mesh3_s const *mesh, size_t l, size_t (*lf)[3]) {
+void mesh3_get_inc_bdf(mesh3_s const *mesh, size_t l, size_t (*lf)[3],
+                       bool virtual_OK) {
   assert(mesh->has_bd_info);
 
   if (!mesh3_bdv(mesh, l))
@@ -1568,7 +1610,7 @@ void mesh3_get_inc_bdf(mesh3_s const *mesh, size_t l, size_t (*lf)[3]) {
   size_t j = 0;
   for (size_t i = 0; i < nve; ++i) {
     memcpy(&next_lf[1], ve[i], sizeof(size_t[2]));
-    if (mesh3_bdf(mesh, next_lf))
+    if (mesh3_is_bdf(mesh, next_lf, virtual_OK))
       memcpy(lf[j++], next_lf, sizeof(size_t[3]));
   }
 
@@ -1616,9 +1658,11 @@ void mesh3_get_bde_inds(mesh3_s const *mesh, size_t l, size_t le[2]) {
 }
 
 void mesh3_set_bde(mesh3_s *mesh, size_t const le[2], bool diff) {
-  // TODO: this is done really inefficiently! We shold implement a
+  // TODO: this is done really inefficiently! We should implement a
   // balanced binary tree (or interval tree?) to store the boundary
   // edges, but this a low priority.
+
+  mesh->bdv[le[0]] = mesh->bdv[le[1]] = true;
 
   diff_edge_s bde = {.le = {le[0], le[1]}, .diff = diff};
 
@@ -1645,7 +1689,7 @@ dbl mesh3_get_eps(mesh3_s const *mesh) {
 }
 
 void mesh3_get_face_normal(mesh3_s const *mesh, size_t const lf[3], dbl normal[3]) {
-  assert(mesh3_bdf(mesh, lf));
+  assert(mesh3_is_bdf(mesh, lf, false /* virtual not OK */));
 
   dbl const *x0 = mesh3_get_vert_ptr(mesh, lf[0]);
   dbl const *x1 = mesh3_get_vert_ptr(mesh, lf[1]);
