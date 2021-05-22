@@ -232,20 +232,33 @@ bool utetra_init(utetra_s *u, utetra_spec_s const *spec) {
   for (size_t i = 0; i < 3; ++i)
     jet[i] = passed_jet ? spec->jet[i] : eik3_get_jet(spec->eik, spec->l[i]);
 
-  /* Check if any of the jets we're about to try to use for
-   * interpolation are point source jets (i.e., only have a function
-   * value, and not a gradient value). If this is the case, we return
-   * `false` now. */
+  /* Figure out which jets lack gradient information */
+  bool pt_src[3];
+  size_t num_pt_srcs = 0;
   for (size_t i = 0; i < 3; ++i)
-    if (jet3_is_point_source(&jet[i]))
-      return false;
+    num_pt_srcs += pt_src[i] = jet3_is_point_source(&jet[i]);
 
-  dbl T[3], DT[3][3];
-  for (int i = 0; i < 3; ++i) {
-    T[i] = jet[i].f;
-    memcpy(DT[i], &jet[i].fx, sizeof(dbl[3]));
+  if (num_pt_srcs == 3) {
+    /* If all of the jets lack point source data, just return false
+     * now. */
+    return false;
+  } else if (num_pt_srcs > 0) {
+    /* If some but not all of the jets are point sources, linearly
+     * interpolate the Bezier coefficients from the available gradient
+     * data. This is inaccurate but will unstick the solver in a few
+     * places, especially near the boundary of the physical rays
+     * emitted by diffracting edges. */
+    bb32_init_from_jets(&u->T, jet, u->Xt, pt_src);
+  } else {
+    /* If we have all the gradient data we need, do regular ol' BB
+     * interpolation. */
+    dbl T[3], DT[3][3];
+    for (int i = 0; i < 3; ++i) {
+      T[i] = jet[i].f;
+      memcpy(DT[i], &jet[i].fx, sizeof(dbl[3]));
+    }
+    bb32_init_from_3d_data(&u->T, T, &DT[0], u->Xt);
   }
-  bb32_init_from_3d_data(&u->T, T, &DT[0], u->Xt);
 
   // Compute the surface normal for the plane spanned by (x1 - x0, x2
   // - x0), using DT[i] to determine its orientation. Return whether x
@@ -260,8 +273,7 @@ bool utetra_init(utetra_s *u, utetra_spec_s const *spec) {
 
   int sgn[3];
   for (size_t i = 0; i < 3; ++i) {
-    assert(dbl3_isfinite(DT[i]));
-    sgn[i] = signum(dbl3_dot(DT[i], n));
+    sgn[i] = pt_src[i] ? 0 : signum(dbl3_dot(&jet[i].fx, n));
   };
 
   /* Verify that the jets don't span the same plane as the base of the
