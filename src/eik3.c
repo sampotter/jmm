@@ -1159,7 +1159,27 @@ void eik3_add_valid_bdf(eik3_s *eik, size_t const lf[3], jet3 const jet[3],
     if (!eik3_is_trial(eik, lf[i]))
       eik3_add_trial(eik, lf[i], jet[i]);
 
-  dbl t_in[3];
+  /* If any of the edges of `lf` are diffracting edges, we want to add
+   * BCs for those diffracting edges now. */
+  // TODO: refactor this and the same code in `eik3_add_valid_bde` out
+  // into a separate function
+  for (size_t i = 0, le[2]; i < 3; ++i) {
+    size_t j = (i + 1) % 3;
+    le[0] = lf[i];
+    le[1] = lf[j];
+    if (mesh3_is_diff_edge(eik->mesh, le)) {
+      dbl f[2] = {jet[i].f, jet[j].f}, Df[2][3], x[2][3];
+      dbl3_copy(&jet[i].fx, Df[0]);
+      dbl3_copy(&jet[j].fx, Df[1]);
+      mesh3_copy_vert(eik->mesh, le[0], x[0]);
+      mesh3_copy_vert(eik->mesh, le[1], x[1]);
+
+      bb31 bb;
+      bb31_init_from_3d_data(&bb, f, Df, x);
+      eik3_set_bde_bc(eik, le, &bb);
+    }
+  }
+
   for (size_t i = 0; i < 3; ++i) {
     if (dbl3_isfinite(eik->t_in[lf[i]]))
       assert(dbl3_dist(t_in[i], eik->t_in[lf[i]]) < 1e-14);
