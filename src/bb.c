@@ -1,5 +1,7 @@
 #include "bb.h"
 
+#include <assert.h>
+
 #include "mesh3.h"
 #include "vec.h"
 
@@ -227,6 +229,87 @@ void bb32_init_from_3d_data(bb32 *bb, dbl const f[3], dbl const Df[3][3], dbl co
   dbl3_sub(x[TRI001], x[TRI010], tmp);
   c[TRI021] = c[TRI030] + dbl3_ndot(Df[TRI010], tmp)/3;
   c[TRI012] = c[TRI003] - dbl3_ndot(Df[TRI001], tmp)/3;
+
+  tmp[0] = c[TRI210];
+  tmp[1] = c[TRI201];
+  tmp[2] = c[TRI120];
+  tmp[3] = c[TRI021];
+  tmp[4] = c[TRI012];
+  tmp[5] = c[TRI102];
+  c[TRI111] = dblN_nsum(tmp, 6)/4;
+
+  tmp[0] = c[TRI300];
+  tmp[1] = c[TRI030];
+  tmp[2] = c[TRI003];
+  c[TRI111] -= dbl3_nsum(tmp)/6;
+}
+
+void bb32_init_from_jets(bb32 *bb, jet3 const jet[3], dbl const x[3][3],
+                         bool const is_point_source[3]) {
+  /* Assume at least one of the jets has gradient information */
+  assert(!(is_point_source[0] && is_point_source[1] && is_point_source[2]));
+
+  dbl *c = bb->c;
+
+  c[TRI300] = jet[0].f;
+  c[TRI030] = jet[1].f;
+  c[TRI003] = jet[2].f;
+
+  dbl tmp[6];
+
+  /* First, compute the data for the ordinates neighboring each of the
+   * jets with gradient data */
+
+  if (!is_point_source[0]) {
+    dbl3_sub(x[TRI010], x[TRI100], tmp);
+    c[TRI210] = c[TRI300] + dbl3_ndot(&jet[TRI100].fx, tmp)/3;
+
+    dbl3_sub(x[TRI001], x[TRI100], tmp);
+    c[TRI201] = c[TRI300] + dbl3_ndot(&jet[TRI100].fx, tmp)/3;
+  }
+
+  if (!is_point_source[1]) {
+    dbl3_sub(x[TRI001], x[TRI010], tmp);
+    c[TRI021] = c[TRI030] + dbl3_ndot(&jet[TRI010].fx, tmp)/3;
+
+    dbl3_sub(x[TRI100], x[TRI010], tmp);
+    c[TRI120] = c[TRI030] + dbl3_ndot(&jet[TRI010].fx, tmp)/3;
+  }
+
+  if (!is_point_source[2]) {
+    dbl3_sub(x[TRI100], x[TRI001], tmp);
+    c[TRI102] = c[TRI003] - dbl3_ndot(&jet[TRI001].fx, tmp)/3;
+
+    dbl3_sub(x[TRI010], x[TRI001], tmp);
+    c[TRI012] = c[TRI003] + dbl3_ndot(&jet[TRI001].fx, tmp)/3;
+  }
+
+  /* Next, use condensation of parameters to compute the ordinates
+   * neighboring the jets *without* gradient data */
+
+  if (is_point_source[0]) {
+    c[TRI210] = is_point_source[1] ?
+      (2*c[TRI300] + c[TRI030])/3 : (c[TRI300] + c[TRI120])/2;
+    c[TRI201] = is_point_source[2] ?
+      (2*c[TRI300] + c[TRI003])/3 : (c[TRI300] + c[TRI102])/2;
+  }
+
+  if (is_point_source[1]) {
+    c[TRI021] = is_point_source[2] ?
+      (2*c[TRI030] + c[TRI003])/3 : (c[TRI030] + c[TRI012])/2;
+    c[TRI120] = is_point_source[0] ?
+      (2*c[TRI030] + c[TRI300])/3 : (c[TRI030] + c[TRI210])/2;
+  }
+
+  if (is_point_source[2]) {
+    c[TRI102] = is_point_source[0] ?
+      (2*c[TRI003] + c[TRI300])/3 : (c[TRI003] + c[TRI201])/2;
+    c[TRI012] = is_point_source[1] ?
+      (2*c[TRI003] + c[TRI030])/3 : (c[TRI003] + c[TRI021])/2;
+  }
+
+  /* Use condensation of parameters to compute the 10th parameter from
+   * the rest */
 
   tmp[0] = c[TRI210];
   tmp[1] = c[TRI201];
