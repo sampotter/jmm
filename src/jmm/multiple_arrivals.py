@@ -158,6 +158,10 @@ class Field(ABC, Logger):
             bd_edges.append(le)
             bd_T.append(self.eik.T[le])
             bd_grad_T.append(t_in)
+
+        if not bd_edges:
+            return
+
         return np.array(bd_edges), np.array(bd_T), np.array(bd_grad_T)
 
     def _init_scattered_fields(self):
