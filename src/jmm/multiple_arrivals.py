@@ -262,7 +262,8 @@ class PointSourceField(Field):
         self.extended_eik.add_pt_src_BCs(src_index, jet)
 
     def __reduce__(self):
-        return (self.__class__, (self.domain, self.bd_inds[0]))
+        args = (self.domain, self.bd_inds[0])
+        return (self.__class__, args)
 
     @property
     def valid_angle_mask(self):
