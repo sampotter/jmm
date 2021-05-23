@@ -5,6 +5,7 @@ import vtk
 from scipy.optimize import brentq
 
 import jmm.defs
+import jmm.multiple_arrivals
 
 def plot_point(plotter, point, radius, **kwargs):
     '''Uses `plotter` to plot `mesh`.'''
@@ -174,3 +175,49 @@ def plot_shadow(plotter, field, **kwargs):
     grid = pv.UnstructuredGrid({vtk.VTK_TRIANGLE: zcells}, zverts)
 
     plotter.add_mesh(grid, **kwargs)
+
+def plot_point_source_BCs(plotter, field, **kwargs):
+    if not isinstance(field, jmm.multiple_arrivals.PointSourceField):
+        raise ValueError('field is of type %s' % type(self.__name__))
+
+    r = 1 if 'r' not in kwargs else kwargs['r']
+
+    plot_point_kwargs = kwargs.copy()
+    if 'r' in plot_point_kwargs:
+        del plot_point_kwargs['r']
+
+    plot_point(plotter, field.domain.mesh.verts[field.bd_inds[0]],
+               r, **plot_point_kwargs)
+
+def plot_reflected_field_BCs(plotter, field, **kwargs):
+    if not isinstance(field, jmm.multiple_arrivals.ReflectedField):
+        raise ValueError('field is of type %s' % type(self.__name__))
+
+    r = 1 if 'r' not in kwargs else kwargs['r']
+
+    add_mesh_kwargs = kwargs.copy()
+    if 'r' in add_mesh_kwargs:
+        del add_mesh_kwargs['r']
+
+    verts = field.domain.mesh.verts
+
+    plotter.add_mesh(
+        pv.UnstructuredGrid({vtk.VTK_TRIANGLE: field.bd_inds}, verts),
+        **add_mesh_kwargs)
+
+    bd_inds = np.unique(field.bd_inds)
+
+    bd_grads = pv.PolyData(verts[bd_inds])
+    bd_grads.vectors = field.eik.grad_T[bd_inds]
+    plotter.add_mesh(
+        bd_grads.glyph(orient=True, geom=pv.Arrow(scale=3*r)),
+        **add_mesh_kwargs)
+
+def plot_field_BCs(plotter, field, **kwargs):
+    if isinstance(field, jmm.multiple_arrivals.PointSourceField):
+        plot_point_source_BCs(plotter, field, **kwargs)
+    elif isinstance(field, jmm.multiple_arrivals.ReflectedField):
+        plot_reflected_field_BCs(plotter, field, **kwargs)
+    else:
+        raise RuntimeError(
+            'plot_field_BCs not implemented for %s' % type(field).__name__)
