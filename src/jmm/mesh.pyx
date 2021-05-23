@@ -324,16 +324,10 @@ cell edges of `jmm.Mesh3`.
         mesh3_get_reflector(self.mesh, i, <size_t[3]*>&lf[0, 0])
         return np.asarray(lf)
 
-    def get_active_reflectors(self, shadow_mask):
-        '''Return the reflectors which contain any points that don't lie in
-        the shadow indicated by `shadow_mask`.
-
-        '''
+    @property
+    def reflectors(self):
         for i in range(self.num_reflectors):
-            faces = self.get_reflector(i)
-            refl_shadow_mask = np.logical_not(shadow_mask[faces]).any(1)
-            if refl_shadow_mask.any():
-                yield i, faces
+            yield self.get_reflector(i)
 
     @property
     def num_diffractors(self):
@@ -350,16 +344,10 @@ cell edges of `jmm.Mesh3`.
         mesh3_get_diffractor(self.mesh, i, <size_t[2]*>&le[0, 0])
         return np.asarray(le)
 
-    def get_active_diffractors(self, shadow_mask):
-        '''Return the diffractors that contain any points that don't lie in
-        the shadow specified by `shadow_mask`.
-
-        '''
+    @property
+    def diffractors(self):
         for i in range(self.num_diffractors):
-            edges = self.get_diffractor(i)
-            restricted_mask = np.logical_not(shadow_mask[edges]).any(1)
-            if restricted_mask.any():
-                yield i, edges
+            yield self.get_diffractor(i)
 
     @property
     def eps(self):

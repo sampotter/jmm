@@ -56,10 +56,16 @@ class Domain(Logger):
         return self.mesh.num_verts
 
     def get_active_reflectors(self, mask):
-        return self.mesh.get_active_reflectors(mask)
+        for faces in self.mesh.reflectors:
+            active_faces = faces[mask[faces].any(1)]
+            if active_faces.size > 0:
+                yield active_faces
 
     def get_active_diffractors(self, mask):
-        return self.mesh.get_active_diffractors(mask)
+        for edges in self.mesh.diffractors:
+            active_edges = edges[mask[edges].any(1)]
+            if active_edges.size > 0:
+                yield active_edges
 
 class Field(ABC, Logger):
     speed_of_sound = 343
@@ -145,14 +151,18 @@ class Field(ABC, Logger):
 
         fields = []
 
-        for _, faces in self.domain.get_active_reflectors(self.mask):
-            BCs = self._get_reflection_BCs(faces)
-            reflected_field = ReflectedField(self.domain, *BCs)
+        for active_faces in self.domain.get_active_reflectors(self.mask):
+            BCs = self._get_reflection_BCs(active_faces)
+            if not BCs:
+                continue
+            reflected_field = ReflectedField(self.domain, *BCs, parent=self)
             fields.append(reflected_field)
 
-        for _, edges in self.domain.get_active_diffractors(self.mask):
-            BCs = self._get_diffraction_BCs(edges)
-            diffracted_field = DiffractedField(self.domain, *BCs)
+        for active_edges in self.domain.get_active_diffractors(self.mask):
+            BCs = self._get_diffraction_BCs(active_edges)
+            if not BCs:
+                continue
+            diffracted_field = DiffractedField(self.domain, *BCs, parent=self)
             fields.append(diffracted_field)
 
         self._scattered_fields = fields
