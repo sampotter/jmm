@@ -117,7 +117,7 @@ class Field(ABC, Logger):
             # Get the eikonal gradients at the face vertices. Skip
             # this face if any of the gradients graze the surface.
             t_in = np.array([(_[1], _[2], _[3]) for _ in self.eik.jet[lf]])
-            if (np.dot(t_in, nu) >= -self.domain.mesh.eps).any():
+            if (abs(np.dot(t_in, nu)) < self.domain.mesh.eps).all():
                 continue
 
             # Reflect the ray directions over the reflector to get the
