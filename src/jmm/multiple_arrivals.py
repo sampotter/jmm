@@ -258,6 +258,9 @@ class ReflectedField(Field):
         if bd_T.shape[0] != num_faces or bd_grad_T.shape[0] != num_faces:
             raise ValueError('boundary faces and BCs must have the same shape')
 
+        if bd_faces.shape[0] == 0:
+            raise ValueError('no boundary faces were passed!')
+
         ftype = jmm.defs.Ftype.Reflection
         super().__init__(domain, ftype, bd_faces, bd_T, bd_grad_T)
         self.bd_t_in = bd_t_in
@@ -295,7 +298,10 @@ class DiffractedField(Field):
     def __init__(self, domain, bd_edges, bd_T, bd_grad_T):
         num_edges = bd_edges.shape[0]
         if bd_T.shape[0] != num_edges or bd_grad_T.shape[0] != num_edges:
-            raise ValueError('boundary faces and BCs must have the same shape')
+            raise ValueError('boundary edges and BCs must have the same shape')
+
+        if bd_edges.shape[0] == 0:
+            raise ValueError('no boundary edges were passed!')
 
         ftype = jmm.defs.Ftype.EdgeDiffraction
         super().__init__(domain, ftype, bd_edges, bd_T, bd_grad_T)
