@@ -127,7 +127,7 @@ class Field(ABC, Logger):
             t_out = np.dot(t_in, refl)
 
             bd_faces.append(lf)
-            bd_T.append([_[0] for _ in self.eik.jet[lf]])
+            bd_T.append(self.eik.T[lf])
             bd_grad_T.append(t_out)
             bd_t_in.append(t_in)
 
