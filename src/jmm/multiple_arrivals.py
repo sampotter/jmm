@@ -131,6 +131,9 @@ class Field(ABC, Logger):
             bd_grad_T.append(t_out)
             bd_t_in.append(t_in)
 
+        if not bd_faces:
+            return
+
         return np.array(bd_faces), np.array(bd_T), np.array(bd_grad_T), \
             np.array(bd_t_in)
 
