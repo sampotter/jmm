@@ -196,7 +196,6 @@ class Field(ABC, Logger):
             if not field._scattered_fields:
                 field._init_scattered_fields()
             fields.extend(field._scattered_fields)
-
             fields = sorted(fields, key=lambda _: _.eik.T.min())
 
     @threaded_cached_property
