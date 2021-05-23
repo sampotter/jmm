@@ -156,7 +156,7 @@ class Field(ABC, Logger):
                 continue
 
             bd_edges.append(le)
-            bd_T.append([_[0] for _ in self.eik.jet[le]])
+            bd_T.append(self.eik.T[le])
             bd_grad_T.append(t_in)
         return np.array(bd_edges), np.array(bd_T), np.array(bd_grad_T)
 
