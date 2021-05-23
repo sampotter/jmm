@@ -177,7 +177,7 @@ static bool same_side(dbl const a[3], dbl const b[3], dbl const c[3],
   dbl ap[3]; dbl3_sub(p, a, ap);
   dbl aq[3]; dbl3_sub(q, a, aq);
 
-  dbl n[3]; dbl3_cross(ab, ac, n);
+  dbl n[3]; dbl3_cross(ab, ac, n); dbl3_normalize(n);
 
   dbl n_dot_ap = shrink(dbl3_ndot(n, ap), atol);
   dbl n_dot_aq = shrink(dbl3_ndot(n, aq), atol);
