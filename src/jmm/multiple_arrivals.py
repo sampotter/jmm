@@ -71,13 +71,14 @@ class Field(ABC, Logger):
     speed_of_sound = 343
     num_mask_threshold_bins = 513
 
-    def __init__(self, domain, ftype, bd_inds, bd_T, bd_grad_T):
+    def __init__(self, domain, ftype, bd_inds, bd_T, bd_grad_T, parent=None):
         super().__init__()
 
         self.domain = domain
         self.bd_inds = bd_inds
         self.bd_T = bd_T
         self.bd_grad_T = bd_grad_T
+        self.parent = parent
 
         # TODO: instantiate these lazily to save memory!
         self.eik = jmm.eik.Eik3.from_mesh_and_ftype(self.domain.mesh, ftype)
@@ -89,7 +90,8 @@ class Field(ABC, Logger):
 
     def __reduce__(self):
         args = (self.domain, self.bd_inds, self.bd_T, self.bd_grad_T)
-        return (self.__class__, args)
+        kwargs = {'parent': self.parent}
+        return (self.__class__, args, kwargs)
 
     def solve(self):
         if self.solved:
@@ -267,7 +269,7 @@ class PointSourceField(Field):
         return np.ones(self.domain.num_verts, dtype=bool)
 
 class ReflectedField(Field):
-    def __init__(self, domain, bd_faces, bd_T, bd_grad_T, bd_t_in):
+    def __init__(self, domain, bd_faces, bd_T, bd_grad_T, bd_t_in, parent=None):
         num_faces = bd_faces.shape[0]
         if bd_T.shape[0] != num_faces or bd_grad_T.shape[0] != num_faces:
             raise ValueError('boundary faces and BCs must have the same shape')
@@ -276,7 +278,7 @@ class ReflectedField(Field):
             raise ValueError('no boundary faces were passed!')
 
         ftype = jmm.defs.Ftype.Reflection
-        super().__init__(domain, ftype, bd_faces, bd_T, bd_grad_T)
+        super().__init__(domain, ftype, bd_faces, bd_T, bd_grad_T, parent=parent)
         self.bd_t_in = bd_t_in
 
         for lf, T, grad_T, t_in in zip(bd_faces, bd_T, bd_grad_T, bd_t_in):
@@ -285,8 +287,9 @@ class ReflectedField(Field):
             self.extended_eik.add_refl_BCs(*lf, *jets, t_in)
 
     def __reduce__(self):
-        return (self.__class__, (self.domain, self.bd_inds, self.bd_T,
-                                 self.bd_grad_T, self.bd_t_in))
+        args = (self.domain, self.bd_inds, self.bd_T, self.bd_grad_T, self.bd_t_in)
+        kwargs = {'parent': self.parent}
+        return (self.__class__, args, kwargs)
 
     @property
     def valid_angle_mask(self):
@@ -309,7 +312,7 @@ class ReflectedField(Field):
         return abs(lhs - rhs) < self._valid_angle_mask_thresh
 
 class DiffractedField(Field):
-    def __init__(self, domain, bd_edges, bd_T, bd_grad_T):
+    def __init__(self, domain, bd_edges, bd_T, bd_grad_T, parent=None):
         num_edges = bd_edges.shape[0]
         if bd_T.shape[0] != num_edges or bd_grad_T.shape[0] != num_edges:
             raise ValueError('boundary edges and BCs must have the same shape')
@@ -318,7 +321,7 @@ class DiffractedField(Field):
             raise ValueError('no boundary edges were passed!')
 
         ftype = jmm.defs.Ftype.EdgeDiffraction
-        super().__init__(domain, ftype, bd_edges, bd_T, bd_grad_T)
+        super().__init__(domain, ftype, bd_edges, bd_T, bd_grad_T, parent=parent)
 
         for le, T, grad_T in zip(bd_edges, bd_T, bd_grad_T):
             jets = [jmm.jet.Jet3(t, *dt) for t, dt in zip(T, grad_T)]
