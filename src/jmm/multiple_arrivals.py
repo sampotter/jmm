@@ -114,9 +114,6 @@ class Field(ABC, Logger):
         # Traverse the faces and pull out the BCs for the reflection
         bd_faces, bd_T, bd_grad_T, bd_t_in = [], [], [], []
         for lf in faces:
-            if np.logical_not(self.mask[lf]).all():
-                continue
-
             # Get the eikonal gradients at the face vertices. Skip
             # this face if any of the gradients graze the surface.
             t_in = np.array([(_[1], _[2], _[3]) for _ in self.eik.jet[lf]])
@@ -138,7 +135,6 @@ class Field(ABC, Logger):
     def _get_diffraction_BCs(self, edges):
         bd_edges, bd_T, bd_grad_T = [], [], []
         for le in edges:
-            if np.logical_not(self.mask[le]).all():
                 continue
             bd_edges.append(le)
             bd_T.append([_[0] for _ in self.eik.jet[le]])
