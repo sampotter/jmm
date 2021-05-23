@@ -3,6 +3,7 @@
 #include <assert.h>
 
 #include "mat.h"
+#include "util.h"
 
 /* Spherical weighted average of two unit vectors, such that the ratio
  * of the arc length from `p0` to `q` to the arc length from `p0` t
@@ -118,13 +119,25 @@ void slerp3(dbl const p[3][3], dbl const w[3], dbl q[3], dbl tol) {
     for (size_t i = 0; i < 3; ++i)
       alpha[i] = dbl3_dot(p[i], q0);
 
-    /* Check that `p[i]` lies in the hemisphere determined by `q0`. */
+    /* Check that none of `p[i]`s are `q0`'s antipodal point. */
     for (size_t i = 0; i < 3; ++i)
-      assert(alpha[i] > 0);
+      assert(alpha[i] > -1 + 1e-14);
 
-    /* Map each `p[i]` to the tangent plane of S^2 at `q0`. */
-    for (size_t i = 0; i < 3; ++i)
-      dbl3_dbl_div(p[i], alpha[i], P[i]);
+    /* Map each `p[i]` to the tangent plane of S^2 at `q0` (or rather,
+     * the tangent plane offset by `q0`). We do this by evaluating the
+     * exponential map of S^2 at `q0`. */
+    for (size_t i = 0; i < 3; ++i) {
+      dbl dot = dbl3_dot(q0, p[i]); // dot = q0'*p[i]
+      dbl tmp[3]; dbl3_saxpy(-dot, q0, p[i], tmp);
+      dbl norm = dbl3_norm(tmp);
+      if (norm > 1e-14) {
+        dbl theta = acos(clamp(dot, -1, 1));
+        dbl3_saxpy(theta/norm, tmp, q0, P[i]);
+      } else {
+        /* If `tmp` is approximately 0, just set `P[i]` to `q0` */
+        dbl3_copy(q0, P[i]);
+      }
+    }
 
     /* Set `q` to be the weighted average of `P` computed in the tangent
      * plane, then retract to S^2 (i.e., just normalize `q`). */
