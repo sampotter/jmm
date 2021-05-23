@@ -169,6 +169,12 @@ class Field(ABC, Logger):
 
     @property
     def scattered_fields(self):
+        '''Iterate over the fields of all orders scattered by this field,
+        returning them in nondecreasing order of their minimum eikonal
+        value.
+
+        '''
+
         fields = [self]
 
         while fields:
