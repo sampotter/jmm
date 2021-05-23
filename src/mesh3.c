@@ -1729,3 +1729,10 @@ void mesh3_get_face_normal(mesh3_s const *mesh, size_t const lf[3], dbl normal[3
   if (!cell_contains_xp)
     dbl3_negate(normal);
 }
+
+bool mesh3_bdf_is_virtual(mesh3_s const *mesh, size_t const lf[3]) {
+  bdf_s bdf = make_bdf(lf[0], lf[1], lf[2], (size_t)NO_INDEX, false /*unused*/);
+  bdf_s const *bdf_ptr = bsearch(
+    &bdf, mesh->bdf, mesh->nbdf, sizeof(bdf_s), (compar_t)bdf_cmp);
+  return bdf_ptr != NULL && bdf_ptr->virtual;
+}
