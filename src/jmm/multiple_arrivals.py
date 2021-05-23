@@ -190,8 +190,10 @@ class Field(ABC, Logger):
             field.solve()
             yield field
 
-            if not self._scattered_fields:
-                self._init_scattered_fields()
+            # Initialize the next field's scattered fields and merge
+            # them into `fields`
+            if not field._scattered_fields:
+                field._init_scattered_fields()
             fields.extend(field._scattered_fields)
 
             fields = sorted(fields, key=lambda _: _.eik.T.min())
