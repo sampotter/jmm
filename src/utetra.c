@@ -808,7 +808,8 @@ static bool get_op_ind(utetra_s const *utetra, size_t const le[2], size_t *l) {
 }
 
 static size_t get_num_equal(utetra_s const **u, size_t n) {
-  dbl const atol = 1e-14;
+  if (n < 2)
+    return n;
 
   dbl x[3], y[3];
 
@@ -823,6 +824,12 @@ static size_t get_num_equal(utetra_s const **u, size_t n) {
   utetra_get_jet(u[0], &jet[0]);
 
   size_t neq = 1;
+
+  dbl const atol = u[0]->tol;
+
+  /* We can't handle varying tolerances at the moment. */
+  for (size_t i = 1; i < n; ++i)
+    assert(atol == u[i]->tol);
 
   // First, check that the update data for each utetra is the
   // same. This is cheaper than the topological check that follows.
