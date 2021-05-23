@@ -83,6 +83,7 @@ class Field(ABC, Logger):
         self.eik = jmm.eik.Eik3.from_mesh_and_ftype(self.domain.mesh, ftype)
         self.extended_eik = jmm.eik.Eik3.from_mesh_and_ftype(
             self.domain.extended_mesh, ftype)
+
         self.solved = False
         self._scattered_fields = []
 
@@ -143,6 +144,7 @@ class Field(ABC, Logger):
         bd_edges, bd_T, bd_grad_T = [], [], []
         for le in edges:
                 continue
+
             bd_edges.append(le)
             bd_T.append([_[0] for _ in self.eik.jet[le]])
             bd_grad_T.append([(_[1], _[2], _[3]) for _ in self.eik.jet[le]])
