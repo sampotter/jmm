@@ -115,9 +115,11 @@ class Field(ABC, Logger):
         bd_faces, bd_T, bd_grad_T, bd_t_in = [], [], [], []
         for lf in faces:
             # Get the eikonal gradients at the face vertices. Skip
-            # this face if any of the gradients graze the surface.
-            t_in = np.array([(_[1], _[2], _[3]) for _ in self.eik.jet[lf]])
-            if (abs(np.dot(t_in, nu)) < self.domain.mesh.eps).all():
+            # this face if any of the gradients graze the surface or
+            # seem to be emitted from the surface. If we have t_in
+            # leaving a face, something unphysical is happening.
+            t_in = self.eik.grad_T[lf]
+            if (np.dot(t_in, nu) > -self.domain.mesh.eps).all():
                 continue
 
             # Reflect the ray directions over the reflector to get the
