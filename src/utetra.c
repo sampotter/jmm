@@ -300,7 +300,7 @@ bool utetra_init(utetra_s *u, utetra_spec_s const *spec) {
   dbl x0_minus_x[3];
   dbl3_sub(u->Xt[0], u->x, x0_minus_x);
 
-  dbl dot = -dbl3_dot(x0_minus_x, n) > 0;
+  dbl dot = -dbl3_dot(x0_minus_x, n);
 
   return dot > 0;
 }
