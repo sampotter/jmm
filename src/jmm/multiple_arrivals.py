@@ -141,13 +141,23 @@ class Field(ABC, Logger):
             np.array(bd_t_in)
 
     def _get_diffraction_BCs(self, edges):
+        # Get the tangent vector for the diffracting edge
+        t_e = -np.subtract(*self.domain.mesh.verts[edges[0]])
+        t_e /= np.linalg.norm(t_e)
+
+        # Traverse the faces and pull out the BCs for the
+        # edge-diffracted field
         bd_edges, bd_T, bd_grad_T = [], [], []
         for le in edges:
+            # Get the eikonal gradients (the `t_in` vectors) at the
+            # edge, and skip this edge if any of them graze the edge
+            t_in = self.eik.grad_T[le]
+            if (abs(np.dot(t_in, t_e) - 1) < self.domain.mesh.eps).any():
                 continue
 
             bd_edges.append(le)
             bd_T.append([_[0] for _ in self.eik.jet[le]])
-            bd_grad_T.append([(_[1], _[2], _[3]) for _ in self.eik.jet[le]])
+            bd_grad_T.append(t_in)
         return np.array(bd_edges), np.array(bd_T), np.array(bd_grad_T)
 
     def _init_scattered_fields(self):
