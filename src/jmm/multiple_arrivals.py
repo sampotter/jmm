@@ -187,6 +187,7 @@ class Field(ABC, Logger):
             with open(pickled_field_path, 'wb') as f:
                 pickle.dump(field, f)
 
+            # Solve the next scattered field and return it as the next iterate
             field.solve()
             yield field
 
