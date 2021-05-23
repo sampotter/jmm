@@ -72,15 +72,16 @@ struct eik3 {
   array_s *old_updates;
   array_s *old_bd_utri; // old two-point boundary `utri`
 
-  /* Whether a point on the boundary has usable boundary
-   * conditions. This is needed to prevent the checks that determine
-   * whether a ray is physical from ruling out boundary points with
-   * good data.
-   *
-   * Right now, the array has length `mesh3_nverts(eik->mesh)`, so
-   * `bdv_has_bc[l]` isn't used if `mesh3_bdv(eik->mesh, l)` is
-   * `false`. */
-  bool *bdv_has_bc;
+  /* The number of times each vertex has had a boundary condition
+   * set. This is used to quickly check where what kind of point we're
+   * updating from. Each entry of `num_BCs` starts at `0` and is
+   * incremented each time a boundary condition is added. For a point
+   * source, there will be exactly one node with `num_BCs[l] ==
+   * 1`. For a diffracting edge, each interior node of the BCs will
+   * have `num_BCs[l] == 2`, the terminal nodes will have `num_BCs[l]
+   * == 1`, and similarly for reflectors, where `num_BCs[l] <= 3` will
+   * hold. */
+  int8_t *num_BCs;
 
   /* Boundary conditions for a (diffracting) boundary edge, which are
    * just cubic polynomials defined over the edge. These are used to
@@ -177,7 +178,7 @@ void eik3_init(eik3_s *eik, mesh3_s *mesh, ftype_e ftype) {
   array_alloc(&eik->old_bd_utri);
   array_init(eik->old_bd_utri, sizeof(utri_s *), 16);
 
-  eik->bdv_has_bc = calloc(nverts, sizeof(bool));
+  eik->num_BCs = calloc(nverts, sizeof(int8_t));
 
   array_alloc(&eik->bde_bc);
   array_init(eik->bde_bc, sizeof(bde_bc_s), ARRAY_DEFAULT_CAPACITY);
@@ -231,8 +232,8 @@ void eik3_deinit(eik3_s *eik) {
   array_deinit(eik->old_bd_utri);
   array_dealloc(&eik->old_bd_utri);
 
-  free(eik->bdv_has_bc);
-  eik->bdv_has_bc = NULL;
+  free(eik->num_BCs);
+  eik->num_BCs = NULL;
 
   array_deinit(eik->bde_bc);
   array_dealloc(&eik->bde_bc);
@@ -960,6 +961,10 @@ static void compute_t_in(eik3_s *eik, size_t l0) {
     assert(false);
 }
 
+static bool bdv_has_bc(eik3_s const *eik, size_t l) {
+  return eik->num_BCs[l] && mesh3_bdv(eik->mesh, l);
+}
+
 static void compute_t_out(eik3_s *eik, size_t l0) {
   assert(eik->state[l0] == VALID);
 
@@ -975,7 +980,7 @@ static void compute_t_out(eik3_s *eik, size_t l0) {
   if (num_active == 0) {
     /* If `l0` has no parents but it does have a BC for grad(T), then
      * set `t_out[l0] = grad_T[l0]` before returning. */
-    if (eik->bdv_has_bc[l0] && dbl3_isfinite(&eik->jet[l0].fx))
+    if (bdv_has_bc(eik, l0) && dbl3_isfinite(&eik->jet[l0].fx))
       dbl3_copy(&eik->jet[l0].fx, eik->t_out[l0]);
     return;
   }
@@ -1014,7 +1019,7 @@ static void compute_t_out(eik3_s *eik, size_t l0) {
     if (finite_t_out[i])
       continue;
     assert(mesh3_vert_incident_on_diff_edge(mesh, l[i]));
-    assert(eik->bdv_has_bc[l[i]]);
+    assert(bdv_has_bc(eik, l[i]));
     dbl3_sub(x0, mesh3_get_vert_ptr(mesh, l[i]), t_out[i]);
     dbl3_normalize(t_out[i]);
   }
@@ -1101,7 +1106,7 @@ void eik3_add_trial(eik3_s *eik, size_t l, jet3 jet) {
   eik->state[l] = TRIAL;
   heap_insert(eik->heap, l);
 
-  eik->bdv_has_bc[l] = mesh3_bdv(eik->mesh, l);
+  ++eik->num_BCs[l];
 }
 
 bool eik3_is_point_source(eik3_s const *eik, size_t l) {
@@ -1192,8 +1197,9 @@ void eik3_get_DT(eik3_s const *eik, size_t l, dbl DT[3]) {
 }
 
 bool eik3_is_refl_bdf(eik3_s const *eik, size_t const l[3]) {
-  return eik->bdv_has_bc[l[0]] || eik->bdv_has_bc[l[1]] ||
-    eik->bdv_has_bc[l[2]];
+  return bdv_has_bc(eik, l[0])
+      || bdv_has_bc(eik, l[1])
+      || bdv_has_bc(eik, l[2]);
 }
 
 dbl *eik3_get_t_in_ptr(eik3_s const *eik) {
