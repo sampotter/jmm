@@ -480,6 +480,32 @@ static bool commit_tetra_update(eik3_s *eik, size_t lhat, utetra_s const *utetra
   return true;
 }
 
+/* Check if `u` emits a "terminal ray": this is a ray that is emitted
+ * from the edge of a face with reflection BCs, when the face on the
+ * opposite side of this edge doesn't have BCs itself (that is, the
+ * ray emits from the boundary of a contiguous patch on the boundary
+ * of `eik->mesh` that has been supplied wtih reflection BCs) */
+static bool utetra_emits_terminal_ray(eik3_s const *eik, utetra_s const *u) {
+  /* This can only happen when we're solving a problem with reflection BCs */
+  if (eik->ftype != FTYPE_REFLECTION)
+    return false;
+
+  /* Get the active indices from `u`. If there are three, this can't
+   * be a terminal ray */
+  size_t l[3];
+  size_t num_active = utetra_get_active_inds(u, l);
+  if (num_active == 3)
+    return false;
+
+  /* If any of the active indices have three BCs set, then the ray was
+   * emitted from the interior of a face with refl BCs */
+  for (size_t i = 0; i < num_active; ++i)
+    if (eik->num_BCs[l[i]] == 3)
+      return false;
+
+  return true;
+}
+
 static void update(eik3_s *eik, size_t l, size_t l0) {
   /**
    * The first thing we do is check if we're trying to update from a
@@ -729,7 +755,8 @@ static void update(eik3_s *eik, size_t l, size_t l0) {
   for (size_t i = 0; i < num_utetra; ++i) {
     if (!isfinite(utetra_get_value(utetra[i])))
       break;
-    if (utetra_has_interior_point_solution(utetra[i])) {
+    if (utetra_has_interior_point_solution(utetra[i]) ||
+        utetra_emits_terminal_ray(eik, utetra[i])) {
       if (utetra_update_ray_is_physical(utetra[i], eik) &&
           commit_tetra_update(eik, l, utetra[i]))
         break;
@@ -823,7 +850,7 @@ void do_diff_edge_updates_and_adjust(eik3_s *eik, size_t l0, size_t l1,
 
     // ... and attempt to commit it.
     if ((utri_has_interior_point_solution(utri[i]) ||
-         utri_emits_terminal_diffracted_ray(utri[i], eik)) &&
+         utri_emits_terminal_ray(utri[i], eik)) &&
         utri_update_ray_is_physical(utri[i], eik) &&
         commit_tri_update(eik, l, utri[i]))
       adjust(eik, l);

@@ -332,7 +332,7 @@ static dbl get_L(utri_s const *u) {
   return u->L;
 }
 
-bool utri_emits_terminal_diffracted_ray(utri_s const *utri, eik3_s const *eik) {
+bool utri_emits_terminal_ray(utri_s const *utri, eik3_s const *eik) {
   assert(!utri_has_interior_point_solution(utri));
 
   size_t l0 = utri_get_active_ind(utri);
