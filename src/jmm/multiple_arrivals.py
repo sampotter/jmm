@@ -78,6 +78,8 @@ class Field(ABC, Logger):
         self.bd_inds = bd_inds
         self.bd_T = bd_T
         self.bd_grad_T = bd_grad_T
+
+        # TODO: instantiate these lazily to save memory!
         self.eik = jmm.eik.Eik3.from_mesh_and_ftype(self.domain.mesh, ftype)
         self.extended_eik = jmm.eik.Eik3.from_mesh_and_ftype(
             self.domain.extended_mesh, ftype)
