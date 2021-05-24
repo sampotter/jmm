@@ -266,3 +266,7 @@ def plot_vector_field(plotter, points, vectors, scale=1, **kwargs):
     plotter.add_mesh(
         points.glyph(orient=True, geom=pv.Arrow(scale=scale)),
         **kwargs)
+
+def plot_points(plotter, points, r=1, **kwargs):
+    points = pv.PolyData(points)
+    plotter.add_mesh(points.glyph(geom=pv.Sphere(r)), **kwargs)
