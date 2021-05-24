@@ -178,7 +178,7 @@ def plot_shadow(plotter, field, **kwargs):
 
 def plot_point_source_BCs(plotter, field, **kwargs):
     if not isinstance(field, jmm.multiple_arrivals.PointSourceField):
-        raise ValueError('field is of type %s' % type(self.__name__))
+        raise ValueError('field is of type %s' % type(field).__name__)
 
     r = 1 if 'r' not in kwargs else kwargs['r']
 
@@ -191,7 +191,7 @@ def plot_point_source_BCs(plotter, field, **kwargs):
 
 def plot_reflected_field_BCs(plotter, field, **kwargs):
     if not isinstance(field, jmm.multiple_arrivals.ReflectedField):
-        raise ValueError('field is of type %s' % type(self.__name__))
+        raise ValueError('field is of type %s' % type(field).__name__)
 
     r = 1 if 'r' not in kwargs else kwargs['r']
 
