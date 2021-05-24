@@ -213,11 +213,45 @@ def plot_reflected_field_BCs(plotter, field, **kwargs):
         bd_grads.glyph(orient=True, geom=pv.Arrow(scale=3*r)),
         **add_mesh_kwargs)
 
+def plot_diffracted_field_BCs(plotter, field, **kwargs):
+    if not isinstance(field, jmm.multiple_arrivals.DiffractedField):
+        raise ValueError('field is of type %s' % type(field).__name__)
+
+    r = 1 if 'r' not in kwargs else kwargs['r']
+
+    add_mesh_kwargs = kwargs.copy()
+    if 'r' in add_mesh_kwargs:
+        del add_mesh_kwargs['r']
+
+    cells = np.empty((field.bd_inds.shape[0], 3), dtype=np.uintp)
+    cells[:, 0] = 2
+    cells[:, 1:] = field.bd_inds
+
+    verts = field.domain.mesh.verts
+
+    poly_line = pv.PolyData()
+    poly_line.points = verts
+    poly_line.lines = cells
+
+    tube = poly_line.tube(radius=r/6)
+
+    plotter.add_mesh(tube, **add_mesh_kwargs)
+
+    bd_inds = np.unique(field.bd_inds)
+
+    bd_grads = pv.PolyData(verts[bd_inds])
+    bd_grads.vectors = field.eik.grad_T[bd_inds]
+    plotter.add_mesh(
+        bd_grads.glyph(orient=True, geom=pv.Arrow(scale=3*r)),
+        **add_mesh_kwargs)
+
 def plot_field_BCs(plotter, field, **kwargs):
     if isinstance(field, jmm.multiple_arrivals.PointSourceField):
         plot_point_source_BCs(plotter, field, **kwargs)
     elif isinstance(field, jmm.multiple_arrivals.ReflectedField):
         plot_reflected_field_BCs(plotter, field, **kwargs)
+    elif isinstance(field, jmm.multiple_arrivals.DiffractedField):
+        plot_diffracted_field_BCs(plotter, field, **kwargs)
     else:
         raise RuntimeError(
             'plot_field_BCs not implemented for %s' % type(field).__name__)
