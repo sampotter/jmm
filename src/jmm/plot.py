@@ -255,3 +255,14 @@ def plot_field_BCs(plotter, field, **kwargs):
     else:
         raise RuntimeError(
             'plot_field_BCs not implemented for %s' % type(field).__name__)
+
+def plot_vector_field(plotter, points, vectors, scale=1, **kwargs):
+    if points.shape != vectors.shape:
+        raise RuntimeError('points and vectors should have the same shape')
+
+    points = pv.PolyData(points)
+    points.vectors = vectors
+
+    plotter.add_mesh(
+        points.glyph(orient=True, geom=pv.Arrow(scale=scale)),
+        **kwargs)
