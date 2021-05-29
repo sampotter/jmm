@@ -63,10 +63,11 @@ bdf_s make_bdf(size_t l0, size_t l1, size_t l2, size_t lc, bool virtual) {
   return f;
 }
 
-void bdf_init(bdf_s *f, size_t const *lf, size_t lc) {
+void bdf_init(bdf_s *f, size_t const *lf, size_t lc, bool virtual) {
   memcpy(f->lf, lf, 3*sizeof(size_t));
   qsort(f->lf, 3, sizeof(size_t), (compar_t)compar_size_t);
   f->lc = lc;
+  f->virtual = virtual;
 }
 
 int bdf_cmp(bdf_s const *f1, bdf_s const *f2) {
@@ -548,12 +549,12 @@ static void init_bd(mesh3_s *mesh) {
       ++l; // Increment here to skip equal pairs
       continue;
     }
-    bdf_init(&mesh->bdf[lf++], f[l].lf, f[l].lc);
+    bdf_init(&mesh->bdf[lf++], f[l].lf, f[l].lc, false);
   }
 
   // ... and the last face
   if (bdf_cmp(&f[nf - 2], &f[nf - 1])) {
-    bdf_init(&mesh->bdf[lf++], f[nf - 1].lf, f[nf - 1].lc);
+    bdf_init(&mesh->bdf[lf++], f[nf - 1].lf, f[nf - 1].lc, false);
   }
 
   assert(lf == mesh->nbdf); // sanity

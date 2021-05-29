@@ -309,6 +309,15 @@ cell edges of `jmm.Mesh3`.
         cdef mesh2 *surface_mesh = mesh3_get_surface_mesh(self.mesh)
         return Mesh2.from_ptr(surface_mesh, ptr_owner=True)
 
+    def get_inc_diff_edges(self, size_t l):
+        '''Get the diffracting edges that are incident on `l`.'''
+        if not self.bdv(l):
+            return np.empty((0, 2), dtype=np.uintp)
+        cdef size_t num_inc = mesh3_get_num_inc_diff_edges(self.mesh, l)
+        cdef size_t[:, ::1] le = np.empty((num_inc, 2), dtype=np.uintp)
+        mesh3_get_inc_diff_edges(self.mesh, l, <size_t[2]*>&le[0, 0])
+        return np.asarray(le)
+
     @property
     def num_reflectors(self):
         '''The number of distinct reflecting components that partition the
