@@ -302,7 +302,7 @@ dbl dbl4_sum(dbl const u[4]) {
 }
 
 bool dbl4_valid_bary_coord(dbl const b[4]) {
-  dbl const atol = 1e-15;
+  dbl const atol = 1e-14;
   return b[0] > -atol && b[1] > -atol && b[2] > -atol && b[3] > -atol
     && fabs(1 - dbl4_sum(b)) < atol;
 }
