@@ -103,6 +103,8 @@ struct eik3 {
    * variables containing `h^2` and `h^3`. */
   dbl h, h2, h3;
 
+  dbl slerp_tol;
+
   /* Useful statistics for debugging */
   int num_accepted; /* number of nodes fixed by `eik3_step` */
 
@@ -196,6 +198,8 @@ void eik3_init(eik3_s *eik, mesh3_s *mesh, ftype_e ftype) {
   eik->h = mesh3_get_min_edge_length(mesh);
   eik->h2 = eik->h*eik->h;
   eik->h3 = eik->h*eik->h*eik->h;
+
+  eik->slerp_tol = eik->h3;
 }
 
 void eik3_deinit(eik3_s *eik) {
@@ -1358,6 +1362,10 @@ bool eik3_has_bde_bc(eik3_s const *eik, size_t const le[2]) {
 
 ftype_e eik3_get_ftype(eik3_s const *eik) {
   return eik->ftype;
+}
+
+dbl eik3_get_slerp_tol(eik3_s const *eik) {
+  return eik->slerp_tol;
 }
 
 bool eik3_has_BCs(eik3_s const *eik, size_t l) {
