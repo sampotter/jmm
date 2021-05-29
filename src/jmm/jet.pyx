@@ -29,3 +29,6 @@ cdef class Jet3:
     @property
     def fz(self):
         return self.jet.fz
+
+    def is_finite(self):
+        return jet3_is_finite(&self.jet)
