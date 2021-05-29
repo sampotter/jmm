@@ -25,8 +25,7 @@ typedef struct {
 } bb32;
 
 void bb32_init_from_3d_data(bb32 *bb, dbl const f[3], dbl const Df[3][3], dbl const x[3][3]);
-void bb32_init_from_jets(bb32 *bb, jet3 const jet[3], dbl const x[3][3],
-                         bool const is_point_source[3]);
+void bb32_init_from_jets(bb32 *bb, jet3 const jet[3], dbl const x[3][3]);
 dbl bb32_f(bb32 const *bb, dbl const *b);
 dbl bb32_df(bb32 const *bb, dbl const *b, dbl const *a);
 dbl bb32_d2f(bb32 const *bb, dbl const *b, dbl const *a1, dbl const *a2);
@@ -37,6 +36,7 @@ typedef struct {
 
 void bb33_init_from_3d_data(bb33 *bb, dbl const f[4], dbl const Df[4][3], dbl const x[4][3]);
 void bb33_init_from_cell_and_jets(bb33 *bb, mesh3_s const *mesh, jet3 const *jet, size_t lc);
+void bb33_init_from_jets(bb33 *bb, jet3 const jet[4], dbl const x[4][3]);
 dbl bb33_f(bb33 const *bb, dbl const b[4]);
 dbl bb33_df(bb33 const *bb, dbl const b[4], dbl const a[4]);
 dbl bb33_d2f(bb33 const *bb, dbl const b[4], dbl const a[2][4]);

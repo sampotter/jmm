@@ -69,15 +69,43 @@ Ensure (bb33, has_linear_precision) {
     }
   }
 
+  jet3 jet[4];
+  for (size_t i = 0; i < 4; ++i) {
+    jet[i].f = f[i];
+    jet[i].fx = Df[i][0];
+    jet[i].fy = Df[i][1];
+    jet[i].fz = Df[i][2];
+  }
+
+  dbl f_gt, f_bb;
+
+  /* First, test that this works if we use
+   * `bb33_init_from_3d_data`. */
+
   bb33 bb;
   bb33_init_from_3d_data(&bb, f, Df, x);
 
-  dbl f_gt, f_bb;
   for (int i = 0; i < NUM_RANDOM_TRIALS; ++i) {
     SET_UP_RANDOM_CONVEX_COMBINATION();
 
     f_gt = dbl3_dot(A, xb) + B;
     f_bb = bb33_f(&bb, b);
+    assert_that_double(f_gt, is_nearly_double(f_bb));
+  }
+
+  /* Next, check that it works for `bb33_init_from_jets` */
+
+  bb33 bb_jets;
+  bb33_init_from_jets(&bb_jets, jet, x);
+
+  for (size_t i = 0; i < 20; ++i)
+    assert_that_double(bb_jets.c[i], is_nearly_double(bb.c[i]));
+
+  for (int i = 0; i < NUM_RANDOM_TRIALS; ++i) {
+    SET_UP_RANDOM_CONVEX_COMBINATION();
+
+    f_gt = dbl3_dot(A, xb) + B;
+    f_bb = bb33_f(&bb_jets, b);
     assert_that_double(f_gt, is_nearly_double(f_bb));
   }
 }

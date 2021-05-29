@@ -248,7 +248,7 @@ bool utetra_init(utetra_s *u, utetra_spec_s const *spec) {
      * data. This is inaccurate but will unstick the solver in a few
      * places, especially near the boundary of the physical rays
      * emitted by diffracting edges. */
-    bb32_init_from_jets(&u->T, jet, u->Xt, pt_src);
+    bb32_init_from_jets(&u->T, jet, u->Xt);
   } else {
     /* If we have all the gradient data we need, do regular ol' BB
      * interpolation. */
