@@ -189,6 +189,8 @@ cdef class Eik3:
         if self.ftype != Ftype.EdgeDiffraction:
             raise RuntimeError(
                 'tried to add edge diffraction BCs to %s field' % str(self.ftype))
+        if not jet0.is_finite() or not jet1.is_finite():
+            raise ValueError('tried to add diff edge BCs with bad jets')
         cdef size_t[2] le = [l0, l1]
         cdef jet3[2] jet = [jet0.jet, jet1.jet]
         eik3_add_diff_edge_BCs(self.eik, le, jet)
