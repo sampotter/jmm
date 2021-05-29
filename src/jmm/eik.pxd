@@ -34,6 +34,8 @@ cdef class Eik3:
     cdef:
         eik3 *eik
         ArrayView jet_view
+        ArrayView T_view
+        ArrayView grad_T_view
         ArrayView state_view
         ArrayView t_in_view
         ArrayView t_out_view

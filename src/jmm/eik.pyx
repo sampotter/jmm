@@ -40,6 +40,24 @@ cdef class Eik3:
         self.jet_view.format = 'dddd'
         self.jet_view.itemsize = 4*sizeof(dbl)
 
+        self.T_view = ArrayView(1)
+        self.T_view.readonly = True
+        self.T_view.ptr = <void *>&eik3_get_jet_ptr(self.eik).f
+        self.T_view.shape[0] = self.size
+        self.T_view.strides[0] = 4*sizeof(dbl)
+        self.T_view.format = 'd'
+        self.T_view.itemsize = 1*sizeof(dbl)
+
+        self.grad_T_view = ArrayView(2)
+        self.grad_T_view.readonly = True
+        self.grad_T_view.ptr = <void *>&eik3_get_jet_ptr(self.eik).fx
+        self.grad_T_view.shape[0] = self.size
+        self.grad_T_view.shape[1] = 3
+        self.grad_T_view.strides[0] = 4*sizeof(dbl)
+        self.grad_T_view.strides[1] = 1*sizeof(dbl)
+        self.grad_T_view.format = 'd'
+        self.grad_T_view.itemsize = 1*sizeof(dbl)
+
         self.state_view = ArrayView(1)
         self.state_view.readonly = True
         self.state_view.ptr = <void *>eik3_get_state_ptr(self.eik)
@@ -111,11 +129,11 @@ cdef class Eik3:
 
     @property
     def T(self):
-        return np.array([_[0] for _ in self.jet])
+        return np.asarray(self.T_view)
 
     @property
     def grad_T(self):
-        return np.array([(_[1], _[2], _[3]) for _ in self.jet])
+        return np.asarray(self.grad_T_view)
 
     @property
     def state(self):
