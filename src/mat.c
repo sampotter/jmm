@@ -146,6 +146,22 @@ void dbl33_set_column(dbl A[3][3], int i, dbl const x[3]) {
   A[2][i] = x[2];
 }
 
+void dbl4_dbl43_mul(dbl const b[4], dbl const A[4][3], dbl x[3]) {
+  for (size_t j = 0; j < 3; ++j) {
+    x[j] = 0;
+    for (size_t i = 0; i < 4; ++i)
+      x[j] += b[i]*A[i][j];
+  }
+}
+
+void dbl43_dbl3_mul(dbl const A[4][3], dbl const b[3], dbl x[4]) {
+  for (size_t i = 0; i < 4; ++i) {
+    x[i] = 0;
+    for (size_t j = 0; j < 3; ++j)
+      x[i] = A[i][j]*b[j];
+  }
+}
+
 void dbl44_dbl4_solve(dbl const A[4][4], dbl const b[4], dbl x[4]) {
   dbl LU[4][4];
   memcpy(LU, A, 4*4*sizeof(dbl));

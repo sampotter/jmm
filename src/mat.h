@@ -29,6 +29,9 @@ void dbl33_dbl3_solve(dbl const A[3][3], dbl const b[3], dbl x[3]);
 void dbl33_get_column(dbl const A[3][3], int i, dbl a[3]);
 void dbl33_set_column(dbl A[3][3], int i, dbl const a[3]);
 
+void dbl4_dbl43_mul(dbl const b[4], dbl const A[4][3], dbl x[3]);
+void dbl43_dbl3_mul(dbl const A[4][3], dbl const b[3], dbl x[4]);
+
 void dbl44_dbl4_solve(dbl const A[4][4], dbl const b[4], dbl x[4]);
 dbl dbl44_det(dbl const A[4][4]);
 void dbl44_get_col(dbl const A[4][4], int j, dbl a[4]);
