@@ -192,3 +192,6 @@ cdef class Eik3:
         cdef size_t[2] le = [l0, l1]
         cdef jet3[2] jet = [jet0.jet, jet1.jet]
         eik3_add_diff_edge_BCs(self.eik, le, jet)
+
+    def has_BCs(self, size_t l):
+        return eik3_has_BCs(self.eik, l)

@@ -42,6 +42,7 @@ void eik3_set_bde_bc(eik3_s *eik, size_t const le[2], bb31 const *bb);
 bool eik3_get_bde_bc(eik3_s const *eik, size_t const le[2], bb31 *bb);
 bool eik3_has_bde_bc(eik3_s const *eik, size_t const le[2]);
 ftype_e eik3_get_ftype(eik3_s const *eik);
+bool eik3_has_BCs(eik3_s const *eik, size_t l);
 
 #ifdef __cplusplus
 }

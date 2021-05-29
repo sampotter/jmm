@@ -1359,3 +1359,7 @@ bool eik3_has_bde_bc(eik3_s const *eik, size_t const le[2]) {
 ftype_e eik3_get_ftype(eik3_s const *eik) {
   return eik->ftype;
 }
+
+bool eik3_has_BCs(eik3_s const *eik, size_t l) {
+  return eik->num_BCs[l] > 0;
+}

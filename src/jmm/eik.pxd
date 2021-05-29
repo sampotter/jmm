@@ -29,6 +29,7 @@ cdef extern from "eik3.h":
                            const dbl t_in[3][3])
     void eik3_add_diff_edge_BCs(eik3 *eik, const size_t le[2], const jet3 jet[2])
     ftype eik3_get_ftype(const eik3 *eik)
+    bool eik3_has_BCs(const eik3 *eik, size_t l)
 
 cdef class Eik3:
     cdef:
