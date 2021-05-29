@@ -14,6 +14,7 @@ typedef struct {
 
 void bb31_init_from_1d_data(bb31 *bb, dbl const f[2], dbl const Df[2], dbl const x[2]);
 void bb31_init_from_3d_data(bb31 *bb, dbl const f[2], dbl const Df[2][3], dbl const x[2][3]);
+void bb31_init_from_jets(bb31 *bb, jet3 const jet[2], dbl const x[2][3]);
 dbl bb31_f(bb31 const *bb, dbl const *b);
 dbl bb31_df(bb31 const *bb, dbl const *b, dbl const *a);
 dbl bb31_d2f(bb31 const *bb, dbl const *b, dbl const *a);
