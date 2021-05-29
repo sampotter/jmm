@@ -936,110 +936,111 @@ static void compute_t_in(eik3_s *eik, size_t l0) {
 
   par3_s par = eik3_get_par(eik, l0);
 
-  size_t npar = par3_size(&par);
-  if (npar == 0) {
-    if (!dbl3_isfinite(eik->t_in[l0]))
-      dbl3_normalized(&eik->jet[l0].fx, eik->t_in[l0]);
+  /* If the node has no parents, it should be a BC node, and should
+   * then have `t_in` already set. Verify this and return. */
+  if (par3_is_empty(&par)) {
+    assert(eik->num_BCs[l0] > 0);
+    assert(dbl3_isfinite(eik->t_in[l0]));
     return;
   }
 
-  dbl t_in[npar][3];
-  for (size_t i = 0; i < npar; ++i)
-    dbl3_copy(eik->t_in[par.l[i]], t_in[i]);
+  size_t num_active = par3_num_active(&par);
+  assert(num_active > 0);
 
-  bool t_in_finite = dbl3_isfinite(t_in[0]);
-  for (size_t i = 1; i < npar; ++i)
-    assert(dbl3_isfinite(t_in[i]) == t_in_finite);
-  if (!t_in_finite) {
-    dbl3_copy(t_in[0], eik->t_in[l0]);
-    return;
+  size_t l[num_active];
+  dbl b[num_active];
+  par3_get_active(&par, l, b);
+
+  dbl t_in[num_active][3];
+  for (size_t i = 0; i < num_active; ++i)
+    dbl3_copy(eik->t_in[l[i]], t_in[i]);
+
+  bool finite[num_active];
+  size_t num_finite = 0;
+  for (size_t i = 0; i < num_active; ++i)
+    num_finite += finite[i] = dbl3_isfinite(t_in[i]);
+
+  assert(num_finite > 0);
+
+  for (size_t i = 0; i < num_active; ++i) {
+    if (finite[i]) continue;
+    assert(eik->num_BCs[l[i]] > 0);
+    dbl3_copy(&eik->jet[l[i]].fx, t_in[i]);
   }
 
-  if (npar == 1)
+  if (num_active == 1)
     dbl3_copy(t_in[0], eik->t_in[l0]);
-  else if (npar == 2)
-    slerp2(t_in[0], t_in[1], par.b, eik->t_in[l0]);
-  else if (npar == 3)
-    slerp3(t_in, par.b, eik->t_in[l0], eik->h3);
+  else if (num_active == 2)
+    slerp2(t_in[0], t_in[1], b, eik->t_in[l0]);
+  else if (num_active == 3)
+    slerp3(t_in, b, eik->t_in[l0], eik->slerp_tol);
   else
     assert(false);
+
+  assert(dbl3_isfinite(eik->t_in[l0]));
 }
 
 static bool bdv_has_bc(eik3_s const *eik, size_t l) {
   return eik->num_BCs[l] && mesh3_bdv(eik->mesh, l);
 }
-
 static void compute_t_out(eik3_s *eik, size_t l0) {
   assert(eik->state[l0] == VALID);
 
-  size_t num_active;
-  size_t l[3] = {NO_PARENT, NO_PARENT, NO_PARENT};
-  dbl b[3] = {NAN, NAN, NAN};
-  {
-    par3_s par = eik3_get_par(eik, l0);
-    num_active = par3_num_active(&par);
-    par3_get_active(&par, l, b);
-  }
+  par3_s par = eik3_get_par(eik, l0);
 
-  if (num_active == 0) {
-    /* If `l0` has no parents but it does have a BC for grad(T), then
-     * set `t_out[l0] = grad_T[l0]` before returning. */
-    if (bdv_has_bc(eik, l0) && dbl3_isfinite(&eik->jet[l0].fx))
-      dbl3_copy(&eik->jet[l0].fx, eik->t_out[l0]);
+  /* If the node has no parents, then it must have boundary
+   * conditions. We stipulate that `t_out` is undefined (NAN) at
+   * points with boundary conditions (although we could specify a
+   * well-defined field of `t_out` vectors in the case of a
+   * reflection). We do this for two reasons:
+   *
+   * 1) to ensure that the nodes neighboring the nodes with BCs have
+   * their `t_out` vectorset correctly, ensuring that something
+   * sensible is marched through the domain, and
+   *
+   * 2) to use `t_out[l] == NAN` as a mask signaling that the BC nodes
+   * should be included in the valid angle mask */
+  if (par3_is_empty(&par)) {
+    assert(eik->num_BCs[l0] > 0);
     return;
   }
 
-  mesh3_s const *mesh = eik->mesh;
-  dbl const *x0 = mesh3_get_vert_ptr(mesh, l0);
+  size_t num_active = par3_num_active(&par);
+  assert(num_active > 0);
+
+  size_t l[num_active];
+  dbl b[num_active];
+  par3_get_active(&par, l, b);
 
   dbl t_out[num_active][3];
-  for (size_t i = 0; i < num_active; ++i) {
-    if (eik3_is_point_source(eik, l[i])) {
-      dbl3_sub(x0, mesh3_get_vert_ptr(mesh, l[i]), t_out[i]);
-      dbl3_normalize(t_out[i]);
-    } else if (dbl3_isfinite(eik->t_out[l[i]])) {
-      dbl3_copy(eik->t_out[l[i]], t_out[i]);
-    } else {
-      dbl3_copy(&eik->jet[l[i]].fx, t_out[i]);
-    }
-  }
-
-  bool finite_t_out[num_active];
   for (size_t i = 0; i < num_active; ++i)
-    finite_t_out[i] = dbl3_isfinite(t_out[i]);
+    dbl3_copy(eik->t_out[l[i]], t_out[i]);
 
-  /* If `l0` was updated from a diffracting edge, set `t_out[l0]`
-   * using `jet[l0`. */
-  if (num_active == 2 && !finite_t_out[0] && !finite_t_out[1]) {
-    assert(mesh3_bde(mesh, l));
+  bool finite[num_active];
+  size_t num_finite = 0;
+  for (size_t i = 0; i < num_active; ++i)
+    num_finite += finite[i] = dbl3_isfinite(t_out[i]);
+
+  /* If there aren't enough finite `t_out` vectors, then (in the
+   * general case) what we need to do is solve an optimization problem
+   * to compute `eik->t_out[l0]`. Since we assume c == 1, then the
+   * result of this 2pt BVP would just be the gradient at `l0`, so we
+   * just copy that over now. */
+  if (num_finite < num_active) {
     dbl3_copy(&eik->jet[l0].fx, eik->t_out[l0]);
     return;
   }
-
-  /* Now we fill in any missing `t_out` vectors, assuming that these
-   * points must coincide with vertices that are terminal points of a
-   * diffracting edge. */
-  for (size_t i = 0; i < num_active; ++i) {
-    if (finite_t_out[i])
-      continue;
-    assert(mesh3_vert_incident_on_diff_edge(mesh, l[i]));
-    assert(bdv_has_bc(eik, l[i]));
-    dbl3_sub(x0, mesh3_get_vert_ptr(mesh, l[i]), t_out[i]);
-    dbl3_normalize(t_out[i]);
-  }
-
-  /* All of the `t_out` vectors should be finite at this point */
-  for (size_t i = 0; i < num_active; ++i)
-    assert(dbl3_isfinite(t_out[i]));
 
   if (num_active == 1)
     dbl3_copy(t_out[0], eik->t_out[l0]);
   else if (num_active == 2)
     slerp2(t_out[0], t_out[1], b, eik->t_out[l0]);
   else if (num_active == 3)
-    slerp3(t_out, b, eik->t_out[l0], eik->h3);
+    slerp3(t_out, b, eik->t_out[l0], eik->slerp_tol);
   else
     assert(false);
+
+  assert(eik->num_BCs[l0] > 0 || dbl3_isfinite(eik->t_out[l0]));
 }
 
 /* Remove old tetrahedron and two-point boundary updates targeting
@@ -1076,8 +1077,10 @@ size_t eik3_step(eik3_s *eik) {
 
   eik->state[l0] = VALID;
 
-  compute_t_in(eik, l0);
+  if (eik->ftype != FTYPE_POINT_SOURCE)
+    compute_t_in(eik, l0);
   compute_t_out(eik, l0);
+
   purge_old_updates(eik, l0);
   update_neighbors(eik, l0);
 
