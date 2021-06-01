@@ -10,14 +10,14 @@
     - [X] branch and separate shadow cutset stuff
     - [X] re-run and compute difference
   - [X] make version of room without columns
-  - [-] reinitialize reflections
+  - [X] reinitialize reflections
     - [X] restrict eikonal to surfaces
     - [X] reflect grad(T)
     - [X] solve reflected
     - [X] compute shadow & plot
     - [X] transport t_out field
     - [X] transport t_in field
-    - [ ] check refl condition
+    - [X] check refl condition
   - [X] reinitialize from diffracting edge
     - [X] restrict eikonal to diffracting edges
     - [X] compute cubic polys on diff edges for 2pt updates
@@ -26,7 +26,44 @@
     - [X] transport t_out field
     - [X] transport t_in field
     - [X] check diff angle cond
-  - [ ] compute amplitude
+
+* OK... got stuck
+
+  Computing the shadows is 1) hard, and 2) finnicky, and 3) leads to
+  issues with the BCs for the scattered fields
+
+  Another idea to get around this is to *not* compute the shadows, and
+  instead weight the amplitudes by a "measure of
+  physicality". Something like:
+
+    s(e) = { 1                          if e <= C*h
+             N(e; log(0.01)*e, std(e))  if e >= C*h }
+
+  The idea here is that s(e) = 1 up to for an error ("e") up to some
+  reasonable tolerance ("C*h"), and then decays exponentially fast to
+  0 for e > C*h.
+
+  We want to scale the _amplitude_ of each field by s(e) where e is an
+  error related to a point lying in the shadow or having been
+  unphysically reflected or diffracted. For the shadow, this could be
+  the arc length between the gradient and the t_out vector; for
+  reflections, it could be the deviation between the projected t_in
+  and t_out vectors; and for diffraction, it could be the difference
+  in the arc length between the t_in/t_out vectors and the tangent
+  vector of the diffracting edge.
+
+  If we scale the amplitude by s(e) and watch for points which fall
+  more than 60 dB, we should be able to do multiple orders of
+  reflection and diffraction a little more robustly, *without* having to
+  compute the solution on the extended domain, which is a
+  plus. Ideally this approach will kill two birds with one stone.
+
+  *Todo*:
+  - [ ] prep work
+    - [ ] remove extended_eik
+  - [ ] "measure of physicality" scaling
+  - [ ] computes directions
+  - [ ] compute amplitudes
     - [ ] 1/r = 1/(c*tau) (no paraxial for now)
     - [ ] reflection coefficient
     - [ ] UTD coefficient
