@@ -25,58 +25,49 @@ class Logger(object):
         self.log = logging.getLogger(type(self).__name__)
 
 class Domain(Logger):
-    def __init__(self, extended_verts, extended_cells, num_dom_verts,
-                 num_dom_cells):
+    def __init__(self, verts, cells, refl_coef):
         super().__init__()
 
-        verts = extended_verts[:num_dom_verts]
-        cells = extended_cells[:num_dom_cells]
+        # For now, just assume that the reflection coefficient is
+        # provided as a single scalar. TODO: Later, we'll allow it to
+        # be specified at each boundary vertex.
+        self.refl_coef = refl_coef
+
         self.mesh = jmm.mesh.Mesh3(verts, cells)
 
         self.log.info('domain has %d vertices and %d cells',
-                      num_dom_verts, num_dom_cells)
-
-        # Create extended mesh. When we do this, we need to insert the
-        # boundary faces and diffracting edges into the new mesh to
-        # ensure consistency between the computed solutions.
-        self.extended_mesh = jmm.mesh.Mesh3(extended_verts, extended_cells)
-        for le in self.mesh.get_diff_edges():
-            self.extended_mesh.set_boundary_edge(*le, True)
-        for lf in self.mesh.get_boundary_faces():
-            self.extended_mesh.set_boundary_face(*lf, True)
-
-        self.log.info('extended domain has %d vertices and %d cells',
-                      extended_verts.shape[0], extended_cells.shape[0])
-
-        self.h = self.extended_mesh.min_edge_length
+                      self.num_verts, self.num_cells)
 
     def __reduce__(self):
-        extended_verts = self.extended_mesh.verts
-        extended_cells = self.extended_mesh.cells
-        num_dom_verts = self.mesh.num_verts
-        num_dom_cells = self.mesh.num_cells
-        args = (extended_verts, extended_cells, num_dom_verts, num_dom_cells)
-        return (self.__class__, args)
+        return (self.__class__, (self.verts, self.cells, self.refl_coef))
+
+    @property
+    def verts(self):
+        return self.mesh.verts
 
     @property
     def num_verts(self):
         return self.mesh.num_verts
 
-    def get_active_reflectors(self, mask):
-        for faces in self.mesh.reflectors:
-            active_faces = faces[mask[faces].any(1)]
-            if active_faces.size > 0:
-                yield active_faces
+    @property
+    def cells(self):
+        return self.mesh.cells
 
-    def get_active_diffractors(self, mask):
-        for edges in self.mesh.diffractors:
-            active_edges = edges[mask[edges].any(1)]
-            if active_edges.size > 0:
-                yield active_edges
+    @property
+    def num_cells(self):
+        return self.mesh.num_cells
+
+    @property
+    def boundary_faces(self):
+        return np.array(list(self.mesh.get_boundary_faces()))
+
+    @property
+    def h(self):
+        return self.mesh.min_edge_length
 
 class Field(ABC, Logger):
     speed_of_sound = 343
-    num_mask_threshold_bins = 513
+    minimum_amplitude = 1e-3 # == -60 dB
 
     def __init__(self, domain, index, ftype, bd_inds, bd_T, bd_grad_T,
                  parent=None):
@@ -91,8 +82,6 @@ class Field(ABC, Logger):
 
         # TODO: instantiate these lazily to save memory!
         self.eik = jmm.eik.Eik3.from_mesh_and_ftype(self.domain.mesh, ftype)
-        self.extended_eik = jmm.eik.Eik3.from_mesh_and_ftype(
-            self.domain.extended_mesh, ftype)
 
         self.solved = False
         self._scattered_fields = []
@@ -115,12 +104,6 @@ class Field(ABC, Logger):
         self.eik.solve()
         self.log.info(
             'solved eikonal equation on domain [%1.2fs]',
-            jmm.util.toc())
-
-        jmm.util.tic()
-        self.extended_eik.solve()
-        self.log.info(
-            'solved eikonal equation on extended domain [%1.2fs]',
             jmm.util.toc())
 
     def _get_reflection_BCs(self, faces):
@@ -201,29 +184,23 @@ class Field(ABC, Logger):
         if not self.solved:
             self.solve()
 
-        fields = []
+        mesh, fields = self.domain.mesh, []
 
-        active_reflectors = self.domain.get_active_reflectors(self.mask)
-        for index, active_faces in enumerate(active_reflectors):
+        for index, faces in enumerate(mesh.reflectors):
             if isinstance(self, ReflectedField) and index == self.index:
                 continue
-
-            BCs = self._get_reflection_BCs(active_faces)
+            BCs = self._get_reflection_BCs(faces)
             if not BCs:
                 continue
-
             fields.append(ReflectedField(self.domain, index, *BCs, parent=self))
 
-        active_diffractors = self.domain.get_active_diffractors(self.mask)
-        for index, active_edges in enumerate(active_diffractors):
+        for index, edges in enumerate(mesh.diffractors):
             if isinstance(self, DiffractedField) and index == self.index:
                 continue
-
-            BCs = self._get_diffraction_BCs(active_edges)
+            BCs = self._get_diffraction_BCs(edges)
             if not BCs:
                 continue
-
-            fields.append(DiffractedField(self.domain, index, *BCs, parent=self))
+            fields.append(DiffractedField(self.domain, index, *BCs,parent=self))
 
         self._scattered_fields = fields
 
@@ -247,8 +224,10 @@ class Field(ABC, Logger):
             with open(pickled_field_path, 'wb') as f:
                 pickle.dump(field, f)
 
-            # Solve the next scattered field and return it as the next iterate
+            # Solve the next scattered field...
             field.solve()
+
+            # ... and return it as the next iterate
             yield field
 
             # Initialize the next field's scattered fields and merge
@@ -263,68 +242,49 @@ class Field(ABC, Logger):
         return np.float64
 
     @property
-    def _error_thresh(self):
-        return np.maximum(np.finfo(self.dtype).resolution, self.h**4)
+    def _boundary_mask(self):
+        mask = np.zeros(self.domain.num_verts, dtype=np.bool_)
+        mask[np.unique(self.bd_inds)] = True
+        return mask
 
-    @threaded_cached_property
-    def _phi_shadow(self):
-        T = self.eik.T
-        extended_T = self.extended_eik.T[:self.domain.num_verts]
-
-        abs_diff = abs(T - extended_T)
-
-        # A good number of points will agree to machine precision. We
-        # want to mask those out first.
-        #
-        # TODO: we could do this more robustly by doing three-way Otsu
-        # here instead of using this manual mask
-        error_mask = abs_diff > self._error_thresh
-
-        # Get the base-10 exponent of the absolute domain errors
-        log_abs_diff = np.log10(np.maximum(1e-16, abs_diff[error_mask]))
-
-        finite_mask = np.isfinite(log_abs_diff)
-
-        # Compute a threshold in order to separate the distribution of
-        # exponents using Otsu's method
-        # p = jmm.util.otsu(
-        #     log_abs_diff[finite_mask], bins=Field.num_mask_threshold_bins)
-        # self._shadow_mask_thresh = 10**p
-        self._shadow_mask_thresh = self.h**2
-
-        # Evaluate the level set function for the shadow mask
-        return T - extended_T - self._shadow_mask_thresh
-
-    @threaded_cached_property
-    def _phi(self):
-        return np.maximum(self._phi_shadow, self._phi_valid_angle)
-
-    @threaded_cached_property
-    def mask(self):
-        return self._phi <= 0
-
-    def get_direct_viz_level_set_func_for_cell(self, lc):
-        cell = self.domain.mesh.cells[lc]
-        X = self.domain.mesh.verts[cell]
-        T = jmm.bb.Bb33.from_jets(X, self.eik.jet[cell])
-        extended_T = jmm.bb.Bb33.from_jets(X, self.extended_eik.jet[cell])
-        eps = self._shadow_mask_thresh
-        return lambda b: T.f(b) - extended_T.f(b) - eps
-
-    def get_level_set_func_for_cell(self, lc):
-        phi_vis = self.get_direct_viz_level_set_func_for_cell(lc)
-        phi_theta = self.get_valid_angle_level_set_func_for_cell(lc)
-        return lambda b: np.maximum(phi_vis(b), phi_theta(b))
+    @property
+    def r(self):
+        return self.eik.T
 
     @property
     def time(self):
         time = np.empty(self.domain.num_verts)
-        time[...] = np.inf
-        T = self.eik.T[self.mask]
-        if not np.isfinite(T).all():
+        time[...] = self.r[...]/Field.speed_of_sound
+        if not np.isfinite(time).all():
             raise RuntimeError('found bad eikonal values while computing time')
-        time[self.mask] = T/Field.speed_of_sound
         return time
+
+    @property
+    def direction(self):
+        direction = np.empty((self.domain.num_verts, 3))
+        direction[...] = self.eik.grad_T[...]
+        if not np.isfinite(direction[~self._boundary_mask]).all():
+            raise RuntimeError('found bad arrival directions')
+        return direction
+
+    @property
+    def _scale(self):
+        scale = np.ones(self.domain.num_verts)
+
+        dot = np.sum(self.eik.t_out*self.eik.grad_T, axis=1)
+        dot = np.clip(dot, -1, 1)
+
+        arc_length = np.arccos(dot)
+
+        # We compute the scale so that it equals 1 if the arc length
+        # is less than h, and otherwise apply a Gaussian window so
+        # that as arc_length increases from h to 2*h, it drops 60 dB
+        # (i.e. scale decays from 1 to 1e-3)
+        tmp = np.log(Field.minimum_amplitude)
+        scale = np.exp(tmp*((arc_length - self.h)/self.h)**2)
+        scale[self._boundary_mask | (arc_length < self.h)] = 1
+
+        return scale
 
 class PointSourceField(Field):
     def __init__(self, domain, src_index):
@@ -337,18 +297,14 @@ class PointSourceField(Field):
         super().__init__(domain, None, ftype, bd_inds, bd_T, bd_grad_T)
 
         self.eik.add_pt_src_BCs(src_index, jet)
-        self.extended_eik.add_pt_src_BCs(src_index, jet)
 
     def __reduce__(self):
         args = (self.domain, self.bd_inds[0])
         return (self.__class__, args)
 
-    @threaded_cached_property
-    def _phi(self):
-        return self._phi_shadow
-
-    def get_level_set_func_for_cell(self, lc):
-        return self.get_direct_viz_level_set_func_for_cell(lc)
+    @property
+    def amplitude(self):
+        return self._scale/self.r
 
 class ReflectedField(Field):
     def __init__(self, domain, index, bd_faces, bd_T, bd_grad_T,
@@ -369,7 +325,6 @@ class ReflectedField(Field):
         for lf, T, grad_T, t_in in zip(bd_faces, bd_T, bd_grad_T, bd_t_in):
             jets = [jmm.jet.Jet3(t, *dt) for t, dt in zip(T, grad_T)]
             self.eik.add_refl_BCs(*lf, *jets, t_in)
-            self.extended_eik.add_refl_BCs(*lf, *jets, t_in)
 
     def __reduce__(self):
         args = (self.domain, self.bd_inds, self.bd_T, self.bd_grad_T, self.bd_t_in)
@@ -381,64 +336,31 @@ class ReflectedField(Field):
         return self.domain.mesh.get_face_normal(*self.bd_inds[0])
 
     @property
-    def _phi_valid_angle(self):
-        # Mask away the points that have BCs, since t_out will be NAN
-        # for these points
-        mask = np.ones(self.domain.mesh.num_verts, dtype=np.bool_)
-        mask[np.unique(self.bd_inds)] = False
-
-        # Compute the sine of the angle the in and out tangent vectors
-        # make with the line spanned by the face normal
+    def _scale(self):
         nu = self.reflector_face_normal
         proj = np.eye(3) - np.outer(nu, nu)
 
-        t_in_proj = self.eik.t_in[mask]@proj
+        t_in_proj = self.eik.t_in@proj
         t_in_proj /= np.sqrt(np.sum(t_in_proj**2, axis=1)).reshape(-1, 1)
 
-        t_out_proj = self.eik.t_out[mask]@proj
+        t_out_proj = self.eik.t_out@proj
         t_out_proj /= np.sqrt(np.sum(t_out_proj**2, axis=1)).reshape(-1, 1)
 
-        dots = t_in_proj*t_out_proj
-        dots = np.clip(dots.sum(1), -1, 1)
+        dot = np.multiply(t_in_proj, t_out_proj).sum(1)
+        dot = np.clip(dot, -1, 1)
 
-        dists = np.empty(self.domain.mesh.num_verts)
-        dists[mask] = np.arccos(dots)
-        dists[~mask] = 0
+        arc_length = np.arccos(dot)
 
-        # Get the base-10 exponent of the errors
-        log10_dists = np.log10(dists[dists > 0])
-        self._valid_angle_mask_thresh = self.h
+        tmp = np.log(Field.minimum_amplitude)
+        scale = np.exp(tmp*((arc_length - self.h)/self.h)**2)
+        scale[self._boundary_mask | (arc_length < self.h)] = 1
 
-        return dists - self._valid_angle_mask_thresh
+        return scale*super()._scale
 
-    def get_valid_angle_level_set_func_for_cell(self, lc):
-        '''Get a function defined on the cell `lc` that will allow us to
-        evaluate the level set function determining whether a point is
-        in the "physical zone" or not.
-
-        '''
-        nu = self.reflector_face_normal
-        cell = self.domain.mesh.cells[lc]
-        t_in, t_out = self.eik.t_in[cell], self.eik.t_out[cell]
-
-        # If we're missing some `t_out` vectors with a reflected
-        # field, it will be because we're at the boundary. For these
-        # points, we can safely just use `grad_T`.
-        mask = np.isnan(t_out).any(1)
-        assert all(self.eik.has_BCs(_) for _ in cell[mask])
-        t_out[mask] = self.eik.grad_T[cell[mask]]
-
-        # Verify that all the `t_in` and `t_out` vectors are OK
-        if not np.isfinite(t_in).ravel().all() or \
-           not np.isfinite(t_out).ravel().all():
-            raise RuntimeError(f'bad cell: {lc}')
-
-        def phi(b):
-            lhs = -jmm.slerp.slerp(t_in, b, self.eik.slerp_tol)@nu
-            rhs = jmm.slerp.slerp(t_out, b, self.eik.slerp_tol)@nu
-            return abs(lhs - rhs) - self._valid_angle_mask_thresh
-
-        return phi
+    @property
+    def amplitude(self):
+        rho = self.domain.refl_coef # TODO: make this varying
+        return rho*self._scale/self.r
 
 class DiffractedField(Field):
     def __init__(self, domain, index, bd_edges, bd_T, bd_grad_T,
@@ -458,65 +380,77 @@ class DiffractedField(Field):
             jets = [jmm.jet.Jet3(t, *dt) for t, dt in zip(T, grad_T)]
             try:
                 self.eik.add_diff_edge_BCs(*le, *jets)
-                self.extended_eik.add_diff_edge_BCs(*le, *jets)
             except:
                 import pdb; pdb.set_trace()
 
-    @threaded_cached_property
+    @property
     def diffractor_tangent_vector(self):
-
         '''The tangent vector of the diffracting edge'''
         x0, x1 = self.domain.mesh.verts[self.bd_inds[0]]
-        t = x1 - x0
-        return t/np.linalg.norm(t)
+        e = x1 - x0
+        return e/np.linalg.norm(e)
 
     @property
-    def _phi_valid_angle(self):
-        # Compute a mask indicating which points aren't on the part of
-        # the diffracting edge with BCs
-        mask = np.ones(self.domain.mesh.num_verts, dtype=np.bool_)
-        mask[self.bd_inds] = False
+    def _o_face_normal(self):
+        le = self.bd_inds[0]
+        l0, l1 = le
+        x0, x1 = self.domain.mesh.verts[le]
 
-        # Compute angle in and out vectors make with `t`
+        e = x1 - x0
+        e /= np.linalg.norm(e)
+
+        faces = self.domain.boundary_faces
+        mask = (faces == l0).any(1) & (faces == l1).any(1)
+        lf1, lf2 = faces[mask]
+
+        l2 = next(_ for _ in lf1 if _ != l0 and _ != l1)
+        x2 = self.domain.mesh.verts[l2]
+        t = x2 - x0
+        t /= np.linalg.norm(x2 - x0)
+        no = np.cross(e, t)
+
+        n = self.domain.mesh.get_face_normal(lf1)
+        if n@no > 0:
+            return no
+
+        l2 = next(_ for _ in lf2 if _ != l0 and _ != l1)
+        x2 = self.domain.mesh.verts[l2]
+        t = x2 - x0
+        t /= np.linalg.norm(x2 - x0)
+        no = np.cross(e, t)
+
+        n = self.domain.mesh.get_face_normal(lf2)
+        if n@no > 0:
+            return no
+
+        raise RuntimeError('entered a weird state')
+
+    @property
+    def _scale(self):
         t = self.diffractor_tangent_vector
-        lhs = np.arccos(self.eik.t_in[mask]@t)
-        rhs = np.arccos(self.eik.t_out[mask]@t)
 
-        # Get the base-10 exponent of the absolute angle difference
-        log_diff = np.log10(np.maximum(1e-16, abs(lhs - rhs)))
+        arc_length_in = np.arccos(np.clip(self.eik.t_in@t, -1, 1))
+        arc_length_out = np.arccos(np.clip(self.eik.t_out@t, -1, 1))
 
-        # Compute threshold using Otsu's method---result will be an
-        # exponent, so convert back
-        # p = jmm.util.otsu(log_diff, bins=Field.num_mask_threshold_bins)
-        # self._valid_angle_mask_thresh = 10**p
-        self._valid_angle_mask_thresh = self.h
+        d = arc_length_in - arc_length_out
 
-        diff = np.empty(mask.shape, dtype=np.float64)
-        diff[~mask] = 0
-        diff[mask] = lhs - rhs
+        tmp = np.log(field.minimum_amplitude)
+        scale = np.exp(tmp*((d - self.h)/self.h)**2)
+        scale[self._boundary_mask | (d < self.h)] = 1
 
-        # Compute the valid angle mask, taking care to set the
-        # boundary indices to `True`, since we don't have `t_out`
-        # vectors available along the edge to do the calculation for
-        # these indices.
-        return abs(diff) - self._valid_angle_mask_thresh
+        return scale*super()._scale
 
-    def get_valid_angle_level_set_func_for_cell(self, lc):
-        t = self.diffractor_tangent_vector
+    @property
+    def amplitude(self):
+        A_in, rho_in = self.eik.A_in, self.eik.s, self.eik.rho_in, self.eik.s
 
-        cell = self.domain.mesh.cells[lc]
-        t_in, t_out = self.eik.t_in[cell], self.eik.t_out[cell]
+        D = jmm.util.D_from_geometry(self.om, self.wedge_angle,
+                                     self._o_face_normal,
+                                     self.diffractor_tangent_vector,
+                                     self.eik.t_out, self.eik.t_in,
+                                     self.refl_coef)
 
-        if not np.isfinite(t_in).ravel().all() or \
-           not np.isfinite(t_out).ravel().all():
-            raise RuntimeError(f'bad cell: {lc}')
-
-        def phi(b):
-            lhs = np.arccos(jmm.slerp.slerp(t_in, b, self.eik.slerp_tol)@t)
-            rhs = np.arccos(jmm.slerp.slerp(t_out, b, self.eik.slerp_tol)@t)
-            return abs(lhs - rhs) - self._valid_angle_mask_thresh
-
-        return phi
+        return A_in*D*np.sqrt(rho_in/(s*(s + rho_in)))
 
     def _impute_diffracted_t_in(self, le, t_in):
         '''This is a specialized function that figures out how to set `t_in`
@@ -597,25 +531,32 @@ class MultipleArrivals(Logger):
         self._direction = np.empty((num_verts, num_arrivals + 1, 3))
         self._direction[...] = np.nan
 
+        self._fields = []
+
+    def traverse(self):
         self.log.info('traversing scattered fields')
 
         for field in self.root_field.scattered_fields:
+            self._fields.append(field)
+
             time = field.time
 
             min_time = time.min()
             min_time_str = str(datetime.timedelta(seconds=min_time))
 
-            num_physical = field.mask.sum()
-            perc_physical = 100*num_physical/self.domain.mesh.num_verts
-
-            self.log.info(
-                'accepted %s (earliest arrival: %s, physical: %1.1f%%)',
-                type(field).__name__, min_time_str, perc_physical)
+            self.log.info('accepted %s (earliest arrival: %s)',
+                          type(field).__name__, min_time_str)
 
             if not np.isfinite(min_time):
                 raise RuntimeError('bad field')
 
+            amp_mask = field.amplitude >= Field.minimum_amplitude
+
             self._time[:, -1] = time
+            self._time[~amp_mask, -1] = np.inf
+
+            self._amplitude[:, -1] = field.amplitude
+            self._direction[:, -1, :] = field.direction
 
             perm = np.argsort(self._time, axis=1)
             self._time = np.take_along_axis(self._time, perm, axis=1)
@@ -623,10 +564,6 @@ class MultipleArrivals(Logger):
             for i in range(self._direction.shape[-1]):
                 self._direction[:, :, i] = \
                     np.take_along_axis(self._direction[:, :, i], perm, axis=1)
-
-            perc_inserted = \
-                100*(perm[field.mask, -1] != num_arrivals).sum()/num_physical
-            self.log.info('inserted %1.1f%% of new arrivals', perc_inserted)
 
             finite_time = np.isfinite(self.time)
 
