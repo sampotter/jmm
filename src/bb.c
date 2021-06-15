@@ -314,7 +314,7 @@ void bb32_init_from_jets(bb32 *bb, jet3 const jet[3], dbl const x[3][3]) {
 
   if (!is_point_source[TRI001]) {
     dbl3_sub(x[TRI100], x[TRI001], tmp);
-    c[TRI102] = c[TRI003] - dbl3_ndot(&jet[TRI001].fx, tmp)/3;
+    c[TRI102] = c[TRI003] + dbl3_ndot(&jet[TRI001].fx, tmp)/3;
 
     dbl3_sub(x[TRI010], x[TRI001], tmp);
     c[TRI012] = c[TRI003] + dbl3_ndot(&jet[TRI001].fx, tmp)/3;
