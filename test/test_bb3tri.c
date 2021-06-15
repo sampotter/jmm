@@ -21,6 +21,18 @@ void get_random_lambda(gsl_rng *rng, dbl lam[3]) {
   lam[0] = 1 - lam[1] - lam[2];
 }
 
+void get_random_affine_coefs(gsl_rng *rng, dbl a[3]) {
+  /* Sample a standard normal Gaussian vector */
+  for (size_t i = 0; i < 3; ++i)
+    a[i] = gsl_ran_gaussian(rng, 1.0);
+
+  /* Project it into the orthogonal complement of the span of the
+   * vector (1, 1, 1). */
+  dbl shift = dbl3_sum(a)/3;
+  for (size_t i = 0; i < 3; ++i)
+    a[i] -= shift;
+}
+
 void get_conv_comb(dbl const x[3][3], dbl const lam[3], dbl y[3]) {
   for (int i = 0; i < 3; ++i) {
     y[i] = x[0][i]*lam[0] + x[1][i]*lam[1] + x[2][i]*lam[2];
@@ -293,4 +305,142 @@ Ensure(bb32, df_is_symmetric) {
   SWAP(b[1], b[2]);
   SWAP(a[1][1], a[1][2]);
   assert_that_double(df[0], is_nearly_double(df[1]));
+}
+
+Ensure(bb32, adjacent_bb32_are_C0) {
+  jet3 jet1[3] = {
+    {
+      .f = 6.0515782990567839,
+      .fx = 0.10494745590458605,
+      .fy = -0.12623235128221608,
+      .fz = -0.98643369011247684
+    },
+    {
+      .f = 5.9505211776379818, .fx = NAN, .fy = NAN, .fz = NAN
+    },
+    {
+      .f = 5.7756471295123735,
+      .fx = 0.30240346235068588,
+      .fy = 0.014147977152708482,
+      .fz = -0.95307501315521004
+    }
+  };
+
+  dbl x1[3][3] = {
+    {1.3604636896622806, 2.8496775671458718, -5.1111864057935801},
+    {1, 3.5, -5.1999988555908203},
+    {1.4641119106968401, 3.4797503769549065, -4.8855490197739462}
+  };
+
+  bb32 bb1;
+  bb32_init_from_jets(&bb1, jet1, x1);
+
+  jet3 jet2[3] = {
+    {
+      .f = 6.0515782990567839,
+      .fx = 0.10494745590458605,
+      .fy = -0.12623235128221608,
+      .fz = -0.98643369011247684
+    },
+    {
+      .f = 5.8776740144675363,
+      .fx = 0.42650997855742201,
+      .fy = -0.23420586793585149,
+      .fz = -0.87363427680887262
+    },
+    {
+      .f = 5.7756471295123735,
+      .fx = 0.30240346235068588,
+      .fy = 0.014147977152708482,
+      .fz = -0.95307501315521004
+    }
+  };
+
+  dbl x2[3][3] = {
+    {1.3604636896622806, 2.8496775671458718, -5.1111864057935801},
+    {2.0820123257785261, 2.9290136105001272, -4.6698515448704896},
+    {1.4641119106968401, 3.4797503769549065, -4.8855490197739462}
+  };
+
+  bb32 bb2;
+  bb32_init_from_jets(&bb2, jet2, x2);
+
+  gsl_rng *rng = gsl_rng_alloc(gsl_rng_mt19937);
+
+  dbl b[3];
+  b[1] = 0;
+
+  for (size_t _ = 0; _ < NUM_RANDOM_TRIALS; ++_) {
+    b[0] = gsl_ran_flat(rng, 0, 1);
+    b[2] = 1 - b[0];
+
+    dbl f1 = bb32_f(&bb1, b);
+    dbl f2 = bb32_f(&bb2, b);
+
+    assert_that_double(f1, is_nearly_double(f2));
+  }
+
+  gsl_rng_free(rng);
+}
+
+Ensure(bb32, init_from_3d_data_and_init_from_jets_are_equivalent) {
+  gsl_rng *rng = gsl_rng_alloc(gsl_rng_mt19937);
+
+  dbl T[3], DT[3][3], x[3][3];
+  jet3 jet[3];
+
+  bb32 bb_from_3d_data, bb_from_jets;
+
+  dbl b[3], a1[3], a2[3];
+  dbl f_from_3d_data, df_from_3d_data, d2f_from_3d_data;
+  dbl f_from_jets, df_from_jets, d2f_from_jets;
+
+  for (size_t _ = 0; _ < NUM_RANDOM_TRIALS; ++_) {
+    for (size_t i = 0; i < 3; ++i)
+      T[i] = gsl_ran_gaussian(rng, 1.0);
+
+    for (size_t i = 0; i < 3; ++i)
+      for (size_t j = 0; j < 3; ++j)
+        DT[i][j] = gsl_ran_gaussian(rng, 1.0);
+
+    for (size_t i = 0; i < 3; ++i)
+      for (size_t j = 0; j < 3; ++j)
+        x[i][j] = gsl_ran_gaussian(rng, 1.0);
+
+    for (size_t i = 0; i < 3; ++i) {
+      jet[i].f = T[i];
+      jet[i].fx = DT[i][0];
+      jet[i].fy = DT[i][1];
+      jet[i].fz = DT[i][2];
+    }
+
+    bb32_init_from_3d_data(&bb_from_3d_data, T, DT, x);
+    bb32_init_from_jets(&bb_from_jets, jet, x);
+
+    dbl const *c_from_3d_data = bb_from_3d_data.c;
+    dbl const *c_from_jets = bb_from_jets.c;
+
+    for (size_t i = 0; i < 10; ++i)
+      assert_that_double(c_from_3d_data[i], is_nearly_double(c_from_jets[i]));
+
+    for (size_t __ = 0; __ < NUM_RANDOM_TRIALS; ++__) {
+      get_random_lambda(rng, b);
+      get_random_affine_coefs(rng, a1);
+      get_random_affine_coefs(rng, a1);
+
+      f_from_3d_data = bb32_f(&bb_from_3d_data, b);
+      df_from_3d_data = bb32_df(&bb_from_3d_data, b, a1);
+      d2f_from_3d_data = bb32_d2f(&bb_from_3d_data, b, a1, a2);
+
+      f_from_jets = bb32_f(&bb_from_jets, b);
+      df_from_jets = bb32_df(&bb_from_jets, b, a1);
+      d2f_from_jets = bb32_d2f(&bb_from_jets, b, a1, a2);
+
+      assert_that_double(f_from_3d_data, is_nearly_double(f_from_jets));
+      assert_that_double(df_from_3d_data, is_nearly_double(df_from_jets));
+      assert_that_double(d2f_from_3d_data, is_nearly_double(d2f_from_jets));
+    }
+  }
+
+  gsl_rng_free(rng);
 }
