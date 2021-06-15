@@ -164,6 +164,35 @@ void bb31_init_from_3d_data(bb31 *bb, dbl const f[2], dbl const Df[2][3], dbl co
   bb->c[2] = (bb->c[3] = f[1]) - dbl3_dot(dx, Df[1])/3;
 }
 
+void bb31_init_from_jets(bb31 *bb, jet3 const jet[2], dbl const x[2][3]) {
+  bool is_pt_src[2] = {
+    jet3_is_point_source(&jet[0]),
+    jet3_is_point_source(&jet[1])
+  };
+
+  assert(!is_pt_src[0] || !is_pt_src[1]);
+
+  dbl *c = bb->c;
+
+  c[0] = jet[0].f;
+  c[3] = jet[1].f;
+
+  dbl dx[3];
+  dbl3_sub(x[1], x[0], dx);
+
+  if (!is_pt_src[0])
+    bb->c[1] = c[0] + dbl3_ndot(&jet[0].fx, dx)/3;
+
+  if (!is_pt_src[1])
+    bb->c[2] = c[3] - dbl3_ndot(&jet[1].fx, dx)/3;
+
+  if (is_pt_src[0])
+    bb->c[1] = is_pt_src[1] ? (2*c[0] + c[3])/3 : (c[0] + c[2])/2;
+
+  if (is_pt_src[1])
+    bb->c[2] = is_pt_src[0] ? (2*c[3] + c[0])/3 : (c[3] + c[1])/2;
+}
+
 dbl bb31_f(bb31 const *bb, dbl const *b) {
   dbl tmp[3];
 
