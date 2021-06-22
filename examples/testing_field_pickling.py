@@ -1,5 +1,6 @@
 import colorcet as cc
 import logging
+import numpy as np
 import pickle
 import pyvista as pv
 import pyvistaqt as pvqt
@@ -11,6 +12,8 @@ import jmm.multiple_arrivals
 
 from jmm.defs import State
 from jmm.plot import *
+
+np.seterr(all='raise')
 
 PLOT_BAD_POINTS = True
 

@@ -9,6 +9,8 @@ from jmm.mesh import Mesh3
 from jmm.multiple_arrivals import Domain, Field, PointSourceField, MultipleArrivals
 from jmm.plot import *
 
+np.seterr(all='raise')
+
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger('testing_multiple_arrivals.py')
 
