@@ -20,6 +20,7 @@ void par3_get_xb(par3_s const *par, eik3_s const *eik, dbl xb[3]);
 bool par3_is_empty(par3_s const *par);
 size_t par3_num_active(par3_s const *par);
 void par3_get_active(par3_s const *par, size_t *l, dbl *b);
+bool par3_is_on_BC_boundary(par3_s const *par, eik3_s const *eik);
 
 #ifdef __cplusplus
 }
