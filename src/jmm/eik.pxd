@@ -15,6 +15,7 @@ cdef extern from "eik3.h":
     size_t eik3_peek(const eik3 *eik)
     size_t eik3_step(eik3 *eik)
     void eik3_solve(eik3 *eik)
+    bool eik3_is_solved(const eik3 *eik)
     const mesh3 *eik3_get_mesh(const eik3 *eik)
     bool eik3_is_far(const eik3 *eik, size_t ind)
     bool eik3_is_trial(const eik3 *eik, size_t ind)

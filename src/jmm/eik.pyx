@@ -103,6 +103,10 @@ cdef class Eik3:
     def solve(self):
         eik3_solve(self.eik)
 
+    @property
+    def is_solved(self):
+        return eik3_is_solved(self.eik)
+
     def is_far(self, size_t ind):
         return eik3_is_far(self.eik, ind)
 
