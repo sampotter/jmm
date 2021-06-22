@@ -59,7 +59,7 @@ int main(int argc, char *argv[]) {
   // Set up and run solver
   eik3_s *eik;
   eik3_alloc(&eik);
-  eik3_init(eik, mesh, FTYPE_POINT_SOURCE);
+  eik3_init(eik, mesh, FTYPE_POINT_SOURCE, NULL);
   eik3_add_pt_src_BCs(eik, indsrc, jet3_make_point_source(0));
   eik3_solve(eik);
 

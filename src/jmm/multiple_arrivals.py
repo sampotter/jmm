@@ -80,8 +80,12 @@ class Field(ABC, Logger):
         self.bd_grad_T = bd_grad_T
         self.parent = parent
 
+        orig = None
+        if self.parent is not None:
+            orig = self.parent.eik
+
         # TODO: instantiate these lazily to save memory!
-        self.eik = jmm.eik.Eik3.from_mesh_and_ftype(self.domain.mesh, ftype)
+        self.eik = jmm.eik.Eik3.from_mesh_and_ftype(domain.mesh, ftype, orig)
 
         self.solved = False
         self._scattered_fields = []

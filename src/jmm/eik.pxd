@@ -10,7 +10,7 @@ cdef extern from "eik3.h":
 
     void eik3_alloc(eik3 **eik)
     void eik3_dealloc(eik3 **eik)
-    void eik3_init(eik3 *eik, const mesh3 *mesh, ftype ftype)
+    void eik3_init(eik3 *eik, const mesh3 *mesh, ftype ftype, const eik3 *orig)
     void eik3_deinit(eik3 *eik)
     size_t eik3_peek(const eik3 *eik)
     size_t eik3_step(eik3 *eik)

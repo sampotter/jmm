@@ -61,6 +61,7 @@ bde_bc_s make_bde_bc(size_t const le[2], bb31 const *bb) {
  * handle s != later. */
 struct eik3 {
   mesh3_s *mesh;
+  eik3_s const *orig; /* This field's originator */
   jet3 *jet;
   state_e *state;
   int *pos;
@@ -138,8 +139,9 @@ static void setpos(void *ptr, int l, int pos) {
   eik->pos[l] = pos;
 }
 
-void eik3_init(eik3_s *eik, mesh3_s *mesh, ftype_e ftype) {
+void eik3_init(eik3_s *eik, mesh3_s *mesh, ftype_e ftype, eik3_s const *orig) {
   eik->mesh = mesh;
+  eik->orig = orig;
   eik->ftype = ftype;
 
   size_t nverts = mesh3_nverts(mesh);

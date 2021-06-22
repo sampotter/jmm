@@ -11,7 +11,7 @@ extern "C" {
 
 void eik3_alloc(eik3_s **eik);
 void eik3_dealloc(eik3_s **eik);
-void eik3_init(eik3_s *eik, mesh3_s *mesh, ftype_e ftype);
+void eik3_init(eik3_s *eik, mesh3_s *mesh, ftype_e ftype, eik3_s const *orig);
 void eik3_deinit(eik3_s *eik);
 size_t eik3_peek(eik3_s const *eik);
 size_t eik3_step(eik3_s *eik);

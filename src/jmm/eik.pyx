@@ -21,13 +21,17 @@ cdef class Eik3:
             raise RuntimeError('construct Eik3 using factory functions')
 
     @staticmethod
-    def from_mesh_and_ftype(Mesh3 mesh, ftype):
+    def from_mesh_and_ftype(Mesh3 mesh, ftype, Eik3 orig=None):
         if not isinstance(ftype, Ftype):
             raise ValueError('ftype argument not an jmm.defs.Ftype instance')
 
+        cdef const eik3 *orig_ptr = NULL
+        if orig is not None:
+            orig_ptr = orig.eik
+
         eik = Eik3()
         eik3_alloc(&eik.eik)
-        eik3_init(eik.eik, mesh.mesh, ftype.value)
+        eik3_init(eik.eik, mesh.mesh, ftype.value, orig_ptr)
         eik._init_views()
         return eik
 
