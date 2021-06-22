@@ -12,6 +12,7 @@ extern "C" {
 bool face_in_cell(size_t const f[3], size_t const c[4]);
 bool point_in_face(size_t l, size_t const f[3]);
 bool point_in_cell(size_t l, size_t const c[4]);
+bool edge_in_face(size_t const le[2], size_t const lf[3]);
 
 // Some ideas for improving the design of mesh3:
 //

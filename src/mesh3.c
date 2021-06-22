@@ -26,6 +26,16 @@ bool point_in_cell(size_t l, size_t const c[4]) {
   return c[0] == l || c[1] == l || c[2] == l || c[3] == l;
 }
 
+bool edge_in_face(size_t const le[2], size_t const lf[3]) {
+  assert(le[0] != le[1]);
+  assert(lf[0] != lf[1]);
+  assert(lf[1] != lf[2]);
+  assert(lf[2] != lf[0]);
+
+  return (le[0] == lf[0] || le[0] == lf[1] || le[0] == lf[2])
+      && (le[1] == lf[0] || le[1] == lf[1] || le[1] == lf[2]);
+}
+
 typedef struct {
   size_t le[2];
   bool diff;
