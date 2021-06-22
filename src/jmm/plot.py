@@ -270,3 +270,9 @@ def plot_vector_field(plotter, points, vectors, scale=1, **kwargs):
 def plot_points(plotter, points, r=1, **kwargs):
     points = pv.PolyData(points)
     plotter.add_mesh(points.glyph(geom=pv.Sphere(r)), **kwargs)
+
+def plot_tri(plotter, x0, x1, x2, **kwargs):
+    faces = np.array([0, 1, 2], dtype=np.uintp).reshape(1, -1)
+    verts = np.array([x0, x1, x2])
+    tri = pv.UnstructuredGrid({vtk.VTK_TRIANGLE: faces}, verts)
+    plotter.add_mesh(tri, **kwargs)
