@@ -9,6 +9,9 @@ extern "C" {
 #include <immintrin.h>
 #include <math.h>
 
+#define DBL2(x, y) (dbl2) {x, y}
+#define DBL3(x, y, z) (dbl3) {x, y, z}
+
 void dbl2_add(dbl u[2], dbl v[2], dbl w[2]);
 void dbl2_sub(dbl const *u, dbl const *v, dbl *w);
 dbl dbl2_dot(dbl const *u, dbl const *v);
