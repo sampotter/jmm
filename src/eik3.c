@@ -1090,6 +1090,10 @@ void eik3_solve(eik3_s *eik) {
   }
 }
 
+bool eik3_is_solved(eik3_s const *eik) {
+  return eik->num_accepted == mesh3_nverts(eik->mesh);
+}
+
 void eik3_add_trial(eik3_s *eik, size_t l, jet3 jet) {
   if (eik->state[l] == VALID) {
     log_warn("failed to add TRIAL node %lu (already VALID)", l);
