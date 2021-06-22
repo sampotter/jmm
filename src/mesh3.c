@@ -186,20 +186,20 @@ static void init_vc(mesh3_s *mesh) {
   free(nvc);
 }
 
-static void get_op_edge(mesh3_s const *mesh, size_t lc, diff_edge_s const *e,
+static void get_op_edge(mesh3_s const *mesh, size_t lc, size_t const le[2],
                         size_t l[2]) {
   size_t lv[4];
   mesh3_cv(mesh, lc, lv);
   for (int i = 0, j = 0; i < 4; ++i) {
-    if (lv[i] == e->le[0] || lv[i] == e->le[1]) continue;
+    if (lv[i] == le[0] || lv[i] == le[1]) continue;
     l[j++] = lv[i];
   }
 }
 
-static dbl get_dihedral_angle(mesh3_s const *mesh, size_t lc, diff_edge_s const *e) {
+static dbl get_dihedral_angle(mesh3_s const *mesh, size_t lc, size_t const le[2]) {
   // Get edge endpoints
-  dbl const *x0 = mesh3_get_vert_ptr(mesh, e->le[0]);
-  dbl const *x1 = mesh3_get_vert_ptr(mesh, e->le[1]);
+  dbl const *x0 = mesh3_get_vert_ptr(mesh, le[0]);
+  dbl const *x1 = mesh3_get_vert_ptr(mesh, le[1]);
 
   // Compute normalize direction vector along edge
   dbl t[3];
@@ -208,7 +208,7 @@ static dbl get_dihedral_angle(mesh3_s const *mesh, size_t lc, diff_edge_s const 
 
   // Get indices of opposite edge for tetrahedron lc
   size_t l[2];
-  get_op_edge(mesh, lc, e, l);
+  get_op_edge(mesh, lc, le, l);
 
   // Get corresponding vertices
   dbl const *x2 = mesh3_get_vert_ptr(mesh, l[0]);
@@ -236,17 +236,17 @@ static dbl get_dihedral_angle(mesh3_s const *mesh, size_t lc, diff_edge_s const 
 /**
  * We want to check and see if this edge is a diffracting edge.  An
  * edge is diffracting if its interior dihedral angle is greater than
- * 180 degrees. So, we traverse the tetrahedra surrounding it, and sum of the angles they make with
+ * 180 degrees. So, we traverse the tetrahedra surrounding it, and sum
+ * the corresponding dihedral angles.
  */
-static bool edge_is_diff(mesh3_s const *mesh, diff_edge_s *e) {
-  int nec = mesh3_nec(mesh, e->le[0], e->le[1]);
+static bool edge_is_diff(mesh3_s const *mesh, size_t const le[2]) {
+  int nec = mesh3_nec(mesh, le[0], le[1]);
   size_t *ec = malloc(nec*sizeof(size_t));
-  mesh3_ec(mesh, e->le[0], e->le[1], ec);
+  mesh3_ec(mesh, le[0], le[1], ec);
 
   dbl angle_sum = 0;
-  for (int i = 0; i < nec; ++i) {
-    angle_sum += get_dihedral_angle(mesh, ec[i], e);
-  }
+  for (int i = 0; i < nec; ++i)
+    angle_sum += get_dihedral_angle(mesh, ec[i], le);
 
   free(ec);
 
@@ -612,7 +612,7 @@ static void init_bd(mesh3_s *mesh) {
 
   /* Check whether each boundary edge is a diffracting edge */
   for (size_t l = 0; l < mesh->nbde; ++l)
-    mesh->bde[l].diff = edge_is_diff(mesh, &mesh->bde[l]);
+    mesh->bde[l].diff = edge_is_diff(mesh, mesh->bde[l].le);
 
   // Cleanup
   free(bde);
