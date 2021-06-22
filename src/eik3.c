@@ -1373,3 +1373,7 @@ dbl eik3_get_slerp_tol(eik3_s const *eik) {
 bool eik3_has_BCs(eik3_s const *eik, size_t l) {
   return eik->num_BCs[l] > 0;
 }
+
+dbl eik3_get_h(eik3_s const *eik) {
+  return eik->h;
+}

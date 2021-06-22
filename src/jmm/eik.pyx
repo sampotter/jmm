@@ -201,3 +201,7 @@ cdef class Eik3:
 
     def has_BCs(self, size_t l):
         return eik3_has_BCs(self.eik, l)
+
+    @property
+    def h(self):
+        return eik3_get_h(self.eik)

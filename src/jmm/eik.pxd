@@ -31,6 +31,7 @@ cdef extern from "eik3.h":
     ftype eik3_get_ftype(const eik3 *eik)
     dbl eik3_get_slerp_tol(const eik3 *eik)
     bool eik3_has_BCs(const eik3 *eik, size_t l)
+    dbl eik3_get_h(const eik3* eik)
 
 cdef class Eik3:
     cdef:
