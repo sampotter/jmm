@@ -61,6 +61,9 @@ bool utetra_opt_inc_on_other_utetra(utetra_s const *u1, utetra_s const *u2);
 void utetra_get_x(utetra_s const *u, dbl x[3]);
 size_t utetra_get_active_inds(utetra_s const *utetra, size_t l[2]);
 par3_s utetra_get_parent(utetra_s const *utetra);
+void utetra_get_t(utetra_s const *u, dbl t[3]);
+dbl utetra_get_L(utetra_s const *u);
+bool utetra_approx_hess(utetra_s const *u, dbl h, dbl33 hess);
 
 #if JMM_TEST
 void utetra_step(utetra_s *u);

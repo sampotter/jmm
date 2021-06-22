@@ -1091,6 +1091,57 @@ par3_s utetra_get_parent(utetra_s const *utetra) {
   return par;
 }
 
+void utetra_get_t(utetra_s const *u, dbl t[3]) {
+  dbl3_normalized(u->x_minus_xb, t);
+}
+
+dbl utetra_get_L(utetra_s const *u) {
+  return u->L;
+}
+
+bool utetra_approx_hess(utetra_s const *u, dbl h, dbl33 hess) {
+  dbl const atol = 1e-14;
+
+  if (h < atol)
+    return false;
+
+  utetra_s u_ = *u;
+
+  dbl dx[3], t[3], lam[2];
+  utetra_get_lambda(u, lam);
+
+  dbl33_zero(hess);
+
+  /* Approximate the Hessian using central differences. For each i,
+   * compute (t(x + h*e_i) - t(x - h*e_i))/(2*h) and store in the ith
+   * row of hess */
+  for (size_t i = 0; i < 3; ++i) {
+    dbl3_zero(dx);
+
+    /* Compute t(x + h*e_i) */
+    dx[i] = h;
+    dbl3_add(u->x, dx, u_.x);
+    utetra_solve(&u_, lam);
+    utetra_get_t(&u_, t);
+    dbl3_add_inplace(hess[i], t);
+
+    /* Compute t(x - h*e_i) */
+    dx[i] = -h;
+    dbl3_add(u->x, dx, u_.x);
+    utetra_solve(&u_, lam);
+    utetra_get_t(&u_, t);
+    dbl3_sub_inplace(hess[i], t);
+
+    /* Set H[i, :] = (t(x + h*e_i) - t(x - h*e_i))/(2*h) */
+    dbl3_dbl_div_inplace(hess[i], 2*h);
+  }
+
+  /* Make sure the Hessian is symmetric */
+  dbl33_symmetrize(hess);
+
+  return true;
+}
+
 #if JMM_TEST
 void utetra_step(utetra_s *u) {
   step(u);
