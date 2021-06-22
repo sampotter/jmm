@@ -1748,6 +1748,12 @@ bool mesh3_bdf_is_virtual(mesh3_s const *mesh, size_t const lf[3]) {
   return bdf_ptr != NULL && bdf_ptr->virtual;
 }
 
+void mesh3_get_diff_edge_tangent(mesh3_s const *mesh, size_t const le[2],
+                                 dbl t[3]) {
+  dbl3_sub(mesh->verts[le[1]], mesh->verts[le[0]], t);
+  dbl3_normalize(t);
+}
+
 dbl mesh3_get_edge_ext_angle(mesh3_s const *mesh, size_t const le[2]) {
   int nec = mesh3_nec(mesh, le[0], le[1]);
   size_t *ec = malloc(nec*sizeof(size_t));
@@ -1760,4 +1766,11 @@ dbl mesh3_get_edge_ext_angle(mesh3_s const *mesh, size_t const le[2]) {
   free(ec);
 
   return ext_angle;
+}
+
+bool mesh3_edge_contains_point(mesh3_s const *mesh, size_t const le[2], dbl const x[3]) {
+  line3 line;
+  mesh3_copy_vert(mesh, le[0], line.x);
+  mesh3_copy_vert(mesh, le[1], line.x);
+  return line3_point_in_interval(&line, x, 1e-14);
 }

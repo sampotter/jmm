@@ -115,7 +115,10 @@ void mesh3_set_bde(mesh3_s *mesh, size_t const le[2], bool diff);
 dbl mesh3_get_eps(mesh3_s const *mesh);
 void mesh3_get_face_normal(mesh3_s const *mesh, size_t const lf[3], dbl normal[3]);
 bool mesh3_bdf_is_virtual(mesh3_s const *mesh, size_t const lf[3]);
+void mesh3_get_diff_edge_tangent(mesh3_s const *mesh, size_t const le[2],
+                                 dbl t[3]);
 dbl mesh3_get_edge_ext_angle(mesh3_s const *mesh, size_t const le[2]);
+bool mesh3_edge_contains_point(mesh3_s const *mesh, size_t const le[2], dbl const x[3]);
 
 #ifdef __cplusplus
 }
