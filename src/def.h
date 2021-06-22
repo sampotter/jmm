@@ -58,9 +58,6 @@ typedef enum stype {
   NUM_STYPE
 } stype_e;
 
-/**
- * Change this to float to use single precision instead.
- */
 typedef double dbl;
 
 typedef enum error {
