@@ -9,7 +9,7 @@ extensions = [
     Extension(
         '*',
         ['./src/jmm/*.pyx'],
-        extra_compile_args=['-std=c99'],
+        extra_compile_args=['-std=c99', '-O0'],
         include_dirs=['./src'],
         libraries=['jmm', 'gsl'],
         library_dirs=['./build'],
