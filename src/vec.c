@@ -1,6 +1,7 @@
 #include "vec.h"
 
 #include <assert.h>
+#include <stdlib.h>
 
 #include "macros.h"
 
@@ -261,6 +262,26 @@ bool dbl3_isfinite(dbl const x[3]) {
  * components are equal. */
 bool dbl3_equal(dbl const x[3], dbl const y[3]) {
   return x[0] == y[0] && x[1] == y[1] && x[2] == y[2];
+}
+
+void dbl3_get_rand_ortho(dbl const x[3], dbl y[3]) {
+  do {
+    for (size_t i = 0; i < 3; ++i)
+      y[i] = 2*drand48() - 1;
+    dbl3_normalize(y);
+  } while (dbl3_dot(x, y) < 1e-1);
+
+  /* Project `y` into the orthogonal complement of `x` and
+   * normalize */
+  dbl tmp[3]; dbl3_saxpy(-dbl3_dot(x, y), x, y, tmp);
+  dbl3_normalized(tmp, y);
+}
+
+dbl dbl3_wnormsq(dbl33 const A, dbl const x[3]) {
+  dbl y[3];
+  for (size_t i = 0; i < 3; ++i)
+    y[i] = dbl3_dot(A[i], x);
+  return dbl3_dot(y, x);
 }
 
 void dbl4_dbl_div_inplace(dbl u[4], dbl a) {
