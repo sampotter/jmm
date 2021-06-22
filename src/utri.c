@@ -329,29 +329,11 @@ static dbl get_L(utri_s const *u) {
 }
 
 bool utri_emits_terminal_ray(utri_s const *utri, eik3_s const *eik) {
-  assert(!utri_has_interior_point_solution(utri));
+  par3_s par = utri_get_par(utri);
 
-  size_t l0 = utri_get_active_ind(utri);
+  // TODO: anything else we need to check?
 
-  mesh3_s const *mesh = eik3_get_mesh(eik);
-
-  size_t nvv = mesh3_nvv(mesh, l0);
-  size_t *vv = malloc(nvv*sizeof(size_t));
-  mesh3_vv(mesh, l0, vv);
-
-  size_t num_inc_bde_bc_edges = 0;
-
-  size_t le[2] = {[0] = l0};
-
-  for (size_t i = 0; i < nvv; ++i) {
-    le[1] = vv[i];
-    if (eik3_has_bde_bc(eik, le))
-      ++num_inc_bde_bc_edges;
-  }
-
-  free(vv);
-
-  return num_inc_bde_bc_edges <= 1;
+  return par3_is_on_BC_boundary(&par, eik);
 }
 
 bool utri_update_ray_is_physical(utri_s const *utri, eik3_s const *eik) {
