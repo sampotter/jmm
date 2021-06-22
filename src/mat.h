@@ -6,15 +6,27 @@ extern "C" {
 
 #include "vec.h"
 
+void dbl22_zero(dbl A[2][2]);
 void dbl22_add(dbl A[2][2], dbl B[2][2], dbl C[2][2]);
+void dbl22_mul(dbl const A[2][2], dbl const B[2][2], dbl C[2][2]);
 void dbl22_dbl2_solve(dbl A[2][2], dbl b[2], dbl x[2]);
 dbl dbl22_trace(dbl const A[2][2]);
 void dbl22_dbl2_mul(dbl const A[2][2], dbl const x[2], dbl b[2]);
 bool dbl22_isfinite(dbl const A[2][2]);
+void dbl22_eye(dbl eye[2][2]);
+void dbl22_saxpy(dbl a, dbl const X[2][2], dbl const Y[2][2], dbl Z[2][2]);
+dbl dbl22_det(dbl const X[2][2]);
+void dbl22_inv(dbl const X[2][2], dbl Y[2][2]);
+void dbl22_invert(dbl X[2][2]);
 
 void dbl3_dbl33_mul(dbl const x[3], dbl const A[3][3], dbl b[3]);
+dbl dbl3_dbl33_dbl3_dot(dbl const x[3], dbl const A[3][3], dbl const y[3]);
 void dbl3_outer(dbl u[3], dbl v[3], dbl uv[3][3]);
 
+void dbl33_copy(dbl33 const in, dbl33 out);
+void dbl33_nan(dbl A[3][3]);
+void dbl33_zero(dbl A[3][3]);
+void dbl33_eye(dbl A[3][3]);
 void dbl33_add(dbl const A[3][3], dbl const B[3][3], dbl C[3][3]);
 void dbl33_mul(dbl A[3][3], dbl B[3][3], dbl C[3][3]);
 void dbl33_sub(dbl A[3][3], dbl B[3][3], dbl C[3][3]);
@@ -23,11 +35,17 @@ void dbl33_dbl3_mul_inplace(dbl const A[3][3], dbl x[3]);
 void dbl33_dbl3_nmul(dbl const A[3][3], dbl const x[3], dbl b[3]);
 void dbl33_transpose(dbl A[3][3]);
 void dbl33_transposed(dbl const A[3][3], dbl At[3][3]);
-void dbl33_dbl_div(dbl A[3][3], dbl a, dbl B[3][3]);
+void dbl33_dbl_div(dbl const A[3][3], dbl a, dbl B[3][3]);
+void dbl33_dbl_div_inplace(dbl A[3][3], dbl a);
 dbl dbl33_det(dbl const A[3][3]);
 void dbl33_dbl3_solve(dbl const A[3][3], dbl const b[3], dbl x[3]);
 void dbl33_get_column(dbl const A[3][3], int i, dbl a[3]);
 void dbl33_set_column(dbl A[3][3], int i, dbl const a[3]);
+bool dbl33_isfinite(dbl const A[3][3]);
+bool dbl33_isnan(dbl const A[3][3]);
+void dbl33_cc(dbl const A0[3][3], dbl const A1[3][3], dbl t0, dbl At[3][3]);
+void dbl33_symmetrize(dbl33 A);
+void dbl33_make_axis_angle_rotation_matrix(dbl3 axis, dbl angle, dbl33 rot);
 
 void dbl4_dbl43_mul(dbl const b[4], dbl const A[4][3], dbl x[3]);
 void dbl43_dbl3_mul(dbl const A[4][3], dbl const b[3], dbl x[4]);
