@@ -4,7 +4,7 @@ from jmm.defs import Ftype
 
 cimport jmm.defs
 
-from jmm.bb cimport Bb33
+from jmm.bb cimport Bb31, Bb33
 from jmm.grid cimport Grid3
 from jmm.jet cimport Jet3
 from jmm.mesh cimport mesh3, Mesh3, mesh3_nverts
@@ -62,6 +62,18 @@ cdef class Eik3:
         self.grad_T_view.format = 'd'
         self.grad_T_view.itemsize = 1*sizeof(dbl)
 
+        self.hess_view = ArrayView(3)
+        self.hess_view.readonly = True
+        self.hess_view.ptr = <void *>eik3_get_hess_ptr(self.eik)
+        self.hess_view.shape[0] = self.size
+        self.hess_view.shape[1] = 3
+        self.hess_view.shape[2] = 3
+        self.hess_view.strides[0] = 9*sizeof(dbl)
+        self.hess_view.strides[1] = 3*sizeof(dbl)
+        self.hess_view.strides[2] = 1*sizeof(dbl)
+        self.hess_view.format = 'd'
+        self.hess_view.itemsize = 1*sizeof(dbl)
+
         self.state_view = ArrayView(1)
         self.state_view.readonly = True
         self.state_view.ptr = <void *>eik3_get_state_ptr(self.eik)
@@ -70,15 +82,16 @@ cdef class Eik3:
         self.state_view.format = 'i'
         self.state_view.itemsize = sizeof(state)
 
-        self.t_in_view = ArrayView(2)
-        self.t_in_view.readonly = True
-        self.t_in_view.ptr = <void *>eik3_get_t_in_ptr(self.eik)
-        self.t_in_view.shape[0] = self.size
-        self.t_in_view.shape[1] = 3
-        self.t_in_view.strides[0] = 3*sizeof(dbl)
-        self.t_in_view.strides[1] = 1*sizeof(dbl)
-        self.t_in_view.format = 'd'
-        self.t_in_view.itemsize = sizeof(dbl)
+        if self.ftype != Ftype.PointSource:
+            self.t_in_view = ArrayView(2)
+            self.t_in_view.readonly = True
+            self.t_in_view.ptr = <void *>eik3_get_t_in_ptr(self.eik)
+            self.t_in_view.shape[0] = self.size
+            self.t_in_view.shape[1] = 3
+            self.t_in_view.strides[0] = 3*sizeof(dbl)
+            self.t_in_view.strides[1] = 1*sizeof(dbl)
+            self.t_in_view.format = 'd'
+            self.t_in_view.itemsize = sizeof(dbl)
 
         self.t_out_view = ArrayView(2)
         self.t_out_view.readonly = True
@@ -144,10 +157,19 @@ cdef class Eik3:
         return np.asarray(self.grad_T_view)
 
     @property
+    def hess(self):
+        return np.asarray(self.hess_view)
+
+    @property
     def state(self):
         return np.asarray(self.state_view)
 
-    def get_parent(self, ind):
+    def has_par(self, ind):
+        return eik3_has_par(self.eik, ind)
+
+    def get_par(self, ind):
+        if not eik3_has_par(self.eik, ind):
+            raise ValueError('node %d has no parent' % ind)
         return Parent3(eik3_get_par(self.eik, ind))
 
     @property
@@ -165,6 +187,8 @@ cdef class Eik3:
 
     @property
     def t_in(self):
+        if self.ftype == Ftype.PointSource:
+            raise RuntimeError('t_in vector only defined for scattered fields')
         return np.asarray(self.t_in_view)
 
     @property
@@ -183,7 +207,8 @@ cdef class Eik3:
         eik3_add_pt_src_BCs(self.eik, l, jet.jet)
 
     def add_refl_BCs(self, size_t l0, size_t l1, size_t l2,
-                     Jet3 jet0, Jet3 jet1, Jet3 jet2, dbl[:, ::1] t_in):
+                     Jet3 jet0, Jet3 jet1, Jet3 jet2,
+                     dbl[:, :, ::1] hess, dbl[:, ::1] t_in):
         if self.ftype != Ftype.Reflection:
             raise RuntimeError(
                 'tried to add reflection BCs to %s field' % str(self.ftype))
@@ -191,17 +216,20 @@ cdef class Eik3:
             raise ValueError('t_in should have shape (3, 3)')
         cdef size_t[3] lf = [l0, l1, l2]
         cdef jet3[3] jet = [jet0.jet, jet1.jet, jet2.jet]
-        eik3_add_refl_BCs(self.eik, lf, jet, <const dbl(*)[3]>&t_in[0, 0])
+        eik3_add_refl_BCs(self.eik, lf, jet,
+                          <const dbl33 *>&hess[0, 0, 0],
+                          <const dbl(*)[3]>&t_in[0, 0])
 
-    def add_diff_edge_BCs(self, size_t l0, size_t l1, Jet3 jet0, Jet3 jet1):
+    def add_diff_edge_BCs(self, size_t[::1] le, Bb31 T,
+                          dbl[::1] rho1, dbl[:, ::1] t_in):
         if self.ftype != Ftype.EdgeDiffraction:
             raise RuntimeError(
-                'tried to add edge diffraction BCs to %s field' % str(self.ftype))
-        if not jet0.is_finite() or not jet1.is_finite():
-            raise ValueError('tried to add diff edge BCs with bad jets')
-        cdef size_t[2] le = [l0, l1]
-        cdef jet3[2] jet = [jet0.jet, jet1.jet]
-        eik3_add_diff_edge_BCs(self.eik, le, jet)
+                'tried to add diff. edge BCs to a %s' % str(self.ftype))
+        if not T.isfinite():
+            raise ValueError(
+                'tried to add diff. edge BCs with bad edge cubic for T')
+        eik3_add_diff_edge_BCs(
+            self.eik, &le[0], &T.bb, &rho1[0], <const dbl(*)[3]>&t_in[0, 0])
 
     @property
     def slerp_tol(self):

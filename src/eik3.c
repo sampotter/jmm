@@ -7,6 +7,7 @@
 
 #include <stdio.h>
 
+#include "alist.h"
 #include "array.h"
 #include "bb.h"
 #include "edge.h"
@@ -63,6 +64,7 @@ struct eik3 {
   mesh3_s *mesh;
   eik3_s const *orig; /* This field's originator */
   jet3 *jet;
+  dbl33 *hess;
   state_e *state;
   int *pos;
   par3_s *par;
@@ -98,6 +100,8 @@ struct eik3 {
   /* Field of unit vectors where `t_out[l]` indicates the ray
    * direction at the beginning of the ray leading to node `l`.*/
   dbl (*t_out)[3];
+
+  alist_s *rho1;
 
   /* Convergence tolerances. The parameter `h` is an estimate of the
    * fineness of the mesh. The variables `h2` and `h3` are convenience
@@ -151,6 +155,10 @@ void eik3_init(eik3_s *eik, mesh3_s *mesh, ftype_e ftype, eik3_s const *orig) {
     eik->jet[l] = (jet3) {.f = INFINITY, .fx = NAN, .fy = NAN, .fz = NAN};
   }
 
+  eik->hess = malloc(nverts*sizeof(dbl33));
+  for (size_t l = 0; l < nverts; ++l)
+    dbl33_nan(eik->hess[l]);
+
   eik->state = malloc(nverts*sizeof(state_e));
   for (size_t l = 0; l < nverts; ++l) {
     eik->state[l] = FAR;
@@ -196,15 +204,22 @@ void eik3_init(eik3_s *eik, mesh3_s *mesh, ftype_e ftype, eik3_s const *orig) {
   array_alloc(&eik->bde_bc);
   array_init(eik->bde_bc, sizeof(bde_bc_s), ARRAY_DEFAULT_CAPACITY);
 
-  eik->t_in = malloc(nverts*sizeof(dbl[3]));
-  for (size_t l = 0; l < nverts; ++l)
-    for (size_t i = 0; i < 3; ++i)
-      eik->t_in[l][i] = NAN;
+  if (eik->ftype != FTYPE_POINT_SOURCE) {
+    eik->t_in = malloc(nverts*sizeof(dbl[3]));
+    for (size_t l = 0; l < nverts; ++l)
+      for (size_t i = 0; i < 3; ++i)
+        eik->t_in[l][i] = NAN;
+  }
 
   eik->t_out = malloc(nverts*sizeof(dbl[3]));
   for (size_t l = 0; l < nverts; ++l)
     for (size_t i = 0; i < 3; ++i)
       eik->t_out[l][i] = NAN;
+
+  if (eik->ftype == FTYPE_EDGE_DIFFRACTION) {
+    alist_alloc(&eik->rho1);
+    alist_init(eik->rho1, sizeof(size_t), sizeof(dbl), 16);
+  }
 
   eik->h = mesh3_get_min_edge_length(mesh);
   eik->h2 = eik->h*eik->h;
@@ -216,6 +231,9 @@ void eik3_init(eik3_s *eik, mesh3_s *mesh, ftype_e ftype, eik3_s const *orig) {
 void eik3_deinit(eik3_s *eik) {
   free(eik->jet);
   eik->jet = NULL;
+
+  free(eik->hess);
+  eik->hess = NULL;
 
   free(eik->state);
   eik->state = NULL;
@@ -252,15 +270,42 @@ void eik3_deinit(eik3_s *eik) {
   array_deinit(eik->bde_bc);
   array_dealloc(&eik->bde_bc);
 
-  free(eik->t_in);
-  eik->t_in = NULL;
+  if (eik->ftype != FTYPE_POINT_SOURCE) {
+    free(eik->t_in);
+    eik->t_in = NULL;
+  }
 
   free(eik->t_out);
   eik->t_out = NULL;
+
+  if (eik->ftype == FTYPE_EDGE_DIFFRACTION) {
+    alist_deinit(eik->rho1);
+    alist_dealloc(&eik->rho1);
+  }
+}
+
+static bool is_singular(eik3_s const *eik, size_t l) {
+  bool singular_gradient = !dbl3_isfinite(&eik->jet[l].fx);
+#if JMM_DEBUG
+  assert(singular_gradient == !dbl33_isfinite(eik->hess[l]));
+#endif
+  return singular_gradient;
 }
 
 static bool can_update_from_point(eik3_s const *eik, size_t l) {
   return eik->state[l] == VALID && !eik3_is_point_source(eik, l);
+}
+
+static void prop_hess_from_pt_src(eik3_s *eik, size_t l, size_t l0) {
+  dbl L = dbl3_dist(mesh3_get_vert_ptr(eik->mesh, l),
+                    mesh3_get_vert_ptr(eik->mesh, l0));
+
+  dbl eye[3][3]; dbl33_eye(eye);
+  dbl op[3][3]; dbl3_outer(&eik->jet[l].fx, &eik->jet[l].fx, op);
+  dbl33_sub(eye, op, eik->hess[l]);
+  dbl33_dbl_div_inplace(eik->hess[l], L);
+
+  assert(dbl33_isfinite(eik->hess[l]));
 }
 
 static void do_1pt_update(eik3_s *eik, size_t l, size_t l0) {
@@ -272,17 +317,365 @@ static void do_1pt_update(eik3_s *eik, size_t l, size_t l0) {
   dbl const *x = mesh3_get_vert_ptr(eik->mesh, l);
   dbl const *x0 = mesh3_get_vert_ptr(eik->mesh, l0);
   dbl3_sub(x, x0, &jet.fx);
-  jet.f = eik->jet[l0].f + dbl3_normalize(&jet.fx);
+  dbl L = dbl3_normalize(&jet.fx);
+  jet.f = eik->jet[l0].f + L;
 
   /* For now, we require that we're always able to commit the update,
    * because we assume that we only do 1pt updates from point
    * sources. */
   assert(jet.f <= eik->jet[l].f);
-
   eik3_set_jet(eik, l, jet);
+
+  /* Compute the Hessian of the eikonal at `l` */
+  prop_hess_from_pt_src(eik, l, l0);
 
   par3_s par = {.l = {l0, NO_PARENT, NO_PARENT}, .b = {1, NAN, NAN}};
   eik3_set_par(eik, l, par);
+}
+
+/* Compute the Hessian (`hess`) of the eikonal at a point which was
+ * updated by the triangle update `utri`, assuming that the base of
+ * `utri` is a diffracting edge. The fact that the diffracting edge is
+ * a caustic forces us to compute the Hessian directly from the
+ * curvatures of the wavefront at the update point. */
+static bool prop_hess_from_diff_edge(dbl const t[3], dbl L, dbl const e[3],
+                                     dbl rho1, dbl hess[3][3]) {
+  assert(dbl3_isfinite(t));
+  assert(isfinite(L));
+  assert(dbl3_isfinite(e));
+  assert(isfinite(rho1));
+
+  /* Compute the dot product between the ray vector and the edge
+   * direction. We need it when we compute each of the curvatures
+   * below */
+  dbl t_dot_e = dbl3_dot(t, e);
+
+  /* If `t` and `e` are colinear, we're dealing with a grazing ray. In
+   * this case, we'll be unable to compute the Hessian correctly, so
+   * we should bail now. */
+  if (fabs(1 - fabs(t_dot_e)) < 1e-14)
+    return false;
+
+  /* Principal curvature and direction for the normal section
+   * corresponding to the plane of diffraction (i.e., the plane
+   * spanned by the edge and the ray updating \hat{x}. */
+  dbl k1 = 1/rho1, q1[3];
+  dbl3_saxpy(-t_dot_e, t, e, q1);
+
+  /* Principal curvature and direction for the normal section
+   * orthogonal to ray and `q1`. The wavefront in this section is a
+   * circle about the diffracting edge that goes through \hat{x}. */
+  dbl k2, q2[3];
+  k2 = 1/(L*sqrt(1 - t_dot_e*t_dot_e));
+  dbl3_cross(t, e, q2);
+
+  /* Set the Hessian to be the sum of the outer product of each
+   * principal direction, weighted by the principal curvatures */
+  for (size_t i = 0; i < 3; ++i)
+    for (size_t j = 0; j < 3; ++j)
+      hess[i][j] = k1*q1[i]*q1[j] + k2*q2[i]*q2[j];
+
+  assert(dbl33_isfinite(hess));
+
+  return true;
+}
+
+static void prop_hess_along_ray(dbl const t[3], dbl L,
+                                dbl const hess0[3][3], dbl hess[3][3]) {
+  /* The first row of `Q` will be the ray direction, and the second
+   * and third will be unit vectors that span the orthogonal
+   * complement of the ray direction, filling out the basis */
+  dbl Q[3][3];
+
+  /* The ray direction vector (i.e., `t_out`) */
+  dbl3_copy(t, Q[0]);
+
+  /* Get a random vector that's orthogonal to `t` */
+  dbl3_get_rand_ortho(Q[0], Q[1]);
+
+  /* Complete the basis */
+  dbl3_cross(Q[0], Q[1], Q[2]);
+  dbl3_normalize(Q[2]); // TODO: probably unnecessary
+
+  /* Compute `P0` by restricting `hess0` to the orthogonal complement
+   * of `t` (i.e., the normal plane of the ray). */
+  dbl P0[2][2];
+  for (size_t i = 0; i < 2; ++i)
+    for (size_t j = 0; j < 2; ++j)
+      P0[i][j] = dbl3_dbl33_dbl3_dot(Q[i + 1], hess0, Q[j + 1]);
+
+  /* Propagate `P0` along the ray to compute `P` */
+  dbl eye[2][2]; dbl22_eye(eye);
+  dbl tmp1[2][2]; dbl22_saxpy(L, P0, eye, tmp1); dbl22_invert(tmp1);
+  dbl P[2][2]; dbl22_mul(P0, tmp1, P);
+
+  /* Recover the Hessian at `xhat` from `P` */
+  dbl tmp2[3][3]; dbl33_zero(tmp2); /* 3x3 matrix with lower right 2x2 subblock set to P */
+  for (size_t i = 0; i < 2; ++i)
+    for (size_t j = 0; j < 2; ++j)
+      tmp2[i + 1][j + 1] = P[i][j];
+  dbl tmp3[3][3]; dbl33_mul(tmp2, Q, tmp3);
+  dbl33_transposed(Q, tmp2);
+  dbl33_mul(tmp2, tmp3, hess);
+}
+
+static void get_hess_cc(eik3_s const *eik, size_t const *l, dbl const *b,
+                        size_t n, dbl hess[3][3]) {
+  for (size_t i = 0; i < n; ++i)
+    assert(dbl33_isfinite(eik->hess[l[i]]));
+
+  dbl33_zero(hess);
+  for (size_t k = 0; k < n; ++k)
+    for (size_t i = 0; i < 3; ++i)
+      for (size_t j = 0; j < 3; ++j)
+        hess[i][j] += b[k]*eik->hess[l[k]][i][j];
+}
+
+static
+bool get_rho1_cc(eik3_s const *eik, dbl const e[3], size_t const *l,
+                 dbl const *b, size_t n, dbl *rho1_cc) {
+  assert(n == 1 || n == 2);
+
+  dbl rho1[n];
+  for (size_t i = 0; i < n; ++i)
+    rho1[i] = NAN;
+
+  size_t num_set = 0;
+
+  /* First, fill in the `rho1` values that are set as BCs
+   * initially. This will only ever happen if we're solving an edge
+   * diffraction problem. */
+  if (eik->ftype == FTYPE_EDGE_DIFFRACTION) {
+    for (size_t i = 0; i < n; ++i) {
+      if (!alist_contains(eik->rho1, &l[i]))
+        continue;
+      assert(eik3_has_BCs(eik, l[i]));
+      alist_get_by_key(eik->rho1, &l[i], &rho1[i]);
+      num_set += isfinite(rho1[i]);
+      assert(isfinite(rho1[i]));
+    }
+  }
+
+  /* Fill in the remaining `rho1` values by computing the radius of
+   * curvature using the Hessian at each edge endpoint. */
+  if (num_set < n) {
+    for (size_t i = 0; i < n; ++i) {
+      if (isfinite(rho1[i]))
+        continue;
+
+      dbl const *t = &eik->jet[l[i]].fx;
+      if (!dbl3_isfinite(t))
+        continue;
+
+      dbl q[3]; dbl3_saxpy(-dbl3_dot(t, e), t, e, q);
+
+      if (dbl33_isfinite(eik->hess[l[i]])) {
+        rho1[i] = 1/dbl3_wnormsq(eik->hess[l[i]], q);
+      } else {
+        assert(dbl33_isnan(eik->hess[l[i]]));
+        rho1[i] = 0;
+      }
+    }
+  }
+
+  for (size_t i = 0; i < n; ++i)
+    if (!isfinite(rho1[i]))
+      return false;
+
+  *rho1_cc = n == 1 ? rho1[0] : dbl2_dot(b, rho1);
+
+  return *rho1_cc != 0 && isfinite(*rho1_cc);
+}
+
+static
+void prop_hess_degenerate_1(eik3_s *eik, dbl const t[3], dbl L,
+                            size_t l0, size_t lhat) {
+  /* If there's only one active vertex and there's no Hessian at
+   * that point, then we should have done a diffracting update,
+   * which we need to figure out now. */
+
+  size_t num_inc_diff_edges = mesh3_get_num_inc_diff_edges(eik->mesh, l0);
+  assert(num_inc_diff_edges > 0);
+
+  size_t (*le)[2] = malloc(num_inc_diff_edges*sizeof(size_t[2]));
+  mesh3_get_inc_diff_edges(eik->mesh, l0, le);
+
+  // TODO: this is hacky and needs to be fixed: we find the first
+  // diffracting edge that has `rho1` set for each endpoint and
+  // just use that. This isn't correct in the general case but
+  // should be OK for now.
+  size_t l[2] = {l0, (size_t)NO_INDEX};
+  dbl e[3];
+  for (size_t i = 0; i < num_inc_diff_edges; ++i) {
+    for (size_t j = 0; j < 2; ++j) {
+      if (le[i][j] != l[0] && alist_contains(eik->rho1, &le[i][j])) {
+        l[1] = le[i][j];
+        mesh3_get_diff_edge_tangent(eik->mesh, l, e);
+        break;
+      }
+    }
+  }
+
+  dbl rho1;
+  assert(get_rho1_cc(eik, e, l, (dbl[2]) {1, 0}, 2, &rho1));
+  prop_hess_from_diff_edge(t, L, e, rho1, eik->hess[lhat]);
+}
+
+static bool get_hess_from_utri(utri_s const *u, eik3_s const *eik, dbl33 hess) {
+  dbl t[3];
+  utri_get_t(u, t);
+
+  dbl L = utri_get_L(u);
+
+  mesh3_s const *mesh = eik->mesh;
+
+  size_t l[2];
+  utri_get_update_inds(u, l);
+  assert(mesh3_is_diff_edge(mesh, l));
+
+  dbl e[3];
+  mesh3_get_diff_edge_tangent(mesh, l, e);
+
+  dbl b = utri_get_b(u);
+
+  dbl rho1;
+  if (!get_rho1_cc(eik, e, l, (dbl[2]) {1 - b, b}, 2, &rho1))
+    return false;
+
+  prop_hess_from_diff_edge(t, L, e, rho1, hess);
+
+  return true;
+}
+
+static
+bool prop_hess_degenerate_N(eik3_s *eik, dbl const t[3], dbl L,
+                            size_t const *l, size_t n, dbl const xb[3],
+                            size_t lhat) {
+
+  array_s *utri_arr;
+  array_alloc(&utri_arr);
+  array_init(utri_arr, sizeof(utri_s *), ARRAY_DEFAULT_CAPACITY);
+
+  for (size_t i = 0; i < n; ++i) {
+    if (!mesh3_bdv(eik->mesh, l[i]))
+      continue;
+
+    if (dbl33_isfinite(eik->hess[l[i]]))
+      continue;
+
+    size_t nde = mesh3_get_num_inc_diff_edges(eik->mesh, l[i]);
+    if (nde == 0)
+      continue;
+
+    size_t (*le)[2] = malloc(nde*sizeof(size_t[2]));
+    mesh3_get_inc_diff_edges(eik->mesh, l[i], le);
+
+    for (size_t j = 0; j < nde; ++j) {
+      utri_s *utri;
+      utri_alloc(&utri);
+
+      if (!eik3_has_BCs(eik, le[j][0]) ||
+          !eik3_has_BCs(eik, le[j][1]))
+        continue;
+
+      if (mesh3_edge_contains_point(eik->mesh, le[j], xb))
+        continue;
+
+      utri_spec_s spec = utri_spec_from_eik_without_l(eik,xb,le[j][0],le[j][1]);
+      if (utri_init(utri, &spec)) {
+        utri_solve(utri);
+        assert(utri_is_finite(utri));
+        array_append(utri_arr, &utri);
+      } else {
+        utri_dealloc(&utri);
+      }
+    }
+
+    free(le);
+  }
+
+  assert(!array_is_empty(utri_arr));
+
+  array_sort(utri_arr, (compar_t)utri_cmp);
+
+  dbl33 hess0;
+  dbl33_nan(hess0);
+
+  for (size_t i = 0; i < array_size(utri_arr); ++i) {
+    utri_s *utri[2];
+    array_get(utri_arr, i, &utri[0]);
+
+    bool should_get_hess_from_utri = false;
+    if (utri_has_interior_point_solution(utri[0]) &&
+        utri_update_ray_is_physical(utri[0], eik)) {
+      should_get_hess_from_utri = true;
+    } else if (i + 1 < array_size(utri_arr)) {
+      array_get(utri_arr, i + 1, &utri[1]);
+      if (utris_yield_same_update(utri[0], utri[1]) &&
+          utri_update_ray_is_physical(utri[0], eik)) {
+        should_get_hess_from_utri = true;
+      }
+    }
+
+    if (should_get_hess_from_utri &&
+        get_hess_from_utri(utri[0], eik, hess0))
+      break;
+  }
+
+  bool success = dbl33_isfinite(hess0);
+
+  if (success)
+    prop_hess_along_ray(t, L, hess0, eik->hess[lhat]);
+
+  array_deinit(utri_arr);
+  array_dealloc(&utri_arr);
+
+  return success;
+}
+
+static
+bool prop_hess(eik3_s *eik, size_t num_active, size_t const *l, dbl const *b,
+               size_t lhat, dbl const t[3], dbl L, dbl const xb[3]) {
+  /* Figure out which Hessians are finite and count them */
+  size_t num_finite_hess = 0;
+  bool finite_hess[num_active];
+  for (size_t i = 0; i < num_active; ++i)
+    num_finite_hess += finite_hess[i] = dbl33_isfinite(eik->hess[l[i]]);
+
+  /* Check if the Hessians are consistent: */
+  for (size_t i = 0; i < num_active; ++i) {
+    if (finite_hess[i])
+      continue;
+#if JMM_DEBUG
+    assert(eik3_has_BCs(eik, l[i]));
+    /* for edge-diffracted waves, we should have set a value for rho1
+     * as a BC if the Hessian isn't finite */
+    if (eik->ftype == FTYPE_EDGE_DIFFRACTION)
+      assert(alist_contains(eik->rho1, &l[i]));
+#endif
+    /* for a reflected wave, we aren't able to propagate the Hessian
+     * using the available data, so we return now */
+    if (eik->ftype == FTYPE_REFLECTION)
+      return false;
+  }
+
+  bool success = false;
+
+  if (num_finite_hess < num_active) {
+    if (num_active == 1) {
+      prop_hess_degenerate_1(eik, t, L, l[0], lhat);
+      success = true;
+    } else {
+      success = prop_hess_degenerate_N(eik, t, L, l, num_active, xb, lhat);
+    }
+  } else {
+    dbl33 hess0;
+    get_hess_cc(eik, l, b, num_active, hess0);
+    prop_hess_along_ray(t, L, hess0, eik->hess[lhat]);
+    success = true;
+  }
+
+  return success;
 }
 
 static bool commit_tri_update(eik3_s *eik, size_t lhat, utri_s const *utri) {
@@ -295,6 +688,66 @@ static bool commit_tri_update(eik3_s *eik, size_t lhat, utri_s const *utri) {
 
   par3_s par = utri_get_par(utri);
   eik3_set_par(eik, lhat, par);
+
+  dbl t[3];
+  utri_get_t(utri, t);
+
+  dbl L = utri_get_L(utri);
+
+  size_t num_active = par3_num_active(&par);
+  size_t l[num_active];
+  dbl b[num_active];
+  par3_get_active(&par, l, b);
+
+  /* First, we want to try to compute the Hessian when the base of the
+   * update is a diffracting edge.
+   *
+   * Before doing this, we make sure to check that the `utri` isn't
+   * geometrically degenerate (i.e., x, x0, and x1 aren't
+   * collinear). If this happens, the result doesn't will be
+   * singular. This situation will arise when we try to march away
+   * from a diffracting edge emanating from the diffracting edge from
+   * which this field emanated originally. In these cases, we can just
+   * use `prop_hess` below, since the Hessian will be defined and
+   * usable.  */
+  if (utri_inc_on_diff_edge(utri, eik->mesh) &&
+      !utri_is_degenerate(utri)) {
+    /* If the `utri` traced a "terminal ray" from the end of a
+     * diffracting edge, it behaves the same as a point source. */
+    if (num_active == 1 &&
+        is_singular(eik, l[0]) &&
+        utri_emits_terminal_ray(utri, eik)) {
+      prop_hess_from_pt_src(eik, lhat, l[0]);
+      return true;
+    }
+
+    size_t l_base[2]; utri_get_update_inds(utri, l_base);
+
+    /* Get the diffracting edge's unit tangent vector */
+    dbl e[3]; mesh3_get_diff_edge_tangent(eik->mesh, l_base, e);
+
+    /* Get the radius of curvature in the plane of diffraction of the
+     * incident wavefront at the diffracting edge. Then try to
+     * propagate the Hessian from the diffracting edge using rho1. */
+    dbl rho1;
+    if (get_rho1_cc(eik, e, l, b, num_active, &rho1) &&
+        prop_hess_from_diff_edge(t, L, e, rho1, eik->hess[lhat]))
+      return true;
+
+    /* If that fails, try to use finite differences to approximate the
+     * Hessian (this involves solving several more `utri`s */
+    if (utri_approx_hess(utri, eik->h2, eik->hess[lhat]))
+      return true;
+
+    /* We failed to update the Hessian---don't accept the update */
+    // TODO: we should always be able to do this...
+    return false;
+  }
+
+  dbl xb[3];
+  utri_get_xb(utri, xb);
+
+  prop_hess(eik, num_active, l, b, lhat, t, L, xb);
 
   return true;
 }
@@ -462,19 +915,23 @@ size_t get_update_fan(eik3_s const *eik, size_t l0, size_t **l1, size_t **l2) {
 }
 
 static
-void get_valid_incident_diff_edges(eik3_s const *eik, size_t l0, array_s *l1) {
+void get_valid_incident_diff_edges(eik3_s const *eik, size_t l0,
+                                   array_s *l1) {
   mesh3_s const *mesh = eik3_get_mesh(eik);
 
   int nvv = mesh3_nvv(mesh, l0);
   size_t *vv = malloc(nvv*sizeof(size_t));
   mesh3_vv(mesh, l0, vv);
 
-  edge_s edge = {.l = {[0] = l0}};
+  size_t le[2] = {[0] = l0};
   for (int i = 0; i < nvv; ++i) {
-    edge.l[1] = vv[i];
-    if (can_update_from_point(eik, edge.l[1]) &&
-        mesh3_is_diff_edge(mesh, edge.l))
-      array_append(l1, &edge.l[1]);
+    le[1] = vv[i];
+
+    if (!mesh3_is_diff_edge(mesh, le))
+      continue;
+
+    if (can_update_from_point(eik, le[1]) || eik3_has_bde_bc(eik, le))
+      array_append(l1, &le[1]);
   }
 
   free(vv);
@@ -491,33 +948,37 @@ static bool commit_tetra_update(eik3_s *eik, size_t lhat, utetra_s const *utetra
   par3_s par = utetra_get_parent(utetra);
   eik3_set_par(eik, lhat, par);
 
-  return true;
-}
+  dbl t[3];
+  utetra_get_t(utetra, t);
 
-/* Check if `u` emits a "terminal ray": this is a ray that is emitted
- * from the edge of a face with reflection BCs, when the face on the
- * opposite side of this edge doesn't have BCs itself (that is, the
- * ray emits from the boundary of a contiguous patch on the boundary
- * of `eik->mesh` that has been supplied wtih reflection BCs) */
-static bool utetra_emits_terminal_ray(eik3_s const *eik, utetra_s const *u) {
-  /* This can only happen when we're solving a problem with reflection BCs */
-  if (eik->ftype != FTYPE_REFLECTION)
-    return false;
+  dbl L = utetra_get_L(utetra);
 
-  /* Get the active indices from `u`. If there are three, this can't
-   * be a terminal ray */
-  size_t l[3];
-  size_t num_active = utetra_get_active_inds(u, l);
-  if (num_active == 3)
-    return false;
+  size_t num_active = par3_num_active(&par);
+  size_t l[num_active];
+  dbl b[num_active];
+  par3_get_active(&par, l, b);
 
-  /* If any of the active indices have three BCs set, then the ray was
-   * emitted from the interior of a face with refl BCs */
-  for (size_t i = 0; i < num_active; ++i)
-    if (eik->num_BCs[l[i]] == 3)
-      return false;
+  /* If we do a tetrahedron update from the end of a diffracting edge,
+   * we might need to treat that vertex as a point source and
+   * propagate the Hessian accordingly. */
+  if (eik->ftype == FTYPE_EDGE_DIFFRACTION &&
+      num_active == 1 &&
+      mesh3_vert_incident_on_diff_edge(eik->mesh, l[0]) &&
+      utetra_emits_terminal_ray(utetra, eik)) {
+    prop_hess_from_pt_src(eik, lhat, l[0]);
+    return true;
+  }
 
-  return true;
+  dbl xb[3];
+  utetra_get_x(utetra, xb);
+
+  if (prop_hess(eik, num_active, l, b, lhat, t, L, xb))
+    return true;
+
+  if (utetra_approx_hess(utetra, eik->h2, eik->hess[lhat]))
+    return true;
+
+  return false;
 }
 
 static void update(eik3_s *eik, size_t l, size_t l0) {
@@ -526,7 +987,8 @@ static void update(eik3_s *eik, size_t l, size_t l0) {
    * point source. In this case, we just solve the two-point BVP to
    * high accuracy and return immediately.
    */
-  if (eik3_is_point_source(eik, l0)) {
+  if (eik->ftype == FTYPE_POINT_SOURCE &&
+      eik3_is_point_source(eik, l0)) {
     do_1pt_update(eik, l, l0);
     return;
   }
@@ -769,7 +1231,7 @@ static void update(eik3_s *eik, size_t l, size_t l0) {
     if (!isfinite(utetra_get_value(utetra[i])))
       break;
     if (utetra_has_interior_point_solution(utetra[i]) ||
-        utetra_emits_terminal_ray(eik, utetra[i])) {
+        utetra_emits_terminal_ray(utetra[i], eik)) {
       if (utetra_update_ray_is_physical(utetra[i], eik) &&
           commit_tetra_update(eik, l, utetra[i]))
         break;
@@ -815,8 +1277,12 @@ size_t eik3_peek(eik3_s const *eik) {
 
 void do_diff_edge_updates_and_adjust(eik3_s *eik, size_t l0, size_t l1,
                                      size_t *l0_nb, int l0_nnb) {
-  assert(!eik3_is_point_source(eik, l0));
-  assert(!eik3_is_point_source(eik, l1));
+#if JMM_DEBUG
+  if (!eik3_has_bde_bc(eik, (size_t[2]) {l0, l1})) {
+    assert(!eik3_is_point_source(eik, l0));
+    assert(!eik3_is_point_source(eik, l1));
+  }
+#endif
 
   int l1_nnb = mesh3_nvv(eik->mesh, l1);
   size_t *l1_nb = malloc(l1_nnb*sizeof(size_t));
@@ -840,8 +1306,8 @@ void do_diff_edge_updates_and_adjust(eik3_s *eik, size_t l0, size_t l1,
 
   int nnb = array_size(nb);
 
-  // TODO: don't need to allocate a bunch of separate `utri`s...
-  utri_s **utri = malloc(nnb*sizeof(utri_s *));
+  utri_s *utri;
+  utri_alloc(&utri);
 
   size_t l;
 
@@ -850,31 +1316,40 @@ void do_diff_edge_updates_and_adjust(eik3_s *eik, size_t l0, size_t l1,
   // curved obstacle, or if a ray goes around the corner of an
   // obstacle. We'll see how far we can get with this for now...
 
+  /* Do a triangle update for each neighbor of the diff. edge */
   for (int i = 0; i < nnb; ++i) {
     array_get(nb, i, &l);
 
-    // Do a triangle update for each neighbor l of the diffracting
-    // edge (l0, l1)...
-    utri_alloc(&utri[i]);
-    utri_spec_s spec = utri_spec_from_eik(eik, l, l0, l1);
-    if (!utri_init(utri[i], &spec))
+    if (l == l0 || l == l1)
       continue;
-    utri_solve(utri[i]);
 
-    // ... and attempt to commit it.
-    if ((utri_has_interior_point_solution(utri[i]) ||
-         utri_emits_terminal_ray(utri[i], eik)) &&
-        utri_update_ray_is_physical(utri[i], eik) &&
-        commit_tri_update(eik, l, utri[i]))
+    /* If we're computing a reflection, we need to skip these kinds of
+     * updates. We need to give the reflected wave a chance to
+     * propagate to nearby points. The edge-diffracted triangle
+     * updates can lead to artificially small arrival times. */
+    if (eik->ftype == FTYPE_REFLECTION &&
+        eik3_has_BCs(eik, l0) &&
+        eik3_has_BCs(eik, l1))
+      continue;
+
+    utri_spec_s spec = utri_spec_from_eik(eik, l, l0, l1);
+
+    if (!utri_init(utri, &spec))
+      continue;
+
+    if (utri_is_degenerate(utri))
+      continue;
+
+    utri_solve(utri);
+
+    if ((utri_has_interior_point_solution(utri) ||
+         utri_emits_terminal_ray(utri, eik)) &&
+        utri_update_ray_is_physical(utri, eik) &&
+        commit_tri_update(eik, l, utri))
       adjust(eik, l);
   }
 
-  // Free triangle updates
-  for (int i = 0; i < nnb; ++i) {
-    if (utri[i] == NULL) continue;
-    utri_dealloc(&utri[i]);
-  }
-  free(utri);
+  utri_dealloc(&utri);
 
   array_deinit(nb);
   array_dealloc(&nb);
@@ -938,16 +1413,150 @@ void update_neighbors(eik3_s *eik, size_t l0) {
   free(nb);
 }
 
+static
+void get_t_in_from_orig_a1(eik3_s const *eik, size_t l0, dbl3 t_in) {
+  assert(!dbl3_isfinite(eik->t_in[l0]));
+
+  mesh3_s const *mesh = eik->mesh;
+
+  /* Find all of the diffracting edges that are incident on `l0` */
+  size_t nbde = mesh3_get_num_inc_diff_edges(mesh, l0);
+  size_t (*le)[2] = malloc(nbde*sizeof(size_t[2]));
+  mesh3_get_inc_diff_edges(mesh, l0, le);
+
+  /* Find the specific diff. edge for which the originating field had
+   * BCs specified (and hence, is causing the missing `t_in` data that
+   * we're imputing now)... */
+  size_t i = 0;
+  for (i = 0; i < nbde; ++i)
+    if (eik3_has_bde_bc(eik->orig, le[i]))
+      break;
+
+  size_t le_orig[2];
+  memcpy(le_orig, le, sizeof(size_t[2]));
+
+#if JMM_DEBUG
+  /* ... and verify that there's only one such diffracting edge */
+  for (size_t j = i + 1; j < nbde; ++j)
+    assert(!eik3_has_bde_bc(eik->orig, le[j]));
+#endif
+
+  for (i = 0; i < nbde; ++i)
+    if (eik3_has_bde_bc(eik, le[i]))
+      break;
+
+  assert(le[i][0] == l0 ^ le[i][1] == l0);
+  size_t l1 = le[i][0] == l0 ? le[i][1] : le[i][0];
+
+#if JMM_DEBUG
+  /* ... and verify that there's only one such diffracting edge */
+  for (size_t j = i + 1; j < nbde; ++j)
+    assert(!eik3_has_bde_bc(eik, le[j]));
+#endif
+
+  dbl const *x0 = mesh3_get_vert_ptr(mesh, l0);
+  dbl const *x1 = mesh3_get_vert_ptr(mesh, l1);
+  dbl const *xe = mesh3_get_vert_ptr(
+    mesh, le_orig[0] == l0 ? le_orig[1] : le_orig[0]);
+
+  dbl3 e_orig;
+  dbl3_sub(xe, x0, e_orig);
+  dbl3_normalize(e_orig);
+
+  dbl3 e;
+  dbl3_sub(x1, x0, e);
+  dbl3_normalize(e);
+
+  dbl const *t_in_orig = eik->orig->t_in[l0];
+  assert(dbl3_isfinite(t_in_orig));
+
+  dbl3 t_in_orig_proj;
+  dbl3_saxpy(-dbl3_dot(t_in_orig, e_orig), e_orig, t_in_orig, t_in_orig_proj);
+  dbl3_normalize(t_in_orig_proj);
+
+  dbl theta = acos(clamp(dbl3_dot(t_in_orig_proj, e), -1, 1));
+  dbl33 rot;
+  dbl33_make_axis_angle_rotation_matrix(e_orig, -theta, rot);
+
+  dbl33_dbl3_mul(rot, t_in_orig, t_in);
+}
+
+static
+void get_t_in_from_orig_a2(eik3_s const *eik, size_t const *l, dbl const *b,
+                           bool const *finite, dbl3 t_in) {
+  size_t const num_active = 2;
+
+  size_t l_nan = (size_t)NO_INDEX;
+  for (size_t i = 0; i < num_active; ++i)
+    if (!finite[i])
+      l_nan = l[i];
+
+  mesh3_s const *mesh = eik->mesh;
+
+  dbl xb[3];
+  dbl3_zero(xb);
+  for (size_t i = 0; i < num_active; ++i) {
+    dbl const *x = mesh3_get_vert_ptr(mesh, l[i]);
+    for (size_t j = 0; j < 3; ++j)
+      xb[j] += b[i]*x[j];
+  }
+
+  size_t nbde = mesh3_get_num_inc_diff_edges(mesh, l_nan);
+  size_t (*le)[2] = malloc(nbde*sizeof(size_t[2]));
+  mesh3_get_inc_diff_edges(mesh, l_nan, le);
+
+  size_t i;
+  for (i = 0; i < nbde; ++i)
+    if (eik3_has_bde_bc(eik->orig, le[i]))
+      break;
+
+#if JMM_DEBUG
+  for (size_t j = i + 1; j < nbde; ++j)
+    assert(!eik3_has_bde_bc(eik->orig, le[j]));
+#endif
+
+  size_t l0 = le[i][0], l1 = le[i][1];
+  utri_spec_s spec = utri_spec_from_eik_without_l(eik->orig, xb, l0, l1);
+
+  utri_s *u;
+  utri_alloc(&u);
+  utri_init(u, &spec);
+  utri_solve(u);
+  utri_get_t(u, t_in);
+  utri_dealloc(&u);
+
+  free(le);
+}
+
+static
+void get_t_in_from_orig(eik3_s const *eik, size_t const *l, dbl const *b,
+                        bool const *finite, size_t num_active, dbl3 t_in) {
+#if JMM_DEBUG
+  assert(eik->orig != NULL);
+  assert(1 <= num_active && num_active <= 3);
+  size_t num_finite = 0;
+  for (size_t i = 0; i < num_active; ++i)
+    num_finite += finite[i];
+  assert(num_finite == num_active - 1);
+#endif
+  if (num_active == 1)
+    get_t_in_from_orig_a1(eik, l[0], t_in);
+  if (num_active == 2)
+    get_t_in_from_orig_a2(eik, l, b, finite, t_in);
+  if (num_active == 3)
+    assert(false); // TODO: not implemented yet
+}
+
 static void compute_t_in(eik3_s *eik, size_t l0) {
+  assert(eik->ftype != FTYPE_POINT_SOURCE);
   assert(eik->state[l0] == VALID);
 
   par3_s par = eik3_get_par(eik, l0);
 
-  /* If the node has no parents, it should be a BC node, and should
-   * then have `t_in` already set. Verify this and return. */
+  /* If the node has no parents, it should have had some BCs
+   * supplied. Verify this before returning. */
   if (par3_is_empty(&par)) {
     assert(eik->num_BCs[l0] > 0);
-    assert(dbl3_isfinite(eik->t_in[l0]));
     return;
   }
 
@@ -967,23 +1576,32 @@ static void compute_t_in(eik3_s *eik, size_t l0) {
   for (size_t i = 0; i < num_active; ++i)
     num_finite += finite[i] = dbl3_isfinite(t_in[i]);
 
-  assert(num_finite > 0);
-
   for (size_t i = 0; i < num_active; ++i) {
     if (finite[i]) continue;
     assert(eik->num_BCs[l[i]] > 0);
     dbl3_copy(&eik->jet[l[i]].fx, t_in[i]);
+
+    /* Note: this may fail! After running this loop, we may still have
+     * num_finite < num_active. */
+    num_finite += finite[i] = dbl3_isfinite(t_in[i]);
   }
+
+  if (num_finite < num_active) {
+    get_t_in_from_orig(eik, l, b, finite, num_active, eik->t_in[l0]);
+    goto coda;
+  }
+
+  assert(num_finite == num_active);
+  assert(1 <= num_active && num_active <= 3);
 
   if (num_active == 1)
     dbl3_copy(t_in[0], eik->t_in[l0]);
-  else if (num_active == 2)
+  if (num_active == 2)
     slerp2(t_in[0], t_in[1], b, eik->t_in[l0]);
-  else if (num_active == 3)
+  if (num_active == 3)
     slerp3(t_in, b, eik->t_in[l0], eik->slerp_tol);
-  else
-    assert(false);
 
+coda:
   assert(dbl3_isfinite(eik->t_in[l0]));
 }
 
@@ -1083,8 +1701,10 @@ size_t eik3_step(eik3_s *eik) {
 
   eik->state[l0] = VALID;
 
+  /* Only compute `t_in` for scattered fields... */
   if (eik->ftype != FTYPE_POINT_SOURCE)
     compute_t_in(eik, l0);
+
   compute_t_out(eik, l0);
 
   purge_old_updates(eik, l0);
@@ -1195,6 +1815,10 @@ jet3 *eik3_get_jet_ptr(eik3_s const *eik) {
   return eik->jet;
 }
 
+dbl33 *eik3_get_hess_ptr(eik3_s const *eik) {
+  return eik->hess;
+}
+
 state_e *eik3_get_state_ptr(eik3_s const *eik) {
   return eik->state;
 }
@@ -1222,6 +1846,7 @@ bool eik3_is_refl_bdf(eik3_s const *eik, size_t const l[3]) {
 }
 
 dbl *eik3_get_t_in_ptr(eik3_s const *eik) {
+  assert(eik->ftype != FTYPE_POINT_SOURCE);
   return eik->t_in[0];
 }
 
@@ -1235,7 +1860,7 @@ void eik3_add_pt_src_BCs(eik3_s *eik, size_t l, jet3 jet) {
 }
 
 void eik3_add_refl_BCs(eik3_s *eik, size_t const lf[3], jet3 const jet[3],
-                       dbl const t_in[3][3]) {
+                       dbl33 const hess[3], dbl const t_in[3][3]) {
   assert(eik->ftype == FTYPE_REFLECTION);
 
   /* We'd like to uncomment the following line, but it creates some
@@ -1246,6 +1871,11 @@ void eik3_add_refl_BCs(eik3_s *eik, size_t const lf[3], jet3 const jet[3],
   for (size_t i = 0; i < 3; ++i)
     if (!eik3_is_trial(eik, lf[i]))
       eik3_add_trial(eik, lf[i], jet[i]);
+
+  /* Set the Hessian at each face. We assume the Hessian is already
+   * transformed correctly when this function is called. */
+  for (size_t i = 0; i < 3; ++i)
+    memcpy(&eik->hess[lf[i]], hess[i], sizeof(dbl[3][3]));
 
   /* If any of the edges of `lf` are diffracting edges, we want to add
    * BCs for those diffracting edges now. */
@@ -1275,35 +1905,36 @@ void eik3_add_refl_BCs(eik3_s *eik, size_t const lf[3], jet3 const jet[3],
   }
 }
 
-void eik3_add_diff_edge_BCs(eik3_s *eik, size_t const le[2], jet3 const jet[2]) {
+void eik3_add_diff_edge_BCs(eik3_s *eik, size_t const le[2],
+                            bb31 const *T, dbl const rho1[2],
+                            dbl3 const t_in[2]) {
   assert(eik->ftype == FTYPE_EDGE_DIFFRACTION);
 
   assert(mesh3_is_diff_edge(eik->mesh, le));
 
-  /* Get data for setting up cubic polynomial with boundary data. */
-  dbl f[2] = {jet[0].f, jet[1].f}, Df[2][3], x[2][3];
-  for (size_t i = 0; i < 2; ++i)
-    dbl3_copy(&jet[i].fx, Df[i]);
-  for (size_t i = 0; i < 2; ++i)
-    mesh3_copy_vert(eik->mesh, le[i], x[i]);
-
-  /* Set up boundary cubic using */
-  bb31 bb;
-  bb31_init_from_3d_data(&bb, f, Df, x);
-  eik3_set_bde_bc(eik, le, &bb);
+  dbl f[2] = {T->c[0], T->c[3]};
 
   /* Add trial nodes at endpoints of `le` */
   for (size_t i = 0; i < 2; ++i)
     if (!eik3_is_trial(eik, le[i]))
       eik3_add_trial(eik, le[i], jet3_make_point_source(f[i]));
 
-  /* Set `t_in` using ray directions taken from `jet` */
-  dbl t_in[3];
+  /* Set the diff edge BCs using `T` */
+  eik3_set_bde_bc(eik, le, T);
+
+  /* Set `t_in` */
+  for (size_t i = 0; i < 2; ++i)
+    dbl3_copy(t_in[i], eik->t_in[le[i]]);
+
+  /* Set `rho1` at the diffracting edge vertices */
   for (size_t i = 0; i < 2; ++i) {
-    dbl3_normalized(&jet[i].fx, t_in);
-    if (dbl3_isfinite(eik->t_in[le[i]]))
-      assert(dbl3_dist(t_in, eik->t_in[le[i]]) < 1e-14);
-    dbl3_copy(t_in, eik->t_in[le[i]]);
+    if (alist_contains(eik->rho1, &le[i])) {
+      dbl rho1_;
+      alist_get_by_key(eik->rho1, &le[i], &rho1_);
+      assert(fabs(rho1[i] - rho1_) < 1e-14);
+    } else {
+      alist_append(eik->rho1, &le[i], &rho1[i]);
+    }
   }
 }
 

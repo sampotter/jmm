@@ -30,12 +30,14 @@ cells = extended_cells[:num_dom_cells]
 
 domain = Domain(verts, cells, refl_coef=0.7)
 
-src_index = next(l for l in range(num_dom_verts) if not domain.mesh.bdv(l))
+l_int = np.array([_ for _ in range(num_dom_verts) if not domain.mesh.bdv(_)])
+src_index = l_int[3]
 num_arrivals = 5
+omega = 1000 # Hz
 
 log.info('computing %d arrivals starting from index %d', num_arrivals, src_index)
 
-field = PointSourceField(domain, src_index)
+field = PointSourceField(domain, src_index, omega)
 
 ma = MultipleArrivals(domain, field, num_arrivals)
 ma.traverse()
@@ -55,4 +57,3 @@ plot_field_BCs(_, f, opacity=0.4, r=domain.h, show_edges=True, color='magenta')
 # _.add_mesh(poly, scalars='time', cmap=cc.cm.rainbow)
 # _.add_mesh(poly, scalars='amplitude', cmap=cc.cm.fire)
 _.add_mesh(poly, scalars='scale', cmap=cc.cm.gray)
-s

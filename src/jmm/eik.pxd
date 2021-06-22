@@ -1,5 +1,6 @@
 from jmm.array_view cimport ArrayView
-from jmm.defs cimport bool, dbl, ftype, state
+from jmm.bb cimport bb31
+from jmm.defs cimport bool, dbl, dblz, dbl_or_dblz, dbl3, dbl33, ftype, state
 from jmm.jet cimport jet3
 from jmm.par cimport par3
 from jmm.mesh cimport mesh3
@@ -21,14 +22,18 @@ cdef extern from "eik3.h":
     bool eik3_is_trial(const eik3 *eik, size_t ind)
     bool eik3_is_valid(const eik3 *eik, size_t ind)
     jet3 *eik3_get_jet_ptr(const eik3 *eik)
+    dbl33 *eik3_get_hess_ptr(const eik3 *eik)
     state *eik3_get_state_ptr(const eik3 *eik)
     par3 eik3_get_par(const eik3 *eik, size_t l)
+    bool eik3_has_par(const eik3 *eik, size_t l)
     dbl *eik3_get_t_in_ptr(const eik3 *eik)
     dbl *eik3_get_t_out_ptr(const eik3 *eik)
     void eik3_add_pt_src_BCs(eik3 *eik, size_t l, jet3 jet)
     void eik3_add_refl_BCs(eik3 *eik, const size_t lf[3], const jet3 jet[3],
-                           const dbl t_in[3][3])
-    void eik3_add_diff_edge_BCs(eik3 *eik, const size_t le[2], const jet3 jet[2])
+                           const dbl hess[3][3][3], const dbl t_in[3][3])
+    void eik3_add_diff_edge_BCs(eik3 *eik, const size_t le[2],
+                                const bb31 *T, const dbl rho1[2],
+                                const dbl3 t_in[2])
     ftype eik3_get_ftype(const eik3 *eik)
     dbl eik3_get_slerp_tol(const eik3 *eik)
     bool eik3_has_BCs(const eik3 *eik, size_t l)
@@ -43,6 +48,7 @@ cdef class Eik3:
         ArrayView jet_view
         ArrayView T_view
         ArrayView grad_T_view
+        ArrayView hess_view
         ArrayView state_view
         ArrayView t_in_view
         ArrayView t_out_view

@@ -8,8 +8,8 @@
 #include "bb.h"
 #include "eik3.h"
 #include "hybrid.h"
+#include "mat.h"
 #include "mesh3.h"
-#include "vec.h"
 
 utri_spec_s utri_spec_empty() {
   return (utri_spec_s) {
@@ -222,11 +222,11 @@ bool utri_init(utri_s *u, utri_spec_s const *spec) {
   for (size_t i = 0; i < 2; ++i)
     pt_src[i] = jet3_is_point_source(&jet[i]);
 
-  /* If exactly one of the jets is a point source jet, we don't want
-   * to do this update. Most likely, that jet is incident on a
-   * boundary edge with diffraction BCs, although it might be an
-   * actual point source. */
-  if (pt_src[0] ^ pt_src[1])
+  /* If we're solving a point source problem, then we *have* found a
+   * point source, and we shouldn't try do a triangle update
+   * involving this point. */
+  if (eik3_get_ftype(spec->eik) == FTYPE_POINT_SOURCE
+      && (pt_src[0] ^ pt_src[1]))
     return false;
 
   /* If the jets at the update vertices are finite, we can go ahead
@@ -239,18 +239,10 @@ bool utri_init(utri_s *u, utri_spec_s const *spec) {
     assert(mesh3_is_diff_edge(mesh, spec->l));
     assert(eik3_get_bde_bc(spec->eik, spec->l, &u->T));
   } else {
-    /* do the interpolation using the jets */
-    dbl T[2], DT[2][3], Xt[2][3];
-
-    for (int i = 0; i < 2; ++i) {
-      T[i] = jet[i].f;
-      memcpy(DT[i], &jet[i].fx, sizeof(dbl[3]));
-    }
-
+    dbl Xt[2][3];
     dbl3_copy(u->x0, Xt[0]);
     dbl3_copy(u->x1, Xt[1]);
-
-    bb31_init_from_3d_data(&u->T, T, DT, Xt);
+    bb31_init_from_jets(&u->T, jet, Xt);
   }
 
   u->orig_index = spec->orig_index;

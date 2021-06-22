@@ -24,64 +24,37 @@ log = logging.getLogger('testing_field_pickling.py')
 with open('field.pickle', 'rb') as f:
     field = pickle.load(f)
 
-eik = field.extended_eik
+# field.solve()
+l0 = 3064
+while field.eik.peek() != l0:
+    field.eik.step()
 
-# eik.solve()
-# assert False
+log.info('%s', field.parent_labels)
 
-l0 = 2450
-l = 9011
-while eik.peek() != l0:
-    eik.step()
-eik.step()
+verts = field.domain.verts
 
-mesh = field.domain.extended_mesh
-verts = mesh.verts
-cells = mesh.cells
-bd_inds = np.unique(field.bd_inds)
-
+mesh = field.domain.mesh
 r = mesh.min_edge_length
 
-surf_mesh = mesh.get_surface_mesh()
-
 plotter = pvqt.BackgroundPlotter()
-plotter.background_color = 'white'
+# plotter.background_color = 'white'
 
-plot_mesh2(plotter, surf_mesh, color='white', opacity=0.25)
-plot_eik3(plotter, eik, cmap=cc.cm.bmw, opacity=1)
+plot_mesh2(plotter, field.domain.mesh.get_surface_mesh(), opacity=0.4,
+           color='white', show_edges=False)
 
-points = pv.PolyData(verts[np.unique(field.bd_inds)])
-plotter.add_mesh(points.glyph(geom=pv.Sphere(r/2)), color='grey',
-                 show_scalar_bar=False)
+def plot_BCs(F, c, opacity=0.8):
+    plot_field_BCs(plotter, F, color=c, r=0.75*r, opacity=opacity)
+    if not isinstance(F, jmm.multiple_arrivals.PointSourceField):
+        I = np.unique(F.bd_inds)
+        plot_vector_field(
+            plotter, verts[I], F.eik.t_in[I], 3*r, color=c, opacity=opacity)
 
-plot_point(plotter, verts[l0], r, color='yellow')
-plot_point(plotter, verts[l], r, color='blue')
+plot_BCs(field, 'cyan')
+plot_BCs(field.parent, 'orange')
+plot_BCs(field.parent.parent, 'pink')
+plot_BCs(field.parent.parent.parent, 'brown')
+plot_BCs(field.parent.parent.parent.parent, 'purple')
 
-assert False
-
-valid_mask = eik.state == 2
-valid_points = pv.PolyData(verts[valid_mask])
-valid_points.vectors = eik.grad_T[valid_mask]
-plotter.add_mesh(valid_points.glyph(orient=True, geom=pv.Arrow(scale=np.sqrt(r))),
-                 color='grey', show_scalar_bar=False)
-
-for m in mesh.vv(l):
-    plot_point(plotter, verts[m], r/4, color='white')
-
-if PLOT_BAD_POINTS:
-    if isinstance(field, jmm.multiple_arrivals.PointSourceField):
-        L = np.where(eik.state == State.Trial.value)[0]
-        M = L[np.argsort(np.sqrt(np.sum((verts[1] - verts[L])**2, axis=1)))]
-    elif isinstance(field, jmm.multiple_arrivals.DiffractedField):
-        L = np.where(eik.state == State.Trial.value)[0]
-        min_bd_dist = distance_matrix(verts[L], verts[bd_inds]).min(1)
-        M = L[np.argsort(min_bd_dist)]
-    else:
-        assert False
-
-    num_bad_points = 5
-    M = M[:num_bad_points]
-
-    for m in M:
-        plot_point(plotter, verts[m], (2/3)*r, color='cyan')
-    print(M)
+# points = pv.PolyData(verts)
+# points['_'] = 20*np.log10(np.maximum(1e-3, abs(field.parent.amplitude)))
+# plotter.add_mesh(points, scalars='_', cmap=cc.cm.fire)
