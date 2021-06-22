@@ -258,10 +258,6 @@ bool utri_init(utri_s *u, utri_spec_s const *spec) {
   return true;
 }
 
-void utri_deinit(utri_s *u) {
-  (void)u;
-}
-
 void utri_solve(utri_s *utri) {
   dbl lam, f[2];
 

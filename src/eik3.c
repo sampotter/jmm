@@ -230,7 +230,6 @@ void eik3_deinit(eik3_s *eik) {
   utri_s *utri;
   for (size_t i = 0; i < array_size(eik->old_bd_utri); ++i) {
     array_get(eik->old_bd_utri, i, &utri);
-    utri_deinit(utri);
     utri_dealloc(&utri);
   }
   array_deinit(eik->old_bd_utri);
@@ -378,7 +377,6 @@ static void do_2pt_bd_updates(eik3_s *eik, size_t l, size_t l0) {
 
   for (size_t i = 0; i < nup; ++i) {
     if (utri[i] == NULL || !free_utri[i]) continue;
-    utri_deinit(utri[i]);
     utri_dealloc(&utri[i]);
   }
 
@@ -673,7 +671,6 @@ static void update(eik3_s *eik, size_t l, size_t l0) {
   for (size_t i = 0; i < array_size(diff_utri); ++i) {
     utri_s *u;
     array_get(diff_utri, i, &u);
-    utri_deinit(u);
     utri_dealloc(&u);
   }
 
@@ -864,7 +861,6 @@ void do_diff_edge_updates_and_adjust(eik3_s *eik, size_t l0, size_t l1,
   // Free triangle updates
   for (int i = 0; i < nnb; ++i) {
     if (utri[i] == NULL) continue;
-    utri_deinit(utri[i]);
     utri_dealloc(&utri[i]);
   }
   free(utri);
@@ -1060,7 +1056,6 @@ static void purge_old_updates(eik3_s *eik, size_t l0) {
   for (size_t i = array_size(eik->old_bd_utri); i > 0; --i) {
     array_get(eik->old_bd_utri, i - 1, &old_utri);
     if (utri_get_l(old_utri) == l0) {
-      utri_deinit(old_utri);
       utri_dealloc(&old_utri);
       array_delete(eik->old_bd_utri, i - 1);
     }

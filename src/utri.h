@@ -28,7 +28,6 @@ typedef struct utri utri_s;
 void utri_alloc(utri_s **utri);
 void utri_dealloc(utri_s **utri);
 bool utri_init(utri_s *u, utri_spec_s const *spec);
-void utri_deinit(utri_s *u);
 void utri_solve(utri_s *utri);
 par3_s utri_get_par(utri_s const *u);
 dbl utri_get_value(utri_s const *utri);
