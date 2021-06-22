@@ -377,3 +377,9 @@ cell edges of `jmm.Mesh3`.
         b = np.cross(t, n)
         b /= np.linalg.norm(b)
         return np.array([t, b]).T
+
+    def get_edge_ext_angle(self, size_t l0, size_t l1):
+        if not self.bde(l0, l1):
+            raise ValueError('(%lu, %lu) is not a boundary edge' % (l0, l1))
+        cdef size_t[2] le = [l0, l1]
+        return mesh3_get_edge_ext_angle(self.mesh, le)

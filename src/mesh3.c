@@ -1747,3 +1747,17 @@ bool mesh3_bdf_is_virtual(mesh3_s const *mesh, size_t const lf[3]) {
     &bdf, mesh->bdf, mesh->nbdf, sizeof(bdf_s), (compar_t)bdf_cmp);
   return bdf_ptr != NULL && bdf_ptr->virtual;
 }
+
+dbl mesh3_get_edge_ext_angle(mesh3_s const *mesh, size_t const le[2]) {
+  int nec = mesh3_nec(mesh, le[0], le[1]);
+  size_t *ec = malloc(nec*sizeof(size_t));
+  mesh3_ec(mesh, le[0], le[1], ec);
+
+  dbl ext_angle = 2*PI;
+  for (int i = 0; i < nec; ++i)
+    ext_angle -= get_dihedral_angle(mesh, ec[i], le);
+
+  free(ec);
+
+  return ext_angle;
+}
