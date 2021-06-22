@@ -60,6 +60,11 @@ typedef enum stype {
 
 typedef double dbl;
 
+typedef dbl dbl2[2];
+
+typedef dbl dbl3[3];
+typedef dbl3 dbl33[3];
+
 typedef enum error {
   SUCCESS,
   BAD_ARGUMENT
