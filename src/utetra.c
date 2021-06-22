@@ -525,6 +525,62 @@ static void get_lag_mults(utetra_s const *cf, dbl alpha[3]) {
   }
 }
 
+/* Check if `u` emits a "terminal ray". This is basically a ray which
+ * is emitted from a node with BCs which doesn't "match the
+ * singularity structure" of the problem type; equivalently, the ray
+ * is emitted from the boundary of the *subset of the boundary* which
+ * has BCs supplied.
+ *
+ * For an edge diffraction problem, this means the ray was emitted
+ * from an endpoint of a diffracting edge.
+ *
+ * For a reflection, this means that the ray was emitted from the edge
+ * of reflecting part of the boundary (that is, from the
+ * silhouette).
+ *
+ * Note: a point source can't emit terminal rays. */
+bool utetra_emits_terminal_ray(utetra_s const *u, eik3_s const *eik) {
+  par3_s par = utetra_get_parent(u);
+
+  if (!par3_is_on_BC_boundary(&par, eik))
+    return false;
+
+  ftype_e ftype = eik3_get_ftype(eik);
+  assert(ftype != FTYPE_POINT_SOURCE);
+
+  /* Pretty sure this is correct... Double check */
+  if (ftype == FTYPE_EDGE_DIFFRACTION)
+    return true;
+
+  assert(ftype == FTYPE_REFLECTION);
+
+  size_t num_active = par3_num_active(&par);
+  assert(num_active < 3);
+
+  /* If we've reached this point, we know a few things:
+   *
+   * 1) The Lagrange multipliers aren't too small
+   * 2) The minimizer is on the "BC boundary"
+   * 3) We're computing a reflection
+   * 4) This isn't an interior point minimizer
+   *
+   * So, if there are two active vertices, then we know that we can
+   * accept the solution, since it will by an interior point minimizer
+   * if the domain is restricted to the active edge on the "BC
+   * boundary"
+   *
+   * On the other hand, if there's only one active vertex, then we
+   * don't know whether we should accept this update or not. We could
+   * try to check whether the active Lagrange multipliers "point" to
+   * another part of the "BC boundary" which is collinear with the one
+   * we're working with now, but a simpler thing to do is just reject
+   * the update now. This will cause it to go into the "old update"
+   * list. Later, if this truly *is* a good minimizer, we'll find
+   * another `utetra` that matches it---we will then use the pair of
+   * them to deduce that we should accept the minimizer. */
+  return num_active == 2;
+}
+
 bool utetra_has_interior_point_solution(utetra_s const *cf) {
   dbl alpha[3];
   get_lag_mults(cf, alpha);
@@ -585,23 +641,6 @@ static bool all_inds_are_set(utetra_s const *utetra) {
 }
 #endif
 
-static void get_interior_coefs(utetra_s const *utetra, size_t *l) {
-  assert(update_inds_are_set(utetra));
-
-  dbl const atol = 1e-14;
-
-  size_t i = 0;
-
-  if (utetra->lam[0] > atol)
-    l[i++] = utetra->l[1];
-
-  if (utetra->lam[1] > atol)
-    l[i++] = utetra->l[2];
-
-  if (utetra->lam[0] + utetra->lam[1] < 1 - atol)
-    l[i++] = utetra->l[0];
-}
-
 static dbl get_L(utetra_s const *u) {
   return u->L;
 }
@@ -612,24 +651,6 @@ bool utetra_update_ray_is_physical(utetra_s const *utetra, eik3_s const *eik) {
   size_t const *l = utetra->l;
 
   mesh3_s const *mesh = eik3_get_mesh(eik);
-
-  // In the following section, we want to quickly look at the boundary
-  // near the start of the ray and see if we can rule out the update
-  // based on this information alone.
-  //
-  // TODO: some of the following checks could be fine if the tangent
-  // vector at the ray origin lies in the plane spanned by the update
-  // base, but we don't have to worry about that until we deal with
-  // nonconstant speeds
-
-  int num_int = utetra_get_num_interior_coefs(utetra);
-
-  if (num_int == 2) {
-    size_t l_int[3] = {NO_INDEX, NO_INDEX, NO_INDEX};
-    get_interior_coefs(utetra, l_int);
-    if (mesh3_is_nondiff_boundary_edge(mesh, l_int))
-      return false;
-  }
 
   // TODO: the following section where we check to see if the stuff
   // below gives "an interior ray" can be wrapped up and reused for

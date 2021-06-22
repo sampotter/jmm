@@ -47,6 +47,7 @@ bool utetra_is_degenerate(utetra_s const *u);
 void utetra_solve(utetra_s *cf, dbl const *lam);
 dbl utetra_get_value(utetra_s const *cf);
 void utetra_get_jet(utetra_s const *cf, jet3 *jet);
+bool utetra_emits_terminal_ray(utetra_s const *u, eik3_s const *eik);
 bool utetra_has_interior_point_solution(utetra_s const *cf);
 bool utetra_has_shadow_boundary_solution(utetra_s const *u);
 int utetra_cmp(utetra_s const **h1, utetra_s const **h2);
