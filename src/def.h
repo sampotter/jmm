@@ -4,6 +4,7 @@
 extern "C" {
 #endif
 
+#include <complex.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -59,6 +60,7 @@ typedef enum stype {
 } stype_e;
 
 typedef double dbl;
+typedef double _Complex dblz;
 
 typedef dbl dbl2[2];
 
