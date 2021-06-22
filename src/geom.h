@@ -13,6 +13,7 @@ typedef struct {
 
 void line3_get_closest_point(line3 const *line, dbl const x[3], dbl y[3]);
 bool line3_point_colinear(line3 const *line, dbl const x[3], dbl atol);
+bool line3_point_in_interval(line3 const *line, dbl const x[3], dbl atol);
 
 typedef struct {
   dbl min[3], max[3];
@@ -75,6 +76,8 @@ bool ray3_intersects_mesh3_tetra(ray3 const *ray, mesh3_tetra_s const *tetra, db
 bool ray3_intersects_tri3(ray3 const *ray, tri3 const *tri, dbl *t);
 bool ray3_intersects_tetra3(ray3 const *ray, tetra3 const *tetra, dbl *t);
 bool ray3_and_tri3_are_parallel(ray3 const *ray, tri3 const *tri);
+dbl ray3_closest_point_on_line(ray3 const *ray, line3 const *line,
+                               dbl *t_ray, dbl *t_line);
 
 /**
  * Check if four points are coplanar.

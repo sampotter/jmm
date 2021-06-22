@@ -22,6 +22,19 @@ bool line3_point_colinear(line3 const *line, dbl const x[3], dbl atol) {
   return dbl3_dist(x, y) < atol;
 }
 
+bool line3_point_in_interval(line3 const *line, dbl const x[3], dbl atol) {
+  dbl xy[3];
+  dbl3_sub(line->y, line->x, xy);
+
+  dbl t = (dbl3_dot(xy, x) - dbl3_dot(xy, line->x))/dbl3_normsq(xy);
+  if (t < -atol || t > 1 + atol)
+    return false;
+
+  dbl y[3];
+  dbl3_saxpy(t, xy, line->x, y);
+  return dbl3_dist(x, y) < atol;
+}
+
 bool mesh3_tetra_contains_point(mesh3_tetra_s const *tetra, dbl const x[3], dbl const *eps) {
   tetra3 tetra_ = mesh3_get_tetra(tetra->mesh, tetra->l);
   return tetra3_contains_point(&tetra_, x, eps);
@@ -442,6 +455,37 @@ bool ray3_intersects_tri3(ray3 const *ray, tri3 const *tri, dbl *t) {
   ray3_get_point(ray, *t, xt);
   get_bary_coords_3d(v, xt, b);
   return dbl3_valid_bary_coord(b);
+}
+
+dbl ray3_closest_point_on_line(ray3 const *ray, line3 const *line,
+                               dbl *t_ray, dbl *t_line) {
+  dbl dy[3]; dbl3_sub(line->y, line->x, dy);
+
+  dbl tmp1[2][2];
+  tmp1[0][0] = dbl3_normsq(ray->dir);
+  tmp1[1][0] = tmp1[0][1] = dbl3_dot(ray->dir, dy);
+  tmp1[1][1] = dbl3_normsq(dy);
+
+  dbl tmp2[3]; dbl3_sub(ray->org, line->x, tmp2);
+
+  dbl tmp3[2];
+  tmp3[0] = dbl3_dot(ray->dir, tmp2);
+  tmp3[1] = dbl3_dot(dy, tmp2);
+
+  dbl tmp4[2];
+  dbl22_dbl2_solve(tmp1, tmp3, tmp4);
+  tmp4[0] *= -1;
+
+  if (t_ray != NULL)
+    *t_ray = tmp4[0];
+
+  if (t_line != NULL)
+    *t_line = tmp4[1];
+
+  dbl ray_cp[3]; dbl3_saxpy(tmp4[0], ray->dir, ray->org, ray_cp);
+  dbl line_cp[3]; dbl3_saxpy(tmp4[1], dy, line->x, line_cp);
+
+  return dbl3_dist(ray_cp, line_cp);
 }
 
 static void tetra3_get_face(tetra3 const *tetra, int p[3], tri3 *tri) {
