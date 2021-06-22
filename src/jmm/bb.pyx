@@ -1,6 +1,38 @@
+import cython
 import numpy as np
 
+from libc.string cimport memcpy
+
 cimport jmm.jet
+
+@cython.auto_pickle(True)
+cdef class Bb31:
+    @staticmethod
+    def from_1d_data(dbl[::1] f, dbl[::1] Df, dbl[::1] x):
+        if f.size != 2 or f.shape[0] != 2:
+            raise ValueError('`f` must be a length 2 vector')
+        if Df.size != 2 or Df.shape[0] != 2:
+            raise ValueError('`Df` must be a length 2 vector')
+        if x.size != 2 or x.shape[0] != 2:
+            raise ValueError('`x` must be a length 2 vector')
+        bb = Bb31()
+        bb31_init_from_1d_data(&bb.bb, &f[0], &Df[0], &x[0])
+        return bb
+
+    @property
+    def c(self):
+        cdef dbl[4] c = np.empty((4,), dtype=np.float64)
+        memcpy(&c[0], self.bb.c, 4*sizeof(dbl))
+        return np.asarray(c)
+
+    def isfinite(self):
+        return all(np.isfinite(c) for c in self.bb.c)
+
+    @staticmethod
+    cdef from_bb31(bb31 bb):
+        bb_ = Bb31()
+        bb_.bb = bb
+        return bb_
 
 cdef class Bb33:
     @staticmethod
