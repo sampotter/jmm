@@ -44,6 +44,14 @@ size_t utri_get_inactive_ind(utri_s const *utri);
 bool utri_contains_update_ind(utri_s const *utri, size_t l);
 size_t utri_get_l(utri_s const *utri);
 bool utri_opt_inc_on_other_utri(utri_s const *u, utri_s const *other_u);
+void utri_get_update_inds(utri_s const *u, size_t l[2]);
+void utri_get_t(utri_s const *u, dbl t[3]);
+dbl utri_get_L(utri_s const *u);
+dbl utri_get_b(utri_s const *u);
+bool utri_inc_on_diff_edge(utri_s const *u, mesh3_s const *mesh);
+void utri_get_xb(utri_s const *u, dbl xb[3]);
+bool utri_is_degenerate(utri_s const *u);
+bool utri_approx_hess(utri_s const *u, dbl h, dbl33 hess);
 
 bool utris_yield_same_update(utri_s const *utri1, utri_s const *utri2);
 

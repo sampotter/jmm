@@ -541,6 +541,88 @@ bool utri_opt_inc_on_other_utri(utri_s const *u, utri_s const *other_u) {
   return dist0 < atol || dist1 < atol;
 }
 
+void utri_get_update_inds(utri_s const *u, size_t l[2]) {
+  l[0] = u->l0;
+  l[1] = u->l1;
+}
+
+void utri_get_t(utri_s const *u, dbl t[3]) {
+  dbl3_normalized(u->x_minus_xb, t);
+}
+
+dbl utri_get_L(utri_s const *u) {
+  return u->L;
+}
+
+dbl utri_get_b(utri_s const *u) {
+  return u->lam;
+}
+
+bool utri_inc_on_diff_edge(utri_s const *u, mesh3_s const *mesh) {
+  return mesh3_is_diff_edge(mesh, (size_t[2]) {u->l0, u->l1});
+}
+
+void utri_get_xb(utri_s const *u, dbl xb[3]) {
+  dbl3_saxpy(u->lam, u->x1_minus_x0, u->x0, xb);
+}
+
+/* Check whether `u`'s `l`, `l0`, and `l1` are collinear (i.e.,
+ * whether the `utri` is "degenerate"). */
+bool utri_is_degenerate(utri_s const *u) {
+  dbl const atol = 1e-14;
+  dbl dx0[3], dx1[3];
+  dbl3_sub(u->x0, u->x, dx0);
+  dbl3_sub(u->x1, u->x, dx1);
+  dbl dot = dbl3_dot(dx0, dx1)/(dbl3_norm(dx0)*dbl3_norm(dx1));
+  return fabs(1 - fabs(dot)) < atol;
+}
+
+bool utri_approx_hess(utri_s const *u, dbl h, dbl33 hess) {
+  dbl const atol = 1e-14;
+
+  if (h < atol)
+    return false;
+
+  utri_s u_ = *u;
+
+  dbl dx[3], t[3];
+
+  dbl33_zero(hess);
+
+  /* Approximate the Hessian using central differences. For each i,
+   * compute (t(x + h*e_i) - t(x - h*e_i))/(2*h) and store in the ith
+   * row of hess */
+  for (size_t i = 0; i < 3; ++i) {
+    dbl3_zero(dx);
+
+    /* Compute t(x + h*e_i) */
+    dx[i] = h;
+    dbl3_add(u->x, dx, u_.x);
+    utri_solve(&u_);
+    if (fabs(u->lam - u_.lam) < atol)
+      return false;
+    utri_get_t(&u_, t);
+    dbl3_add_inplace(hess[i], t);
+
+    /* Compute t(x - h*e_i) */
+    dx[i] = -h;
+    dbl3_add(u->x, dx, u_.x);
+    utri_solve(&u_);
+    if (fabs(u->lam - u_.lam) < atol)
+      return false;
+    utri_get_t(&u_, t);
+    dbl3_sub_inplace(hess[i], t);
+
+    /* Set H[i, :] = (t(x + h*e_i) - t(x - h*e_i))/(2*h) */
+    dbl3_dbl_div_inplace(hess[i], 2*h);
+  }
+
+  /* Make sure the Hessian is symmetric */
+  dbl33_symmetrize(hess);
+
+  return true;
+}
+
 static dbl get_lambda(utri_s const *u) {
   return u->lam;
 }
