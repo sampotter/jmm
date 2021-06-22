@@ -202,6 +202,21 @@ cdef class Eik3:
     def has_BCs(self, size_t l):
         return eik3_has_BCs(self.eik, l)
 
+    def transport_scalars(self, dbl_or_dblz[::1] values, bool skip_filled):
+        if values.size != mesh3_nverts(eik3_get_mesh(self.eik)):
+            raise ValueError('must pass as many values as domain points')
+        if dbl_or_dblz is dbl:
+            eik3_transport_dbl(self.eik, &values[0], skip_filled)
+        if dbl_or_dblz is dblz:
+            eik3_transport_dblz(self.eik, &values[0], skip_filled)
+        return np.asarray(values)
+
+    def transport_curvature(self, dbl[::1] values, bool skip_filled):
+        if values.size != mesh3_nverts(eik3_get_mesh(self.eik)):
+            raise ValueError('must pass as many values as domain points')
+        eik3_transport_curvature(self.eik, &values[0], skip_filled)
+        return np.asarray(values)
+
     @property
     def h(self):
         return eik3_get_h(self.eik)

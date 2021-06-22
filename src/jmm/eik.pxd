@@ -31,6 +31,9 @@ cdef extern from "eik3.h":
     ftype eik3_get_ftype(const eik3 *eik)
     dbl eik3_get_slerp_tol(const eik3 *eik)
     bool eik3_has_BCs(const eik3 *eik, size_t l)
+    void eik3_transport_dbl(const eik3 *eik, dbl *values, bool skip_filled)
+    void eik3_transport_dblz(const eik3 *eik, dblz *values, bool skip_filled)
+    void eik3_transport_curvature(const eik3 *eik, dbl *kappa, bool skip_filled)
     dbl eik3_get_h(const eik3* eik)
 
 cdef class Eik3:
