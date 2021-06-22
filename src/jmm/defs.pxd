@@ -1,7 +1,12 @@
+cimport cython
+
 ctypedef bint bool
 
 cdef extern from "def.h":
     ctypedef double dbl
+
+    ctypedef dbl[3] dbl3
+    ctypedef dbl3[3] dbl33
 
     cdef enum state:
         FAR
@@ -24,3 +29,9 @@ cdef extern from "def.h":
     cdef enum error:
         SUCCESS
         BAD_ARGUMENT
+
+ctypedef double complex dblz
+
+ctypedef fused dbl_or_dblz:
+    dbl
+    dblz
