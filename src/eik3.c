@@ -933,6 +933,9 @@ void get_valid_incident_diff_edges(eik3_s const *eik, size_t l0,
     if (!mesh3_is_diff_edge(mesh, le))
       continue;
 
+    if (!eik3_is_valid(eik, le[1]))
+      continue;
+
     if (can_update_from_point(eik, le[1]) || eik3_has_bde_bc(eik, le))
       array_append(l1, &le[1]);
   }
