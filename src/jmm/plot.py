@@ -276,3 +276,18 @@ def plot_tri(plotter, x0, x1, x2, **kwargs):
     verts = np.array([x0, x1, x2])
     tri = pv.UnstructuredGrid({vtk.VTK_TRIANGLE: faces}, verts)
     plotter.add_mesh(tri, **kwargs)
+
+def plot_edge(plotter, x0, x1, r, **kwargs):
+    xm = (x0 + x1)/2
+    d = x1 - x0
+    h = np.linalg.norm(d)
+    d /= h
+    plotter.add_mesh(pv.Sphere(r, x0), **kwargs)
+    plotter.add_mesh(pv.Sphere(r, x1), **kwargs)
+    plotter.add_mesh(pv.Cylinder(xm, d, r/2, h), **kwargs)
+
+def plot_vv(plotter, mesh, l0, r, **kwargs):
+    x0 = mesh.verts[l0]
+    for l1 in mesh.vv(l0):
+        x1 = mesh.verts[l1]
+        plot_edge(plotter, x0, x1, r, **kwargs)
