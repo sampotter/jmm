@@ -2152,3 +2152,35 @@ void eik3_transport_curvature(eik3_s const *eik, dbl *kappa, bool skip_filled) {
 dbl eik3_get_h(eik3_s const *eik) {
   return eik->h;
 }
+
+bool eik3_get_refl_bdf_inc_on_diff_edge(eik3_s const *eik, size_t const le[2],
+                                        size_t lf[3]) {
+  size_t nbdf = mesh3_get_num_bdf_inc_on_edge(eik->mesh, le);
+  size_t (*bdf)[3] = malloc(nbdf*sizeof(size_t[3]));
+  mesh3_get_bdf_inc_on_edge(eik->mesh, le, bdf);
+
+  size_t i;
+
+  for (i = 0; i < nbdf; ++i) {
+    if (eik3_has_BCs(eik, bdf[i][0]) &&
+        eik3_has_BCs(eik, bdf[i][1]) &&
+        eik3_has_BCs(eik, bdf[i][2])) {
+      memcpy(lf, bdf[i], sizeof(size_t[3]));
+      break;
+    }
+  }
+
+  bool found = i < nbdf;
+
+  for (i = i + 1; i < nbdf; ++i) {
+    if (eik3_has_BCs(eik, bdf[i][0]) &&
+        eik3_has_BCs(eik, bdf[i][1]) &&
+        eik3_has_BCs(eik, bdf[i][2])) {
+      assert(false);
+    }
+  }
+
+  free(bdf);
+
+  return found;
+}

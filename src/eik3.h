@@ -53,6 +53,8 @@ void eik3_transport_dbl(eik3_s const *eik, dbl *values, bool skip_filled);
 void eik3_transport_dblz(eik3_s const *eik, dblz *values, bool skip_filled);
 void eik3_transport_curvature(eik3_s const *eik, dbl *kappa, bool skip_filled);
 dbl eik3_get_h(eik3_s const *eik);
+bool eik3_get_refl_bdf_inc_on_diff_edge(eik3_s const *eik, size_t const le[2],
+                                        size_t lf[3]);
 
 #ifdef __cplusplus
 }
