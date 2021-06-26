@@ -292,6 +292,26 @@ static bool is_singular(eik3_s const *eik, size_t l) {
   return singular_gradient;
 }
 
+/* Check whether a point is a terminal point on a diffracting
+ * edge. This is true if there is only one diffracting edge with a
+ * full complement of BCs incident on `l`. */
+static bool is_diff_edge_terminal_point(eik3_s const *eik, size_t l) {
+  mesh3_s const *mesh = eik->mesh;
+
+  size_t nbde = mesh3_get_num_inc_diff_edges(mesh, l);
+  size_t (*le)[2] = malloc(nbde*sizeof(size_t[2]));
+  mesh3_get_inc_diff_edges(mesh, l, le);
+
+  size_t num_bde_bc = 0;
+
+  for (size_t i = 0; i < nbde; ++i)
+    num_bde_bc += eik3_has_bde_bc(eik, le[i]);
+
+  free(le);
+
+  return num_bde_bc == 1;
+}
+
 static bool can_update_from_point(eik3_s const *eik, size_t l) {
   return eik->state[l] == VALID && !eik3_is_point_source(eik, l);
 }
@@ -996,6 +1016,15 @@ static void update(eik3_s *eik, size_t l, size_t l0) {
   if (eik->ftype == FTYPE_POINT_SOURCE &&
       eik3_is_point_source(eik, l0)) {
     do_1pt_update(eik, l, l0, true);
+    return;
+  }
+
+  // TODO: comment me
+  if (eik->ftype == FTYPE_EDGE_DIFFRACTION &&
+      eik3_has_BCs(eik, l0) &&
+      is_singular(eik, l0) &&
+      is_diff_edge_terminal_point(eik, l0)) {
+    do_1pt_update(eik, l, l0, false);
     return;
   }
 
