@@ -119,6 +119,11 @@ void mesh3_get_diff_edge_tangent(mesh3_s const *mesh, size_t const le[2],
                                  dbl t[3]);
 dbl mesh3_get_edge_ext_angle(mesh3_s const *mesh, size_t const le[2]);
 bool mesh3_edge_contains_point(mesh3_s const *mesh, size_t const le[2], dbl const x[3]);
+size_t mesh3_get_num_bdf_inc_on_edge(mesh3_s const *mesh, size_t const le[2]);
+void mesh3_get_bdf_inc_on_edge(mesh3_s const *mesh, size_t const le[2], size_t (*lf)[3]);
+void mesh3_get_edge_tangent(mesh3_s const *mesh, size_t const le[2], dbl t[3]);
+void mesh3_get_edge_midpoint(mesh3_s const *mesh, size_t const le[2], dbl p[3]);
+void mesh3_get_face_centroid(mesh3_s const *mesh, size_t const lf[3], dbl p[3]);
 
 #ifdef __cplusplus
 }

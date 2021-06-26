@@ -1774,3 +1774,79 @@ bool mesh3_edge_contains_point(mesh3_s const *mesh, size_t const le[2], dbl cons
   mesh3_copy_vert(mesh, le[1], line.x);
   return line3_point_in_interval(&line, x, 1e-14);
 }
+
+size_t mesh3_get_num_bdf_inc_on_edge(mesh3_s const *mesh, size_t const le[2]) {
+  array_s *lf_arr;
+  array_alloc(&lf_arr);
+  array_init(lf_arr, sizeof(size_t[3]), ARRAY_DEFAULT_CAPACITY);
+
+  for (size_t i = 0; i < 2; ++i) {
+    size_t nlf = mesh3_get_num_inc_bdf(mesh, le[i], false);
+    size_t (*lf)[3] = malloc(nlf*sizeof(size_t[3]));
+    mesh3_get_inc_bdf(mesh, le[i], lf, false);
+
+    for (size_t j = 0; j < nlf; ++j)
+      SORT3(lf[j][0], lf[j][1], lf[j][2]);
+
+    for (size_t j = 0; j < nlf; ++j)
+      if (point_in_face(le[0], lf[j]) &&
+          point_in_face(le[1], lf[j]) &&
+          !array_contains(lf_arr, &lf[j]))
+        array_append(lf_arr, &lf[j]);
+
+    free(lf);
+  }
+
+  size_t nbdf = array_size(lf_arr);
+
+  array_deinit(lf_arr);
+  array_dealloc(&lf_arr);
+
+  return nbdf;
+}
+
+void mesh3_get_bdf_inc_on_edge(mesh3_s const *mesh, size_t const le[2],
+                                 size_t (*lf)[3]) {
+  array_s *lf_arr;
+  array_alloc(&lf_arr);
+  array_init(lf_arr, sizeof(size_t[3]), ARRAY_DEFAULT_CAPACITY);
+
+  for (size_t i = 0; i < 2; ++i) {
+    size_t nlf = mesh3_get_num_inc_bdf(mesh, le[i], false);
+    size_t (*lf)[3] = malloc(nlf*sizeof(size_t[3]));
+    mesh3_get_inc_bdf(mesh, le[i], lf, false);
+
+    for (size_t j = 0; j < nlf; ++j)
+      SORT3(lf[j][0], lf[j][1], lf[j][2]);
+
+    for (size_t j = 0; j < nlf; ++j)
+      if (point_in_face(le[0], lf[j]) &&
+          point_in_face(le[1], lf[j]) &&
+          !array_contains(lf_arr, &lf[j]))
+        array_append(lf_arr, &lf[j]);
+
+    free(lf);
+  }
+
+  for (size_t i = 0; i < array_size(lf_arr); ++i)
+    memcpy(lf[i], array_get_ptr(lf_arr, i), sizeof(size_t[3]));
+
+  array_deinit(lf_arr);
+  array_dealloc(&lf_arr);
+}
+
+void mesh3_get_edge_tangent(mesh3_s const *mesh, size_t const le[2], dbl t[3]) {
+  dbl3_sub(mesh->verts[le[1]], mesh->verts[le[0]], t);
+  dbl3_normalize(t);
+}
+
+void mesh3_get_edge_midpoint(mesh3_s const *mesh, size_t const le[2], dbl p[3]) {
+  dbl3_cc(mesh->verts[le[0]], mesh->verts[le[1]], 0.5, p);
+}
+
+void mesh3_get_face_centroid(mesh3_s const *mesh, size_t const lf[3], dbl p[3]) {
+  dbl3_zero(p);
+  for (size_t i = 0; i < 3; ++i)
+    dbl3_add_inplace(p, mesh->verts[lf[i]]);
+  dbl3_dbl_div_inplace(p, 3);
+}
