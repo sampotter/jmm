@@ -10,6 +10,7 @@
 #include "hybrid.h"
 #include "mat.h"
 #include "mesh3.h"
+#include "slerp.h"
 
 utri_spec_s utri_spec_empty() {
   return (utri_spec_s) {
@@ -595,6 +596,65 @@ bool utri_approx_hess(utri_s const *u, dbl h, dbl33 hess) {
   dbl33_symmetrize(hess);
 
   return true;
+}
+
+bool utri_inc_on_refl_BCs(utri_s const *u, eik3_s const *eik) {
+  assert(eik3_get_ftype(eik) == FTYPE_REFLECTION);
+  return eik3_has_BCs(eik, u->l0) && eik3_has_BCs(eik, u->l1);
+}
+
+bool utri_accept_refl_BCs_update(utri_s const *u, eik3_s const *eik) {
+  size_t l = utri_get_l(u);
+  size_t le[2]; utri_get_update_inds(u, le);
+
+  assert(eik3_has_BCs(eik, le[0]));
+  assert(eik3_has_BCs(eik, le[1]));
+
+  if (eik3_has_BCs(eik, l))
+    return false;
+
+  mesh3_s const *mesh = eik3_get_mesh(eik);
+
+  /* First, get the incident reflecting faces. There should only be
+   * one that's adjacent to `le`, since we're assuming for now that
+   * reflectors consist only of coplanar facets. */
+  size_t lf[3];
+  if (!eik3_get_refl_bdf_inc_on_diff_edge(eik, le, lf))
+    return true;
+
+  /* Get the face normal for the reflector and negate it, since we
+   * want to use it as a support vector for the wedge. */
+  dbl nu[3];
+  mesh3_get_face_normal(mesh, lf, nu);
+  dbl3_negate(nu);
+
+  /* Get the edge's tangent and midpoint and the centroid of the
+   * reflecting face. */
+  dbl e[3]; mesh3_get_edge_tangent(mesh, le, e);
+  dbl xm[3]; mesh3_get_edge_midpoint(mesh, le, xm);
+  dbl xf[3]; mesh3_get_face_centroid(mesh, lf, xf);
+
+  dbl lam = utri_get_lambda(u);
+  dbl DT[3];
+  slerp2(eik3_get_DT_ptr(eik, le[0]), eik3_get_DT_ptr(eik, le[1]),
+         DBL2(1 - lam, lam), DT);
+
+  dbl t[3];
+  dbl3_cross(e, DT, t);
+  dbl3_normalize(t);
+
+  dbl t_dot_xm = dbl3_dot(t, xm);
+  dbl dot = dbl3_dot(t, xf) - t_dot_xm;
+  assert(dot != 0);
+  if (dot > 0)
+    dbl3_negate(t);
+
+  // return whether l is outside of this wedge
+
+  dbl const *x = mesh3_get_vert_ptr(mesh, l);
+
+  return dbl3_dot(t, x) - t_dot_xm > 0 ||
+    dbl3_dot(nu, x) - dbl3_dot(nu, xm) > 0;
 }
 
 static dbl get_lambda(utri_s const *u) {

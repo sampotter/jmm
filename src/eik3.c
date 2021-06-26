@@ -1342,6 +1342,15 @@ void do_diff_edge_updates_and_adjust(eik3_s *eik, size_t l0, size_t l1,
 
     utri_solve(utri);
 
+    /* If we're computing a reflection, we need to skip these kinds of
+     * updates. We need to give the reflected wave a chance to
+     * propagate to nearby points. The edge-diffracted triangle
+     * updates can lead to artificially small arrival times. */
+    if (eik->ftype == FTYPE_REFLECTION &&
+        utri_inc_on_refl_BCs(utri, eik) &&
+        !utri_accept_refl_BCs_update(utri, eik))
+      continue;
+
     if ((utri_has_interior_point_solution(utri) ||
          utri_emits_terminal_ray(utri, eik)) &&
         utri_update_ray_is_physical(utri, eik) &&
