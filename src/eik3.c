@@ -1611,9 +1611,6 @@ coda:
   assert(dbl3_isfinite(eik->t_in[l0]));
 }
 
-static bool bdv_has_bc(eik3_s const *eik, size_t l) {
-  return eik->num_BCs[l] && mesh3_bdv(eik->mesh, l);
-}
 static void compute_t_out(eik3_s *eik, size_t l0) {
   assert(eik->state[l0] == VALID);
 
