@@ -308,7 +308,8 @@ static void prop_hess_from_pt_src(eik3_s *eik, size_t l, size_t l0) {
   assert(dbl33_isfinite(eik->hess[l]));
 }
 
-static void do_1pt_update(eik3_s *eik, size_t l, size_t l0) {
+static void do_1pt_update(eik3_s *eik, size_t l, size_t l0,
+                          bool require_commit) {
   // TODO: check if the updating ray is physical... should probably
   // just design a new ADT, `uline`... UGH...
 
@@ -320,10 +321,12 @@ static void do_1pt_update(eik3_s *eik, size_t l, size_t l0) {
   dbl L = dbl3_normalize(&jet.fx);
   jet.f = eik->jet[l0].f + L;
 
-  /* For now, we require that we're always able to commit the update,
-   * because we assume that we only do 1pt updates from point
-   * sources. */
-  assert(jet.f <= eik->jet[l].f);
+  bool should_commit = jet.f <= eik->jet[l].f;
+
+  if (!require_commit && !should_commit)
+    return;
+
+  assert(should_commit);
   eik3_set_jet(eik, l, jet);
 
   /* Compute the Hessian of the eikonal at `l` */
@@ -989,7 +992,7 @@ static void update(eik3_s *eik, size_t l, size_t l0) {
    */
   if (eik->ftype == FTYPE_POINT_SOURCE &&
       eik3_is_point_source(eik, l0)) {
-    do_1pt_update(eik, l, l0);
+    do_1pt_update(eik, l, l0, true);
     return;
   }
 
