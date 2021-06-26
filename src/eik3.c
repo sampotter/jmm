@@ -1854,10 +1854,6 @@ void eik3_get_DT(eik3_s const *eik, size_t l, dbl DT[3]) {
   memcpy(DT, &eik->jet[l].fx, 3*sizeof(dbl));
 }
 
-bool eik3_is_refl_bdf(eik3_s const *eik, size_t const l[3]) {
-  return bdv_has_bc(eik, l[0])
-      || bdv_has_bc(eik, l[1])
-      || bdv_has_bc(eik, l[2]);
 }
 
 dbl *eik3_get_t_in_ptr(eik3_s const *eik) {
