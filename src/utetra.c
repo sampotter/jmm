@@ -648,6 +648,9 @@ static dbl get_L(utetra_s const *u) {
 bool utetra_update_ray_is_physical(utetra_s const *utetra, eik3_s const *eik) {
   assert(all_inds_are_set(utetra));
 
+  if (utetra_updated_from_refl_BCs(utetra, eik))
+    return true;
+
   size_t const *l = utetra->l;
 
   mesh3_s const *mesh = eik3_get_mesh(eik);
@@ -703,7 +706,7 @@ bool utetra_update_ray_is_physical(utetra_s const *utetra, eik3_s const *eik) {
   if (!xm_in_cell || !xp_in_cell) {
     array_deinit(cells);
     array_dealloc(&cells);
-    return eik3_is_refl_bdf(eik, utetra->l);
+    return false;
   }
 
   /* Next, we'll pull out the boundary faces incident on these cells
@@ -781,6 +784,24 @@ bool utetra_update_ray_is_physical(utetra_s const *utetra, eik3_s const *eik) {
   free(vc);
 
   return xhatm_in_cell;
+}
+
+bool utetra_updated_from_refl_BCs(utetra_s const *utetra, eik3_s const *eik) {
+  ftype_e ftype = eik3_get_ftype(eik);
+  if (ftype != FTYPE_REFLECTION)
+    return false;
+
+  par3_s par = utetra_get_parent(utetra);
+  size_t num_active = par3_num_active(&par);
+  size_t l[num_active];
+  dbl b[num_active]; // TODO: unused
+  par3_get_active(&par, l, b);
+
+  for (size_t i = 0; i < num_active; ++i)
+    if (!eik3_has_BCs(eik, l[i]))
+      return false;
+
+  return true;
 }
 
 int utetra_get_num_interior_coefs(utetra_s const *utetra) {
