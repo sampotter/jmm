@@ -33,6 +33,7 @@ par3_s eik3_get_par(eik3_s const *eik, size_t l);
 void eik3_set_par(eik3_s *eik, size_t l, par3_s par);
 bool eik3_has_par(eik3_s const *eik, size_t l);
 void eik3_get_DT(eik3_s const *eik, size_t l, dbl DT[3]);
+dbl const *eik3_get_DT_ptr(eik3_s const *eik, size_t l);
 void eik3_get_D2T(eik3_s const *eik, size_t l, dbl D2T[3][3]);
 dbl *eik3_get_t_in_ptr(eik3_s const *eik);
 dbl *eik3_get_t_out_ptr(eik3_s const *eik);

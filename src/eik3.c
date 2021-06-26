@@ -1854,6 +1854,8 @@ void eik3_get_DT(eik3_s const *eik, size_t l, dbl DT[3]) {
   memcpy(DT, &eik->jet[l].fx, 3*sizeof(dbl));
 }
 
+dbl const *eik3_get_DT_ptr(eik3_s const *eik, size_t l) {
+  return &eik->jet[l].fx;
 }
 
 dbl *eik3_get_t_in_ptr(eik3_s const *eik) {
