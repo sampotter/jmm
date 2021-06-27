@@ -952,6 +952,8 @@ class MultipleArrivals(Logger):
     def traverse(self):
         self.log.info('traversing scattered fields')
 
+        num_accepted = 0
+
         for field in self.root_field.scattered_fields:
             self._fields.append(field)
 
@@ -967,7 +969,8 @@ class MultipleArrivals(Logger):
             perc_above_thresh = \
                 100*field.magnitude_mask.sum()/self.domain.num_verts
 
-            self.log.info('accepted %s', type(field).__name__)
+            self.log.info('accepted %s (%d fields)', type(field).__name__,
+                          num_accepted + 1)
             self.log.info('    labels: %s', field.parent_labels)
             self.log.info('    earliest arrival: %s', min_time_str)
             self.log.info('    max |A|: %f dB', max_mag_dB)
@@ -996,6 +999,8 @@ class MultipleArrivals(Logger):
 
             if finite_time.all():
                 break
+
+            num_accepted += 1
 
     @property
     def time(self):
