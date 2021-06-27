@@ -141,7 +141,13 @@ class Field(ABC, Logger):
         return self.eik.is_solved
 
     def _get_reflection_BCs(self, faces):
-        max_mag_bd = np.nanmax(abs(self.amplitude[np.unique(faces)]))
+        # Check the maximum magnitude on the candidate boundary
+        # points. Make sure to delete the current field's boundary
+        # points from this set, since the large amplitude values there
+        # won't have any bearing on whether we should do propagate
+        # this scattered field or not.
+        I = np.setdiff1d(np.unique(faces), np.unique(self.bd_inds))
+        max_mag_bd = np.nanmax(abs(self.amplitude[I]))
         if max_mag_bd < Field.minimum_magnitude:
             return
 
