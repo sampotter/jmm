@@ -479,6 +479,10 @@ class Field(ABC, Logger):
         return direction
 
     @property
+    def _scale_tol(self):
+        return self.h/2
+
+    @property
     def _scale(self):
         scale = np.ones(self.domain.num_verts)
 
@@ -493,14 +497,14 @@ class Field(ABC, Logger):
         # (i.e. scale decays from 1 to 1e-3)
 
         log = np.log(Field.minimum_magnitude)
-        log *= ((arc_length - self.h)/self.h)**2
+        log *= ((arc_length - self._scale_tol)/self._scale_tol)**2
 
         min_log = np.log(np.finfo(np.float64).eps)
         mask = log < min_log
 
         scale[mask] = 0
         scale[~mask] = np.exp(log[~mask])
-        scale[self._boundary_mask | (arc_length < self.h)] = 1
+        scale[self._boundary_mask | (arc_length < self._scale_tol)] = 1
 
         return scale
 
@@ -614,7 +618,7 @@ class ReflectedField(Field):
         arc_length = np.arccos(dot)
 
         log = np.log(Field.minimum_magnitude)
-        log *= ((arc_length - self.h)/self.h)**2
+        log *= ((arc_length - self._scale_tol)/self._scale_tol)**2
 
         min_log = np.log(np.finfo(np.float64).eps)
         mask = log < min_log
@@ -622,7 +626,7 @@ class ReflectedField(Field):
         scale = np.empty(self.domain.num_verts)
         scale[mask] = 0
         scale[~mask] = np.exp(log[~mask])
-        scale[self._boundary_mask | (arc_length < self.h)] = 1
+        scale[self._boundary_mask | (arc_length < self._scale_tol)] = 1
 
         return scale*super()._scale
 
@@ -818,7 +822,7 @@ class DiffractedField(Field):
         arc_length_diff = arc_length_in - arc_length_out
 
         log = np.log(Field.minimum_magnitude)
-        log *= ((arc_length_diff - self.h)/self.h)**2
+        log *= ((arc_length_diff - self._scale_tol)/self._scale_tol)**2
 
         min_log = np.log(np.finfo(np.float64).eps)
         mask = log < min_log
@@ -826,7 +830,7 @@ class DiffractedField(Field):
         scale = np.empty(self.domain.num_verts)
         scale[mask] = 0
         scale[~mask] = np.exp(log[~mask])
-        scale[self._boundary_mask | (arc_length_diff < self.h)] = 1
+        scale[self._boundary_mask | (arc_length_diff < self._scale_tol)] = 1
 
         return scale*super()._scale
 
