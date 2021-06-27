@@ -186,11 +186,7 @@ class Field(ABC, Logger):
             for i, l in enumerate(lf):
                 X_in[:, 0] = t_in[i]
                 X_out[:, 0] = t_out[i]
-                try:
-                    Y = X_in@np.linalg.inv(X_out)
-                except:
-                    import pdb; pdb.set_trace()
-                    pass
+                Y = X_in@np.linalg.inv(X_out)
                 hess[i] = Y.T@self.eik.hess[lf[i]]@Y
 
             bd_faces.append(lf)
