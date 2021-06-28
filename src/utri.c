@@ -622,11 +622,13 @@ bool utri_accept_refl_BCs_update(utri_s const *u, eik3_s const *eik) {
   if (!eik3_get_refl_bdf_inc_on_diff_edge(eik, le, lf))
     return true;
 
+  dbl xf[3];
+  mesh3_get_face_centroid(mesh, lf, xf);
+
   /* Get the edge's tangent and midpoint and the centroid of the
    * reflecting face. */
   dbl e[3]; mesh3_get_edge_tangent(mesh, le, e);
   dbl xm[3]; mesh3_get_edge_midpoint(mesh, le, xm);
-  dbl xf[3]; mesh3_get_face_centroid(mesh, lf, xf);
 
   dbl lam = utri_get_lambda(u);
 
@@ -649,40 +651,20 @@ bool utri_accept_refl_BCs_update(utri_s const *u, eik3_s const *eik) {
   dbl3_normalize(t);
 
   dbl t_dot_xm = dbl3_dot(t, xm);
-  {
-    dbl dot = dbl3_dot(t, xf) - t_dot_xm;
-    assert(dot != 0);
-    if (dot > 0)
-      dbl3_negate(t);
-  }
-
-  /* Next, get the unit vector that supports the part of the wedge
-   * that isn't coplanar with the reflector, denote it `b` */
-
-  /* Get the face normal for the reflector and negate it, since we
-   * want to use it as a support vector for the wedge. */
-  dbl nu[3];
-  mesh3_get_face_normal(mesh, lf, nu);
-  dbl3_negate(nu);
-
-  dbl b[3];
-  dbl3_cross(e, nu, b);
-  dbl3_normalize(b);
-
-  dbl b_dot_xm = dbl3_dot(b, xm);
-  {
-    dbl dot = dbl3_dot(b, xf) - b_dot_xm;
-    assert(dot != 0);
-    if (dot > 0)
-      dbl3_negate(b);
-  }
-
-  // return whether l is outside of this wedge
+  dbl dot = dbl3_dot(t, xf) - t_dot_xm;
 
   dbl const *x = mesh3_get_vert_ptr(mesh, l);
 
-  return dbl3_dot(t, x) - t_dot_xm > 0 ||
-    dbl3_dot(b, x) - dbl3_dot(b, xm) > 0;
+  if (dot == 0) {
+    dbl nu[3];
+    mesh3_get_face_normal(mesh, lf, nu);
+    return dbl3_dot(nu, x) - dbl3_dot(nu, xm) < 0;
+  }
+
+  if (dot > 0)
+    dbl3_negate(t);
+
+  return dbl3_dot(t, x) - t_dot_xm;
 }
 
 static dbl get_lambda(utri_s const *u) {
