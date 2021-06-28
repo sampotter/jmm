@@ -629,9 +629,20 @@ bool utri_accept_refl_BCs_update(utri_s const *u, eik3_s const *eik) {
   dbl xf[3]; mesh3_get_face_centroid(mesh, lf, xf);
 
   dbl lam = utri_get_lambda(u);
+
+  dbl const *DT0 = eik3_get_DT_ptr(eik, le[0]);
+  if (fabs(lam) < 1e-14 && !dbl3_isfinite(DT0))
+    return true;
+
+  dbl const *DT1 = eik3_get_DT_ptr(eik, le[1]);
+  if (fabs(1 - lam) < 1e-14 && !dbl3_isfinite(DT1))
+    return true;
+
   dbl DT[3];
-  slerp2(eik3_get_DT_ptr(eik, le[0]), eik3_get_DT_ptr(eik, le[1]),
-         DBL2(1 - lam, lam), DT);
+  slerp2(DT0, DT1, DBL2(1 - lam, lam), DT);
+
+  /* First, get the unit vector that supports the reflection boundary
+   * (which we'll denote `t`) */
 
   dbl t[3];
   dbl3_cross(e, DT, t);
