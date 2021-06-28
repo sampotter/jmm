@@ -1898,7 +1898,8 @@ void eik3_add_refl_BCs(eik3_s *eik, size_t const lf[3], jet3 const jet[3],
   dbl nu[3];
   mesh3_get_face_normal(eik->mesh, lf, nu);
   for (size_t i = 0; i < 3; ++i)
-    assert(dbl3_dot(nu, &jet[i].fx) > 0);
+    if (dbl3_isfinite(&jet[i].fx))
+      assert(dbl3_dot(nu, &jet[i].fx) > 0);
 #endif
 
   for (size_t i = 0; i < 3; ++i)
