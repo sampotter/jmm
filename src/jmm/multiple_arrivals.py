@@ -165,6 +165,8 @@ class Field(ABC, Logger):
         X_out = np.empty((3, 3))
         X_out[:, 1:] = Q
 
+        refl_tol = self.domain.mesh.eps
+
         # Traverse the faces and pull out the BCs for the reflection
         bd_faces, bd_T, bd_grad_T, bd_hess_T, bd_t_in, bd_amplitude = \
             [], [], [], [], [], []
@@ -180,12 +182,13 @@ class Field(ABC, Logger):
             # or seem to be emitted from the surface. If we have
             # t_in leaving a face, something unphysical is
             # happening.
-            if (np.dot(t_in, nu) > -self.domain.mesh.eps).any():
+            if (t_in@nu >= -refl_tol).any():
                 continue
 
             # Reflect the ray directions over the reflector to get the
             # BCs for the eikonal gradient for the reflection
-            t_out = np.dot(t_in, refl)
+            t_out = t_in@refl
+            assert not (t_out@nu <= refl_tol).any()
 
             # Reflect the Hessian
             hess = np.empty((3, 3, 3))
