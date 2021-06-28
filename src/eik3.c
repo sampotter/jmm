@@ -1891,12 +1891,15 @@ void eik3_add_pt_src_BCs(eik3_s *eik, size_t l, jet3 jet) {
 
 void eik3_add_refl_BCs(eik3_s *eik, size_t const lf[3], jet3 const jet[3],
                        dbl33 const hess[3], dbl const t_in[3][3]) {
+#if JMM_DEBUG
   assert(eik->ftype == FTYPE_REFLECTION);
+  assert(mesh3_is_bdf(eik->mesh, lf, false));
 
-  /* We'd like to uncomment the following line, but it creates some
-   * problems if the domain is extended. Might need to introduce an
-   * "extended" flag to eik3. */
-  // assert(mesh3_bdf(eik->mesh, lf));
+  dbl nu[3];
+  mesh3_get_face_normal(eik->mesh, lf, nu);
+  for (size_t i = 0; i < 3; ++i)
+    assert(dbl3_dot(nu, &jet[i].fx) > 0);
+#endif
 
   for (size_t i = 0; i < 3; ++i)
     if (!eik3_is_trial(eik, lf[i]))
