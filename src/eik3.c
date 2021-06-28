@@ -2187,6 +2187,7 @@ bool eik3_get_refl_bdf_inc_on_diff_edge(eik3_s const *eik, size_t const le[2],
 
   bool found = i < nbdf;
 
+#if JMM_DEBUG
   for (i = i + 1; i < nbdf; ++i) {
     if (eik3_has_BCs(eik, bdf[i][0]) &&
         eik3_has_BCs(eik, bdf[i][1]) &&
@@ -2194,6 +2195,7 @@ bool eik3_get_refl_bdf_inc_on_diff_edge(eik3_s const *eik, size_t const le[2],
       assert(false);
     }
   }
+#endif
 
   free(bdf);
 
