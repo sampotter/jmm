@@ -489,7 +489,7 @@ class Field(ABC, Logger):
 
     @property
     def _scale_tol(self):
-        return self.h/2
+        return self.h
 
     @property
     def _scale_Z(self):
