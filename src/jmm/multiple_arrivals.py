@@ -558,6 +558,37 @@ class Field(ABC, Logger):
 
         return amplitude_in
 
+    def _kill_disconnected_components(self, values, thresh):
+        # the use of `abs` here ensures this will work with complex
+        # numbers as well as real
+        mask = abs(values) > thresh
+
+        connected = np.zeros(self.domain.num_verts, dtype=np.bool_)
+        visited = np.zeros_like(connected)
+
+        # use a BFS to find the connected component containing this
+        # field's boundary indices
+        queue = np.unique(self.bd_inds).tolist()
+        while queue:
+            l0 = queue.pop(0)
+            connected[l0] = True
+            visited[l0] = True
+            for l in self.domain.mesh.vv(l0):
+                if visited[l]:
+                    continue
+                visited[l] = True
+                if mask[l]:
+                    queue.append(l)
+
+        # unmask the nodes in the connected component that we found,
+        # and set the remaining bad values to 0 (these are the nodes
+        # with `values` above `thresh` and which are in a disconnected
+        # component)
+        mask[connected] = False
+        values[mask] = 0
+
+        return values
+
 class PointSourceField(Field):
     def __init__(self, domain, src_index, omega):
         index = src_index # re-use index of point source for field index
@@ -586,6 +617,8 @@ class PointSourceField(Field):
         A = np.empty(self.domain.num_verts, dtype=np.complex128)
         A[mask] = np.nan
         A[~mask] = scale/r
+
+        A = self._kill_disconnected_components(A, Field.minimum_magnitude)
 
         return A
 
@@ -762,6 +795,9 @@ class ReflectedField(Field):
         amplitude = np.empty_like(amplitude_in)
         amplitude[mask] = np.nan
         amplitude[~mask] = amplitude_in[~mask]*refl_coef*sqrt_J*scale
+
+        amplitude = self._kill_disconnected_components(
+            amplitude, Field.minimum_magnitude)
 
         return amplitude
 
@@ -959,6 +995,9 @@ class DiffractedField(Field):
         amplitude = np.empty_like(amplitude_in)
         amplitude[~mask] = np.nan
         amplitude[mask] = amplitude_in[mask]*D[mask]*sqrt_J*scale
+
+        amplitude = self._kill_disconnected_components(
+            amplitude, Field.minimum_magnitude)
 
         return amplitude
 
