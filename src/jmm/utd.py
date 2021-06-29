@@ -137,6 +137,16 @@ def D_from_geometry(k, alpha, no, e, s, sp, t, hess, refl_coef=1):
     # mask these values out to avoid bad values while we compute
     # `D`. The main purpose of this is less confusing debugging.
     mask = np.logical_not(np.isnan(s).any(1))
+
+    # We also want to mask out nodes where s or sp are exactly aligned
+    # with e. This should only happen far away from the diffracting
+    # edge where s or sp get aligned with e coincidentally; i.e., in a
+    # disconnected component... (TODO: verify this...)
+    mask[(s == e).all(1)] = False
+    mask[(s == -e).all(1)] = False
+    mask[(sp == e).all(1)] = False
+    mask[(sp == -e).all(1)] = False
+
     s_masked = s[mask]
     sp_masked = sp[mask]
     hess_masked = hess[mask]
