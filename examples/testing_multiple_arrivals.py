@@ -4,6 +4,7 @@ import json
 import numpy as np
 import pyvista as pv
 import pyvistaqt as pvqt
+import sys
 
 from jmm.mesh import Mesh3
 from jmm.multiple_arrivals import Domain, Field, PointSourceField, MultipleArrivals
@@ -31,11 +32,11 @@ cells = extended_cells[:num_dom_cells]
 domain = Domain(verts, cells, refl_coef=0.7)
 
 l_int = np.array([_ for _ in range(num_dom_verts) if not domain.mesh.bdv(_)])
-src_index = l_int[3]
+src_index = l_int[int(sys.argv[1])]
 num_arrivals = 5
 omega = 1000 # Hz
 
-log.info('computing %d arrivals starting from index %d', num_arrivals, src_index)
+log.info('computing %d arrivals starting from index %d (%dth interior vert)', num_arrivals, src_index, int(sys.argv[1]))
 
 field = PointSourceField(domain, src_index, omega)
 
