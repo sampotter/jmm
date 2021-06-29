@@ -625,6 +625,14 @@ bool utri_accept_refl_BCs_update(utri_s const *u, eik3_s const *eik) {
   dbl xf[3];
   mesh3_get_face_centroid(mesh, lf, xf);
 
+  dbl nu[3];
+  mesh3_get_face_normal(mesh, lf, nu);
+
+  dbl const *x = mesh3_get_vert_ptr(mesh, l);
+
+  if (dbl3_dot(nu, x) - dbl3_dot(nu, xf) < 0)
+    return true;
+
   /* Get the edge's tangent and midpoint and the centroid of the
    * reflecting face. */
   dbl e[3]; mesh3_get_edge_tangent(mesh, le, e);
@@ -640,8 +648,13 @@ bool utri_accept_refl_BCs_update(utri_s const *u, eik3_s const *eik) {
   if (fabs(1 - lam) < 1e-14 && !dbl3_isfinite(DT1))
     return true;
 
+
   dbl DT[3];
-  slerp2(DT0, DT1, DBL2(1 - lam, lam), DT);
+  if (!dbl3_isfinite(DT0) || !dbl3_isfinite(DT1)) {
+
+  } else {
+    slerp2(DT0, DT1, DBL2(1 - lam, lam), DT);
+  }
 
   /* First, get the unit vector that supports the reflection boundary
    * (which we'll denote `t`) */
@@ -653,13 +666,8 @@ bool utri_accept_refl_BCs_update(utri_s const *u, eik3_s const *eik) {
   dbl t_dot_xm = dbl3_dot(t, xm);
   dbl dot = dbl3_dot(t, xf) - t_dot_xm;
 
-  dbl const *x = mesh3_get_vert_ptr(mesh, l);
-
-  if (dot == 0) {
-    dbl nu[3];
-    mesh3_get_face_normal(mesh, lf, nu);
+  if (dot == 0)
     return dbl3_dot(nu, x) - dbl3_dot(nu, xm) < 0;
-  }
 
   if (dot > 0)
     dbl3_negate(t);
