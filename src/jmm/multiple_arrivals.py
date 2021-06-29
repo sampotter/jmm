@@ -637,6 +637,7 @@ class ReflectedField(Field):
         nu = self.reflector_face_normal
         refl = np.eye(3) - 2*np.outer(nu, nu)
 
+        # get the arc length between t_out and t_in reflected by nu
         t_in_refl = self.eik.t_in@refl
         t_out = self.eik.t_out
         dot = np.clip(np.sum(t_in_refl*t_out, axis=1), -1, 1)
