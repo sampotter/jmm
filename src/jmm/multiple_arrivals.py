@@ -492,7 +492,13 @@ class Field(ABC, Logger):
         return self.h/2
 
     @property
-    def _scale(self):
+    def _scale_Z(self):
+        '''Compute the scale factor for the shadow zone. Points for which the
+        arc length between their `t_out` and `grad_T` vectors is
+        greater than `h` will be tapered exponentially.
+
+        '''
+
         scale = np.ones(self.domain.num_verts)
 
         dot = np.sum(self.eik.t_out*self.eik.grad_T, axis=1)
@@ -574,9 +580,12 @@ class PointSourceField(Field):
         mask = np.zeros(self.domain.num_verts, dtype=np.bool_)
         mask[self.bd_inds] = True
 
+        scale = self._scale_Z[~mask]
+        r = self.r[~mask]
+
         A = np.empty(self.domain.num_verts, dtype=np.complex128)
         A[mask] = np.nan
-        A[~mask] = self._scale[~mask]/self.r[~mask]
+        A[~mask] = scale/r
 
         return A
 
@@ -617,7 +626,14 @@ class ReflectedField(Field):
         return self.domain.mesh.get_face_normal(*self.bd_inds[0])
 
     @property
-    def _scale(self):
+    def _scale_R(self):
+        '''The scale factor for the reflection zone. This is still a work in
+        progress, but the idea is to have the amplitude of nodes that
+        violate the specular reflection condition tapered
+        exponentially.
+
+        '''
+
         nu = self.reflector_face_normal
         refl = np.eye(3) - 2*np.outer(nu, nu)
 
@@ -637,7 +653,7 @@ class ReflectedField(Field):
         scale[~mask] = np.exp(log[~mask])
         scale[self._boundary_mask | (arc_length < self._scale_tol)] = 1
 
-        return scale*super()._scale
+        return scale
 
     def _fill_in_missing_kappa1_in_and_kappa2_in(self, kappa1_in, kappa2_in,
                                                  nan_bd_inds):
@@ -740,10 +756,11 @@ class ReflectedField(Field):
 
         sqrt_J = np.sqrt(numer[~mask]/denom[~mask])
 
+        scale = self._scale_R[~mask]*self._scale_Z[~mask]
+
         amplitude = np.empty_like(amplitude_in)
         amplitude[mask] = np.nan
-        amplitude[~mask] = \
-            amplitude_in[~mask]*refl_coef*sqrt_J*self._scale[~mask]
+        amplitude[~mask] = amplitude_in[~mask]*refl_coef*sqrt_J*scale
 
         return amplitude
 
@@ -823,7 +840,14 @@ class DiffractedField(Field):
         raise RuntimeError('entered a weird state')
 
     @property
-    def _scale(self):
+    def _scale_D(self):
+        '''The scale factor for the diffraction zone. Nodes for which the arc
+        length between `t_in` and `t_out` vectors and the diffracting
+        edge is greater than `h` have their amplitude tapered
+        exponentially.
+
+        '''
+
         t = self.diffractor_tangent_vector
 
         arc_length_in = np.arccos(np.clip(self.eik.t_in@t, -1, 1))
@@ -841,7 +865,7 @@ class DiffractedField(Field):
         scale[~mask] = np.exp(log[~mask])
         scale[self._boundary_mask | (arc_length_diff < self._scale_tol)] = 1
 
-        return scale*super()._scale
+        return scale
 
     @property
     def _wedge_angle(self):
@@ -929,9 +953,11 @@ class DiffractedField(Field):
                                     self.eik.t_out, self.eik.t_in,
                                     T_in, self.eik.hess, refl_coef)
 
+        scale = self._scale_D[mask]*self._scale_Z[mask]
+
         amplitude = np.empty_like(amplitude_in)
         amplitude[~mask] = np.nan
-        amplitude[mask] = amplitude_in[mask]*D[mask]*sqrt_J*self._scale[mask]
+        amplitude[mask] = amplitude_in[mask]*D[mask]*sqrt_J*scale
 
         return amplitude
 
