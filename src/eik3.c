@@ -1634,7 +1634,8 @@ static void compute_t_in(eik3_s *eik, size_t l0) {
   if (num_active == 2)
     slerp2(t_in[0], t_in[1], b, eik->t_in[l0]);
   if (num_active == 3)
-    slerp3(t_in, b, eik->t_in[l0], eik->slerp_tol);
+    // slerp3(t_in, b, eik->t_in[l0], eik->slerp_tol);
+    nlerp3(t_in, b, eik->t_in[l0]);
 
 coda:
   assert(dbl3_isfinite(eik->t_in[l0]));
@@ -1693,7 +1694,8 @@ static void compute_t_out(eik3_s *eik, size_t l0) {
   else if (num_active == 2)
     slerp2(t_out[0], t_out[1], b, eik->t_out[l0]);
   else if (num_active == 3)
-    slerp3(t_out, b, eik->t_out[l0], eik->slerp_tol);
+    // slerp3(t_out, b, eik->t_out[l0], eik->slerp_tol);
+    nlerp3(t_out, b, eik->t_out[l0]);
   else
     assert(false);
 
