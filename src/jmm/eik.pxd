@@ -41,6 +41,7 @@ cdef extern from "eik3.h":
     void eik3_transport_dblz(const eik3 *eik, dblz *values, bool skip_filled)
     void eik3_transport_curvature(const eik3 *eik, dbl *kappa, bool skip_filled)
     dbl eik3_get_h(const eik3* eik)
+    const size_t *eik3_get_accepted_ptr(const eik3* eik)
 
 cdef class Eik3:
     cdef:
@@ -52,3 +53,4 @@ cdef class Eik3:
         ArrayView state_view
         ArrayView t_in_view
         ArrayView t_out_view
+        ArrayView accepted_view

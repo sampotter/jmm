@@ -2207,3 +2207,7 @@ bool eik3_get_refl_bdf_inc_on_diff_edge(eik3_s const *eik, size_t const le[2],
 
   return found;
 }
+
+size_t const *eik3_get_accepted_ptr(eik3_s const *eik) {
+  return eik->accepted;
+}

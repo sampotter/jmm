@@ -103,6 +103,22 @@ cdef class Eik3:
         self.t_out_view.format = 'd'
         self.t_out_view.itemsize = sizeof(dbl)
 
+        # TODO: the buffer format character 'Q' below should be 'N'
+        # according to:
+        #
+        #   https://docs.python.org/3/library/struct.html#module-struct
+        #
+        # but this fails at run-time with:
+        #
+        #   "ValueError: 'N' is not a valid PEP 3118 buffer format string"
+        self.accepted_view = ArrayView(1)
+        self.accepted_view.readonly = True
+        self.accepted_view.ptr = <void *>eik3_get_accepted_ptr(self.eik)
+        self.accepted_view.shape[0] = self.size
+        self.accepted_view.strides[0] = sizeof(size_t)
+        self.accepted_view.format = 'Q'
+        self.accepted_view.itemsize = sizeof(size_t)
+
     def __dealloc__(self):
         eik3_deinit(self.eik)
         eik3_dealloc(&self.eik)
@@ -256,3 +272,7 @@ cdef class Eik3:
     @property
     def h(self):
         return eik3_get_h(self.eik)
+
+    @property
+    def accepted(self):
+        return np.asarray(self.accepted_view)
