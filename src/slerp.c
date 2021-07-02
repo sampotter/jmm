@@ -5,6 +5,11 @@
 #include "mat.h"
 #include "util.h"
 
+void nlerp3(dbl const p[3][3], dbl const w[3], dbl q[3]) {
+  dbl3_dbl33_mul(w, p, q);
+  dbl3_normalize(q);
+}
+
 /* Spherical weighted average of two unit vectors, such that the ratio
  * of the arc length from `p0` to `q` to the arc length from `p0` t
  * *`p1` is `w[0]`, and vice versa. */
