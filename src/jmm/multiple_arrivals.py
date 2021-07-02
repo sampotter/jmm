@@ -1024,7 +1024,7 @@ class MultipleArrivals(Logger):
 
         self._fields = []
 
-    def traverse(self):
+    def traverse(self, max_arrivals=None):
         self.log.info('traversing scattered fields')
 
         # TODO: turn the body of this for loop into a `next` function
@@ -1072,6 +1072,9 @@ class MultipleArrivals(Logger):
 
             perc_finite = 100*finite_time.sum()/np.prod(finite_time.shape)
             self.log.info('computed %1.1f%% of all arrivals', perc_finite)
+
+            if max_arrivals is not None and len(self._fields) >= max_arrivals:
+                break
 
             if finite_time.all():
                 break
