@@ -590,7 +590,7 @@ class Field(ABC, Logger):
         return values
 
 class PointSourceField(Field):
-    def __init__(self, domain, src_index, omega):
+    def __init__(self, domain, src_index, omega, r=None):
         index = src_index # re-use index of point source for field index
         ftype = jmm.defs.Ftype.PointSource
         bd_inds = np.array([src_index])
@@ -598,6 +598,23 @@ class PointSourceField(Field):
 
         jet = jmm.jet.Jet3.make_point_source()
         self.eik.add_pt_src_BCs(src_index, jet)
+
+        # Add extra BCs by "factoring" a ball of radius `r` around the
+        # point source
+        if r is not None:
+            if r <= 0:
+                raise RuntimeError('r should be a positive radius')
+            xsrc = domain.verts[src_index]
+            R = np.sqrt(np.sum((domain.verts - xsrc)**2, axis=1))
+            L = np.where((0 < R) & (R <= r))[0]
+            for l, T in zip(L, R[L]):
+                DT = domain.verts[l] - xsrc
+                DT /= np.linalg.norm(DT)
+                jet = jmm.jet.Jet3(T, *DT)
+                D2T = (np.eye(3) - np.outer(DT, DT))/T
+                t_in = np.array([np.nan, np.nan, np.nan])
+                t_out = DT
+                self.eik.add_trial(l, jet, D2T, t_in, t_out)
 
     def __reduce__(self):
         args = (self.domain, self.bd_inds[0], self.omega)
