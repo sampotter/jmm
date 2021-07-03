@@ -216,6 +216,13 @@ cdef class Eik3:
         ftype = Ftype(eik3_get_ftype(self.eik))
         return ftype
 
+    def add_trial(self, size_t l, Jet3 jet, dbl[:, ::1] hess,
+                  dbl[::1] t_in, dbl[::1] t_out):
+        eik3_add_trial_w_data(self.eik, l, jet.jet,
+                              <dbl(*)[3]>&hess[0, 0],
+                              &t_in[0],
+                              &t_out[0])
+
     def add_pt_src_BCs(self, size_t l, Jet3 jet):
         if self.ftype != Ftype.PointSource:
             raise RuntimeError(

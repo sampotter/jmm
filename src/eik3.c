@@ -1782,6 +1782,17 @@ void eik3_add_trial(eik3_s *eik, size_t l, jet3 jet) {
   ++eik->num_BCs[l];
 }
 
+void eik3_add_trial_w_data(eik3_s *eik, size_t l, jet3 jet,
+                           dbl const hess[3][3],
+                           dbl const t_in[3], dbl const t_out[3]) {
+  eik3_add_trial(eik, l, jet);
+
+  dbl33_copy(hess, eik->hess[l]);
+  if (eik->ftype != FTYPE_POINT_SOURCE)
+    dbl3_copy(t_in, eik->t_in[l]);
+  dbl3_copy(t_out, eik->t_out[l]);
+}
+
 bool eik3_is_point_source(eik3_s const *eik, size_t l) {
   /* First, check whether the jet satisfies the conditions for being a
    * point source. If it doesn't, return early. */

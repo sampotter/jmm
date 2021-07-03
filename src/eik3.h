@@ -18,6 +18,9 @@ size_t eik3_step(eik3_s *eik);
 void eik3_solve(eik3_s *eik);
 bool eik3_is_solved(eik3_s const *eik);
 void eik3_add_trial(eik3_s *eik, size_t l, jet3 jet);
+void eik3_add_trial_w_data(eik3_s *eik, size_t l, jet3 jet,
+                           dbl const hess[3][3], dbl const t_in[3],
+                           dbl const t_out[3]);
 bool eik3_is_point_source(eik3_s const *eik, size_t ind);
 bool eik3_is_far(eik3_s const *eik, size_t ind);
 bool eik3_is_trial(eik3_s const *eik, size_t ind);

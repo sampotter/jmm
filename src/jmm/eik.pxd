@@ -28,6 +28,8 @@ cdef extern from "eik3.h":
     bool eik3_has_par(const eik3 *eik, size_t l)
     dbl *eik3_get_t_in_ptr(const eik3 *eik)
     dbl *eik3_get_t_out_ptr(const eik3 *eik)
+    void eik3_add_trial_w_data(eik3 *eik, size_t l, jet3 jet, dbl hess[3][3],
+                               const dbl t_in[3], const dbl t_out[3])
     void eik3_add_pt_src_BCs(eik3 *eik, size_t l, jet3 jet)
     void eik3_add_refl_BCs(eik3 *eik, const size_t lf[3], const jet3 jet[3],
                            const dbl hess[3][3][3], const dbl t_in[3][3])
