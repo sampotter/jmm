@@ -185,6 +185,11 @@ class Field(ABC, Logger):
             if (t_in@nu >= -refl_tol).any():
                 continue
 
+            # If all of the amplitudes are below our audibility
+            # threshold, skip this face
+            if (abs(self.amplitude[lf]) < Field.minimum_magnitude).all():
+                continue
+
             # Reflect the ray directions over the reflector to get the
             # BCs for the eikonal gradient for the reflection
             t_out = t_in@refl
@@ -298,6 +303,11 @@ class Field(ABC, Logger):
             grad_T = self.eik.grad_T[le]
             mask = np.isnan(grad_T).any(1)
             if (abs(grad_T[~mask]@e - 1) < self.domain.mesh.eps).any():
+                continue
+
+            # If all the amplitudes are below the threshold of
+            # audibility, skip this edge
+            if (abs(self.amplitude[le]) < Field.minimum_magnitude).all():
                 continue
 
             num_finite = np.sum(~mask)
