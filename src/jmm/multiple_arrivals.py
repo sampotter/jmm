@@ -916,7 +916,7 @@ class DiffractedField(Field):
 
         arc_length_in = np.arccos(np.clip(self.eik.t_in@t, -1, 1))
         arc_length_out = np.arccos(np.clip(self.eik.t_out@t, -1, 1))
-        arc_length_diff = arc_length_in - arc_length_out
+        arc_length_diff = abs(arc_length_in - arc_length_out)
 
         log = np.log(Field.minimum_magnitude)
         log *= ((arc_length_diff - self._scale_tol)/self._scale_tol)**2
