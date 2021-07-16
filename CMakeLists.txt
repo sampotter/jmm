@@ -89,7 +89,7 @@ set (JMM_SRCS
   src/bucket.c
   src/camera.c
   src/cubic.c
-  src/dial.c
+  # src/dial.c
   src/edge.c
   src/eik.c
   src/eik_F3.c
