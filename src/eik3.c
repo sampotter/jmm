@@ -1729,11 +1729,13 @@ size_t eik3_step(eik3_s *eik) {
   size_t l0 = heap_front(eik->heap);
 
   assert(eik->state[l0] == TRIAL);
-  assert(isfinite(eik->jet[l0].f));
 
   heap_pop(eik->heap);
 
   eik->state[l0] = VALID;
+
+  if (!isfinite(eik->jet[l0].f))
+    goto coda;
 
   /* Only compute `t_in` for scattered fields... */
   if (eik->ftype != FTYPE_POINT_SOURCE)
@@ -1743,6 +1745,8 @@ size_t eik3_step(eik3_s *eik) {
 
   purge_old_updates(eik, l0);
   update_neighbors(eik, l0);
+
+coda:
 
   /* Increment the number of nodes that have been accepted, and mark
    * that the `eik->num_accepted`th node was `l0`. */
