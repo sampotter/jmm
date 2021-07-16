@@ -24,37 +24,49 @@ log = logging.getLogger('testing_field_pickling.py')
 with open('field.pickle', 'rb') as f:
     field = pickle.load(f)
 
-# field.solve()
-l0 = 3064
+lhat = 973
+l0 = 723
+# l1 = 3064
 while field.eik.peek() != l0:
     field.eik.step()
+# field.eik.step()
 
 log.info('%s', field.parent_labels)
 
 verts = field.domain.verts
 
 mesh = field.domain.mesh
+surf_mesh = mesh.get_surface_mesh()
 r = mesh.min_edge_length
 
-plotter = pvqt.BackgroundPlotter()
-# plotter.background_color = 'white'
+I = np.arange(verts.shape[0])
 
-plot_mesh2(plotter, field.domain.mesh.get_surface_mesh(), opacity=0.4,
-           color='white', show_edges=False)
+plotter = pvqt.BackgroundPlotter(shape=(2, 2))
 
-def plot_BCs(F, c, opacity=0.8):
-    plot_field_BCs(plotter, F, color=c, r=0.75*r, opacity=opacity)
-    if not isinstance(F, jmm.multiple_arrivals.PointSourceField):
-        I = np.unique(F.bd_inds)
-        plot_vector_field(
-            plotter, verts[I], F.eik.t_in[I], 3*r, color=c, opacity=opacity)
+plotter.subplot(0, 0)
+plot_mesh2(plotter, surf_mesh, opacity=0.25, color='white')
+F = field.parent.parent.parent; F.solve()
+values = 20*np.log10(np.maximum(1e-3, abs(F.amplitude[I])))
+points = pv.PolyData(verts[I])
+points['values'] = values
+plotter.add_mesh(points, cmap=cc.cm.fire, clim=(-60, 0))
 
-plot_BCs(field, 'cyan')
-plot_BCs(field.parent, 'orange')
-plot_BCs(field.parent.parent, 'pink')
-plot_BCs(field.parent.parent.parent, 'brown')
-plot_BCs(field.parent.parent.parent.parent, 'purple')
+plotter.subplot(1, 0)
+plot_mesh2(plotter, surf_mesh, opacity=0.25, color='white')
+F = field.parent.parent; F.solve()
+values = 20*np.log10(np.maximum(1e-3, abs(F.amplitude[I])))
+points = pv.PolyData(verts[I])
+points['values'] = values
+plotter.add_mesh(points, cmap=cc.cm.fire, clim=(-60, 0))
 
-# points = pv.PolyData(verts)
-# points['_'] = 20*np.log10(np.maximum(1e-3, abs(field.parent.amplitude)))
-# plotter.add_mesh(points, scalars='_', cmap=cc.cm.fire)
+plotter.subplot(0, 1)
+plot_mesh2(plotter, surf_mesh, opacity=0.25, color='white')
+F = field.parent; F.solve()
+values = 20*np.log10(np.maximum(1e-3, abs(F.amplitude[I])))
+points = pv.PolyData(verts[I])
+points['values'] = values
+plotter.add_mesh(points, cmap=cc.cm.fire, clim=(-60, 0))
+
+# plotter.subplot(1, 1)
+# plot_mesh2(plotter, surf_mesh, opacity=0.25, color='white')
+# F = field; F.solve()

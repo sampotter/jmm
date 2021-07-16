@@ -34,27 +34,26 @@ domain = Domain(verts, cells, refl_coef=0.7)
 l_int = np.array([_ for _ in range(num_dom_verts) if not domain.mesh.bdv(_)])
 src_index = l_int[int(sys.argv[1])]
 num_arrivals = 5
-omega = 1000 # Hz
+omega = 3000 # Hz
 
 log.info('computing %d arrivals starting from index %d (%dth interior vert)', num_arrivals, src_index, int(sys.argv[1]))
 
-field = PointSourceField(domain, src_index, omega)
+field = PointSourceField(domain, src_index, omega, r=1.5)
 
 ma = MultipleArrivals(domain, field, num_arrivals)
-ma.traverse()
+ma.traverse(max_arrivals=30)
 
-############################################################################
+F = ma._fields[19]
 
-f = ma._fields[2]
+mesh = F.domain.mesh
+surf_mesh = mesh.get_surface_mesh()
+verts = F.domain.mesh.verts
+r = mesh.min_edge_length
 
-poly = pv.PolyData(domain.mesh.verts)
-poly['time'] = f.time
-poly['scale'] = f._scale
-poly['amplitude'] = 20*np.log10(np.clip(f.amplitude, 1e-3, 1))
+P = pvqt.BackgroundPlotter()
+plot_field_BCs(P, ma._fields[0], r=r, color='cyan')
+plot_mesh2(P, surf_mesh, color='white', opacity=0.25)
+plot_field_BCs(P, F, r=r/2, color='cyan')
 
-_ = pvqt.BackgroundPlotter()
-plot_mesh2(_, domain.mesh.get_surface_mesh(), opacity=0.25, color='white')
-plot_field_BCs(_, f, opacity=0.4, r=domain.h, show_edges=True, color='magenta')
-# _.add_mesh(poly, scalars='time', cmap=cc.cm.rainbow)
-# _.add_mesh(poly, scalars='amplitude', cmap=cc.cm.fire)
-_.add_mesh(poly, scalars='scale', cmap=cc.cm.gray)
+values = 20*np.log10(np.maximum(Field.minimum_magnitude, abs(F.amplitude)))
+plot_scalar_field(P, verts, values, clim=(-60, 0), cmap=cc.cm.fire)
