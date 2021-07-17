@@ -6,6 +6,15 @@ else
     C_COMPILER=" "
 fi
 
+if [[ "$OSTYPE" == "linux-gnu"* ]]; then
+    NUM_PROCESSORS=`nproc`
+elif [[ "$OSTYPE" == "darwin"* ]]; then
+    NUM_PROCESSORS=`sysctl -n hw.ncpu`
+else
+    printf >&2 "Unsupported platform \"$OSTYPE\""
+    exit 1
+fi
+
 : ${BUILD_TYPE:=Debug}
 : ${SANITIZE_ADDRESS:=OFF}
 : ${SANITIZE_MEMORY:=OFF}
@@ -48,7 +57,7 @@ cmake $CMAKE_ARGS .. || exit 1
 make -j || exit 1
 mv compile_commands.json ..
 cd ..
-python setup.py build -j`nproc` || exit 1
+python setup.py build -j$NUM_PROCESSORS || exit 1
 if pip list | grep jmm > /dev/null; then
     pip uninstall -y jmm
 fi
