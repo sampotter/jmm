@@ -30,8 +30,8 @@
  */
 struct eik {
   field2_s const *slow;
-  ivec2 shape;
-  dvec2 xymin;
+  int2 shape;
+  dbl2 xymin;
   dbl h;
   int nnodes, ncells;
   int nb_dl[NUM_NB + 1];
@@ -41,7 +41,7 @@ struct eik {
   int nb_dlc[NUM_NB_CELLS];
   int nearby_dlc[NUM_NEARBY_CELLS];
   bicubic_s *bicubics;
-  jet_s *jets;
+  jet2 *jets;
   state_e *states;
   int *positions;
   heap_s *heap;
@@ -54,16 +54,16 @@ struct eik {
  * to access the offsets at i +/- 1 in a for loop (this is nice for
  * triangle updates).
  */
-static ivec2 offsets[NUM_NB + 1] = {
-  {.i = -1, .j = -1},
-  {.i = -1, .j =  0},
-  {.i = -1, .j =  1},
-  {.i =  0, .j =  1},
-  {.i =  1, .j =  1},
-  {.i =  1, .j =  0},
-  {.i =  1, .j = -1},
-  {.i =  0, .j = -1},
-  {.i = -1, .j = -1}
+static int2 offsets[NUM_NB + 1] = {
+  {-1, -1},
+  {-1,  0},
+  {-1,  1},
+  { 0,  1},
+  { 1,  1},
+  { 1,  0},
+  { 1, -1},
+  { 0, -1},
+  {-1, -1}
 };
 
 /**
@@ -78,11 +78,11 @@ static ivec2 offsets[NUM_NB + 1] = {
  *
  * TODO: add a picture
  */
-static ivec2 cell_vert_offsets[NUM_CELL_VERTS] = {
-  {.i = 0, .j = 0},
-  {.i = 1, .j = 0},
-  {.i = 0, .j = 1},
-  {.i = 1, .j = 1}
+static int2 cell_vert_offsets[NUM_CELL_VERTS] = {
+  {0, 0},
+  {1, 0},
+  {0, 1},
+  {1, 1}
 };
 
 /**
@@ -112,15 +112,15 @@ static ivec2 cell_vert_offsets[NUM_CELL_VERTS] = {
  *             +-----+-----+
  *                5     4
  */
-static ivec2 tri_cell_offsets[NUM_NB] = {
-  {.i = -2, .j = -1},
-  {.i = -2, .j =  0},
-  {.i = -1, .j =  1},
-  {.i =  0, .j =  1},
-  {.i =  1, .j =  0},
-  {.i =  1, .j = -1},
-  {.i =  0, .j = -2},
-  {.i = -1, .j = -2}
+static int2 tri_cell_offsets[NUM_NB] = {
+  {-2, -1},
+  {-2,  0},
+  {-1,  1},
+  { 0,  1},
+  { 1,  0},
+  { 1, -1},
+  { 0, -2},
+  {-1, -2}
 };
 
 /**
@@ -128,11 +128,11 @@ static ivec2 tri_cell_offsets[NUM_NB] = {
  *
  * - used to set nearby_dlc
  */
-static ivec2 nearby_cell_offsets[NUM_NEARBY_CELLS] = {
-  {.i = -2, .j = -2}, {.i = -2, .j = -1}, {.i = -2, .j = 0}, {.i = -2, .j = 1},
-  {.i = -1, .j = -2}, {.i = -1, .j = -1}, {.i = -1, .j = 0}, {.i = -1, .j = 1},
-  {.i =  0, .j = -2}, {.i =  0, .j = -1}, {.i =  0, .j = 0}, {.i =  0, .j = 1},
-  {.i =  1, .j = -2}, {.i =  1, .j = -1}, {.i =  1, .j = 0}, {.i =  1, .j = 1},
+static int2 nearby_cell_offsets[NUM_NEARBY_CELLS] = {
+  {-2, -2}, {-2, -1}, {-2, 0}, {-2, 1},
+  {-1, -2}, {-1, -1}, {-1, 0}, {-1, 1},
+  { 0, -2}, { 0, -1}, { 0, 0}, { 0, 1},
+  { 1, -2}, { 1, -1}, { 1, 0}, { 1, 1},
 };
 
 static bicubic_variable tri_bicubic_vars[NUM_NB] = {
@@ -174,11 +174,11 @@ static int cell_nb_verts_to_nearby_cells[NUM_CELL_NB_VERTS][NUM_NB_CELLS] = {
  * This array gives the offsets ind "indc" space from the linear
  * index of a grid node to its four neighboring cells.
  */
-static ivec2 nb_cell_offsets[NUM_NB_CELLS] = {
-    {.i = -1, .j = -1},
-    {.i =  0, .j = -1},
-    {.i = -1, .j =  0},
-    {.i =  0, .j =  0}
+static int2 nb_cell_offsets[NUM_NB_CELLS] = {
+    {-1, -1},
+    { 0, -1},
+    {-1,  0},
+    { 0,  0}
 };
 
 static bool nearby_cell_is_cell_nb[NUM_NEARBY_CELLS] = {
@@ -195,16 +195,16 @@ static void set_nb_dl(eik_s *eik) {
 }
 
 static void set_cell_nb_verts_dl(eik_s *eik) {
-  static ivec2 cell_nb_verts_offsets[NUM_CELL_NB_VERTS] = {
-    {.i = -1, .j = -1},
-    {.i = -1, .j =  0},
-    {.i = -1, .j =  1},
-    {.i =  0, .j = -1},
-    {.i =  0, .j =  0},
-    {.i =  0, .j =  1},
-    {.i =  1, .j = -1},
-    {.i =  1, .j =  0},
-    {.i =  1, .j =  1}
+  static int2 cell_nb_verts_offsets[NUM_CELL_NB_VERTS] = {
+    {-1, -1},
+    {-1,  0},
+    {-1,  1},
+    { 0, -1},
+    { 0,  0},
+    { 0,  1},
+    { 1, -1},
+    { 1,  0},
+    { 1,  1}
   };
   for (int i = 0; i < NUM_CELL_NB_VERTS; ++i) {
     eik->cell_nb_verts_dl[i] = ind2l(eik->shape, cell_nb_verts_offsets[i]);
@@ -235,13 +235,10 @@ static void set_nearby_dlc(eik_s *eik) {
   }
 }
 
-static dvec2 get_xy(eik_s *eik, int l) {
-  ivec2 ind = l2ind(eik->shape, l);
-  dvec2 xy = {
-    .x = eik->h*ind.i + eik->xymin.x,
-    .y = eik->h*ind.j + eik->xymin.y
-  };
-  return xy;
+static void get_xy(eik_s *eik, int l, dbl2 xy) {
+  int2 ind; l2ind(eik->shape, l, ind);
+  xy[0] = eik->h*ind[0] + eik->xymin[0];
+  xy[1] = eik->h*ind[1] + eik->xymin[1];
 }
 
 dbl S4_th(dbl th, void *data) {
@@ -251,26 +248,25 @@ dbl S4_th(dbl th, void *data) {
 }
 
 static void line(eik_s *eik, int l, int l0) {
-  jet_s const *J0 = &eik->jets[l0];
+  jet2 const *J0 = &eik->jets[l0];
   dbl T0 = J0->f;
   dbl Tx0 = J0->fx;
   dbl Ty0 = J0->fy;
 
-  dvec2 xy = get_xy(eik, l);
-  dvec2 xy0 = get_xy(eik, l0);
+  dbl2 xy; get_xy(eik, l, xy);
+  dbl2 xy0; get_xy(eik, l0, xy0);
 
   S4_context context;
   context.slow = eik->slow;
   context.s = field2_f(eik->slow, xy);
   context.s0 = field2_f(eik->slow, xy0);
-  context.lp = dvec2_sub(xy, xy0);
-  context.L = dvec2_norm(context.lp);
-  context.lp = dvec2_dbl_div(context.lp, context.L);
-  context.xy_xy0_avg = dvec2_avg(xy, xy0);
-  context.t0 = (dvec2) {.x = Tx0, .y = Ty0};
-  dvec2_normalize(&context.t0);
+  dbl2_sub(xy, xy0, context.lp);
+  context.L = dbl2_norm(context.lp);
+  dbl2_dbl_div_inplace(context.lp, context.L);
+  dbl2_avg(xy, xy0, context.xy_xy0_avg);
+  dbl2_normalized(DBL2(Tx0, Ty0), context.t0);
 
-  dbl th = atan2(context.lp.y, context.lp.x);
+  dbl th = atan2(context.lp[1], context.lp[0]);
   {
     dbl th_min = th - PI_OVER_FOUR;
     dbl th_max = th + PI_OVER_FOUR;
@@ -287,7 +283,7 @@ static void line(eik_s *eik, int l, int l0) {
   // Check causality
   assert(T > T0);
 
-  jet_s *J = &eik->jets[l];
+  jet2 *J = &eik->jets[l];
   if (T < J->f) {
     J->f = T;
     J->fx = context.s*cos(th);
@@ -337,9 +333,9 @@ static void tri(eik_s *eik, int l, int l0, int l1, int ic0) {
     cubic_reverse_on_unit_interval(&Ty_cubic);
   }
 
-  dvec2 xy = get_xy(eik, l);
-  dvec2 xy0 = get_xy(eik, l0);
-  dvec2 xy1 = get_xy(eik, l1);
+  dbl2 xy; get_xy(eik, l, xy);
+  dbl2 xy0; get_xy(eik, l0, xy0);
+  dbl2 xy1; get_xy(eik, l1, xy1);
 
   // TODO: try initializing from the mp0 minimizer since it's so cheap
   // to compute...
@@ -349,9 +345,13 @@ static void tri(eik_s *eik, int l, int l0, int l1, int ic0) {
    */
   dbl eta, th;
   {
-    F3_context context = {
-      .T_cubic = T_cubic, .xy = xy, .xy0 = xy0, .xy1 = xy1, .slow = eik->slow
-    };
+    F3_context context;
+    context.T_cubic = T_cubic;
+    dbl2_copy(xy, context.xy);
+    dbl2_copy(xy0, context.xy0);
+    dbl2_copy(xy1, context.xy1);
+    context.slow = eik->slow;
+
     bool found = hybrid(F3_eta, 0, 1, (void *)&context, &eta);
 #if JMM_DEBUG
     assert(found);
@@ -360,11 +360,12 @@ static void tri(eik_s *eik, int l, int l0, int l1, int ic0) {
 #endif
   }
   {
-    dvec2 dxy = dvec2_sub(xy1, xy0);
-    dvec2 xyeta = dvec2_add(xy0, dvec2_dbl_mul(dxy, eta));
-    dvec2 lp = dvec2_sub(xy, xyeta);
-    dvec2_normalize(&lp);
-    th = atan2(lp.y, lp.x);
+    dbl2 dxy; dbl2_sub(xy1, xy0, dxy);
+    dbl2 dxy_times_eta; dbl2_dbl_mul(dxy, eta, dxy_times_eta);
+    dbl2 xyeta; dbl2_add(xy0, dxy_times_eta, xyeta);
+    dbl2 lp; dbl2_sub(xy, xyeta, lp);
+    dbl2_normalize(lp);
+    th = atan2(lp[1], lp[0]);
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -378,25 +379,24 @@ static void tri(eik_s *eik, int l, int l0, int l1, int ic0) {
   dbl T = NAN;
 
   {
-    F4_context context = {
-      .T_cubic = T_cubic,
-      .Tx_cubic = Tx_cubic,
-      .Ty_cubic = Ty_cubic,
-      .xy = xy,
-      .xy0 = xy0,
-      .xy1 = xy1,
-      .slow = eik->slow
-    };
+    F4_context context;
+    context.T_cubic = T_cubic;
+    context.Tx_cubic = Tx_cubic;
+    context.Ty_cubic = Ty_cubic;
+    dbl2_copy(xy, context.xy);
+    dbl2_copy(xy0, context.xy0);
+    dbl2_copy(xy1, context.xy1);
+    context.slow = eik->slow;
 
-    dvec2 xk, gk;
-    dmat22 Hk;
-    F4_bfgs_init(eta, th, &xk, &gk, &Hk, &context);
+    dbl2 xk, xk1, gk, gk1;
+    dbl22 Hk, Hk1;
+    F4_bfgs_init(eta, th, xk, gk, Hk, &context);
     dbl Tprev = context.F4;
 
     int iter = 0;
-    while (F4_bfgs_step(xk, gk, Hk, &xk, &gk, &Hk, &context)) {
-      if (xk.x < 0 || xk.x > 1) {
-        printf("out of bounds: eta = %g\n", xk.x);
+    while (F4_bfgs_step(xk, gk, Hk, xk1, gk1, Hk1, &context)) {
+      if (xk1[0] < 0 || xk1[0] > 1) {
+        printf("out of bounds: eta = %g\n", xk[0]);
         abort();
       }
 
@@ -408,7 +408,7 @@ static void tri(eik_s *eik, int l, int l0, int l1, int ic0) {
         break;
       }
 
-      if (dvec2_maxnorm(gk) <= EPS) {
+      if (dbl2_maxnorm(gk1) <= EPS) {
         break;
       }
 
@@ -422,9 +422,13 @@ static void tri(eik_s *eik, int l, int l0, int l1, int ic0) {
       }
 
       Tprev = T;
+
+      dbl2_copy(xk1, xk);
+      dbl2_copy(gk1, gk);
+      dbl22_copy(Hk1, Hk);
     }
 
-    th = xk.y;
+    th = xk[1];
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -436,7 +440,7 @@ static void tri(eik_s *eik, int l, int l0, int l1, int ic0) {
   /**
    * Commit new value if it's an improvement.
    */
-  jet_s *jet = &eik->jets[l];
+  jet2 *jet = &eik->jets[l];
   if (T < jet->f) {
     jet->f = T;
 
@@ -450,9 +454,9 @@ static void tri(eik_s *eik, int l, int l0, int l1, int ic0) {
  * Returns whether the linear index `l` corresponds to a valid index
  * into `eik`'s domain.
  */
-static bool inbounds(eik_s const *eik, ivec2 ind) {
-  ivec2 shape = eik->shape;
-  return 0 <= ind.i && ind.i < shape.i && 0 <= ind.j && ind.j < shape.j;
+static bool inbounds(eik_s const *eik, int2 ind) {
+  return 0 <= ind[0] && ind[0] < eik->shape[0] &&
+         0 <= ind[1] && ind[1] < eik->shape[1];
 }
 
 static bool can_build_cell(eik_s const *eik, int lc) {
@@ -462,7 +466,8 @@ static bool can_build_cell(eik_s const *eik, int lc) {
     // TODO: this is probably wrong: need to double check what's in
     // vert_dl to be sure---it's probably wrapping around... although
     // this may not result in an actual bug?
-    if (!inbounds(eik, l2ind(eik->shape, l))) {
+    int2 ind; l2ind(eik->shape, l, ind);
+    if (!inbounds(eik, ind)) {
       return false;
     }
     state_e state = eik->states[l];
@@ -485,17 +490,16 @@ static bool can_build_cell(eik_s const *eik, int lc) {
  * each incident vertex, which is enough to bilinearly interpolate Txy
  * values.
  */
-static bool cell_is_valid(eik_s const *eik, ivec2 indc) {
-  ivec2 shape = eik->shape;
-  if (!(0 <= indc.i && indc.i < shape.i - 1 &&
-		0 <= indc.j && indc.j < shape.j - 1)) {
+static bool cell_is_valid(eik_s const *eik, int2 indc) {
+  if (!(0 <= indc[0] && indc[0] < eik->shape[0] - 1 &&
+		0 <= indc[1] && indc[1] < eik->shape[1] - 1)) {
     return false;
   }
   int l = indc2l(eik->shape, indc);
   for (int iv = 0, lv; iv < NUM_CELL_VERTS; ++iv) {
-    ivec2 indv = ivec2_add(indc, cell_vert_offsets[iv]);
-    if (!(0 <= indv.i && indv.i < shape.i &&
-		  0 <= indv.j && indv.j < shape.j)) {
+    int2 indv; int2_add(indc, cell_vert_offsets[iv], indv);
+    if (!(0 <= indv[0] && indv[0] < eik->shape[0] &&
+		  0 <= indv[1] && indv[1] < eik->shape[1])) {
       return false;
     }
     lv = l + eik->vert_dl[iv];
@@ -506,7 +510,7 @@ static bool cell_is_valid(eik_s const *eik, ivec2 indc) {
   return true;
 }
 
-static dvec4 interpolate_Txy_at_verts(eik_s *eik, int lc) {
+static void interpolate_Txy_at_verts(eik_s *eik, int lc, dbl4 Txy) {
   /**
    * TODO: this probably works, but we'll use the original thing just
    * to be safe... Once we're computing good `fxy` values we can turn
@@ -545,27 +549,20 @@ static dvec4 interpolate_Txy_at_verts(eik_s *eik, int lc) {
   static dbl mus[4] = {0.5, -0.5, 1.5, 0.5};
 
   dbl lam, mu;
-
-  dvec4 Txy;
-
   for (int i = 0; i < 4; ++i) {
     lam = lams[i];
     mu = mus[i];
-    Txy.data[i] = (1 - mu)*((1 - lam)*fxy[0] + lam*fxy[1]) +
+    Txy[i] = (1 - mu)*((1 - lam)*fxy[0] + lam*fxy[1]) +
       mu*((1 - lam)*fxy[2] + lam*fxy[3]);
   }
-
-  return Txy;
 }
 
-static dvec4 get_cell_Txy_values(eik_s const *eik, int lc) {
-  dvec4 Txy;
+static void get_cell_Txy_values(eik_s const *eik, int lc, dbl4 Txy) {
   for (int i = 0, l; i < NUM_CELL_VERTS; ++i) {
     l = lc2l(eik->shape, lc) + eik->vert_dl[i];
-    Txy.data[i] = eik->jets[l].fxy;
-    assert(isfinite(Txy.data[i]));
+    Txy[i] = eik->jets[l].fxy;
+    assert(isfinite(Txy[i]));
   }
-  return Txy;
 }
 
 /**
@@ -583,7 +580,7 @@ static void build_cell(eik_s *eik, int lc) {
   }
 
   /* Get jet at each cell vertex */
-  jet_s *J[4];
+  jet2 *J[4];
   for (int i = 0; i < NUM_CELL_VERTS; ++i) {
     J[i] = &eik->jets[l[i]];
   }
@@ -592,23 +589,23 @@ static void build_cell(eik_s *eik, int lc) {
   dbl h = eik->h, h_sq = h*h;
 
   /* Compute cell data from jets and scaling factors */
-  dmat44 data;
-  data.data[0][0] = J[0]->f;
-  data.data[1][0] = J[1]->f;
-  data.data[0][1] = J[2]->f;
-  data.data[1][1] = J[3]->f;
-  data.data[2][0] = h*J[0]->fx;
-  data.data[3][0] = h*J[1]->fx;
-  data.data[2][1] = h*J[2]->fx;
-  data.data[3][1] = h*J[3]->fx;
-  data.data[0][2] = h*J[0]->fy;
-  data.data[1][2] = h*J[1]->fy;
-  data.data[0][3] = h*J[2]->fy;
-  data.data[1][3] = h*J[3]->fy;
-  data.data[2][2] = h_sq*J[0]->fxy;
-  data.data[3][2] = h_sq*J[1]->fxy;
-  data.data[2][3] = h_sq*J[2]->fxy;
-  data.data[3][3] = h_sq*J[3]->fxy;
+  dbl44 data;
+  data[0][0] = J[0]->f;
+  data[1][0] = J[1]->f;
+  data[0][1] = J[2]->f;
+  data[1][1] = J[3]->f;
+  data[2][0] = h*J[0]->fx;
+  data[3][0] = h*J[1]->fx;
+  data[2][1] = h*J[2]->fx;
+  data[3][1] = h*J[3]->fx;
+  data[0][2] = h*J[0]->fy;
+  data[1][2] = h*J[1]->fy;
+  data[0][3] = h*J[2]->fy;
+  data[1][3] = h*J[3]->fy;
+  data[2][2] = h_sq*J[0]->fxy;
+  data[3][2] = h_sq*J[1]->fxy;
+  data[2][3] = h_sq*J[2]->fxy;
+  data[3][3] = h_sq*J[3]->fxy;
 
   /* Set cell data */
   bicubic_set_data(&eik->bicubics[lc], data);
@@ -622,9 +619,9 @@ static void update(eik_s *eik, int l) {
    */
   bool inbounds_[9];
   {
-    ivec2 ind = l2ind(eik->shape, l), ind0;
+    int2 ind; l2ind(eik->shape, l, ind);
     for (int i0 = 0; i0 < 9; ++i0) {
-      ind0 = ivec2_add(ind, offsets[i0]);
+      int2 ind0; int2_add(ind, offsets[i0], ind0);
       inbounds_[i0] = inbounds(eik, ind0);
     }
   }
@@ -701,17 +698,18 @@ void eik_dealloc(eik_s **eik) {
 // to allocate an extra margin of cells, since they will never be
 // initialized (i.e., they will never have all of their vertex nodes
 // become VALID because of the margin...)
-void eik_init(eik_s *eik, field2_s const *slow, ivec2 shape, dvec2 xymin, dbl h) {
+void eik_init(eik_s *eik, field2_s const *slow, int2 shape, dbl2 xymin, dbl h) {
   eik->slow = slow;
-  eik->shape = shape;
-  eik->ncells = (shape.i - 1)*(shape.j - 1);
-  eik->nnodes = shape.i*shape.j;
-  eik->xymin = xymin;
+  eik->ncells = (shape[0] - 1)*(shape[1] - 1);
+  eik->nnodes = shape[0]*shape[1];
   eik->h = h;
   eik->bicubics = malloc(eik->ncells*sizeof(bicubic_s));
-  eik->jets = malloc(eik->nnodes*sizeof(jet_s));
+  eik->jets = malloc(eik->nnodes*sizeof(jet2));
   eik->states = malloc(eik->nnodes*sizeof(state_e));
   eik->positions = malloc(eik->nnodes*sizeof(int));
+
+  int2_copy(shape, eik->shape);
+  dbl2_copy(xymin, eik->xymin);
 
   assert(eik->bicubics != NULL);
   assert(eik->jets != NULL);
@@ -726,7 +724,7 @@ void eik_init(eik_s *eik, field2_s const *slow, ivec2 shape, dvec2 xymin, dbl h)
 
   heap_alloc(&eik->heap);
 
-  int capacity = (int) 3*sqrt(eik->shape.i*eik->shape.j);
+  int capacity = (int) 3*sqrt(eik->shape[0]*eik->shape[1]);
   heap_init(eik->heap, capacity, value, setpos, (void *)eik);
 
   set_nb_dl(eik);
@@ -772,7 +770,7 @@ void eik_deinit(eik_s *eik) {
 #if SJS_DEBUG
 static void check_cell_consistency(eik_s const *eik, int l0) {
   dbl tol = 1e-10, h = eik->h, h_sq = h*h, f, fx, fy, fxy;
-  dvec2 cc[4] = {{0, 0}, {1, 0}, {0, 1}, {1, 1}};
+  dbl2 cc[4] = {{0, 0}, {1, 0}, {0, 1}, {1, 1}};
   bicubic_s *bicubic;
   for (int ic = 0, lc; ic < NUM_NEARBY_CELLS; ++ic) {
     lc = l2lc(eik->shape, l0) + eik->nearby_dlc[ic];
@@ -800,7 +798,7 @@ void eik_step(eik_s *eik) {
   heap_pop(eik->heap);
   eik->states[l0] = VALID;
 
-  ivec2 ind0 = l2ind(eik->shape, l0);
+  int2 ind0; l2ind(eik->shape, l0, ind0);
 
   // Determine which of the cells surrounding l0 are now valid. It's
   // enough to check if any of the four nearest cells are valid: it's
@@ -808,7 +806,7 @@ void eik_step(eik_s *eik) {
   // one of their vertices just became valid.
   bool valid_cell_nb[NUM_NB_CELLS];
   for (int ic = 0; ic < NUM_NB_CELLS; ++ic) {
-    ivec2 indc = ivec2_add(ind0, nb_cell_offsets[ic]);
+    int2 indc; int2_add(ind0, nb_cell_offsets[ic], indc);
     valid_cell_nb[ic] = cell_is_valid(eik, indc);
   }
 
@@ -843,23 +841,24 @@ void eik_step(eik_s *eik) {
       use_for_Txy_average[ic] |= nb_incident_on_valid_cell_nb[i];
     }
 	{
-      ivec2 indc = ivec2_add(ind0, nearby_cell_offsets[ic]);
+      int2 indc; int2_add(ind0, nearby_cell_offsets[ic], indc);
       use_for_Txy_average[ic] &= cell_is_valid(eik, indc);
 	}
   }
 
   // Compute new Txy values at the vertices of the cells that we
   // decided to use.
-  dvec4 Txy[NUM_NEARBY_CELLS];
+  dbl4 Txy[NUM_NEARBY_CELLS];
   for (int ic = 0, lc; ic < NUM_NEARBY_CELLS; ++ic) {
     if (use_for_Txy_average[ic]) {
       lc = l2lc(eik->shape, l0) + eik->nearby_dlc[ic];
       // If the cell is one of `l0`'s neighbors, then we have to use
       // bilinear extrapolation to compute its Txy values. Otherwise,
       // we can just grab the cell's existing Txy values.
-      Txy[ic] = nearby_cell_is_cell_nb[ic] ?
-        interpolate_Txy_at_verts(eik, lc) :
-        get_cell_Txy_values(eik, lc);
+      if (nearby_cell_is_cell_nb[ic])
+        interpolate_Txy_at_verts(eik, lc, Txy[ic]);
+      else
+        get_cell_Txy_values(eik, lc, Txy[ic]);
     }
   }
 
@@ -877,7 +876,7 @@ void eik_step(eik_s *eik) {
           // efficiently get the Txy value for cell `jc` at the vertex
           // indexed by `i`. See cell_notes.pdf for a visual depiction
           // of why this works.
-          Txy_sum += Txy[jc].data[j];
+          Txy_sum += Txy[jc][j];
           ++nterms;
         }
       }
@@ -909,7 +908,8 @@ void eik_step(eik_s *eik) {
 
   // Set FAR nodes to TRIAL and insert them into the heap.
   for (int i = 0, l; i < NUM_NB; ++i) {
-    if (!inbounds(eik, ivec2_add(ind0, offsets[i]))) {
+    int2 ind; int2_add(ind0, offsets[i], ind);
+    if (!inbounds(eik, ind)) {
       continue;
     }
     l = l0 + eik->nb_dl[i];
@@ -921,7 +921,8 @@ void eik_step(eik_s *eik) {
 
   // Update neighboring nodes.
   for (int i = 0, l; i < NUM_NB; ++i) {
-    if (!inbounds(eik, ivec2_add(ind0, offsets[i]))) {
+    int2 ind; int2_add(ind0, offsets[i], ind);
+    if (!inbounds(eik, ind)) {
       continue;
     }
     l = l0 + eik->nb_dl[i];
@@ -938,7 +939,7 @@ void eik_solve(eik_s *eik) {
   }
 }
 
-void eik_add_trial(eik_s *eik, ivec2 ind, jet_s jet) {
+void eik_add_trial(eik_s *eik, int2 ind, jet2 jet) {
   int l = ind2l(eik->shape, ind);
   eik->jets[l] = jet;
   assert(eik->states[l] != TRIAL && eik->states[l] != VALID);
@@ -946,32 +947,32 @@ void eik_add_trial(eik_s *eik, ivec2 ind, jet_s jet) {
   heap_insert(eik->heap, l);
 }
 
-void eik_add_valid(eik_s *eik, ivec2 ind, jet_s jet) {
+void eik_add_valid(eik_s *eik, int2 ind, jet2 jet) {
   int l = ind2l(eik->shape, ind);
   eik->jets[l] = jet;
   assert(eik->states[l] != TRIAL && eik->states[l] != VALID);
   eik->states[l] = VALID;
 }
 
-void eik_make_bd(eik_s *eik, ivec2 ind) {
+void eik_make_bd(eik_s *eik, int2 ind) {
   int l = ind2l(eik->shape, ind);
   eik->states[l] = BOUNDARY;
 }
 
-ivec2 eik_get_shape(eik_s const *eik) {
-  return eik->shape;
+void eik_get_shape(eik_s const *eik, int2 shape) {
+  int2_copy(eik->shape, shape);
 }
 
-jet_s eik_get_jet(eik_s *eik, ivec2 ind) {
+jet2 eik_get_jet(eik_s *eik, int2 ind) {
   int l = ind2l(eik->shape, ind);
   return eik->jets[l];
 }
 
-jet_s *eik_get_jets_ptr(eik_s const *eik) {
+jet2 *eik_get_jets_ptr(eik_s const *eik) {
   return eik->jets;
 }
 
-state_e eik_get_state(eik_s const *eik, ivec2 ind) {
+state_e eik_get_state(eik_s const *eik, int2 ind) {
   int l = ind2l(eik->shape, ind);
   return eik->states[l];
 }
@@ -989,9 +990,9 @@ state_e *eik_get_states_ptr(eik_s const *eik) {
  * these functions to avoid calling `can_build_cell` over and over.
  */
 
-dbl eik_T(eik_s *eik, dvec2 xy) {
-  dvec2 cc;
-  int lc = xy_to_lc_and_cc(eik->shape, eik->xymin, eik->h, xy, &cc);
+dbl eik_T(eik_s *eik, dbl2 xy) {
+  dbl2 cc;
+  int lc = xy_to_lc_and_cc(eik->shape, eik->xymin, eik->h, xy, cc);
   if (!can_build_cell(eik, lc)) {
     return NAN;
   }
@@ -999,9 +1000,9 @@ dbl eik_T(eik_s *eik, dvec2 xy) {
   return bicubic_f(bicubic, cc);
 }
 
-dbl eik_Tx(eik_s *eik, dvec2 xy) {
-  dvec2 cc;
-  int lc = xy_to_lc_and_cc(eik->shape, eik->xymin, eik->h, xy, &cc);
+dbl eik_Tx(eik_s *eik, dbl2 xy) {
+  dbl2 cc;
+  int lc = xy_to_lc_and_cc(eik->shape, eik->xymin, eik->h, xy, cc);
   if (!can_build_cell(eik, lc)) {
     return NAN;
   }
@@ -1009,9 +1010,9 @@ dbl eik_Tx(eik_s *eik, dvec2 xy) {
   return bicubic_fx(bicubic, cc)/eik->h;
 }
 
-dbl eik_Ty(eik_s *eik, dvec2 xy) {
-  dvec2 cc;
-  int lc = xy_to_lc_and_cc(eik->shape, eik->xymin, eik->h, xy, &cc);
+dbl eik_Ty(eik_s *eik, dbl2 xy) {
+  dbl2 cc;
+  int lc = xy_to_lc_and_cc(eik->shape, eik->xymin, eik->h, xy, cc);
   if (!can_build_cell(eik, lc)) {
     return NAN;
   }
@@ -1019,9 +1020,9 @@ dbl eik_Ty(eik_s *eik, dvec2 xy) {
   return bicubic_fy(bicubic, cc)/eik->h;
 }
 
-dbl eik_Txy(eik_s *eik, dvec2 xy) {
-  dvec2 cc;
-  int lc = xy_to_lc_and_cc(eik->shape, eik->xymin, eik->h, xy, &cc);
+dbl eik_Txy(eik_s *eik, dbl2 xy) {
+  dbl2 cc;
+  int lc = xy_to_lc_and_cc(eik->shape, eik->xymin, eik->h, xy, cc);
   if (!can_build_cell(eik, lc)) {
     return NAN;
   }
@@ -1029,7 +1030,7 @@ dbl eik_Txy(eik_s *eik, dvec2 xy) {
   return bicubic_fxy(bicubic, cc)/(eik->h*eik->h);
 }
 
-bool eik_can_build_cell(eik_s const *eik, ivec2 indc) {
+bool eik_can_build_cell(eik_s const *eik, int2 indc) {
   int lc = indc2lc(eik->shape, indc);
   return can_build_cell(eik, lc);
 }
@@ -1042,7 +1043,7 @@ void eik_build_cells(eik_s *eik) {
   }
 }
 
-bicubic_s eik_get_bicubic(eik_s const *eik, ivec2 indc) {
+bicubic_s eik_get_bicubic(eik_s const *eik, int2 indc) {
   int lc = indc2lc(eik->shape, indc);
   return eik->bicubics[lc];
 }

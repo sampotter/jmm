@@ -12,8 +12,8 @@
 Describe(dbl44);
 
 BeforeEach(dbl44) {
-  double_absolute_tolerance_is(1e-15);
-  double_relative_tolerance_is(1e-15);
+  double_absolute_tolerance_is(1e-13);
+  double_relative_tolerance_is(1e-13);
 }
 
 AfterEach(dbl44) {}

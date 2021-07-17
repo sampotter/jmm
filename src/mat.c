@@ -5,61 +5,82 @@
 
 #include "macros.h"
 
-void dbl22_zero(dbl A[2][2]) {
-  A[0][0] = A[1][0] = A[0][1] = A[1][1] = 0;
+bool dbl22_isfinite(dbl22 const A) {
+  return isfinite(A[0][0]) &&
+         isfinite(A[1][0]) &&
+         isfinite(A[0][1]) &&
+         isfinite(A[1][1]);
 }
 
-void dbl22_add(dbl A[2][2], dbl B[2][2], dbl C[2][2]) {
+dbl dbl22_det(dbl22 const X) {
+  return X[0][0]*X[1][1] - X[1][0]*X[0][1];
+}
+
+dbl dbl22_trace(dbl22 const A) {
+  return A[0][0] + A[1][1];
+}
+
+void dbl22_add(dbl22 const A, dbl22 const B, dbl22 C) {
   C[0][0] = A[0][0] + B[0][0];
   C[0][1] = A[0][1] + B[0][1];
   C[1][0] = A[1][0] + B[1][0];
   C[1][1] = A[1][1] + B[1][1];
 }
 
-void dbl22_mul(dbl const A[2][2], dbl const B[2][2], dbl C[2][2]) {
-  dbl22_zero(C);
-  for (size_t i = 0; i < 2; ++i)
-    for (size_t j = 0; j < 2; ++j)
-      for (size_t k = 0; k < 2; ++k)
-        C[i][j] += A[i][k]*B[k][j];
+void dbl22_add_inplace(dbl22 A, dbl22 const B) {
+  A[0][0] += B[0][0];
+  A[0][1] += B[0][1];
+  A[1][0] += B[1][0];
+  A[1][1] += B[1][1];
 }
 
-void dbl22_dbl2_solve(dbl A[2][2], dbl b[2], dbl x[2]) {
-  dbl det = A[0][0]*A[1][1] - A[0][1]*A[1][0];
-  x[0] = (A[1][1]*b[0] - A[1][0]*b[1])/det;
-  x[1] = (A[0][0]*b[1] - A[0][1]*b[0])/det;
+void dbl22_copy(dbl22 const A, dbl22 B) {
+  memcpy(B, A, sizeof(dbl22));
 }
 
-dbl dbl22_trace(dbl const A[2][2]) {
-  return A[0][0] + A[1][1];
-}
-
-void dbl22_dbl2_mul(dbl const A[2][2], dbl const x[2], dbl b[2]) {
+void dbl22_dbl2_mul(dbl22 const A, dbl2 const x, dbl2 b) {
   b[0] = A[0][0]*x[0] + A[0][1]*x[1];
   b[1] = A[1][0]*x[0] + A[1][1]*x[1];
 }
 
-bool dbl22_isfinite(dbl const A[2][2]) {
-  return isfinite(A[0][0]) && isfinite(A[1][0]) && isfinite(A[0][1])
-    && isfinite(A[1][1]);
+void dbl22_dbl2_solve(dbl22 const A, dbl2 const b, dbl2 x) {
+  dbl det = dbl22_det(A);
+  x[0] = (A[1][1]*b[0] - A[1][0]*b[1])/det;
+  x[1] = (A[0][0]*b[1] - A[0][1]*b[0])/det;
 }
 
-void dbl22_eye(dbl eye[2][2]) {
+void dbl22_dbl_div(dbl22 const A, dbl a, dbl22 B) {
+  B = DBL22(A[0][0]/a, A[0][1]/a,
+            A[1][0]/a, A[1][1]/a);
+}
+
+void dbl22_dbl_div_inplace(dbl22 A, dbl a) {
+  A[0][0] /= a;
+  A[0][1] /= a;
+  A[1][0] /= a;
+  A[1][1] /= a;
+}
+
+void dbl22_dbl_mul(dbl22 const A, dbl a, dbl22 B) {
+  B = DBL22(a*A[0][0], a*A[0][1],
+            a*A[1][0], a*A[1][1]);
+}
+
+void dbl22_eigvals(dbl22 const A, dbl2 lam) {
+  dbl tr = dbl22_trace(A);
+  dbl disc = tr*tr - 4*dbl22_det(A);
+  assert(disc >= 0);
+  dbl tmp = sqrt(disc);
+  lam[0] = (tr + tmp)/2;
+  lam[1] = (tr - tmp)/2;
+}
+
+void dbl22_eye(dbl22 eye) {
   eye[0][0] = eye[1][1] = 1;
   eye[1][0] = eye[0][1] = 0;
 }
 
-void dbl22_saxpy(dbl a, dbl const X[2][2], dbl const Y[2][2], dbl Z[2][2]) {
-  for (size_t i = 0; i < 2; ++i)
-    for (size_t j = 0; j < 2; ++j)
-      Z[i][j] = a*X[i][j] + Y[i][j];
-}
-
-dbl dbl22_det(dbl const X[2][2]) {
-  return X[0][0]*X[1][1] - X[1][0]*X[0][1];
-}
-
-void dbl22_inv(dbl const X[2][2], dbl Y[2][2]) {
+void dbl22_inv(dbl22 const X, dbl22 Y) {
   dbl det = dbl22_det(X);
   Y[0][0] = X[1][1]/det;
   Y[1][1] = X[0][0]/det;
@@ -67,7 +88,7 @@ void dbl22_inv(dbl const X[2][2], dbl Y[2][2]) {
   Y[0][1] = -X[0][1]/det;
 }
 
-void dbl22_invert(dbl X[2][2]) {
+void dbl22_invert(dbl22 X) {
   dbl det = dbl22_det(X);
   SWAP(X[0][0], X[1][1]);
   X[1][0] *= -1;
@@ -77,14 +98,63 @@ void dbl22_invert(dbl X[2][2]) {
       X[i][j] /= det;
 }
 
-void dbl3_dbl33_mul(dbl const x[3], dbl const A[3][3], dbl b[3]) {
-  b[0] = b[1] = b[2] = 0;
-  for (size_t i = 0; i < 3; ++i)
-    for (size_t j = 0; j < 3; ++j)
-      b[j] += x[i]*A[i][j];
+void dbl22_mul(dbl22 const A, dbl22 const B, dbl22 C) {
+  dbl22_zero(C);
+  for (size_t i = 0; i < 2; ++i)
+    for (size_t j = 0; j < 2; ++j)
+      for (size_t k = 0; k < 2; ++k)
+        C[i][j] += A[i][k]*B[k][j];
 }
 
-dbl dbl3_dbl33_dbl3_dot(dbl const x[3], dbl const A[3][3], dbl const y[3]) {
+void dbl22_saxpy(dbl a, dbl22 const X, dbl22 const Y, dbl22 Z) {
+  for (size_t i = 0; i < 2; ++i)
+    for (size_t j = 0; j < 2; ++j)
+      Z[i][j] = a*X[i][j] + Y[i][j];
+}
+
+void dbl22_sub(dbl22 const A, dbl22 const B, dbl22 C) {
+  C[0][0] = A[0][0] - B[0][0];
+  C[0][1] = A[0][1] - B[0][1];
+  C[1][0] = A[1][0] - B[1][0];
+  C[1][1] = A[1][1] - B[1][1];
+}
+
+void dbl22_transpose(dbl22 A) {
+  SWAP(A[0][1], A[1][0]);
+}
+
+void dbl22_zero(dbl22 A) {
+  A[0][0] = A[1][0] = A[0][1] = A[1][1] = 0;
+}
+
+void dbl2_outer(dbl2 const u, dbl2 const v, dbl22 uv) {
+  uv = DBL22(u[0]*v[0], u[0]*v[1],
+             u[1]*v[0], u[1]*v[1]);
+}
+
+bool dbl33_isfinite(dbl33 const A) {
+  for (size_t i = 0; i < 3; ++i)
+    for (size_t j = 0; j < 3; ++j)
+      if (!isfinite(A[i][j]))
+        return false;
+  return true;
+}
+
+bool dbl33_isnan(dbl33 const A) {
+  for (size_t i = 0; i < 3; ++i)
+    for (size_t j = 0; j < 3; ++j)
+      if (!isnan(A[i][j]))
+        return false;
+  return true;
+}
+
+dbl dbl33_det(dbl33 const A) {
+  return A[0][0]*(A[1][1]*A[2][2] - A[1][2]*A[2][1])
+       - A[0][1]*(A[1][0]*A[2][2] - A[1][2]*A[2][0])
+       + A[0][2]*(A[1][0]*A[2][1] - A[1][1]*A[2][0]);
+}
+
+dbl dbl3_dbl33_dbl3_dot(dbl3 const x, dbl33 const A, dbl3 const y) {
   dbl tmp = 0;
   for (size_t i = 0; i < 3; ++i)
     for (size_t j = 0; j < 3; ++j)
@@ -92,10 +162,10 @@ dbl dbl3_dbl33_dbl3_dot(dbl const x[3], dbl const A[3][3], dbl const y[3]) {
   return tmp;
 }
 
-void dbl3_outer(dbl u[3], dbl v[3], dbl uv[3][3]) {
+void dbl33_add(dbl33 const A, dbl33 const B, dbl33 C) {
   for (int i = 0; i < 3; ++i) {
     for (int j = 0; j < 3; ++j) {
-      uv[i][j] = u[i]*v[j];
+      C[i][j] = A[i][j] + B[i][j];
     }
   }
 }
@@ -104,111 +174,31 @@ void dbl33_copy(dbl33 const in, dbl33 out) {
   memcpy(out, in, sizeof(dbl33));
 }
 
-void dbl33_nan(dbl A[3][3]) {
-  for (size_t i = 0; i < 3; ++i)
-    for (size_t j = 0; j < 3; ++j)
-      A[i][j] = NAN;
-}
-
-void dbl33_zero(dbl A[3][3]) {
-  for (size_t i = 0; i < 3; ++i)
-    for (size_t j = 0; j < 3; ++j)
-      A[i][j] = 0;
-}
-
-void dbl33_eye(dbl A[3][3]) {
-  A[0][0] = 1; A[0][1] = 0; A[0][2] = 0;
-  A[1][0] = 0; A[1][1] = 1; A[1][2] = 0;
-  A[2][0] = 0; A[2][1] = 0; A[2][2] = 1;
-}
-
-void dbl33_add(dbl const A[3][3], dbl const B[3][3], dbl C[3][3]) {
-  for (int i = 0; i < 3; ++i) {
-    for (int j = 0; j < 3; ++j) {
-      C[i][j] = A[i][j] + B[i][j];
-    }
-  }
-}
-
-void dbl33_mul(dbl A[3][3], dbl B[3][3], dbl C[3][3]) {
-  memset((void *)C, 0x0, sizeof(dbl)*3*3);
-  for (int i = 0; i < 3; ++i) {
-    for (int j = 0; j < 3; ++j) {
-      for (int k = 0; k < 3; ++k) {
-        C[i][j] += A[i][k]*B[k][j];
-      }
-    }
-  }
-}
-
-void dbl33_sub(dbl A[3][3], dbl B[3][3], dbl C[3][3]) {
-  for (int i = 0; i < 3; ++i) {
-    for (int j = 0; j < 3; ++j) {
-      C[i][j] = A[i][j] - B[i][j];
-    }
-  }
-}
-
-void dbl33_dbl3_mul(dbl const A[3][3], dbl const x[3], dbl b[3]) {
-  memset((void *)b, 0x0, sizeof(dbl)*3);
-  for (int i = 0; i < 3; ++i) {
-    for (int j = 0; j < 3; ++j) {
+void dbl33_dbl3_mul(dbl33 const A, dbl3 const x, dbl3 b) {
+  dbl3_zero(b);
+  for (int i = 0; i < 3; ++i)
+    for (int j = 0; j < 3; ++j)
       b[i] += A[i][j]*x[j];
-    }
-  }
 }
 
-void dbl33_dbl3_mul_inplace(dbl const A[3][3], dbl x[3]) {
-  dbl x_[3] = {x[0], x[1], x[2]};
-  dbl33_dbl3_mul(A, x_, x);
+void dbl33_dbl3_mul_inplace(dbl33 const A, dbl3 x) {
+  dbl3 b;
+  dbl33_dbl3_mul(A, x, b);
+  dbl3_copy(b, x);
 }
 
-void dbl33_dbl3_nmul(dbl const A[3][3], dbl const x[3], dbl b[3]) {
+void dbl33_dbl3_nmul(dbl33 const A, dbl3 const x, dbl3 b) {
   for (int i = 0; i < 3; ++i)
     b[i] = dbl3_ndot(A[i], x);
 }
 
-void dbl33_transpose(dbl A[3][3]) {
-  SWAP(A[1][0], A[0][1]);
-  SWAP(A[2][0], A[0][2]);
-  SWAP(A[2][1], A[1][2]);
-}
-
-void dbl33_transposed(dbl const A[3][3], dbl At[3][3]) {
-  memcpy((void *)At, (void *)A, sizeof(dbl)*3*3);
-  SWAP(At[1][0], At[0][1]);
-  SWAP(At[2][0], At[0][2]);
-  SWAP(At[2][1], At[1][2]);
-}
-
-void dbl33_dbl_div(dbl const A[3][3], dbl a, dbl B[3][3]) {
-  for (int i = 0; i < 3; ++i) {
-    for (int j = 0; j < 3; ++j) {
-      B[i][j] = A[i][j]/a;
-    }
-  }
-}
-
-void dbl33_dbl_div_inplace(dbl A[3][3], dbl a) {
-  for (int i = 0; i < 3; ++i) {
-    for (int j = 0; j < 3; ++j) {
-      A[i][j] /= a;
-    }
-  }
-}
-
-dbl dbl33_det(dbl const A[3][3]) {
-  return A[0][0]*(A[1][1]*A[2][2] - A[1][2]*A[2][1])
-       - A[0][1]*(A[1][0]*A[2][2] - A[1][2]*A[2][0])
-       + A[0][2]*(A[1][0]*A[2][1] - A[1][1]*A[2][0]);
-}
-
-void dbl33_dbl3_solve(dbl const A[3][3], dbl const b[3], dbl x[3]) {
+void dbl33_dbl3_solve(dbl33 const A, dbl3 const b, dbl3 x) {
   // TODO: bad---solving using Cramer's rule... need to implement
   // pivoted LU instead
   dbl det = dbl33_det(A);
-  dbl tmp[3], A_[3][3];
-  memcpy(A_, A, sizeof(dbl[3][3]));
+  dbl3 tmp;
+  dbl33 A_;
+  memcpy(A_, A, sizeof(dbl33));
   for (int j = 0; j < 3; ++j) {
     dbl33_get_column(A_, j, tmp);
     dbl33_set_column(A_, j, b);
@@ -217,45 +207,28 @@ void dbl33_dbl3_solve(dbl const A[3][3], dbl const b[3], dbl x[3]) {
   }
 }
 
-void dbl33_get_column(dbl const A[3][3], int i, dbl x[3]) {
+void dbl33_dbl_div(dbl33 const A, dbl a, dbl33 B) {
+  for (int i = 0; i < 3; ++i)
+    for (int j = 0; j < 3; ++j)
+      B[i][j] = A[i][j]/a;
+}
+
+void dbl33_dbl_div_inplace(dbl33 A, dbl a) {
+  for (int i = 0; i < 3; ++i)
+    for (int j = 0; j < 3; ++j)
+      A[i][j] /= a;
+}
+
+void dbl33_eye(dbl33 A) {
+  A[0][0] = 1; A[0][1] = 0; A[0][2] = 0;
+  A[1][0] = 0; A[1][1] = 1; A[1][2] = 0;
+  A[2][0] = 0; A[2][1] = 0; A[2][2] = 1;
+}
+
+void dbl33_get_column(dbl33 const A, int i, dbl3 x) {
   x[0] = A[0][i];
   x[1] = A[1][i];
   x[2] = A[2][i];
-}
-
-void dbl33_set_column(dbl A[3][3], int i, dbl const x[3]) {
-  A[0][i] = x[0];
-  A[1][i] = x[1];
-  A[2][i] = x[2];
-}
-
-bool dbl33_isfinite(dbl const A[3][3]) {
-  for (size_t i = 0; i < 3; ++i)
-    for (size_t j = 0; j < 3; ++j)
-      if (!isfinite(A[i][j]))
-        return false;
-  return true;
-}
-
-bool dbl33_isnan(dbl const A[3][3]) {
-  for (size_t i = 0; i < 3; ++i)
-    for (size_t j = 0; j < 3; ++j)
-      if (!isnan(A[i][j]))
-        return false;
-  return true;
-}
-
-void dbl33_cc(dbl const A0[3][3], dbl const A1[3][3], dbl t0, dbl At[3][3]) {
-  dbl t1 = 1 - t0;
-  for (size_t i = 0; i < 3; ++i)
-    for (size_t j = 0; j < 3; ++j)
-      At[i][j] = t0*A0[i][j] + t1*A1[i][j];
-}
-
-void dbl33_symmetrize(dbl33 A) {
-  A[1][0] = A[0][1] = (A[1][0] + A[0][1])/2;
-  A[2][0] = A[0][2] = (A[2][0] + A[0][2])/2;
-  A[2][1] = A[1][2] = (A[2][1] + A[1][2])/2;
 }
 
 void dbl33_make_axis_angle_rotation_matrix(dbl3 axis, dbl angle, dbl33 rot) {
@@ -280,24 +253,143 @@ void dbl33_make_axis_angle_rotation_matrix(dbl3 axis, dbl angle, dbl33 rot) {
   rot[2][2] = ci*z*z + c;
 }
 
-void dbl4_dbl43_mul(dbl const b[4], dbl const A[4][3], dbl x[3]) {
-  for (size_t j = 0; j < 3; ++j) {
-    x[j] = 0;
+void dbl33_mul(dbl33 const A, dbl33 const B, dbl33 C) {
+  dbl33_zero(C);
+  for (int i = 0; i < 3; ++i)
+    for (int j = 0; j < 3; ++j)
+      for (int k = 0; k < 3; ++k)
+        C[i][j] += A[i][k]*B[k][j];
+}
+
+void dbl33_nan(dbl33 A) {
+  for (size_t i = 0; i < 3; ++i)
+    for (size_t j = 0; j < 3; ++j)
+      A[i][j] = NAN;
+}
+
+void dbl33_set_column(dbl33 A, int i, dbl3 const x) {
+  A[0][i] = x[0];
+  A[1][i] = x[1];
+  A[2][i] = x[2];
+}
+
+void dbl33_sub(dbl33 const A, dbl33 const B, dbl33 C) {
+  for (int i = 0; i < 3; ++i)
+    for (int j = 0; j < 3; ++j)
+      C[i][j] = A[i][j] - B[i][j];
+}
+
+void dbl33_symmetrize(dbl33 A) {
+  A[1][0] = A[0][1] = (A[1][0] + A[0][1])/2;
+  A[2][0] = A[0][2] = (A[2][0] + A[0][2])/2;
+  A[2][1] = A[1][2] = (A[2][1] + A[1][2])/2;
+}
+
+void dbl33_transpose(dbl33 A) {
+  SWAP(A[1][0], A[0][1]);
+  SWAP(A[2][0], A[0][2]);
+  SWAP(A[2][1], A[1][2]);
+}
+
+void dbl33_transposed(dbl33 const A, dbl33 At) {
+  memcpy((void *)At, (void *)A, sizeof(dbl)*3*3);
+  SWAP(At[1][0], At[0][1]);
+  SWAP(At[2][0], At[0][2]);
+  SWAP(At[2][1], At[1][2]);
+}
+
+void dbl33_zero(dbl33 A) {
+  for (size_t i = 0; i < 3; ++i)
+    for (size_t j = 0; j < 3; ++j)
+      A[i][j] = 0;
+}
+
+void dbl3_dbl33_mul(dbl3 const x, dbl33 const A, dbl3 b) {
+  dbl3_zero(b);
+  for (size_t i = 0; i < 3; ++i)
+    for (size_t j = 0; j < 3; ++j)
+      b[j] += x[i]*A[i][j];
+}
+
+void dbl3_outer(dbl3 const u, dbl3 const v, dbl33 uv) {
+  for (int i = 0; i < 3; ++i)
+    for (int j = 0; j < 3; ++j)
+      uv[i][j] = u[i]*v[j];
+}
+
+void dbl4_dbl43_mul(dbl4 const b, dbl43 const A, dbl3 x) {
+  dbl3_zero(x);
+  for (size_t j = 0; j < 3; ++j)
     for (size_t i = 0; i < 4; ++i)
       x[j] += b[i]*A[i][j];
-  }
 }
 
-void dbl43_dbl3_mul(dbl const A[4][3], dbl const b[3], dbl x[4]) {
-  for (size_t i = 0; i < 4; ++i) {
-    x[i] = 0;
+void dbl43_dbl3_mul(dbl43 const A, dbl3 const b, dbl4 x) {
+  dbl4_zero(x);
+  for (size_t i = 0; i < 4; ++i)
     for (size_t j = 0; j < 3; ++j)
       x[i] = A[i][j]*b[j];
-  }
 }
 
-void dbl44_dbl4_solve(dbl const A[4][4], dbl const b[4], dbl x[4]) {
-  dbl LU[4][4];
+dbl dbl44_det(dbl44 const A) {
+  dbl tmp1[6], tmp2[4];
+
+  tmp1[0] =  A[1][1]*A[2][2]*A[3][3];
+  tmp1[1] = -A[1][1]*A[3][2]*A[2][3];
+  tmp1[2] = -A[1][2]*A[2][1]*A[3][3];
+  tmp1[3] =  A[1][2]*A[3][1]*A[2][3];
+  tmp1[4] =  A[1][3]*A[2][1]*A[3][2];
+  tmp1[5] = -A[1][3]*A[3][1]*A[2][2];
+
+  tmp2[0] =  A[0][0]*dblN_nsum(tmp1, 6);
+
+  tmp1[0] =  A[1][0]*A[2][2]*A[3][3];
+  tmp1[1] = -A[1][0]*A[3][2]*A[2][3];
+  tmp1[2] = -A[1][2]*A[2][0]*A[3][3];
+  tmp1[3] =  A[1][2]*A[3][0]*A[2][3];
+  tmp1[4] =  A[1][3]*A[2][0]*A[3][2];
+  tmp1[5] = -A[1][3]*A[3][0]*A[2][2];
+
+  tmp2[1] = -A[0][1]*dblN_nsum(tmp1, 6);
+
+  tmp1[0] =  A[1][0]*A[2][1]*A[3][3];
+  tmp1[1] = -A[1][0]*A[3][1]*A[2][3];
+  tmp1[2] = -A[1][1]*A[2][0]*A[3][3];
+  tmp1[3] =  A[1][1]*A[3][0]*A[2][3];
+  tmp1[4] =  A[1][3]*A[2][0]*A[3][1];
+  tmp1[5] = -A[1][3]*A[3][0]*A[2][1];
+
+  tmp2[2] =  A[0][2]*dblN_nsum(tmp1, 6);
+
+  tmp1[0] =  A[1][0]*A[2][1]*A[3][2];
+  tmp1[1] = -A[1][0]*A[3][1]*A[2][2];
+  tmp1[2] = -A[1][1]*A[2][0]*A[3][2];
+  tmp1[3] =  A[1][1]*A[3][0]*A[2][2];
+  tmp1[4] =  A[1][2]*A[2][0]*A[3][1];
+  tmp1[5] = -A[1][2]*A[3][0]*A[2][1];
+
+  tmp2[3] = -A[0][3]*dblN_nsum(tmp1, 6);
+
+  return dblN_nsum(tmp2, 4);
+}
+
+dbl dbl4_dbl44_dbl4_dot(dbl4 const x, dbl44 const A, dbl4 const y) {
+  dbl z = 0;
+  for (size_t i = 0; i < 4; ++i)
+    for (size_t j = 0; j < 4; ++j)
+      z += x[i]*A[i][j]*y[j];
+  return z;
+}
+
+void dbl44_dbl4_mul(dbl44 const A, dbl4 const x, dbl4 b) {
+  dbl4_zero(b);
+  for (size_t i = 0; i < 4; ++i)
+    for (size_t j = 0; j < 4; ++j)
+      b[i] += A[i][j]*x[j];
+}
+
+void dbl44_dbl4_solve(dbl44 const A, dbl4 const b, dbl4 x) {
+  dbl44 LU;
   memcpy(LU, A, 4*4*sizeof(dbl));
 
   dbl const n = 4;
@@ -356,295 +448,33 @@ void dbl44_dbl4_solve(dbl const A[4][4], dbl const b[4], dbl x[4]) {
   }
 }
 
-dbl dbl44_det(dbl const A[4][4]) {
-  dbl tmp1[6], tmp2[4];
-
-  tmp1[0] =  A[1][1]*A[2][2]*A[3][3];
-  tmp1[1] = -A[1][1]*A[3][2]*A[2][3];
-  tmp1[2] = -A[1][2]*A[2][1]*A[3][3];
-  tmp1[3] =  A[1][2]*A[3][1]*A[2][3];
-  tmp1[4] =  A[1][3]*A[2][1]*A[3][2];
-  tmp1[5] = -A[1][3]*A[3][1]*A[2][2];
-
-  tmp2[0] =  A[0][0]*dblN_nsum(tmp1, 6);
-
-  tmp1[0] =  A[1][0]*A[2][2]*A[3][3];
-  tmp1[1] = -A[1][0]*A[3][2]*A[2][3];
-  tmp1[2] = -A[1][2]*A[2][0]*A[3][3];
-  tmp1[3] =  A[1][2]*A[3][0]*A[2][3];
-  tmp1[4] =  A[1][3]*A[2][0]*A[3][2];
-  tmp1[5] = -A[1][3]*A[3][0]*A[2][2];
-
-  tmp2[1] = -A[0][1]*dblN_nsum(tmp1, 6);
-
-  tmp1[0] =  A[1][0]*A[2][1]*A[3][3];
-  tmp1[1] = -A[1][0]*A[3][1]*A[2][3];
-  tmp1[2] = -A[1][1]*A[2][0]*A[3][3];
-  tmp1[3] =  A[1][1]*A[3][0]*A[2][3];
-  tmp1[4] =  A[1][3]*A[2][0]*A[3][1];
-  tmp1[5] = -A[1][3]*A[3][0]*A[2][1];
-
-  tmp2[2] =  A[0][2]*dblN_nsum(tmp1, 6);
-
-  tmp1[0] =  A[1][0]*A[2][1]*A[3][2];
-  tmp1[1] = -A[1][0]*A[3][1]*A[2][2];
-  tmp1[2] = -A[1][1]*A[2][0]*A[3][2];
-  tmp1[3] =  A[1][1]*A[3][0]*A[2][2];
-  tmp1[4] =  A[1][2]*A[2][0]*A[3][1];
-  tmp1[5] = -A[1][2]*A[3][0]*A[2][1];
-
-  tmp2[3] = -A[0][3]*dblN_nsum(tmp1, 6);
-
-  return dblN_nsum(tmp2, 4);
-}
-
-void dbl44_get_col(dbl const A[4][4], int j, dbl a[4]) {
+void dbl44_get_column(dbl44 const A, int j, dbl4 a) {
   for (int i = 0; i < 4; ++i) {
     a[i] = A[i][j];
   }
 }
 
-void dbl44_set_col(dbl A[4][4], int j, dbl const a[4]) {
+void dbl44_mul(dbl44 const A, dbl44 const B, dbl44 C) {
+  dbl44_zero(C);
+  for (size_t i = 0; i < 4; ++i)
+    for (size_t j = 0; j < 4; ++j)
+      for (size_t k = 0; k < 4; ++k)
+        C[i][j] += A[i][k]*B[k][j];
+}
+
+void dbl44_set_column(dbl44 A, int j, dbl4 const a) {
   for (int i = 0; i < 4; ++i) {
     A[i][j] = a[i];
   }
 }
 
-dmat22 dmat22_add(dmat22 A, dmat22 B) {
-  return (dmat22) {
-    .rows = {
-      {A.rows[0].x + B.rows[0].x, A.rows[0].y + B.rows[0].y},
-      {A.rows[1].x + B.rows[1].x, A.rows[1].y + B.rows[1].y},
-    }
-  };
+void dbl4_dbl44_mul(dbl4 const x, dbl44 const A, dbl4 b) {
+  dbl4_zero(b);
+  for (size_t i = 0; i < 4; ++i)
+    for (size_t j = 0; j < 4; ++j)
+      b[j] = x[i]*A[i][j];
 }
 
-dmat22 dmat22_sub(dmat22 A, dmat22 B) {
-  return (dmat22) {
-    .rows = {
-      {A.rows[0].x - B.rows[0].x, A.rows[0].y - B.rows[0].y},
-      {A.rows[1].x - B.rows[1].x, A.rows[1].y - B.rows[1].y},
-    }
-  };
-}
-
-dmat22 dmat22_mul(dmat22 A, dmat22 B) {
-  dmat22 C;
-  for (int i = 0; i < 2; ++i) {
-    for (int j = 0; j < 2; ++j) {
-      C.data[i][j] = 0;
-      for (int k = 0; k < 2; ++k) {
-        C.data[i][j] += A.data[i][k]*B.data[k][j];
-      }
-    }
-  }
-  return C;
-}
-
-dmat22 dmat22_dbl_mul(dmat22 A, dbl a) {
-  return (dmat22) {
-    .rows = {
-      {a*A.rows[0].x, a*A.rows[0].y},
-      {a*A.rows[1].x, a*A.rows[1].y}
-    }
-  };
-}
-
-dmat22 dmat22_dbl_div(dmat22 A, dbl a) {
-  return (dmat22) {
-    .rows = {
-      {A.rows[0].x/a, A.rows[0].y/a},
-      {A.rows[1].x/a, A.rows[1].y/a}
-    }
-  };
-}
-
-dvec2 dmat22_dvec2_mul(dmat22 A, dvec2 x) {
-  return (dvec2) {
-    A.rows[0].x*x.x + A.rows[0].y*x.y,
-    A.rows[1].x*x.x + A.rows[1].y*x.y
-  };
-}
-
-dvec2 dmat22_dvec2_solve(dmat22 A, dvec2 b) {
-  dbl det = A.data[0][0]*A.data[1][1] - A.data[0][1]*A.data[1][0];
-  return (dvec2) {
-    .x = (A.data[1][1]*b.x - A.data[0][1]*b.y)/det,
-    .y = (A.data[0][0]*b.y - A.data[1][0]*b.x)/det
-  };
-}
-
-dmat22 dvec2_outer(dvec2 u, dvec2 v) {
-  return (dmat22) {
-    .rows = {
-      {u.x*v.x, u.x*v.y},
-      {u.y*v.x, u.y*v.y}
-    }
-  };
-}
-
-void dmat22_invert(dmat22 *A) {
-  dbl det = A->data[0][0]*A->data[1][1] - A->data[1][0]*A->data[0][1];
-  *A = (dmat22) {
-    .rows = {
-      { A->rows[1].y/det, -A->rows[0].y/det},
-      {-A->rows[1].x/det,  A->rows[0].x/det}
-    }
-  };
-}
-
-dbl dmat22_trace(dmat22 const *A) {
-  return A->data[0][0] + A->data[1][1];
-}
-
-dbl dmat22_det(dmat22 const *A) {
-  return A->data[0][0]*A->data[1][1] - A->data[0][1]*A->data[1][0];
-}
-
-void dmat22_eigvals(dmat22 const *A, dbl *lam1, dbl *lam2) {
-  dbl tr = dmat22_trace(A);
-  dbl disc = tr*tr - 4*dmat22_det(A);
-  assert(disc >= 0);
-  dbl tmp = sqrt(disc);
-  *lam1 = (tr + tmp)/2;
-  *lam2 = (tr - tmp)/2;
-}
-
-void dmat22_transpose(dmat22 *A) {
-  dbl tmp = A->data[1][0];
-  A->data[1][0] = A->data[0][1];
-  A->data[0][1] = tmp;
-}
-
-#define a(i, j) A->rows[i].data[j]
-
-dbl dmat33_det(dmat33 const *A) {
-  return a(0, 0)*(a(1, 1)*a(2, 2) - a(1, 2)*a(2, 1)) -
-    a(0, 1)*(a(1, 0)*a(2, 2) - a(1, 2)*a(2, 0)) +
-    a(0, 2)*(a(1, 0)*a(2, 1) - a(1, 1)*a(2, 0));
-}
-
-#undef a
-
-dmat33 dmat33_eye(void) {
-  dmat33 eye;
-  memset(&eye, 0x0, sizeof(dmat33));
-  eye.rows[0].data[0] = 1;
-  eye.rows[1].data[1] = 1;
-  eye.rows[2].data[2] = 1;
-  return eye;
-}
-
-dvec3 dmat33_getcol(dmat33 const *A, int j) {
-  dvec3 a;
-  for (int i = 0; i < 3; ++i) {
-    a.data[i] = A->rows[j].data[i];
-  }
-  return a;
-}
-
-void dmat33_setcol(dmat33 *A, dvec3 a, int j) {
-  for (int i = 0; i < 3; ++i) {
-    A->rows[j].data[i] = a.data[i];
-  }
-}
-
-dvec3 dmat33_dvec3_mul(dmat33 A, dvec3 x) {
-  return (dvec3) {
-    .data = {
-      dvec3_dot(A.rows[0], x),
-      dvec3_dot(A.rows[1], x),
-      dvec3_dot(A.rows[2], x)
-    }
-  };
-}
-
-dmat33 dmat33_dbl_div(dmat33 A, dbl a) {
-  return (dmat33) {
-    .rows = {
-      dvec3_dbl_div(A.rows[0], a),
-      dvec3_dbl_div(A.rows[1], a),
-      dvec3_dbl_div(A.rows[2], a)
-    }
-  };
-}
-
-dvec3 dmat33_dvec3_solve(dmat33 A, dvec3 b) {
-  dbl det = dmat33_det(&A);
-  dvec3 x, tmp;
-  for (int j = 0; j < 3; ++j) {
-    tmp = dmat33_getcol(&A, j);
-    dmat33_setcol(&A, b, j);
-    x.data[j] = dmat33_det(&A)/det;
-    dmat33_setcol(&A, tmp, j);
-  }
-  return x;
-}
-
-dmat33 dmat33_mul(dmat33 A, dmat33 B) {
-  dmat33 C;
-  for (int i = 0; i < 3; ++i) {
-    for (int j = 0; j < 3; ++j) {
-      C.rows[i].data[j] = dvec3_dot(A.rows[i], dmat33_getcol(&B, j));
-    }
-  }
-  return C;
-}
-
-dmat33 dmat33_sub(dmat33 A, dmat33 B) {
-  return (dmat33) {
-    .rows = {
-      dvec3_sub(A.rows[0], B.rows[0]),
-      dvec3_sub(A.rows[1], B.rows[1]),
-      dvec3_sub(A.rows[2], B.rows[2])
-    }
-  };
-}
-
-dmat33 dvec3_outer(dvec3 u, dvec3 v) {
-  dmat33 uv;
-  for (int i = 0; i < 3; ++i) {
-    for (int j = 0; j < 3; ++j) {
-      uv.rows[i].data[j] = u.data[i]*v.data[j];
-    }
-  }
-  return uv;
-}
-
-void dmat33_transpose(dmat33 *A) {
-  SWAP(A->rows[1].data[0], A->rows[0].data[1]);
-  SWAP(A->rows[2].data[0], A->rows[0].data[2]);
-  SWAP(A->rows[2].data[1], A->rows[1].data[2]);
-}
-
-dvec4 dmat44_dvec4_mul(dmat44 const A, dvec4 const x) {
-  dvec4 y;
-  for (int i = 0; i < 4; ++i) {
-    y.data[i] = dvec4_dot(A.rows[i], x);
-  }
-  return y;
-}
-
-dvec4 dvec4_dmat44_mul(dvec4 const x, dmat44 const A) {
-  dvec4 y;
-  for (int j = 0; j < 4; ++j) {
-    y.data[j] = dvec4_dot(x, dmat44_col(A, j));
-  }
-  return y;
-}
-
-dmat44 dmat44_dmat44_mul(dmat44 const A, dmat44 const B) {
-  dmat44 C;
-  for (int i = 0; i < 4; ++i) {
-    C.rows[i] = dvec4_dmat44_mul(A.rows[i], B);
-  }
-  return C;
-}
-
-dvec4 dmat44_col(dmat44 const A, int j) {
-  dvec4 a;
-  for (int i = 0; i < 4; ++i) {
-    a.data[i] = A.rows[i].data[j];
-  }
-  return a;
+void dbl44_zero(dbl44 A) {
+  memset(A, 0x0, sizeof(dbl44));
 }

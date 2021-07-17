@@ -5,141 +5,142 @@
 #include <assert.h>
 #include <stddef.h>
 
-int ind2l(ivec2 shape, ivec2 ind) {
+int ind2l(int2 const shape, int2 const ind) {
 #if ORDERING == ROW_MAJOR_ORDERING
-  return ind.j + shape.j*ind.i;
+  return ind[1] + shape[1]*ind[0];
 #else
-  return shape.i*ind.j + ind.i;
+  return shape[0]*ind[1] + ind[0];
 #endif
 }
 
-int ind2lc(ivec2 shape, ivec2 ind) {
+int ind2lc(int2 const shape, int2 const ind) {
 #if ORDERING == ROW_MAJOR_ORDERING
-  return ind.j + (shape.j - 1)*ind.i;
+  return ind[1] + (shape[1] - 1)*ind[0];
 #else
-  return (shape.i - 1)*ind.j + ind.i;
+  return (shape[0] - 1)*ind[1] + ind[0];
 #endif
 }
 
-int indc2l(ivec2 shape, ivec2 indc) {
+int indc2l(int2 const shape, int2 const indc) {
 #if ORDERING == ROW_MAJOR_ORDERING
-  return indc.j + shape.j*indc.i;
+  return indc[1] + shape[1]*indc[0];
 #else
-  return shape.i*indc.j + indc.i;
+  return shape[0]*indc[1] + indc[0];
 #endif
 }
 
-int indc2lc(ivec2 shape, ivec2 indc) {
+int indc2lc(int2 const shape, int2 const indc) {
 #if ORDERING == ROW_MAJOR_ORDERING
-  return indc.j + (shape.j - 1)*indc.i;
+  return indc[1] + (shape[1] - 1)*indc[0];
 #else
-  return (shape.i - 1)*indc.j + indc.i;
+  return (shape[0] - 1)*indc[1] + indc[0];
 #endif
 }
 
-ivec2 l2ind(ivec2 shape, int l) {
+void l2ind(int2 const shape, int l, int2 ind) {
 #if ORDERING == ROW_MAJOR_ORDERING
-  ivec2 ind = {.i = l/shape.j, .j = l % shape.j};
+  ind[0] = l/shape[1];
+  ind[1] = l % shape[1];
 #else
-  ivec2 ind = {.i = l % shape.i, .j = l/shape.i};
-#endif
-  return ind;
-}
-
-ivec2 l2indc(ivec2 shape, int l) {
-#if ORDERING == ROW_MAJOR_ORDERING
-  ivec2 indc = {.i = l/shape.j, .j = l % shape.j};
-#else
-  ivec2 indc = {.i = l % shape.i, .j = l/shape.i};
-#endif
-  return indc;
-}
-
-ivec2 lc2ind(ivec2 shape, int lc) {
-#if ORDERING == ROW_MAJOR_ORDERING
-  ivec2 ind = {.i = lc/(shape.j - 1), .j = lc % (shape.j - 1)};
-#else
-  ivec2 ind = {.i = lc % (shape.i - 1), .j = lc/(shape.i - 1)};
-#endif
-  return ind;
-}
-
-ivec2 lc2indc(ivec2 shape, int lc) {
-#if ORDERING == ROW_MAJOR_ORDERING
-  ivec2 indc = {.i = lc/(shape.j - 1), .j = lc % (shape.j - 1)};
-#else
-  ivec2 indc = {.i = lc % (shape.i - 1), .j = lc/(shape.i - 1)};
-#endif
-  return indc;
-}
-
-int l2lc(ivec2 shape, int l) {
-#if ORDERING == ROW_MAJOR_ORDERING
-  return l - l/shape.j;
-#else
-  return l - l/shape.i;
+  ind[0] = l % shape[0];
+  int[1] = l/shape[0];
 #endif
 }
 
-int lc2l(ivec2 shape, int lc) {
+void l2indc(int2 const shape, int l, int2 indc) {
 #if ORDERING == ROW_MAJOR_ORDERING
-  return lc + lc/(shape.j - 1);
+  indc[0] = l/shape[1];
+  indc[1] = l % shape[1];
 #else
-  return lc + lc/(shape.i - 1);
+  indc[0] = l % shape[0];
+  indc[1] = l/shape[0];
 #endif
 }
 
-int xy_to_lc_and_cc(ivec2 shape, dvec2 xymin, dbl h, dvec2 xy, dvec2 *cc) {
+void lc2ind(int2 const shape, int lc, int2 ind) {
+#if ORDERING == ROW_MAJOR_ORDERING
+  ind[0] = lc/(shape[1] - 1);
+  ind[1] = lc % (shape[1] - 1);
+#else
+  ind[0] = lc % (shape[0] - 1);
+  ind[1] = lc/(shape[0] - 1);
+#endif
+}
+
+void lc2indc(int2 const shape, int lc, int2 indc) {
+#if ORDERING == ROW_MAJOR_ORDERING
+  indc[0] = lc/(shape[1] - 1);
+  indc[1] = lc % (shape[1] - 1);
+#else
+  indc[0] = lc % (shape[0] - 1);
+  indc[1] = lc/(shape[0] - 1);
+#endif
+}
+
+int l2lc(int2 const shape, int l) {
+#if ORDERING == ROW_MAJOR_ORDERING
+  return l - l/shape[1];
+#else
+  return l - l/shape[0];
+#endif
+}
+
+int lc2l(int2 const shape, int lc) {
+#if ORDERING == ROW_MAJOR_ORDERING
+  return lc + lc/(shape[1] - 1);
+#else
+  return lc + lc/(shape[0] - 1);
+#endif
+}
+
+int xy_to_lc_and_cc(int2 const shape, dbl2 const xymin, dbl h, dbl2 const xy,
+                    dbl2 cc) {
 #if SJS_DEBUG
   assert(cc != NULL);
 #endif
 
-  *cc = dvec2_sub(xy, xymin);
-  *cc = dvec2_dbl_div(*cc, h);
-  dvec2 ind_ = dvec2_floor(*cc);
-  *cc = dvec2_sub(*cc, ind_);
-  ivec2 ind = dvec2_to_ivec2(ind_);
+  dbl2_sub(xy, xymin, cc);
+  dbl2_dbl_div_inplace(cc, h);
+  dbl2 ind_; dbl2_floor(cc, ind_);
+  dbl2_sub_inplace(cc, ind_);
+  int2 ind = {ind_[0], ind_[1]};
 
-  if (ind.i < 0) {
-    ind.i = 0;
-    cc->x = 0.0;
+  if (ind[0] < 0) {
+    ind[0] = 0;
+    cc[0] = 0.0;
   }
 
-  if (ind.j < 0) {
-    ind.j = 0;
-    cc->y = 0.0;
+  if (ind[1] < 0) {
+    ind[1] = 0;
+    cc[1] = 0.0;
   }
 
-  if (ind.i >= shape.i - 1) {
-    --ind.i;
-    cc->x = 1.0;
+  if (ind[0] >= shape[0] - 1) {
+    --ind[0];
+    cc[0] = 1.0;
   }
 
-  if (ind.j >= shape.j - 1) {
-    --ind.j;
-    cc->y = 1.0;
+  if (ind[1] >= shape[1] - 1) {
+    --ind[1];
+    cc[1] = 1.0;
   }
 
   return ind2lc(shape, ind);
 }
 
-int ind2l3(ivec3 shape, ivec3 ind) {
+int ind2l3(int3 const shape, int3 const ind) {
 #if ORDERING == ROW_MAJOR_ORDERING
-  return ind.data[2] + shape.data[2]*(ind.data[1] + shape.data[1]*ind.data[0]);
+  return ind[2] + shape[2]*(ind[1] + shape[1]*ind[0]);
 #else
 #  error not implemented yet
 #endif
 }
 
-ivec3 l2ind3(ivec3 shape, int l) {
+void l2ind3(int3 const shape, int l, int3 ind) {
 #if ORDERING == ROW_MAJOR_ORDERING
-  return (ivec3) {
-    .data = {
-      l/(shape.data[2]*shape.data[1]),
-      l/shape.data[2] % shape.data[1],
-      l % shape.data[2]
-    }
-  };
+  ind[0] = l/(shape[2]*shape[1]);
+  ind[1] = l/shape[2] % shape[1];
+  ind[2] = l % shape[2];
 #else
 #  error not implemented yet
 #endif

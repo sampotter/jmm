@@ -11,6 +11,20 @@ from jmm.mesh cimport mesh3, Mesh3, mesh3_nverts
 from jmm.par cimport par3, Parent3
 from jmm.xfer cimport xfer
 
+# cdef class Eik:
+#     def __init__(self, *args):
+#         if len(args) > 0:
+#             raise RuntimeError('construct Eik using factory functions')
+
+#     def __cinit__(self, *args):
+#         if len(args) > 0:
+#             raise RuntimeError('construct Eik using factory functions')
+
+#     @staticmethod
+#     def from_s_and_grid(Field2 s, size_t[::1] shape, dbl[::2] xymin, dbl h):
+#         eik_alloc(&self.eik)
+#         eik_init(self.eik, s.field,
+
 cdef class Eik3:
     def __init__(self, *args):
         if len(args) > 0:

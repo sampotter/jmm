@@ -9,10 +9,10 @@ extern "C" {
 typedef struct {
   field2_s const *slow;
   dbl s, s0;
-  dvec2 lp;
+  dbl2 lp;
   dbl L;
-  dvec2 xy_xy0_avg;
-  dvec2 t0;
+  dbl2 xy_xy0_avg;
+  dbl2 t0;
   dbl S4_th;
   dbl S4;
 } S4_context;

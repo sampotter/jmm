@@ -63,9 +63,19 @@ typedef double dbl;
 typedef double _Complex dblz;
 
 typedef dbl dbl2[2];
+typedef dbl2 dbl22[2];
 
 typedef dbl dbl3[3];
+typedef dbl3 dbl43[4];
 typedef dbl3 dbl33[3];
+
+typedef dbl dbl4[4];
+typedef dbl4 dbl34[3];
+typedef dbl4 dbl44[4];
+
+typedef int int2[2];
+
+typedef int int3[3];
 
 typedef enum error {
   SUCCESS,

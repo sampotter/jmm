@@ -1,3 +1,10 @@
+/* This is old code which is worth keeping and reusing.
+ *
+ * I wanted to try to implement a Dial algorithm that was exact to
+ * machine precision for c == 1 in 3D. This ended up being a little
+ * trickier than I gambled for, but the basic code implementing Dial's
+ * algorithm should be useful elsewhere. */
+
 #include <assert.h>
 #include <math.h>
 #include <stdlib.h>

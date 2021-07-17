@@ -8,7 +8,7 @@ extern "C" {
 
 typedef struct jet {
   dbl f, fx, fy, fxy;
-} jet_s;
+} jet2;
 
 typedef struct {
   dbl f;

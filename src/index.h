@@ -6,32 +6,21 @@ extern "C" {
 
 #include "vec.h"
 
-typedef struct {
-  size_t data[2];
-} ind2;
+int ind2l(int2 const shape, int2 const ind);
+int ind2lc(int2 const shape, int2 const ind);
+int indc2l(int2 const shape, int2 const indc);
+int indc2lc(int2 const shape, int2 const indc);
+void l2ind(int2 const shape, int l, int2 ind);
+void l2indc(int2 const shape, int l, int2 indc);
+void lc2ind(int2 const shape, int lc, int2 ind);
+void lc2indc(int2 const shape, int lc, int2 indc);
+int l2lc(int2 const shape, int l);
+int lc2l(int2 const shape, int lc);
+int xy_to_lc_and_cc(int2 const shape, dbl2 const xymin, dbl h, dbl2 const xy,
+                    dbl2 cc);
 
-typedef struct {
-  size_t data[3];
-} ind3;
-
-typedef struct {
-  size_t data[4];
-} ind4;
-
-int ind2l(ivec2 shape, ivec2 ind);
-int ind2lc(ivec2 shape, ivec2 ind);
-int indc2l(ivec2 shape, ivec2 indc);
-int indc2lc(ivec2 shape, ivec2 indc);
-ivec2 l2ind(ivec2 shape, int l);
-ivec2 l2indc(ivec2 shape, int l);
-ivec2 lc2ind(ivec2 shape, int lc);
-ivec2 lc2indc(ivec2 shape, int lc);
-int l2lc(ivec2 shape, int l);
-int lc2l(ivec2 shape, int lc);
-int xy_to_lc_and_cc(ivec2 shape, dvec2 xymin, dbl h, dvec2 xy, dvec2 *cc);
-
-int ind2l3(ivec3 shape, ivec3 ind);
-ivec3 l2ind3(ivec3 shape, int l);
+int ind2l3(int3 const shape, int3 const ind);
+void l2ind3(int3 const shape, int l, int3 ind);
 
 #ifdef __cplusplus
 }

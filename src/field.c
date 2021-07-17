@@ -1,9 +1,11 @@
 #include "field.h"
 
-dbl field2_f(field2_s const *field, dvec2 xy) {
-  return field->f(xy.x, xy.y, field->context);
+#include "macros.h"
+
+dbl field2_f(field2_s const *field, dbl2 const x) {
+  return field->f(SPLAT2(x), field->context);
 }
 
-dvec2 field2_grad_f(field2_s const *field, dvec2 xy) {
-  return field->grad_f(xy.x, xy.y, field->context);
+void field2_grad_f(field2_s const *field, dbl2 const x, dbl2 df) {
+  return field->grad_f(SPLAT2(x), field->context, df);
 }

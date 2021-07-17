@@ -5,6 +5,9 @@ from jmm.jet cimport jet3
 from jmm.par cimport par3
 from jmm.mesh cimport mesh3
 
+# cdef class Eik:
+#     cdef eik *eik
+
 cdef extern from "eik3.h":
     cdef struct eik3:
         pass

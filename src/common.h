@@ -9,6 +9,7 @@ typedef struct bmesh33 bmesh33_s;
 typedef struct edgemap edgemap_s;
 typedef struct eik3 eik3_s;
 typedef struct field2 field2_s;
+typedef struct field3 field3_s;
 typedef struct grid3 grid3_s;
 typedef struct mesh2 mesh2_s;
 typedef struct mesh2_tri mesh2_tri_s;

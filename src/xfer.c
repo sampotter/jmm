@@ -18,26 +18,24 @@ typedef struct {
   size_t lc;
 } xfer_tetra_wkspc_t;
 
-static void xfer_tetra(int const subgrid_ind[3], xfer_tetra_wkspc_t *wkspc) {
+static void xfer_tetra(int3 const subgrid_ind, xfer_tetra_wkspc_t *wkspc) {
   dbl const atol = 1e-14;
 
   // Get the Cartesian coordinates of the point in the subgrid indexed
   // by `subgrid_ind`.
-  dbl point[3];
+  dbl3 point;
   grid3_get_point(&wkspc->subgrid, subgrid_ind, point);
 
   // Get the indices of this point in the original containing grid.
-  ivec3 dim = ivec3_from_int3(wkspc->grid->dim);
-  ivec3 grid_ind = ivec3_add(
-    ivec3_from_int3(subgrid_ind), ivec3_from_int3(wkspc->offset));
+  int3 grid_ind;
+  int3_add(subgrid_ind, wkspc->offset, grid_ind);
 
   // Return early if this point is outside the original grid.
   //
   // TODO: could remove this check by ensuring that a generated
   // subgrid is contained in the parent grid.
-  if (!grid3_inbounds(wkspc->grid, &grid_ind.data[0])) {
+  if (!grid3_inbounds(wkspc->grid, grid_ind))
     return;
-  }
 
   /**
    * Check if the point is in cell `lc`, computing its barycentric
@@ -47,7 +45,7 @@ static void xfer_tetra(int const subgrid_ind[3], xfer_tetra_wkspc_t *wkspc) {
   tetra3 tetra = mesh3_get_tetra(wkspc->mesh, wkspc->lc);
   if (tetra3_contains_point(&tetra, point, &atol)) {
     tetra3_get_bary_coords(&tetra, point, b);
-    size_t l = ind2l3(dim, grid_ind);
+    size_t l = ind2l3(wkspc->grid->dim, grid_ind);
     dbl y = bb33_f(&wkspc->bb, b);
     // If the grid value is NaN, just set it. Otherwise, set it to the
     // average of the new value and existing grid value. This is a bit

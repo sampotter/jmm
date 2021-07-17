@@ -38,3 +38,5 @@
     SORT2(x, z);                                                        \
     SORT2(y, z);                                                        \
   } while (0)
+
+#define SPLAT2(arr) arr[0], arr[1]

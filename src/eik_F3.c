@@ -22,17 +22,18 @@ void F3_compute(dbl eta, F3_context *context) {
   dbl T = cubic_f(&context->T_cubic, eta);
   dbl T_eta = cubic_df(&context->T_cubic, eta);
 
-  dvec2 dxy = dvec2_sub(context->xy1, context->xy0);
-  dvec2 xyeta = dvec2_saxpy(eta, dxy, context->xy0);
+  dbl2 dxy; dbl2_sub(context->xy1, context->xy0, dxy);
+  dbl2 xyeta; dbl2_saxpy(eta, dxy, context->xy0, xyeta);
 
-  dvec2 lp = dvec2_sub(context->xy, xyeta);
-  dbl L = dvec2_norm(lp);
-  lp = dvec2_dbl_div(lp, L);
-  dbl L_eta = -dvec2_dot(lp, dxy);
+  dbl2 lp; dbl2_sub(context->xy, xyeta, lp);
+  dbl L = dbl2_norm(lp);
+  dbl2_dbl_div_inplace(lp, L);
+  dbl L_eta = -dbl2_dot(lp, dxy);
 
   dbl s0 = field2_f(context->slow, xyeta);
   dbl s1 = field2_f(context->slow, context->xy);
-  dbl s0_eta = dvec2_dot(field2_grad_f(context->slow, xyeta), dxy);
+  dbl2 grad_s_eta; field2_grad_f(context->slow, xyeta, grad_s_eta);
+  dbl s0_eta = dbl2_dot(grad_s_eta, dxy);
 
   context->F3 = T + (s0 + s1)*L/2;
   context->F3_eta = T_eta + (s0_eta*L + (s0 + s1)*L_eta)/2;

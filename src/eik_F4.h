@@ -24,7 +24,7 @@ extern "C" {
 typedef struct {
   // Inputs:
   cubic_s T_cubic, Tx_cubic, Ty_cubic;
-  dvec2 xy, xy0, xy1;
+  dbl2 xy, xy0, xy1;
   field2_s const *slow;
 
   // Outputs:
@@ -34,13 +34,12 @@ typedef struct {
 } F4_context;
 
 void F4_compute(dbl eta, dbl th, F4_context *context);
-dvec2 F4_get_grad(F4_context const *context);
-dmat22 F4_hess_fd(dbl eta, dbl th, dbl eps, F4_context *context);
-void F4_bfgs_init(dbl eta, dbl th, dvec2 *x0, dvec2 *g0, dmat22 *H0,
+void F4_get_grad(F4_context const *context, dbl2 g);
+void F4_hess_fd(dbl eta, dbl th, dbl eps, F4_context *context, dbl22 H);
+void F4_bfgs_init(dbl eta, dbl th, dbl2 x0, dbl2 g0, dbl22 H0,
                   F4_context *context);
-bool F4_bfgs_step(dvec2 xk, dvec2 gk, dmat22 Hk,
-                  dvec2 *xk1, dvec2 *gk1, dmat22 *Hk1,
-                  F4_context *context);
+bool F4_bfgs_step(dbl2 const xk, dbl2 const gk, dbl22 const Hk,
+                  dbl2 xk1, dbl2 gk1, dbl22 Hk1, F4_context *context);
 
 #ifdef __cplusplus
 }

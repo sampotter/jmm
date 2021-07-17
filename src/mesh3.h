@@ -42,7 +42,6 @@ void mesh3_init(mesh3_s *mesh,
 void mesh3_deinit(mesh3_s *mesh);
 dbl const *mesh3_get_verts_ptr(mesh3_s const *mesh);
 size_t const *mesh3_get_cells_ptr(mesh3_s const *mesh);
-dvec3 mesh3_get_vert(mesh3_s const *mesh, size_t i);
 dbl const *mesh3_get_vert_ptr(mesh3_s const *mesh, size_t i);
 void mesh3_get_vert_ptrs(mesh3_s const *mesh, size_t const *l, int n, dbl const **x);
 void mesh3_copy_vert(mesh3_s const *mesh, size_t i, dbl *v);

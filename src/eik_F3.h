@@ -21,7 +21,7 @@ extern "C" {
 typedef struct {
   // Inputs:
   cubic_s T_cubic;
-  dvec2 xy, xy0, xy1;
+  dbl2 xy, xy0, xy1;
   field2_s const *slow;
 
   // Outputs:

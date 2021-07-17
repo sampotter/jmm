@@ -6,103 +6,68 @@ extern "C" {
 
 #include "vec.h"
 
-void dbl22_zero(dbl A[2][2]);
-void dbl22_add(dbl A[2][2], dbl B[2][2], dbl C[2][2]);
-void dbl22_mul(dbl const A[2][2], dbl const B[2][2], dbl C[2][2]);
-void dbl22_dbl2_solve(dbl A[2][2], dbl b[2], dbl x[2]);
-dbl dbl22_trace(dbl const A[2][2]);
-void dbl22_dbl2_mul(dbl const A[2][2], dbl const x[2], dbl b[2]);
-bool dbl22_isfinite(dbl const A[2][2]);
-void dbl22_eye(dbl eye[2][2]);
-void dbl22_saxpy(dbl a, dbl const X[2][2], dbl const Y[2][2], dbl Z[2][2]);
-dbl dbl22_det(dbl const X[2][2]);
-void dbl22_inv(dbl const X[2][2], dbl Y[2][2]);
-void dbl22_invert(dbl X[2][2]);
+#define DBL22(a00, a01, a10, a11) (dbl22) {{a00, a01}, {a10, a11}}
 
-void dbl3_dbl33_mul(dbl const x[3], dbl const A[3][3], dbl b[3]);
-dbl dbl3_dbl33_dbl3_dot(dbl const x[3], dbl const A[3][3], dbl const y[3]);
-void dbl3_outer(dbl u[3], dbl v[3], dbl uv[3][3]);
+bool dbl22_isfinite(dbl22 const A);
+dbl dbl22_det(dbl22 const X);
+dbl dbl22_trace(dbl22 const A);
+void dbl22_add(dbl22 const A, dbl22 const B, dbl22 C);
+void dbl22_add_inplace(dbl22 A, dbl22 const B);
+void dbl22_copy(dbl22 const A, dbl22 B);
+void dbl22_dbl2_mul(dbl22 const A, dbl2 const x, dbl2 b);
+void dbl22_dbl2_solve(dbl22 const A, dbl2 const b, dbl2 x);
+void dbl22_dbl_div(dbl22 const A, dbl a, dbl22 B);
+void dbl22_dbl_div_inplace(dbl22 A, dbl a);
+void dbl22_dbl_mul(dbl22 const A, dbl a, dbl22 B);
+void dbl22_eigvals(dbl22 const A, dbl2 lam);
+void dbl22_eye(dbl22 eye);
+void dbl22_inv(dbl22 const X, dbl22 Y);
+void dbl22_invert(dbl22 X);
+void dbl22_mul(dbl22 const A, dbl22 const B, dbl22 C);
+void dbl22_saxpy(dbl a, dbl22 const X, dbl22 const Y, dbl22 Z);
+void dbl22_sub(dbl22 const A, dbl22 const B, dbl22 C);
+void dbl22_transpose(dbl22 A);
+void dbl22_zero(dbl22 A);
+void dbl2_outer(dbl2 const u, dbl2 const v, dbl22 uv);
 
+bool dbl33_isfinite(dbl33 const A);
+bool dbl33_isnan(dbl33 const A);
+dbl dbl33_det(dbl33 const A);
+dbl dbl3_dbl33_dbl3_dot(dbl3 const x, dbl33 const A, dbl3 const y);
+void dbl33_add(dbl33 const A, dbl33 const B, dbl33 C);
 void dbl33_copy(dbl33 const in, dbl33 out);
-void dbl33_nan(dbl A[3][3]);
-void dbl33_zero(dbl A[3][3]);
-void dbl33_eye(dbl A[3][3]);
-void dbl33_add(dbl const A[3][3], dbl const B[3][3], dbl C[3][3]);
-void dbl33_mul(dbl A[3][3], dbl B[3][3], dbl C[3][3]);
-void dbl33_sub(dbl A[3][3], dbl B[3][3], dbl C[3][3]);
-void dbl33_dbl3_mul(dbl const A[3][3], dbl const x[3], dbl b[3]);
-void dbl33_dbl3_mul_inplace(dbl const A[3][3], dbl x[3]);
-void dbl33_dbl3_nmul(dbl const A[3][3], dbl const x[3], dbl b[3]);
-void dbl33_transpose(dbl A[3][3]);
-void dbl33_transposed(dbl const A[3][3], dbl At[3][3]);
-void dbl33_dbl_div(dbl const A[3][3], dbl a, dbl B[3][3]);
-void dbl33_dbl_div_inplace(dbl A[3][3], dbl a);
-dbl dbl33_det(dbl const A[3][3]);
-void dbl33_dbl3_solve(dbl const A[3][3], dbl const b[3], dbl x[3]);
-void dbl33_get_column(dbl const A[3][3], int i, dbl a[3]);
-void dbl33_set_column(dbl A[3][3], int i, dbl const a[3]);
-bool dbl33_isfinite(dbl const A[3][3]);
-bool dbl33_isnan(dbl const A[3][3]);
-void dbl33_cc(dbl const A0[3][3], dbl const A1[3][3], dbl t0, dbl At[3][3]);
-void dbl33_symmetrize(dbl33 A);
+void dbl33_dbl3_mul(dbl33 const A, dbl3 const x, dbl3 b);
+void dbl33_dbl3_mul_inplace(dbl33 const A, dbl3 x);
+void dbl33_dbl3_nmul(dbl33 const A, dbl3 const x, dbl3 b);
+void dbl33_dbl3_solve(dbl33 const A, dbl3 const b, dbl3 x);
+void dbl33_dbl_div(dbl33 const A, dbl a, dbl33 B);
+void dbl33_dbl_div_inplace(dbl33 A, dbl a);
+void dbl33_eye(dbl33 A);
+void dbl33_get_column(dbl33 const A, int i, dbl3 a);
 void dbl33_make_axis_angle_rotation_matrix(dbl3 axis, dbl angle, dbl33 rot);
+void dbl33_mul(dbl33 const A, dbl33 const B, dbl33 C);
+void dbl33_nan(dbl33 A);
+void dbl33_set_column(dbl33 A, int i, dbl3 const a);
+void dbl33_sub(dbl33 const A, dbl33 const B, dbl33 C);
+void dbl33_symmetrize(dbl33 A);
+void dbl33_transpose(dbl33 A);
+void dbl33_transposed(dbl33 const A, dbl33 At);
+void dbl33_zero(dbl33 A);
+void dbl3_dbl33_mul(dbl3 const x, dbl33 const A, dbl3 b);
+void dbl3_outer(dbl3 const u, dbl3 const v, dbl33 uv);
 
-void dbl4_dbl43_mul(dbl const b[4], dbl const A[4][3], dbl x[3]);
-void dbl43_dbl3_mul(dbl const A[4][3], dbl const b[3], dbl x[4]);
+void dbl4_dbl43_mul(dbl4 const b, dbl43 const A, dbl3 x);
+void dbl43_dbl3_mul(dbl43 const A, dbl3 const b, dbl4 x);
 
-void dbl44_dbl4_solve(dbl const A[4][4], dbl const b[4], dbl x[4]);
-dbl dbl44_det(dbl const A[4][4]);
-void dbl44_get_col(dbl const A[4][4], int j, dbl a[4]);
-void dbl44_set_col(dbl A[4][4], int j, dbl const a[4]);
-
-typedef struct {
-  union {
-    dbl data[2][2];
-    dvec2 rows[2];
-  };
-} dmat22;
-
-dmat22 dmat22_add(dmat22 A, dmat22 B);
-dmat22 dmat22_sub(dmat22 A, dmat22 B);
-dmat22 dmat22_mul(dmat22 A, dmat22 B);
-dmat22 dmat22_dbl_mul(dmat22 A, dbl a);
-dmat22 dmat22_dbl_div(dmat22 A, dbl a);
-dvec2 dmat22_dvec2_mul(dmat22 A, dvec2 x);
-dvec2 dmat22_dvec2_solve(dmat22 A, dvec2 b);
-dmat22 dvec2_outer(dvec2 u, dvec2 v);
-void dmat22_invert(dmat22 *A);
-dbl dmat22_trace(dmat22 const *A);
-dbl dmat22_det(dmat22 const *A);
-void dmat22_eigvals(dmat22 const *A, dbl *lam1, dbl *lam2);
-void dmat22_transpose(dmat22 *A);
-
-typedef struct {
-  dvec3 rows[3];
-} dmat33;
-
-dbl dmat33_det(dmat33 const *A);
-dmat33 dmat33_eye(void);
-dvec3 dmat33_getcol(dmat33 const *A, int j);
-void dmat33_setcol(dmat33 *A, dvec3 a, int j);
-dvec3 dmat33_dvec3_mul(dmat33 A, dvec3 x);
-dmat33 dmat33_dbl_div(dmat33 A, dbl a);
-dvec3 dmat33_dvec3_solve(dmat33 A, dvec3 b);
-dmat33 dmat33_mul(dmat33 A, dmat33 B);
-dmat33 dmat33_sub(dmat33 A, dmat33 B);
-dmat33 dvec3_outer(dvec3 u, dvec3 v);
-void dmat33_transpose(dmat33 *A);
-
-typedef struct {
-  union {
-    dbl data[4][4];
-    dvec4 rows[4];
-  };
-} dmat44;
-
-dvec4 dmat44_dvec4_mul(dmat44 const A, dvec4 const x);
-dvec4 dvec4_dmat44_mul(dvec4 const x, dmat44 const A);
-dmat44 dmat44_dmat44_mul(dmat44 const A, dmat44 const B);
-dvec4 dmat44_col(dmat44 const A, int j);
+dbl dbl44_det(dbl44 const A);
+dbl dbl4_dbl44_dbl4_dot(dbl4 const x, dbl44 const A, dbl4 const y);
+void dbl44_dbl4_mul(dbl44 const A, dbl4 const x, dbl4 b);
+void dbl44_dbl4_solve(dbl44 const A, dbl4 const b, dbl4 x);
+void dbl44_get_column(dbl44 const A, int j, dbl4 a);
+void dbl44_mul(dbl44 const A, dbl44 const B, dbl44 C);
+void dbl44_set_column(dbl44 A, int j, dbl4 const a);
+void dbl4_dbl44_mul(dbl4 const x, dbl44 const A, dbl4 b);
+void dbl44_zero(dbl44 A);
 
 #ifdef __cplusplus
 }
