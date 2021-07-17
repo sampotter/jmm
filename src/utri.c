@@ -146,8 +146,10 @@ bool utri_init(utri_s *u, utri_spec_s const *spec) {
   bool passed_l1 = spec->l[1] != (size_t)NO_INDEX;
   bool passed_l = passed_l0 && passed_l1;
 
-  bool passed_jet0 = spec->state[0] == VALID && jet3_is_finite(&spec->jet[0]);
-  bool passed_jet1 = spec->state[1] == VALID && jet3_is_finite(&spec->jet[1]);
+  bool passed_jet0 = (spec->state[0] == VALID || spec->state[0] == UNKNOWN)
+    && jet3_is_finite(&spec->jet[0]);
+  bool passed_jet1 = (spec->state[1] == VALID || spec->state[1] == UNKNOWN)
+    && jet3_is_finite(&spec->jet[1]);
   bool passed_jet = passed_jet0 && passed_jet1;
 
 #if JMM_DEBUG
@@ -226,8 +228,9 @@ bool utri_init(utri_s *u, utri_spec_s const *spec) {
   /* If we're solving a point source problem, then we *have* found a
    * point source, and we shouldn't try do a triangle update
    * involving this point. */
-  if (eik3_get_ftype(spec->eik) == FTYPE_POINT_SOURCE
-      && (pt_src[0] ^ pt_src[1]))
+  if (spec->eik &&
+      eik3_get_ftype(spec->eik) == FTYPE_POINT_SOURCE &&
+      (pt_src[0] ^ pt_src[1]))
     return false;
 
   /* If the jets at the update vertices are finite, we can go ahead
