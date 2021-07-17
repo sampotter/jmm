@@ -108,9 +108,9 @@ bool par3_is_on_BC_boundary(par3_s const *par, eik3_s const *eik) {
       return false;
 
   if (ftype == FTYPE_REFLECTION && num_active == 1) {
-    size_t num_inc_bdf = mesh3_get_num_inc_bdf(mesh, l[0], false);
+    size_t num_inc_bdf = mesh3_get_num_inc_bdf(mesh, l[0]);
     size_t (*lf)[3] = malloc(num_inc_bdf*sizeof(size_t[3]));
-    mesh3_get_inc_bdf(mesh, l[0], lf, false);
+    mesh3_get_inc_bdf(mesh, l[0], lf);
 
     size_t num_inc_bdf_w_BCs = 0;
     for (size_t i = 0; i < num_inc_bdf; ++i)
@@ -131,9 +131,9 @@ bool par3_is_on_BC_boundary(par3_s const *par, eik3_s const *eik) {
     if (!mesh3_bde(mesh, l))
       return false;
 
-    size_t nlf = mesh3_get_num_inc_bdf(mesh, l[0], false);
+    size_t nlf = mesh3_get_num_inc_bdf(mesh, l[0]);
     size_t (*lf)[3] = malloc(nlf*sizeof(size_t[3]));
-    mesh3_get_inc_bdf(mesh, l[0], lf, false);
+    mesh3_get_inc_bdf(mesh, l[0], lf);
 
     size_t num_inc_bdf = 0;
     size_t num_inc_bdf_w_BCs = 0;

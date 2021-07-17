@@ -260,14 +260,6 @@ bool utetra_init(utetra_s *u, utetra_spec_s const *spec) {
     bb32_init_from_3d_data(&u->T, T, &DT[0], u->Xt);
   }
 
-  /* If we're updating from a virtual boundary face, then we want to
-   * unconditionally accept updates that we do from the wrong
-   * side. This is important when we're solving the extended problem,
-   * since this will allow us to propagate the eikonal from either
-   * side of a face with reflection BCs. */
-  if (mesh3_bdf_is_virtual(mesh, u->l))
-    return true;
-
   // Compute the surface normal for the plane spanned by (x1 - x0, x2
   // - x0), using DT[i] to determine its orientation. Return whether x
   // is on the right side of this plane.
@@ -732,7 +724,7 @@ bool utetra_update_ray_is_physical(utetra_s const *utetra, eik3_s const *eik) {
 
       /* Check if `cf[j]` indexes a real boundary face. We don't want
        * to accidentally intersect a virtual boundary face here. */
-      if (mesh3_is_bdf(mesh, cf[j], false /* virtual not OK */))
+      if (mesh3_is_bdf(mesh, cf[j]))
         array_append(bdf, cf[j]);
     }
   }

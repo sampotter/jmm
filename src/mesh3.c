@@ -57,27 +57,18 @@ int diff_edge_cmp(diff_edge_s const *e1, diff_edge_s const *e2) {
 typedef struct {
   size_t lf[3];
   size_t lc;
-
-  /* Whether or not this is a "virtual" boundary face, which are faces
-   * that we artifically insert into the mesh to make it possible to
-   * do "free space boundary two-point updates". This is a little
-   * trick to get the extended solution and domain solution to match
-   * along the boundaries (since the extended domain is assumed to
-   * conform to the original boundaries of the domain). */
-  bool virtual;
 } bdf_s;
 
-bdf_s make_bdf(size_t l0, size_t l1, size_t l2, size_t lc, bool virtual) {
-  bdf_s f = {.lf = {l0, l1, l2}, .lc = lc, .virtual = virtual};
+bdf_s make_bdf(size_t l0, size_t l1, size_t l2, size_t lc) {
+  bdf_s f = {.lf = {l0, l1, l2}, .lc = lc};
   qsort(f.lf, 3, sizeof(size_t), (compar_t)compar_size_t);
   return f;
 }
 
-void bdf_init(bdf_s *f, size_t const *lf, size_t lc, bool virtual) {
+void bdf_init(bdf_s *f, size_t const *lf, size_t lc) {
   memcpy(f->lf, lf, 3*sizeof(size_t));
   qsort(f->lf, 3, sizeof(size_t), (compar_t)compar_size_t);
   f->lc = lc;
-  f->virtual = virtual;
 }
 
 int bdf_cmp(bdf_s const *f1, bdf_s const *f2) {
@@ -273,7 +264,7 @@ static void get_bdf_nbs(mesh3_s const *mesh, size_t l, array_s *nb) {
     mesh3_ve(mesh, lv, ve);
 
     for (size_t j = 0, l_nb; j < nve; ++j) {
-      nb_bdf = make_bdf(lv, ve[j][0], ve[j][1], (size_t)NO_INDEX, false);
+      nb_bdf = make_bdf(lv, ve[j][0], ve[j][1], (size_t)NO_INDEX);
       if (bdf_cmp(bdf, &nb_bdf) == 0)
         continue;
       l_nb = find_bdf(mesh, &nb_bdf);
@@ -508,10 +499,10 @@ static void init_bd(mesh3_s *mesh) {
   size_t *C;
   for (size_t lc = 0; lc < mesh->ncells; ++lc) {
     C = mesh->cells[lc];
-    f[4*lc] = make_bdf(C[0], C[1], C[2], lc, false);
-    f[4*lc + 1] = make_bdf(C[0], C[1], C[3], lc, false);
-    f[4*lc + 2] = make_bdf(C[0], C[2], C[3], lc, false);
-    f[4*lc + 3] = make_bdf(C[1], C[2], C[3], lc, false);
+    f[4*lc] = make_bdf(C[0], C[1], C[2], lc);
+    f[4*lc + 1] = make_bdf(C[0], C[1], C[3], lc);
+    f[4*lc + 2] = make_bdf(C[0], C[2], C[3], lc);
+    f[4*lc + 3] = make_bdf(C[1], C[2], C[3], lc);
   }
 
   // Sort the tagged faces themselves into a dictionary order.
@@ -559,12 +550,12 @@ static void init_bd(mesh3_s *mesh) {
       ++l; // Increment here to skip equal pairs
       continue;
     }
-    bdf_init(&mesh->bdf[lf++], f[l].lf, f[l].lc, false);
+    bdf_init(&mesh->bdf[lf++], f[l].lf, f[l].lc);
   }
 
   // ... and the last face
   if (bdf_cmp(&f[nf - 2], &f[nf - 1])) {
-    bdf_init(&mesh->bdf[lf++], f[nf - 1].lf, f[nf - 1].lc, false);
+    bdf_init(&mesh->bdf[lf++], f[nf - 1].lf, f[nf - 1].lc);
   }
 
   assert(lf == mesh->nbdf); // sanity
@@ -1406,13 +1397,13 @@ void mesh3_get_bdf_inds(mesh3_s const *mesh, size_t l, size_t lf[3]) {
   memcpy(lf, mesh->bdf[l].lf, sizeof(size_t[3]));
 }
 
-void mesh3_set_bdf(mesh3_s *mesh, size_t lf[3], bool virtual) {
+void mesh3_set_bdf(mesh3_s *mesh, size_t lf[3]) {
   // TODO: this is very inefficient!
 
   mesh->bdv[lf[0]] = mesh->bdv[lf[1]] = mesh->bdv[lf[2]] = true;
 
   assert(mesh->has_bd_info);
-  bdf_s bdf = make_bdf(lf[0], lf[1], lf[2], NO_PARENT, virtual);
+  bdf_s bdf = make_bdf(lf[0], lf[1], lf[2], NO_PARENT);
 
   int cmp;
   size_t l = 0;
@@ -1429,17 +1420,11 @@ void mesh3_set_bdf(mesh3_s *mesh, size_t lf[3], bool virtual) {
   ++mesh->nbdf;
 }
 
-/* Check whether `lf` indexes a boundary face. If `virtual` is `true`,
- * then this will return `true` if a virtual boundary face is found,
- * otherwise false.  */
-bool mesh3_is_bdf(mesh3_s const *mesh, size_t const lf[3], bool virtual_OK) {
+bool mesh3_is_bdf(mesh3_s const *mesh, size_t const lf[3]) {
   assert(mesh->has_bd_info);
-  bdf_s f = make_bdf(lf[0], lf[1], lf[2], NO_PARENT, false);
-  bdf_s *f_ptr = bsearch(
-    &f, mesh->bdf, mesh->nbdf, sizeof(bdf_s), (compar_t)bdf_cmp);
-  return virtual_OK ?
-    f_ptr != NULL :
-    f_ptr != NULL && !f_ptr->virtual;
+  bdf_s f = make_bdf(lf[0], lf[1], lf[2], NO_PARENT);
+  return bsearch(
+    &f, mesh->bdf, mesh->nbdf, sizeof(bdf_s), (compar_t)bdf_cmp) != NULL;
 }
 
 bool mesh3_is_edge(mesh3_s const *mesh, size_t const l[2]) {
@@ -1586,7 +1571,7 @@ void mesh3_get_inc_diff_edges(mesh3_s const *mesh, size_t l, size_t (*le)[2]) {
   free(vv);
 }
 
-size_t mesh3_get_num_inc_bdf(mesh3_s const *mesh, size_t l, bool virtual_OK) {
+size_t mesh3_get_num_inc_bdf(mesh3_s const *mesh, size_t l) {
   assert(mesh->has_bd_info);
 
   if (!mesh3_bdv(mesh, l))
@@ -1598,15 +1583,14 @@ size_t mesh3_get_num_inc_bdf(mesh3_s const *mesh, size_t l, bool virtual_OK) {
 
   size_t nbdf = 0;
   for (size_t i = 0; i < nve; ++i)
-    nbdf += mesh3_is_bdf(mesh, (size_t[3]) {l, ve[i][0], ve[i][1]}, virtual_OK);
+    nbdf += mesh3_is_bdf(mesh, (size_t[3]) {l, ve[i][0], ve[i][1]});
 
   free(ve);
 
   return nbdf;
 }
 
-void mesh3_get_inc_bdf(mesh3_s const *mesh, size_t l, size_t (*lf)[3],
-                       bool virtual_OK) {
+void mesh3_get_inc_bdf(mesh3_s const *mesh, size_t l, size_t (*lf)[3]) {
   assert(mesh->has_bd_info);
 
   if (!mesh3_bdv(mesh, l))
@@ -1621,7 +1605,7 @@ void mesh3_get_inc_bdf(mesh3_s const *mesh, size_t l, size_t (*lf)[3],
   size_t j = 0;
   for (size_t i = 0; i < nve; ++i) {
     memcpy(&next_lf[1], ve[i], sizeof(size_t[2]));
-    if (mesh3_is_bdf(mesh, next_lf, virtual_OK))
+    if (mesh3_is_bdf(mesh, next_lf))
       memcpy(lf[j++], next_lf, sizeof(size_t[3]));
   }
 
@@ -1700,7 +1684,7 @@ dbl mesh3_get_eps(mesh3_s const *mesh) {
 }
 
 void mesh3_get_face_normal(mesh3_s const *mesh, size_t const lf[3], dbl normal[3]) {
-  assert(mesh3_is_bdf(mesh, lf, false /* virtual not OK */));
+  assert(mesh3_is_bdf(mesh, lf));
 
   dbl const *x0 = mesh3_get_vert_ptr(mesh, lf[0]);
   dbl const *x1 = mesh3_get_vert_ptr(mesh, lf[1]);
@@ -1741,13 +1725,6 @@ void mesh3_get_face_normal(mesh3_s const *mesh, size_t const lf[3], dbl normal[3
     dbl3_negate(normal);
 }
 
-bool mesh3_bdf_is_virtual(mesh3_s const *mesh, size_t const lf[3]) {
-  bdf_s bdf = make_bdf(lf[0], lf[1], lf[2], (size_t)NO_INDEX, false /*unused*/);
-  bdf_s const *bdf_ptr = bsearch(
-    &bdf, mesh->bdf, mesh->nbdf, sizeof(bdf_s), (compar_t)bdf_cmp);
-  return bdf_ptr != NULL && bdf_ptr->virtual;
-}
-
 void mesh3_get_diff_edge_tangent(mesh3_s const *mesh, size_t const le[2],
                                  dbl t[3]) {
   dbl3_sub(mesh->verts[le[1]], mesh->verts[le[0]], t);
@@ -1781,9 +1758,9 @@ size_t mesh3_get_num_bdf_inc_on_edge(mesh3_s const *mesh, size_t const le[2]) {
   array_init(lf_arr, sizeof(size_t[3]), ARRAY_DEFAULT_CAPACITY);
 
   for (size_t i = 0; i < 2; ++i) {
-    size_t nlf = mesh3_get_num_inc_bdf(mesh, le[i], false);
+    size_t nlf = mesh3_get_num_inc_bdf(mesh, le[i]);
     size_t (*lf)[3] = malloc(nlf*sizeof(size_t[3]));
-    mesh3_get_inc_bdf(mesh, le[i], lf, false);
+    mesh3_get_inc_bdf(mesh, le[i], lf);
 
     for (size_t j = 0; j < nlf; ++j)
       SORT3(lf[j][0], lf[j][1], lf[j][2]);
@@ -1812,9 +1789,9 @@ void mesh3_get_bdf_inc_on_edge(mesh3_s const *mesh, size_t const le[2],
   array_init(lf_arr, sizeof(size_t[3]), ARRAY_DEFAULT_CAPACITY);
 
   for (size_t i = 0; i < 2; ++i) {
-    size_t nlf = mesh3_get_num_inc_bdf(mesh, le[i], false);
+    size_t nlf = mesh3_get_num_inc_bdf(mesh, le[i]);
     size_t (*lf)[3] = malloc(nlf*sizeof(size_t[3]));
-    mesh3_get_inc_bdf(mesh, le[i], lf, false);
+    mesh3_get_inc_bdf(mesh, le[i], lf);
 
     for (size_t j = 0; j < nlf; ++j)
       SORT3(lf[j][0], lf[j][1], lf[j][2]);

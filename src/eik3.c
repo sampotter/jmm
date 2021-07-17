@@ -791,7 +791,7 @@ static void do_2pt_bd_updates(eik3_s *eik, size_t l, size_t l0) {
       size_t lf[3] = {l, l0, l1};
       if (can_update_from_point(eik, l1) &&
           !eik3_is_point_source(eik, l1) &&
-          mesh3_is_bdf(eik->mesh, lf, true /* virtual bdf is OK */)) {
+          mesh3_is_bdf(eik->mesh, lf)) {
         utri_alloc(&utri[i]);
         utri_spec_s spec = utri_spec_from_eik(eik, l, l0, l1);
         ++nup;
@@ -1910,7 +1910,7 @@ void eik3_add_refl_BCs(eik3_s *eik, size_t const lf[3], jet3 const jet[3],
                        dbl33 const hess[3], dbl const t_in[3][3]) {
 #if JMM_DEBUG
   assert(eik->ftype == FTYPE_REFLECTION);
-  assert(mesh3_is_bdf(eik->mesh, lf, false));
+  assert(mesh3_is_bdf(eik->mesh, lf));
 
   dbl nu[3];
   mesh3_get_face_normal(eik->mesh, lf, nu);
