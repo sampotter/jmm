@@ -245,18 +245,18 @@ cdef class Mesh3:
         l[1] = j
         return mesh3_bde(self.mesh, l)
 
-    def is_bdf(self, size_t i, size_t j, size_t k, bool virtual_OK=False):
+    def is_bdf(self, size_t i, size_t j, size_t k):
         if not self.has_bd_info:
             raise Exception("mesh wasn't built with boundary info");
         cdef size_t l[3]
         l[0] = i
         l[1] = j
         l[2] = k
-        return mesh3_is_bdf(self.mesh, l, virtual_OK)
+        return mesh3_is_bdf(self.mesh, l)
 
-    def set_boundary_face(self, size_t i, size_t j, size_t k, bool virtual=False):
+    def set_boundary_face(self, size_t i, size_t j, size_t k):
         cdef size_t[3] le = [i, j, k]
-        mesh3_set_bdf(self.mesh, le, virtual)
+        mesh3_set_bdf(self.mesh, le)
 
     def get_diff_edges(self):
         cdef size_t l
@@ -290,7 +290,7 @@ cdef class Mesh3:
     @property
     def min_tetra_alt(self):
         '''The minimum tetrahedron altitude, taken over all cells in this
-instance of `jmm.Mesh3`.
+        instance of `jmm.Mesh3`.
 
         '''
         return mesh3_get_min_tetra_alt(self.mesh)
@@ -298,7 +298,7 @@ instance of `jmm.Mesh3`.
     @property
     def min_edge_length(self):
         '''The minimum edge length of the tetrahedron mesh, taken over all
-cell edges of `jmm.Mesh3`.
+        cell edges of `jmm.Mesh3`.
 
         '''
         return mesh3_get_min_edge_length(self.mesh)
