@@ -1037,10 +1037,16 @@ static void update(eik3_s *eik, size_t l, size_t l0) {
   /**
    * First, find the "update triangle fan"
    */
+  // TODO: would be better to use array_s for l1 and l2 and allocate
+  // them here, so it's clear that it's this function's responsibility
+  // to free them
   size_t *l1, *l2;
   size_t num_utetra = get_update_fan(eik, l0, &l1, &l2);
-  if (num_utetra == 0)
+  if (num_utetra == 0) {
+    free(l1);
+    free(l2);
     return;
+  }
 
   /**
    * Before doing tetrahedron updates, we want to check if there are
