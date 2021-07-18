@@ -8,7 +8,7 @@
 Describe(bmesh33);
 
 BeforeEach(bmesh33) {
-  double_absolute_tolerance_is(1e-15);
+  double_absolute_tolerance_is(2e-14);
   double_relative_tolerance_is(1e-15);
 }
 
@@ -203,14 +203,34 @@ Ensure(bmesh33, ray_intersects_level_works_on_approximate_sphere) {
   dbl t_gt;
   for (size_t i = 0; i < camera.dim[0]; ++i){
     for (size_t j = 0; j < camera.dim[1]; ++j) {
+      // Shoot the (i, j)th camera ray
       ray = camera_get_ray_for_index(&camera, i, j);
       rtree_intersect(rtree, &ray, &isect);
+
+      // Read the correct groundtruth value for the intersection
+      // parameter from disk
       fscanf(fp, "%lf\n", &t_gt);
+
+      // Check that isect.t agrees with the groundtruth value
       if (isinf(t_gt)) {
         assert_that(isinf(isect.t));
+        assert_that(isect.obj, is_null);
       } else {
         assert_that_double(t_gt, is_nearly_double(isect.t));
+        assert_that(robj_get_type(isect.obj), is_equal_to(ROBJ_BMESH33_CELL));
       }
+
+      if (isect.obj == NULL)
+        continue;
+
+      // Make sure that the intersected point lies on the correct
+      // level set!
+      dbl3 xt; ray3_get_point(&ray, isect.t, xt);
+      bmesh33_cell_s cell = *(bmesh33_cell_s *)robj_get_data(isect.obj);
+      tetra3 tetra = mesh3_get_tetra(cell.mesh, cell.l);
+      dbl4 b; tetra3_get_bary_coords(&tetra, xt, b);
+      dbl f = bb33_f(cell.bb, b);
+      assert_that_double(f, is_nearly_double(level));
     }
   }
 
