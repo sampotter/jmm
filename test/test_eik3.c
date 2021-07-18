@@ -332,6 +332,8 @@ Ensure(eik3, tetra_works_for_olim26_updates) {
     2, 2, 2  // xhat
   };
 
+  dbl3 x, x_gt = {1, 1, 1};
+
   jet3 newjet, jet[3];
 
   int perm[6][3] = {
@@ -344,11 +346,11 @@ Ensure(eik3, tetra_works_for_olim26_updates) {
   };
 
   dbl verts_perm[12];
-  size_t cells_perm[4];
 
   // Last vertex stays fixed under permutation
-  cells_perm[3] = 3;
   memcpy((void *)&verts_perm[9], (void *)&verts[9], sizeof(dbl)*3);
+
+  size_t cells[4] = {0, 1, 2, 3};
 
   dbl lam[2];
 
@@ -367,15 +369,12 @@ Ensure(eik3, tetra_works_for_olim26_updates) {
   utetra_s *cf;
   utetra_alloc(&cf);
 
-  int p;
   for (int i = 0; i < 6; ++i) {
     /**
      * Get vertices for this permutation
      */
-    for (int j = 0; j < 3; ++j) {
-      cells_perm[j] = p = perm[i][j];
-      memcpy((void *)&verts_perm[3*j], (void *)&verts[3*p], sizeof(dbl)*3);
-    }
+    for (int j = 0; j < 3; ++j)
+      memcpy(&verts_perm[3*j], &verts[3*perm[i][j]], sizeof(dbl3));
 
     /**
      * Create a mesh consisting of a single tetrahedron for this update
@@ -407,9 +406,6 @@ Ensure(eik3, tetra_works_for_olim26_updates) {
      * Do tetrahedron updates starting from random initial iterates
      */
     for (int l = 0; l < NUM_RANDOM_TRIALS; ++l) {
-      /**
-       * Sample random a lambda
-       */
       lam[0] = gsl_ran_flat(rng, 0, 1);
       lam[1] = gsl_ran_flat(rng, 0, 1);
       if (lam[0] + lam[1] > 1) {
@@ -419,16 +415,21 @@ Ensure(eik3, tetra_works_for_olim26_updates) {
 
       utetra_solve(cf, lam);
       utetra_get_lambda(cf, lam);
+      utetra_get_x(cf, x);
       utetra_get_jet(cf, &newjet);
 
+      assert_that_double(x[0], is_nearly_double(x_gt[0]));
+      assert_that_double(x[1], is_nearly_double(x_gt[1]));
+      assert_that_double(x[2], is_nearly_double(x_gt[2]));
+
       if (fabs(lam[0]) < 1e-15) {
-        assert_that(fabs(lam_gt[i][0]) < 1e-15);
+        assert_that_double(fabs(lam_gt[i][0]), is_less_than_double(1e-15));
       } else {
         assert_that_double(lam[0], is_nearly_double(lam_gt[i][0]));
       }
 
       if (fabs(lam[1]) < 1e-15) {
-        assert_that(fabs(lam_gt[i][1]) < 1e-15);
+        assert_that_double(fabs(lam_gt[i][1]), is_less_than_double(1e-15));
       } else {
         assert_that_double(lam[1], is_nearly_double(lam_gt[i][1]));
       }
