@@ -146,6 +146,27 @@ Ensure(bmesh33, approximate_sphere_setup_and_teardown_works) {
   TEAR_DOWN_APPROXIMATE_SPHERE();
 }
 
+Ensure(bmesh33, mesh3_cell_contains_point_works) {
+  SET_UP_APPROXIMATE_SPHERE();
+
+  size_t num_cells = mesh3_ncells(mesh);
+
+  dbl3 x;
+
+  for (size_t i = 0; i < num_cells; ++i) {
+    mesh3_get_centroid(mesh, i, x);
+    for (size_t j = 0; j < num_cells; ++j) {
+      if (i == j) {
+        assert_that(mesh3_cell_contains_point(mesh, j, x));
+      } else {
+        assert_false(mesh3_cell_contains_point(mesh, j, x));
+      }
+    }
+  }
+
+  TEAR_DOWN_APPROXIMATE_SPHERE();
+}
+
 Ensure(bmesh33, ray_intersects_level_works_on_approximate_sphere) {
   SET_UP_APPROXIMATE_SPHERE();
 
