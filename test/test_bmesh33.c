@@ -149,7 +149,9 @@ Ensure(bmesh33, approximate_sphere_setup_and_teardown_works) {
 Ensure(bmesh33, ray_intersects_level_works_on_approximate_sphere) {
   SET_UP_APPROXIMATE_SPHERE();
 
-  bmesh33_s *level_bmesh = bmesh33_restrict_to_level(bmesh, 0.5);
+  dbl const level = 0.5;
+
+  bmesh33_s *level_bmesh = bmesh33_restrict_to_level(bmesh, level);
 
   /* After restricting to T = 0.5, we lose the corner tetrahedra,
    * leaving 32 cells in the level's tetrahedron mesh (i.e., the ones
