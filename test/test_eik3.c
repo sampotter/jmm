@@ -130,8 +130,7 @@ Ensure(eik3, tetra_works_for_olim18_122_update) {
         lam[1] = 1 - lam[1];
       }
 
-      utetra_set_lambda(cf, lam);
-      utetra_solve(cf, NULL);
+      utetra_solve(cf, lam);
       utetra_get_lambda(cf, lam);
       utetra_get_jet(cf, &newjet);
 
@@ -198,8 +197,7 @@ Ensure(eik3, tetra_works_for_olim18_222_update) {
   utetra_spec_s spec = utetra_spec_from_ptrs(mesh, jet, 3, 0, 1, 2);
   utetra_init(cf, &spec);
 
-  utetra_set_lambda(cf, lambda);
-  utetra_solve(cf, NULL);
+  utetra_solve(cf, lambda);
   utetra_get_jet(cf, &newjet);
   assert_that_double(lambda[0], is_nearly_double(1./3));
   assert_that_double(lambda[0], is_nearly_double(1./3));
@@ -211,8 +209,7 @@ Ensure(eik3, tetra_works_for_olim18_222_update) {
 
   lambda[0] = 0;
   lambda[1] = 0;
-  utetra_set_lambda(cf, lambda);
-  utetra_solve(cf, NULL);
+  utetra_solve(cf, lambda);
   utetra_get_lambda(cf, lambda);
   utetra_get_jet(cf, &newjet);
   assert_that_double(lambda[0], is_nearly_double(1./3));
@@ -225,8 +222,7 @@ Ensure(eik3, tetra_works_for_olim18_222_update) {
 
   lambda[0] = 1;
   lambda[1] = 0;
-  utetra_set_lambda(cf, lambda);
-  utetra_solve(cf, NULL);
+  utetra_solve(cf, lambda);
   utetra_get_lambda(cf, lambda);
   utetra_get_jet(cf, &newjet);
   assert_that_double(lambda[0], is_nearly_double(1./3));
@@ -239,8 +235,7 @@ Ensure(eik3, tetra_works_for_olim18_222_update) {
 
   lambda[0] = 0;
   lambda[1] = 1;
-  utetra_set_lambda(cf, lambda);
-  utetra_solve(cf, NULL);
+  utetra_solve(cf, lambda);
   utetra_get_lambda(cf, lambda);
   utetra_get_jet(cf, &newjet);
   assert_that_double(lambda[0], is_nearly_double(1./3));
@@ -259,8 +254,7 @@ Ensure(eik3, tetra_works_for_olim18_222_update) {
       lambda[1] = 1 - lambda[1];
     }
 
-    utetra_set_lambda(cf, lambda);
-    utetra_solve(cf, NULL);
+    utetra_solve(cf, lambda);
     utetra_get_lambda(cf, lambda);
     utetra_get_jet(cf, &newjet);
 
@@ -420,8 +414,7 @@ Ensure(eik3, tetra_works_for_olim26_updates) {
         lam[1] = 1 - lam[1];
       }
 
-      utetra_set_lambda(cf, lam);
-      utetra_solve(cf, NULL);
+      utetra_solve(cf, lam);
       utetra_get_lambda(cf, lam);
       utetra_get_jet(cf, &newjet);
 
