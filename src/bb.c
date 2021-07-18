@@ -518,8 +518,9 @@ void bb33_init_from_3d_data(bb33 *bb, dbl const f[4], dbl const Df[4][3], dbl co
 }
 
 void bb33_init_from_cell_and_jets(bb33 *bb, mesh3_s const *mesh, jet3 const *jet, size_t lc) {
-  dbl x[4][3];
   size_t lv[4]; mesh3_cv(mesh, lc, lv);
+
+  dbl3 x[4];
   for (size_t i = 0; i < 4; ++i)
     mesh3_copy_vert(mesh, lv[i], x[i]);
 
