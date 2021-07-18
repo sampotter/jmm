@@ -244,6 +244,9 @@ void eik3_deinit(eik3_s *eik) {
   free(eik->par);
   eik->par = NULL;
 
+  free(eik->accepted);
+  eik->accepted = NULL;
+
   heap_deinit(eik->heap);
   heap_dealloc(&eik->heap);
 
