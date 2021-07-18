@@ -6,7 +6,6 @@ import pyvista as pv
 import pyvistaqt as pvqt
 import sys
 
-from jmm.mesh import Mesh3
 from jmm.multiple_arrivals import Domain, Field, PointSourceField, MultipleArrivals
 from jmm.plot import *
 
