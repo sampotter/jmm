@@ -615,6 +615,7 @@ bool rtree_query_bbox(rtree_s const *rtree, rect3 const *bbox) {
 
 void rtree_intersect(rtree_s const *rtree, ray3 const *ray, isect *isect) {
   isect->t = INFINITY;
+  isect->obj = NULL;
   rnode_intersect(&rtree->root, ray, isect);
 }
 
