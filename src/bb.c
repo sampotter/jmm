@@ -522,7 +522,12 @@ void bb33_init_from_cell_and_jets(bb33 *bb, mesh3_s const *mesh, jet3 const *jet
   size_t lv[4]; mesh3_cv(mesh, lc, lv);
   for (size_t i = 0; i < 4; ++i)
     mesh3_copy_vert(mesh, lv[i], x[i]);
-  bb33_init_from_jets(bb, jet, x);
+
+  jet3 J[4];
+  for (size_t i = 0; i < 4; ++i)
+    J[i] = jet[lv[i]];
+
+  bb33_init_from_jets(bb, J, x);
 }
 
 void bb33_init_from_jets(bb33 *bb, jet3 const jet[4], dbl const x[4][3]) {
