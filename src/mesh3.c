@@ -283,6 +283,8 @@ static bool bdfs_are_coplanar(mesh3_s const *mesh, size_t l0, size_t l1) {
 }
 
 static bool label_reflector(mesh3_s *mesh) {
+  bool done = false;
+
   /* Set up a queue for the breadth-first search */
   array_s *queue;
   array_alloc(&queue);
@@ -301,8 +303,10 @@ static bool label_reflector(mesh3_s *mesh) {
 
   /* If we couldn't find an unlabeled face, we're done, so we can
    * return `false`, signaling no more reflectors to process. */
-  if (lf == mesh->nbdf)
-    return false;
+  if (lf == mesh->nbdf) {
+    done = true;
+    goto cleanup;
+  }
 
   /* Push `lf` onto `queue` to start the BFS. */
   array_append(queue, &lf);
@@ -336,14 +340,14 @@ static bool label_reflector(mesh3_s *mesh) {
     }
   } while (!array_is_empty(queue));
 
+cleanup:
   array_deinit(nb);
   array_dealloc(&nb);
 
   array_deinit(queue);
   array_dealloc(&queue);
 
-  /* We successfully labeled a component. */
-  return true;
+  return done;
 }
 
 static void init_bdf_labels(mesh3_s *mesh) {
@@ -357,7 +361,7 @@ static void init_bdf_labels(mesh3_s *mesh) {
 
   /* Label each reflecting component, incrementing the label count as
    * we go */
-  while (label_reflector(mesh))
+  while (!label_reflector(mesh))
     ++mesh->num_bdf_labels;
 }
 
@@ -413,6 +417,8 @@ static bool bdes_are_colinear(mesh3_s const *mesh, size_t l0, size_t l1) {
 }
 
 static bool label_diffractor(mesh3_s *mesh) {
+  bool done = false;
+
   array_s *queue;
   array_alloc(&queue);
   array_init(queue, sizeof(size_t), ARRAY_DEFAULT_CAPACITY);
@@ -427,8 +433,10 @@ static bool label_diffractor(mesh3_s *mesh) {
              || !mesh->bde[le].diff))
     ++le;
 
-  if (le == mesh->nbde)
-    return false;
+  if (le == mesh->nbde) {
+    done = true;
+    goto cleanup;
+  }
 
   array_append(queue, &le);
 
@@ -452,13 +460,14 @@ static bool label_diffractor(mesh3_s *mesh) {
     }
   } while (!array_is_empty(queue));
 
+cleanup:
   array_deinit(nb);
   array_dealloc(&nb);
 
   array_deinit(queue);
   array_dealloc(&queue);
 
-  return true;
+  return done;
 }
 
 static void init_bde_labels(mesh3_s *mesh) {
@@ -471,7 +480,7 @@ static void init_bde_labels(mesh3_s *mesh) {
   mesh->num_bde_labels = 0;
 
   /* Label each diffractor */
-  while (label_diffractor(mesh))
+  while (!label_diffractor(mesh))
     ++mesh->num_bde_labels;
 }
 
