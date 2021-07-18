@@ -46,7 +46,7 @@ int main(int argc, char *argv[]) {
   // Create tetrahedron mesh for solver
   mesh3_s *mesh;
   mesh3_alloc(&mesh);
-  mesh3_init(mesh, verts, nverts, cells, ncells, true);
+  mesh3_init(mesh, verts, nverts, cells, ncells, true, NULL);
 
   // Set up solver
   eik3_s *eik;

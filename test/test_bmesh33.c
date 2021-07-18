@@ -80,7 +80,7 @@ create_approximate_sphere_bmesh33(
         cells[5*i + j][k] = 8*i + cells[j][k];
 
   mesh3_alloc(mesh_handle);
-  mesh3_init(*mesh_handle, &verts[0][0], 64, &cells[0][0], 40, false);
+  mesh3_init(*mesh_handle, &verts[0][0], 64, &cells[0][0], 40, false, NULL);
 
   /**
    * Next, compute the jets for each vertex in `verts`.

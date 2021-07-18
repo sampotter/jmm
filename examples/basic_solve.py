@@ -9,6 +9,7 @@ import argparse
 import colorcet as cc
 import jmm
 import matplotlib.pyplot as plt
+import meshplex
 import numpy as np
 import os
 import pyvista as pv
@@ -54,7 +55,8 @@ factoring radius (TODO: not currently being used)''', default=None)
     cells = cells.reshape(cells.size//4, 4)
     print('- reading cells from %s' % cells_bin_path)
 
-    mesh = jmm.Mesh3.from_verts_and_cells(verts, cells)
+    mesh_eps = meshplex.MeshTetra(verts, cells).edge_lengths.min()
+    mesh = jmm.Mesh3.from_verts_and_cells(verts, cells, eps=mesh_eps)
 
     eik = jmm.Eik3(mesh)
 

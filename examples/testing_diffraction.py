@@ -1,6 +1,7 @@
 import colorcet as cc
 import json
 import matplotlib.pyplot as plt
+import meshplex
 import numpy as np
 import pyvista as pv
 import time
@@ -65,9 +66,11 @@ num_dom_points = info['num_dom_points']
 dom_cells = cells[:num_dom_cells]
 dom_points = points[:num_dom_points]
 
-mesh_dom = jmm.Mesh3.from_verts_and_cells(dom_points, dom_cells)
+dom_eps = meshplex.MeshTetra(dom_points, dom_cells).edge_lengths.min()
+mesh_dom = jmm.Mesh3.from_verts_and_cells(dom_points, dom_cells, dom_eps)
 
-mesh = jmm.Mesh3.from_verts_and_cells(points, cells)
+eps = meshplex.MeshTetra(points, cells).edge_lengths.min()
+mesh = jmm.Mesh3.from_verts_and_cells(points, cells, eps)
 for le in mesh_dom.get_diff_edges():
     mesh.set_boundary_edge(*le, True)
 

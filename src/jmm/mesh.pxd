@@ -57,7 +57,7 @@ cdef extern from "mesh3.h":
     void mesh3_init(mesh3 *mesh,
                     dbl *verts, size_t nverts,
                     size_t *cells, size_t ncells,
-                    bool compute_bd_info)
+                    bool compute_bd_info, const dbl *eps)
     void mesh3_deinit(mesh3 *mesh)
     void mesh3_get_bbox(const mesh3 *mesh, rect3 *bbox)
     const size_t *mesh3_get_cells_ptr(const mesh3 *mesh)

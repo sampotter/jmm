@@ -108,19 +108,22 @@ cdef class Mesh3:
             mesh3_dealloc(&self.mesh)
 
     def __init__(self, dbl[:, ::1] verts, size_t[:, ::1] cells,
-                 bool compute_bd_info=True):
+                 bool compute_bd_info=True, eps=None):
         self.ptr_owner = True
         mesh3_alloc(&self.mesh)
         cdef size_t nverts = verts.shape[0]
         cdef size_t ncells = cells.shape[0]
+        cdef dbl eps_
+        if eps is not None:
+            eps_ = eps
         mesh3_init(self.mesh, &verts[0, 0], nverts, &cells[0, 0], ncells,
-                   compute_bd_info)
+                   compute_bd_info, NULL if eps is None else &eps_)
         self._set_views()
 
     @staticmethod
     def from_verts_and_cells(dbl[:, ::1] verts, size_t[:, ::1] cells,
-                             compute_bd_info=True):
-        return Mesh3(verts, cells, compute_bd_info)
+                             compute_bd_info=True, eps=None):
+        return Mesh3(verts, cells, compute_bd_info, eps)
 
     @staticmethod
     cdef from_ptr(mesh3 *mesh_ptr):

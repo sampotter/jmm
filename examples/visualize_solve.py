@@ -109,7 +109,8 @@ if __name__ == '__main__':
     cells = np.fromfile(cells_bin_path, np.uintp)
     cells = cells.reshape(cells.size//4, 4)
 
-    mesh = jmm.Mesh3.from_verts_and_cells(verts, cells)
+    mesh_eps = meshplex.MeshTetra(verts, cells).edge_lengths.min()
+    mesh = jmm.Mesh3.from_verts_and_cells(verts, cells, mesh_eps)
 
     eik = jmm.Eik3(mesh)
 

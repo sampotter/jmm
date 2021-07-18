@@ -221,8 +221,10 @@ bmesh33_s *bmesh33_restrict_to_level(bmesh33_s const *bmesh, dbl level) {
     ++lc;
   }
 
+  dbl eps = mesh3_get_eps(bmesh->mesh);
+
   mesh3_alloc((mesh3_s **)&level_bmesh->mesh);
-  mesh3_init((mesh3_s *)level_bmesh->mesh, verts, lv, cells, lc, false);
+  mesh3_init((mesh3_s *)level_bmesh->mesh, verts, lv, cells, lc, false, &eps);
 
   level_bmesh->mesh_owner = true;
   level_bmesh->num_cells = mesh3_ncells(level_bmesh->mesh);

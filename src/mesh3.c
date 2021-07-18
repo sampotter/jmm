@@ -632,16 +632,12 @@ static void compute_geometric_quantities(mesh3_s *mesh) {
     }
     free(vv);
   }
-
-  /* Compute mesh epsilon now. We need this to be set before computing
-   * any of the boundary information below. */
-  mesh->eps = pow(mesh->min_edge_length, 3);
 }
 
 void mesh3_init(mesh3_s *mesh,
                 dbl const *verts, size_t nverts,
                 size_t const *cells, size_t ncells,
-                bool compute_bd_info) {
+                bool compute_bd_info, dbl const *eps) {
   size_t k = 0;
 
   mesh->verts = malloc(nverts*sizeof(dbl[3]));
@@ -661,6 +657,8 @@ void mesh3_init(mesh3_s *mesh,
   init_vc(mesh);
 
   compute_geometric_quantities(mesh);
+
+  mesh->eps = eps ? *eps : EPS;
 
   mesh->has_bd_info = compute_bd_info;
   if (compute_bd_info) {

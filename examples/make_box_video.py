@@ -6,6 +6,7 @@ import jmm
 import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
+import meshplex
 import numpy as np
 import os
 import scipy.optimize
@@ -32,6 +33,7 @@ if __name__ == '__main__':
 
     print('- reading cells from %s' % cells_bin_path)
 
+    mesh_eps = meshplex.MeshTetra(verts, cells).edge_lengths.min()
     mesh = jmm.Mesh3.from_verts_and_cells(verts, cells)
     eik = jmm.Eik3(mesh)
     eik.add_trial(indsrc, jmm.Jet3(0, np.nan, np.nan, np.nan))

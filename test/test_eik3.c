@@ -94,7 +94,7 @@ Ensure(eik3, tetra_works_for_olim18_122_update) {
     /**
      * Create a mesh consisting of a single tetrahedron for this update
      */
-    mesh3_init(mesh, verts_perm, 4, cells_perm, 1, true);
+    mesh3_init(mesh, verts_perm, 4, cells_perm, 1, true, NULL);
 
     /**
      * Get jets for vertex data
@@ -179,7 +179,7 @@ Ensure(eik3, tetra_works_for_olim18_222_update) {
 
   mesh3_s *mesh;
   mesh3_alloc(&mesh);
-  mesh3_init(mesh, verts, 4, cells, 1, true);
+  mesh3_init(mesh, verts, 4, cells, 1, true, NULL);
 
   dbl lambda[2] = {1./3, 1./3};
 
@@ -297,7 +297,7 @@ Ensure(eik3, olim18_222_is_symmetric) {
 
   mesh3_s *mesh;
   mesh3_alloc(&mesh);
-  mesh3_init(mesh, verts, 4, cells, 1, true);
+  mesh3_init(mesh, verts, 4, cells, 1, true, NULL);
 
   utetra_spec_s spec = utetra_spec_from_ptrs(mesh, jet, 3, 0, 1, 2);
 
@@ -384,7 +384,7 @@ Ensure(eik3, tetra_works_for_olim26_updates) {
     /**
      * Create a mesh consisting of a single tetrahedron for this update
      */
-    mesh3_init(mesh, verts_perm, 4, cells_perm, 1, true);
+    mesh3_init(mesh, verts_perm, 4, cells, 1, true, NULL);
 
     /**
      * Get jets for vertex data

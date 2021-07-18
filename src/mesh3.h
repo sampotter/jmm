@@ -38,7 +38,7 @@ void mesh3_dealloc(mesh3_s **mesh);
 void mesh3_init(mesh3_s *mesh,
                 dbl const *verts, size_t nverts,
                 size_t const *cells, size_t ncells,
-                bool compute_bd_info);
+                bool compute_bd_info, dbl const *eps);
 void mesh3_deinit(mesh3_s *mesh);
 dbl const *mesh3_get_verts_ptr(mesh3_s const *mesh);
 size_t const *mesh3_get_cells_ptr(mesh3_s const *mesh);

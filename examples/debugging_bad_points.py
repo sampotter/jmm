@@ -2,6 +2,7 @@
 # running the rest of the script if running from python-mode in Emacs
 
 import colorcet as cc
+import meshplex
 import numpy as np
 import pyvista as pv
 import pyvistaqt as pvqt
@@ -82,6 +83,7 @@ faces = np.array(list(faces), dtype=np.uintp)
 ############################################################################
 # SOLVE
 
+mesh_eps = meshplex.MeshTetra(verts, cells).edge_lengths.min()
 mesh = jmm.mesh.Mesh3.from_verts_and_cells(verts, cells)
 for le in mesh.get_diff_edges():
     mesh.set_boundary_edge(*le, True)

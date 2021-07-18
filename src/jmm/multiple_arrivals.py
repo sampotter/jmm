@@ -1,5 +1,6 @@
 import datetime
 import logging
+import meshplex
 import numpy as np
 import os
 import pickle
@@ -44,7 +45,8 @@ class Domain(Logger):
         # be specified at each boundary vertex.
         self.refl_coef = refl_coef
 
-        self.mesh = jmm.mesh.Mesh3(verts, cells)
+        eps = meshplex.MeshTetra(verts, cells).edge_lengths.min()
+        self.mesh = jmm.mesh.Mesh3(verts, cells, eps)
 
         self.log.info('domain has %d vertices and %d cells',
                       self.num_verts, self.num_cells)
