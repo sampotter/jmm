@@ -28,6 +28,7 @@ dbl bmesh33_get_level(bmesh33_s const *bmesh);
 mesh3_s const *bmesh33_get_mesh_ptr(bmesh33_s const *bmesh);
 bmesh33_s *bmesh33_restrict_to_level(bmesh33_s const *bmesh, dbl level);
 bmesh33_cell_s bmesh33_get_cell(bmesh33_s const *bmesh, size_t l);
+dbl bmesh33_f(bmesh33_s const *bmesh, dbl3 const x);
 
 #ifdef __cplusplus
 }

@@ -248,3 +248,18 @@ bmesh33_cell_s bmesh33_get_cell(bmesh33_s const *bmesh, size_t l) {
     .level = bmesh33_get_level(bmesh)
   };
 }
+
+/* Evaluate `bmesh` at the point `x`. If `x` lies outside the mesh,
+ * return `NAN`. */
+dbl bmesh33_f(bmesh33_s const *bmesh, dbl3 const x) {
+  // TODO: very inefficient implementation! Optimize this using rtree.
+  for (size_t l = 0; l < bmesh->num_cells; ++l) {
+    if (mesh3_cell_contains_point(bmesh->mesh, l, x)) {
+      tetra3 tetra = mesh3_get_tetra(bmesh->mesh, l);
+      dbl4 b;
+      tetra3_get_bary_coords(&tetra, x, b);
+      return bb33_f(&bmesh->bb[l], b);
+    }
+  }
+  return NAN;
+}
