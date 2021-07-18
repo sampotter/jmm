@@ -104,6 +104,7 @@ Ensure(eik3, tetra_works_for_olim18_122_update) {
     }
 
     spec = utetra_spec_from_ptrs(mesh, jet, 3, 0, 1, 2);
+    spec.tol = 1e-15;
     utetra_init(cf, &spec);
 
     /**
@@ -195,6 +196,7 @@ Ensure(eik3, tetra_works_for_olim18_222_update) {
   utetra_alloc(&cf);
 
   utetra_spec_s spec = utetra_spec_from_ptrs(mesh, jet, 3, 0, 1, 2);
+  spec.tol = 1e-15;
   utetra_init(cf, &spec);
 
   utetra_solve(cf, lambda);
@@ -388,6 +390,7 @@ Ensure(eik3, tetra_works_for_olim26_updates) {
     }
 
     utetra_spec_s spec = utetra_spec_from_ptrs(mesh, jet, 3, 0, 1, 2);
+    spec.tol = 1e-15;
     utetra_init(cf, &spec);
 
     /**
