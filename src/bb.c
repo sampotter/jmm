@@ -517,6 +517,9 @@ void bb33_init_from_3d_data(bb33 *bb, dbl const f[4], dbl const Df[4][3], dbl co
   // generalization of the 9-parameter interpolant.)
 }
 
+/* Initialize `bb` from cell `lc` of `mesh`, and the corresponding
+ * jets from `jet`, which is assumed to point to a block of memory
+ * containing `mesh3_nverts(mesh)` jets. */
 void bb33_init_from_cell_and_jets(bb33 *bb, mesh3_s const *mesh, jet3 const *jet, size_t lc) {
   size_t lv[4]; mesh3_cv(mesh, lc, lv);
 
