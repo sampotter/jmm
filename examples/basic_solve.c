@@ -6,8 +6,8 @@
 #include <mesh3.h>
 
 int main(int argc, char *argv[]) {
-  if (argc != 3) {
-    printf("usage: %s <verts.bin> <cells.bin>\n",
+  if (argc != 5) {
+    printf("usage: %s <verts.bin> <cells.bin> <pt_src_ind> <jets.bin>\n",
            argv[0]);
     exit(EXIT_FAILURE);
   }
@@ -28,7 +28,6 @@ int main(int argc, char *argv[]) {
   fseek(fp, 0, SEEK_END);
   nverts = ftell(fp)/vertsize;
   rewind(fp);
-  nverts = 7613; // OVERRIDE!!!
   verts = malloc(vertsize*nverts);
   fread(verts, vertsize, nverts, fp);
   fclose(fp);
@@ -38,10 +37,12 @@ int main(int argc, char *argv[]) {
   fseek(fp, 0, SEEK_END);
   ncells = ftell(fp)/cellsize;
   rewind(fp);
-  ncells = 31419; // OVERRIDE!!!
   cells = malloc(cellsize*ncells);
   fread(cells, cellsize, ncells, fp);
   fclose(fp);
+
+  // Get the index of the point source
+  size_t lsrc = strtoul(argv[3], NULL, 10);
 
   // Create tetrahedron mesh for solver
   mesh3_s *mesh;
@@ -52,8 +53,19 @@ int main(int argc, char *argv[]) {
   eik3_s *eik;
   eik3_alloc(&eik);
   eik3_init(eik, mesh, FTYPE_POINT_SOURCE, NULL);
-  eik3_add_pt_src_BCs(eik, 0, jet3_make_point_source(0));
+  eik3_add_pt_src_BCs(eik, lsrc, jet3_make_point_source(0));
   eik3_solve(eik);
+
+  // Write the computed jets to disk
+  fp = fopen(argv[4], "wb");
+  jet3 const *jet = eik3_get_jet_ptr(eik);
+  for (size_t l = 0; l < nverts; ++l) {
+    fwrite(&jet[l].f, sizeof(dbl), 1, fp);
+    fwrite(&jet[l].fx, sizeof(dbl), 1, fp);
+    fwrite(&jet[l].fy, sizeof(dbl), 1, fp);
+    fwrite(&jet[l].fz, sizeof(dbl), 1, fp);
+  }
+  fclose(fp);
 
   /* Clean everything up */
 
