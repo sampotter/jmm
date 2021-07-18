@@ -1,6 +1,7 @@
 #include <cgreen/cgreen.h>
 
 #include "geom.h"
+#include "vec.h"
 
 Describe(geom);
 
@@ -10,6 +11,20 @@ BeforeEach(geom) {
 }
 
 AfterEach(geom) {}
+
+Ensure(geom, tetra3_contains_point_works) {
+  tetra3 tetra = {
+    .v = {
+      {0, 0, 0},
+      {0, 1, 1},
+      {1, 0, 1},
+      {1, 1, 0}
+    }
+  };
+
+  assert_false(tetra3_contains_point(&tetra, DBL3(-1, -1, -1), NULL));
+  assert_that(tetra3_contains_point(&tetra, DBL3(0.5, 0.5, 0.5), NULL));
+}
 
 Ensure(geom, ray3_intersects_tetra3_works) {
   ray3 ray;
