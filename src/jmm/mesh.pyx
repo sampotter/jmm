@@ -312,6 +312,9 @@ cdef class Mesh3:
         cdef mesh2 *surface_mesh = mesh3_get_surface_mesh(self.mesh)
         return Mesh2.from_ptr(surface_mesh, ptr_owner=True)
 
+    def get_num_inc_diff_edges(self, size_t l):
+        return mesh3_get_num_inc_diff_edges(self.mesh, l)
+
     def get_inc_diff_edges(self, size_t l):
         '''Get the diffracting edges that are incident on `l`.'''
         if not self.bdv(l):
