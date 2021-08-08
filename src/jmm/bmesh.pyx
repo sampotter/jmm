@@ -74,3 +74,6 @@ cdef class Bmesh33:
 
     def get_cell(self, size_t l):
         return Bmesh33Cell.from_cell(bmesh33_get_cell(self.bmesh, l))
+
+    def __call__(self, dbl[::1] x):
+        return bmesh33_f(self.bmesh, &x[0])

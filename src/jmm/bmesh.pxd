@@ -1,5 +1,5 @@
 from jmm.bb cimport bb33
-from jmm.defs cimport bool, dbl
+from jmm.defs cimport bool, dbl, dbl3
 from jmm.geom cimport ray3
 from jmm.jet cimport jet3
 from jmm.mesh cimport mesh3
@@ -26,6 +26,7 @@ cdef extern from "bmesh.h":
     const mesh3 *bmesh33_get_mesh_ptr(const bmesh33 *bmesh)
     bmesh33 *bmesh33_restrict_to_level(const bmesh33 *bmesh, dbl level)
     bmesh33_cell bmesh33_get_cell(const bmesh33 *bmesh, size_t l)
+    dbl bmesh33_f(const bmesh33 *bmesh, const dbl3 x)
 
 cdef class Bmesh33Cell:
     cdef bmesh33_cell cell
