@@ -292,7 +292,11 @@ def plot_vv(plotter, mesh, l0, r, **kwargs):
         x1 = mesh.verts[l1]
         plot_edge(plotter, x0, x1, r, **kwargs)
 
-def plot_scalar_field(plotter, points, scalars, title='', **kwargs):
+def plot_scalar_field(plotter, points, scalars, title='',
+                      mask_nans=True, **kwargs):
+    if mask_nans:
+        mask = np.isnan(scalars)
+        points, scalars = points[mask], scalars[mask]
     poly_data = pv.PolyData(points)
     poly_data[title] = scalars
     plotter.add_mesh(poly_data, scalars=title, **kwargs)
