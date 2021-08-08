@@ -1,5 +1,5 @@
 import colorcet as cc
-import jmm
+import json
 import meshplex
 import numpy as np
 import os
@@ -7,85 +7,106 @@ import pyvista as pv
 import pyvistaqt as pvqt
 import skimage.morphology
 import time
+import vtk
 
 from PIL import Image
 
 from skimage.measure import marching_cubes
 
-# Load mesh, etc.
+from jmm.grid import Grid3
+from jmm.multiple_arrivals import Domain, PointSourceField, ReflectedField, \
+    DiffractedField
+from jmm.plot import *
 
-tetra_mesh_path = 'room/room.1.vtk'
-tetra_mesh = pv.read(tetra_mesh_path)
+class LevelSetPlotter:
+    def __init__(self, field, pmin, pmax, grid_h):
+        assert field.is_solved
+        self.pmin = pmin
+        self.pmax = max
+        self.dim = np.ceil((pmax - pmin)/grid_h).astype(np.intc)
+        self.grid_h = grid_h
+        self.grid = Grid3(self.dim, self.pmin, self.grid_h)
+        self.field = field
+        self.T = self.field.eik.transfer_solution_to_grid(self.grid)
 
-surf_mesh_path = 'room.obj'
-surf_mesh = pv.read(surf_mesh_path)
+    def plot_level_set(self, plotter, level, **kwargs):
+        mask = skimage.morphology.binary_erosion(
+            np.isfinite(self.T),
+            selem=np.ones((3, 3, 3), dtype=np.intc)
+        )
+        h = self.field.h
+        verts, faces = marching_cubes(
+            self.T,
+            level=level,
+            spacing=(h, h, h),
+            allow_degenerate=False,
+            mask=mask
+        )[:2]
+        grid = pv.UnstructuredGrid({vtk.VTK_TRIANGLE: faces}, verts + self.pmin)
+        plotter.add_mesh(grid, **kwargs)
 
-points = tetra_mesh.points.copy().astype(np.float64)
-cells = tetra_mesh.cells.astype(np.uint64)
-cells = cells.reshape(cells.size//5, 5)[:, 1:].copy()
+if __name__ == '__main__':
 
-points = np.array(points)
-cells = np.array(cells)
+    # Load mesh, etc.
 
-num_points = points.shape[0]
-num_cells = cells.shape[0]
+    surf_grid = pv.read(f'../sethian_shadow/Building.obj')
 
-print('%d points and %d cells' % (num_points, num_cells))
+    grid = pv.read(f'../sethian_shadow/Building.vtu')
+    with open('../sethian_shadow/Building.json', 'r') as f:
+        info = json.load(f)
 
-# Compute eikonal
+    num_points = info['num_dom_points']
+    points = grid.points[:num_points].astype(np.float64)
 
-mesh_eps = meshplex.MeshTetra(points, cells).edge_lengths.min()
-mesh = jmm.Mesh3.from_verts_and_cells(points, cells, mesh_eps)
-eik = jmm.Eik3(mesh)
-eik.add_trial(3019, jmm.Jet3(0, np.nan, np.nan, np.nan))
-eik.solve()
+    num_cells = info['num_dom_cells']
+    cells = grid.cells.reshape(-1, 5)[:num_cells, 1:].astype(np.uintp)
 
-# Transfer solution
+    print('%d points and %d cells' % (num_points, num_cells))
 
-pmin = points.min(0) - 0.5
-pmax = points.max(0) + 0.5
-h = 0.1
-dim = np.ceil((pmax - pmin)/h).astype(np.intc)
-grid = jmm.Grid3(dim, pmin, h)
+    # Compute eikonal
 
-T = eik.transfer_solution_to_grid(grid)
+    domain = Domain(points, cells, 1.0)
 
-# Make movie
+    omega = 3000
 
-levels = np.linspace(0.75, 20, 30*24)[1:-1]
+    l_int = np.array([_ for _ in range(num_points) if not domain.mesh.bdv(_)])
+    src_index = l_int[0]
 
-def get_level_set_poly_data(level):
-    selem = np.ones((3, 3, 3), dtype=np.intc)
-    mask = skimage.morphology.binary_erosion(np.isfinite(T), selem)
-    V, F = marching_cubes(T, level=level, spacing=(h, h, h),
-                          allow_degenerate=False, mask=mask)[:2]
-    return pv.PolyData(
-        V + pmin,
-        np.concatenate([
-            3*np.ones((F.shape[0], 1)), F], axis=1).astype(F.dtype))
+    root_field = PointSourceField(domain, src_index, omega, 1.5)
+    root_field.solve()
 
-plotter = pvqt.BackgroundPlotter()
-plotter.set_position((-20, 35, -20))
-plotter.set_viewup((0, 1, 0))
-plotter.set_focus((0, 0, 0))
+    pmin = points.min(0) - 0.5
+    pmax = points.max(0) + 0.5
+    grid_h = 0.1
+    lsp = LevelSetPlotter(root_field, pmin, pmax, grid_h)
 
+    # Make movie
 
-plotter.add_mesh(surf_mesh, color='white', opacity=0.3)
-plotter.add_mesh(get_level_set_poly_data(levels[0]), color='white')
+    levels = np.linspace(0.75, 20, 30*24)[1:-1]
 
-os.mkdir('frames')
+    plotter = pvqt.BackgroundPlotter()
+    plotter.set_position((-20, 35, -20))
+    plotter.set_viewup((0, 1, 0))
+    plotter.set_focus((0, 0, 0))
 
-i = 0
+    surf_mesh = domain.mesh.get_surface_mesh()
+    plot_mesh2(plotter, surf_mesh, color='white', opacity=0.5)
 
-level = levels[i]
-plotter.clear()
-plotter.add_mesh(surf_mesh, color='white', opacity=0.3)
-plotter.add_mesh(get_level_set_poly_data(level), color='white')
-i += 1
+    lsp.plot_level_set(plotter, levels[100], color='white')
 
-Image.fromarray(plotter.image).save('frames/%03d.png' % i)
+    # os.mkdir('frames')
+
+    # i = 0
+
+    # level = levels[i]
+    # plotter.clear()
+    # plotter.add_mesh(surf_mesh, color='white', opacity=0.3)
+    # plotter.add_mesh(get_level_set_poly_data(level), color='white')
+    # i += 1
+
+    # Image.fromarray(plotter.image).save('frames/%03d.png' % i)
 
 
 
 
-print('finished')
+    # print('finished')
