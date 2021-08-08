@@ -46,7 +46,12 @@ class Domain(Logger):
         self.refl_coef = refl_coef
 
         eps = meshplex.MeshTetra(verts, cells).edge_lengths.min()
-        self.mesh = jmm.mesh.Mesh3(verts, cells, eps)
+
+        # TODO: figure out why removing ".copy()" from below results
+        #  in the exception: "ValueError: buffer source array is
+        #  read-only"... does it have something to do with using
+        #  meshplex?
+        self.mesh = jmm.mesh.Mesh3(verts.copy(), cells.copy(), eps)
 
         self.log.info('domain has %d vertices and %d cells',
                       self.num_verts, self.num_cells)
