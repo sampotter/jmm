@@ -366,7 +366,7 @@ cdef class Mesh3:
         return mesh3_get_eps(self.mesh)
 
     def get_face_normal(self, size_t l0, size_t l1, size_t l2):
-        if not self.is_bdf(l0, l1, l2, False):
+        if not self.is_bdf(l0, l1, l2):
             raise KeyError('(%d, %d, %d) is not a face' % (l0, l1, l2))
         cdef size_t[3] lf = [l0, l1, l2]
         cdef dbl[::1] normal = np.empty((3,), dtype=np.float64)
