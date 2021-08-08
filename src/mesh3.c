@@ -1704,31 +1704,20 @@ void mesh3_get_face_normal(mesh3_s const *mesh, size_t const lf[3], dbl normal[3
   dbl3_cross(dx1, dx2, normal);
   dbl3_normalize(normal);
 
-  dbl h = mesh->min_edge_length/4;
+  // Get the cell which `lf` is incident on. There should only be one...
+  assert(mesh3_nfc(mesh, lf) == 1);
+  size_t lc;
+  mesh3_fc(mesh, lf, &lc);
 
-  dbl xp[3] = {
-    (x0[0] + x1[0] + x2[0])/3 + h*normal[0],
-    (x0[1] + x1[1] + x2[1])/3 + h*normal[1],
-    (x0[2] + x1[2] + x2[2])/3 + h*normal[2]
-  };
+  // Get the cell vertex which isn't one of the face vertices
+  size_t l3;
+  assert(mesh3_cfv(mesh, lc, lf, &l3));
 
-  bool cell_contains_xp = false;
+  dbl const *x3 = mesh3_get_vert_ptr(mesh, l3);
+  dbl dx3[3]; dbl3_sub(x3, x0, dx3);
 
-  size_t nvc, *vc;
-  for (size_t i = 0; i < 3; ++i) {
-    nvc = mesh3_nvc(mesh, lf[i]);
-    vc = malloc(nvc*sizeof(size_t));
-    mesh3_vc(mesh, lf[i], vc);
-    for (size_t j = 0; j < nvc; ++j) {
-      if (mesh3_cell_contains_point(mesh, vc[j], xp)) {
-        cell_contains_xp = true;
-        break;
-      }
-    }
-    free(vc);
-  }
-
-  if (!cell_contains_xp)
+  // If the normal isn't pointing into the interior of the domain, flip it
+  if (dbl3_dot(normal, dx3) < 0)
     dbl3_negate(normal);
 }
 
