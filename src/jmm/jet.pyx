@@ -1,3 +1,10 @@
+cdef class Jet2:
+    def __cinit__(self, dbl f, dbl fx, dbl fy, dbl fxy):
+        self.jet.f = f
+        self.jet.fx = fx
+        self.jet.fy = fy
+        self.jet.fxy = fxy
+
 cdef class Jet3:
     def __cinit__(self, dbl f, dbl fx, dbl fy, dbl fz):
         self.jet.f = f
