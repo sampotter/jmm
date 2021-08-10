@@ -5,25 +5,104 @@ from jmm.defs import Ftype
 cimport jmm.defs
 
 from jmm.bb cimport Bb31, Bb33
+from jmm.defs cimport int2
+from jmm.field cimport SlownessFunc2
 from jmm.grid cimport Grid3
-from jmm.jet cimport Jet3
+from jmm.jet cimport Jet2, Jet3
 from jmm.mesh cimport mesh3, Mesh3, mesh3_nverts
 from jmm.par cimport par3, Parent3
 from jmm.xfer cimport xfer
 
-# cdef class Eik:
-#     def __init__(self, *args):
-#         if len(args) > 0:
-#             raise RuntimeError('construct Eik using factory functions')
+cdef class Eik:
+    def __init__(self, *args):
+        if len(args) > 0:
+            raise RuntimeError('construct Eik using factory functions')
 
-#     def __cinit__(self, *args):
-#         if len(args) > 0:
-#             raise RuntimeError('construct Eik using factory functions')
+    def __cinit__(self, *args):
+        if len(args) > 0:
+            raise RuntimeError('construct Eik using factory functions')
 
-#     @staticmethod
-#     def from_s_and_grid(Field2 s, size_t[::1] shape, dbl[::2] xymin, dbl h):
-#         eik_alloc(&self.eik)
-#         eik_init(self.eik, s.field,
+    @staticmethod
+    def from_s_and_grid(SlownessFunc2 s, size_t[::1] shape, dbl[::1] xymin, dbl h):
+        cdef int2 shape_ = [shape[0], shape[1]]
+
+        eik = Eik()
+        eik_alloc(&eik.eik)
+        eik_init(eik.eik, &s.field, shape_, &xymin[0], h)
+        eik._init_views()
+        return eik
+
+    def _init_views(self):
+        self.state_view = ArrayView(2)
+        self.state_view.readonly = True
+        self.state_view.ptr = <void *>eik_get_states_ptr(self.eik)
+        self.state_view.shape[0] = self.shape[0]
+        self.state_view.shape[1] = self.shape[1]
+        self.state_view.strides[0] = self.shape[1]*sizeof(state)
+        self.state_view.strides[1] = 1*sizeof(state)
+        self.state_view.format = 'i'
+        self.state_view.itemsize = sizeof(state)
+
+        self.T_view = ArrayView(2)
+        self.T_view.readonly = True
+        self.T_view.ptr = <void *>&eik_get_jets_ptr(self.eik).f
+        self.T_view.shape[0] = self.shape[0]
+        self.T_view.shape[1] = self.shape[1]
+        self.T_view.strides[0] = self.shape[1]*sizeof(dbl)
+        self.T_view.strides[1] = 4*sizeof(dbl)
+        self.T_view.format = 'd'
+        self.T_view.itemsize = sizeof(dbl)
+
+        self.Tx_view = ArrayView(2)
+        self.Tx_view.readonly = True
+        self.Tx_view.ptr = <void *>&eik_get_jets_ptr(self.eik).fx
+        self.Tx_view.shape[0] = self.shape[0]
+        self.Tx_view.shape[1] = self.shape[1]
+        self.Tx_view.strides[0] = self.shape[1]*sizeof(dbl)
+        self.Tx_view.strides[1] = 4*sizeof(dbl)
+        self.Tx_view.format = 'd'
+        self.Tx_view.itemsize = sizeof(dbl)
+
+        self.Ty_view = ArrayView(2)
+        self.Ty_view.readonly = True
+        self.Ty_view.ptr = <void *>&eik_get_jets_ptr(self.eik).fy
+        self.Ty_view.shape[0] = self.shape[0]
+        self.Ty_view.shape[1] = self.shape[1]
+        self.Ty_view.strides[0] = self.shape[1]*sizeof(dbl)
+        self.Ty_view.strides[1] = 4*sizeof(dbl)
+        self.Ty_view.format = 'd'
+        self.Ty_view.itemsize = sizeof(dbl)
+
+        self.Txy_view = ArrayView(2)
+        self.Txy_view.readonly = True
+        self.Txy_view.ptr = <void *>&eik_get_jets_ptr(self.eik).fxy
+        self.Txy_view.shape[0] = self.shape[0]
+        self.Txy_view.shape[1] = self.shape[1]
+        self.Txy_view.strides[0] = self.shape[1]*sizeof(dbl)
+        self.Txy_view.strides[1] = 4*sizeof(dbl)
+        self.Txy_view.format = 'd'
+        self.Txy_view.itemsize = sizeof(dbl)
+
+    @property
+    def shape(self):
+        cdef int[::1] shape = np.empty((2,), dtype=np.intc)
+        eik_get_shape(self.eik, &shape[0])
+        return np.asarray(shape)
+
+    def add_valid(self, int[::1] ind, Jet2 jet):
+        eik_add_valid(self.eik, &ind[0], jet.jet)
+
+    def add_trial(self, int[::1] ind, Jet2 jet):
+        eik_add_trial(self.eik, &ind[0], jet.jet)
+
+    def build_cells(self):
+        eik_build_cells(self.eik)
+
+    def step(self):
+        eik_step(self.eik)
+
+    def solve(self):
+        eik_solve(self.eik)
 
 cdef class Eik3:
     def __init__(self, *args):

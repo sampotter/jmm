@@ -1,12 +1,41 @@
 from jmm.array_view cimport ArrayView
 from jmm.bb cimport bb31
-from jmm.defs cimport bool, dbl, dblz, dbl_or_dblz, dbl3, dbl33, ftype, state
-from jmm.jet cimport jet3
+from jmm.defs cimport bool, dbl, dblz, dbl_or_dblz, dbl2, dbl3, dbl33, ftype, \
+    int2, state
+from jmm.field cimport field2
+from jmm.jet cimport jet2, jet3
 from jmm.par cimport par3
 from jmm.mesh cimport mesh3
 
-# cdef class Eik:
-#     cdef eik *eik
+cdef extern from "eik.h":
+    cdef struct eik:
+        pass
+
+    void eik_alloc(eik **eik)
+    void eik_dealloc(eik **eik)
+    void eik_init(eik *eik, const field2 *slow, int2 shape, dbl2 xymin, dbl h)
+    void eik_deinit(eik *eik)
+    void eik_step(eik *eik)
+    void eik_solve(eik *eik)
+    void eik_add_trial(eik *eik, int2 ind, jet2 jet)
+    void eik_add_valid(eik *eik, int2 ind, jet2 jet)
+    void eik_get_shape(const eik *eik, int2 shape)
+    jet2 *eik_get_jets_ptr(const eik *eik)
+    state *eik_get_states_ptr(const eik *eik)
+    dbl eik_T(eik *eik, dbl2 xy)
+    dbl eik_Tx(eik *eik, dbl2 xy)
+    dbl eik_Ty(eik *eik, dbl2 xy)
+    dbl eik_Txy(eik *eik, dbl2 xy)
+    void eik_build_cells(eik *eik)
+
+cdef class Eik:
+    cdef:
+        eik *eik
+        ArrayView state_view
+        ArrayView T_view
+        ArrayView Tx_view
+        ArrayView Ty_view
+        ArrayView Txy_view
 
 cdef extern from "eik3.h":
     cdef struct eik3:
