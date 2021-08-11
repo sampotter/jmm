@@ -1,5 +1,6 @@
 #include "bicubic.h"
 
+#include <stdio.h>
 #include <string.h>
 
 static dbl44 V_inv = {
@@ -31,8 +32,9 @@ static dbl44 D_tr = {
 };
 
 void bicubic_set_data(bicubic_s *bicubic, dbl44 data) {
-  dbl44_mul(V_inv, data, bicubic->A);
-  dbl44_mul(bicubic->A, V_inv_tr, bicubic->A);
+  dbl44 tmp;
+  dbl44_mul(V_inv, data, tmp);
+  dbl44_mul(tmp, V_inv_tr, bicubic->A);
 }
 
 void bicubic_set_data_from_ptr(bicubic_s *bicubic, dbl const *data_ptr) {
@@ -60,7 +62,8 @@ bicubic_get_f_on_edge(bicubic_s const *bicubic, bicubic_variable var, int edge) 
 
 cubic_s
 bicubic_get_fx_on_edge(bicubic_s const *bicubic, bicubic_variable var, int edge) {
-  dbl44 Ax; dbl44_mul(D_tr, bicubic->A, Ax);
+  dbl44 Ax;
+  dbl44_mul(D_tr, bicubic->A, Ax);
   cubic_s cubic;
   restrict_A(Ax, var, edge, cubic.a);
   return cubic;
@@ -71,6 +74,28 @@ bicubic_get_fy_on_edge(bicubic_s const *bicubic, bicubic_variable var, int edge)
   dbl44 Ay; dbl44_mul(bicubic->A, D, Ay);
   cubic_s cubic;
   restrict_A(Ay, var, edge, cubic.a);
+  return cubic;
+}
+
+cubic_s
+bicubic_get_fxx_on_edge(bicubic_s const *bicubic, bicubic_variable var, int edge) {
+  dbl44 tmp;
+  dbl44_mul(D_tr, bicubic->A, tmp);
+  dbl44 Axx;
+  dbl44_mul(D_tr, tmp, Axx);
+  cubic_s cubic;
+  restrict_A(Axx, var, edge, cubic.a);
+  return cubic;
+}
+
+cubic_s
+bicubic_get_fyy_on_edge(bicubic_s const *bicubic, bicubic_variable var, int edge) {
+  dbl44 tmp;
+  dbl44_mul(bicubic->A, D, tmp);
+  dbl44 Ayy;
+  dbl44_mul(tmp, D, Ayy);
+  cubic_s cubic;
+  restrict_A(Ayy, var, edge, cubic.a);
   return cubic;
 }
 
@@ -92,10 +117,22 @@ dbl bicubic_fy(bicubic_s const *bicubic, dbl2 cc) {
   return dbl4_dbl44_dbl4_dot(mx, bicubic->A, dmy);
 }
 
+dbl bicubic_fxx(bicubic_s const *bicubic, dbl2 cc) {
+  dbl4 d2mx; dbl4_d2m(cc[0], d2mx);
+  dbl4 my; dbl4_m(cc[1], my);
+  return dbl4_dbl44_dbl4_dot(d2mx, bicubic->A, my);
+}
+
 dbl bicubic_fxy(bicubic_s const *bicubic, dbl2 cc) {
   dbl4 dmx; dbl4_dm(cc[0], dmx);
   dbl4 dmy; dbl4_dm(cc[1], dmy);
   return dbl4_dbl44_dbl4_dot(dmx, bicubic->A, dmy);
+}
+
+dbl bicubic_fyy(bicubic_s const *bicubic, dbl2 cc) {
+  dbl4 mx; dbl4_m(cc[0], mx);
+  dbl4 d2my; dbl4_d2m(cc[1], d2my);
+  return dbl4_dbl44_dbl4_dot(mx, bicubic->A, d2my);
 }
 
 void interpolate_fxy_at_verts(dbl4 const fx, dbl4 const fy, dbl h, dbl4 fxy) {
