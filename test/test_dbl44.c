@@ -53,7 +53,7 @@ Ensure (dbl44, det_works) {
     }
 
     dbl det_gsl;
-    int error = get_det_gsl(A, &det_gsl);
+    int error = dbl44_det_gsl(A, &det_gsl);
     assert_that(!error);
 
     dbl det = dbl44_det(A);
