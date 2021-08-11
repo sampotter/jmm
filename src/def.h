@@ -59,6 +59,11 @@ typedef enum stype {
   NUM_STYPE
 } stype_e;
 
+typedef enum order {
+  ORDER_ROW_MAJOR,
+  ORDER_COLUMN_MAJOR
+} order_e;
+
 typedef double dbl;
 typedef double _Complex dblz;
 

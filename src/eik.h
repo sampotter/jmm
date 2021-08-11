@@ -8,6 +8,7 @@ extern "C" {
 
 #include "bicubic.h"
 #include "common.h"
+#include "grid2.h"
 #include "heap.h"
 #include "jet.h"
 #include "vec.h"
@@ -16,7 +17,7 @@ typedef struct eik eik_s;
 
 void eik_alloc(eik_s **eik);
 void eik_dealloc(eik_s **eik);
-void eik_init(eik_s *eik, field2_s const *slow, int2 shape, dbl2 xymin, dbl h);
+void eik_init(eik_s *eik, field2_s const *slow, grid2_s const *grid);
 void eik_deinit(eik_s *eik);
 void eik_step(eik_s *eik);
 void eik_solve(eik_s *eik);
