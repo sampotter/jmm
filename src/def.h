@@ -61,7 +61,8 @@ typedef enum stype {
 
 typedef enum order {
   ORDER_ROW_MAJOR,
-  ORDER_COLUMN_MAJOR
+  ORDER_COLUMN_MAJOR,
+  NUM_ORDERS
 } order_e;
 
 typedef double dbl;
