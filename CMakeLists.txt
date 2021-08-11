@@ -189,10 +189,11 @@ if (BUILD_TESTS)
     test/test_bb3tet.c
     test/test_bmesh33.c
     test/test_camera.c
+    test/test_dbl22.c
+    test/test_dbl44.c
     test/test_eik3.c
     test/test_geom.c
     test/test_opt.c
-    test/test_mat.c
     test/test_mesh2.c
     test/test_mesh3.c
     test/test_utri.c
