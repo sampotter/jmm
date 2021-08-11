@@ -66,6 +66,13 @@ void dbl22_dbl_mul(dbl22 const A, dbl a, dbl22 B) {
             a*A[1][0], a*A[1][1]);
 }
 
+void dbl22_dbl_mul_inplace(dbl22 A, dbl a) {
+  A[0][0] *= a;
+  A[0][1] *= a;
+  A[1][0] *= a;
+  A[1][1] *= a;
+}
+
 void dbl22_eigvals(dbl22 const A, dbl2 lam) {
   dbl tr = dbl22_trace(A);
   dbl disc = tr*tr - 4*dbl22_det(A);
@@ -104,6 +111,11 @@ void dbl22_mul(dbl22 const A, dbl22 const B, dbl22 C) {
     for (size_t j = 0; j < 2; ++j)
       for (size_t k = 0; k < 2; ++k)
         C[i][j] += A[i][k]*B[k][j];
+}
+
+void dbl22_perturb(dbl22 A, dbl eps) {
+  A[0][0] += eps;
+  A[1][1] += eps;
 }
 
 void dbl22_saxpy(dbl a, dbl22 const X, dbl22 const Y, dbl22 Z) {
