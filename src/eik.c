@@ -45,6 +45,7 @@ struct eik {
   state_e *states;
   int *positions;
   heap_s *heap;
+  size_t num_accepted;
 };
 
 /**
@@ -353,11 +354,16 @@ static void tri(eik_s *eik, int l, int l0, int l1, int ic0) {
     context.slow = eik->slow;
 
     bool found = hybrid(F3_eta, 0, 1, (void *)&context, &eta);
-#if JMM_DEBUG
-    assert(found);
-#else
-    (void)found;
-#endif
+
+    // If we failed to find an interior point minimizer, then find the
+    // endpoint with the smaller value and use that as the minimizer.
+    if (!found) {
+      F3_compute(0, &context);
+      dbl F3_eta0 = context.F3;
+      F3_compute(1, &context);
+      dbl F3_eta1 = context.F3;
+      eta = F3_eta0 < F3_eta1 ? 0 : 1;
+    }
   }
   {
     dbl2 dxy; dbl2_sub(xy1, xy0, dxy);
@@ -379,32 +385,37 @@ static void tri(eik_s *eik, int l, int l0, int l1, int ic0) {
   dbl T = NAN;
 
   {
-    F4_context context;
-    context.T_cubic = T_cubic;
-    context.Tx_cubic = Tx_cubic;
-    context.Ty_cubic = Ty_cubic;
+    F4_context context = {
+      .T_cubic = T_cubic,
+      .Tx_cubic = Tx_cubic,
+      .Ty_cubic = Ty_cubic,
+      .slow = eik->slow
+    };
     dbl2_copy(xy, context.xy);
     dbl2_copy(xy0, context.xy0);
     dbl2_copy(xy1, context.xy1);
-    context.slow = eik->slow;
 
-    dbl2 xk, xk1, gk, gk1;
+    dbl2 xk, gk, xk1, gk1;
     dbl22 Hk, Hk1;
     F4_bfgs_init(eta, th, xk, gk, Hk, &context);
+
     dbl Tprev = context.F4;
 
     int iter = 0;
-    while (F4_bfgs_step(xk, gk, Hk, xk1, gk1, Hk1, &context)) {
-      if (xk1[0] < 0 || xk1[0] > 1) {
-        printf("out of bounds: eta = %g\n", xk[0]);
+    while (dbl2_maxnorm(gk) > EPS &&
+           F4_bfgs_step(xk, gk, Hk, xk1, gk1, Hk1, &context)) {
+      if (xk1[0] < -EPS || xk1[0] > 1 + EPS) {
+        printf("out of bounds: eta = %g\n", xk1[0]);
         abort();
       }
+
+      xk1[0] = fmax(0, fmin(1, xk1[0]));
 
       T = context.F4;
 
       ++iter;
 
-      if (fabs(T - Tprev) <= EPS*fabs(fmax(T, Tprev)) + EPS) {
+      if (fabs(T - Tprev) <= 1e1*EPS*(fabs(fmax(T, Tprev)) + 1)) {
         break;
       }
 
@@ -416,6 +427,7 @@ static void tri(eik_s *eik, int l, int l0, int l1, int ic0) {
         printf("exceeded number of iterations\n");
         abort();
       }
+
       if (T > Tprev) {
         printf("no decrease in T: (%g > %g)\n", T, Tprev);
         abort();
@@ -573,17 +585,25 @@ static void get_cell_Txy_values(eik_s const *eik, int lc, dbl4 Txy) {
  * made sure this is a reasonable thing to try to do.
  */
 static void build_cell(eik_s *eik, int lc) {
+  printf("build_cell(lc = %d)\n", lc);
+
   /* Get linear indices of cell vertices */
   int l[4];
   for (int i = 0; i < NUM_CELL_VERTS; ++i) {
     l[i] = lc2l(eik->shape, lc) + eik->vert_dl[i];
   }
 
+  printf("l[4] = {%d, %d, %d, %d}\n", l[0], l[1], l[2], l[3]);
+
   /* Get jet at each cell vertex */
   jet2 *J[4];
   for (int i = 0; i < NUM_CELL_VERTS; ++i) {
     J[i] = &eik->jets[l[i]];
   }
+
+  printf("jets =\n");
+  for (int i = 0; i < 4; ++i)
+    printf("  {%g, %g, %g, %g}\n", J[i]->f, J[i]->fx, J[i]->fy, J[i]->fxy);
 
   /* Precompute scaling factors for partial derivatives */
   dbl h = eik->h, h_sq = h*h;
@@ -609,6 +629,14 @@ static void build_cell(eik_s *eik, int lc) {
 
   /* Set cell data */
   bicubic_set_data(&eik->bicubics[lc], data);
+
+
+  printf("A =\n");
+  for (int i = 0; i < 4; ++i) {
+    for (int j = 0; j < 4; ++j)
+      printf("  %g", eik->bicubics[lc].A[i][j]);
+    printf("\n");
+  }
 }
 
 static void update(eik_s *eik, int l) {
@@ -726,6 +754,8 @@ void eik_init(eik_s *eik, field2_s const *slow, int2 shape, dbl2 xymin, dbl h) {
 
   int capacity = (int) 3*sqrt(eik->shape[0]*eik->shape[1]);
   heap_init(eik->heap, capacity, value, setpos, (void *)eik);
+
+  eik->num_accepted = 0;
 
   set_nb_dl(eik);
   set_cell_nb_verts_dl(eik);
@@ -931,6 +961,8 @@ void eik_step(eik_s *eik) {
       adjust(eik, l);
     }
   }
+
+  ++eik->num_accepted;
 }
 
 void eik_solve(eik_s *eik) {
@@ -1020,6 +1052,16 @@ dbl eik_Ty(eik_s *eik, dbl2 xy) {
   return bicubic_fy(bicubic, cc)/eik->h;
 }
 
+dbl eik_Txx(eik_s const *eik, dbl2 xy) {
+  dbl2 cc;
+  int lc = xy_to_lc_and_cc(eik->shape, eik->xymin, eik->h, xy, cc);
+  if (!can_build_cell(eik, lc)) {
+    return NAN;
+  }
+  bicubic_s *bicubic = &eik->bicubics[lc];
+  return bicubic_fxx(bicubic, cc)/(eik->h*eik->h);
+}
+
 dbl eik_Txy(eik_s *eik, dbl2 xy) {
   dbl2 cc;
   int lc = xy_to_lc_and_cc(eik->shape, eik->xymin, eik->h, xy, cc);
@@ -1028,6 +1070,16 @@ dbl eik_Txy(eik_s *eik, dbl2 xy) {
   }
   bicubic_s *bicubic = &eik->bicubics[lc];
   return bicubic_fxy(bicubic, cc)/(eik->h*eik->h);
+}
+
+dbl eik_Tyy(eik_s const *eik, dbl2 xy) {
+  dbl2 cc;
+  int lc = xy_to_lc_and_cc(eik->shape, eik->xymin, eik->h, xy, cc);
+  if (!can_build_cell(eik, lc)) {
+    return NAN;
+  }
+  bicubic_s *bicubic = &eik->bicubics[lc];
+  return bicubic_fyy(bicubic, cc)/(eik->h*eik->h);
 }
 
 bool eik_can_build_cell(eik_s const *eik, int2 indc) {

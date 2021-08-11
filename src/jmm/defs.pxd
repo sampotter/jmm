@@ -5,8 +5,12 @@ ctypedef bint bool
 cdef extern from "def.h":
     ctypedef double dbl
 
+    ctypedef dbl[2] dbl2
+
     ctypedef dbl[3] dbl3
     ctypedef dbl3[3] dbl33
+
+    ctypedef int[2] int2
 
     cdef enum state:
         FAR

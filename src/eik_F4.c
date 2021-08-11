@@ -24,6 +24,8 @@
 // of evaluating derivatives recursively and with minimal work
 
 void F4_compute(dbl eta, dbl th, F4_context *context) {
+  dbl2 tmp;
+
   dbl T = cubic_f(&context->T_cubic, eta);
   dbl T_eta = cubic_df(&context->T_cubic, eta);
   // dbl T_eta_eta = cubic_d2f(&context->T_cubic, eta);
@@ -36,12 +38,12 @@ void F4_compute(dbl eta, dbl th, F4_context *context) {
   dbl gradTnorm = dbl2_norm(t0);
   dbl2_dbl_div_inplace(t0, gradTnorm);
 
-  dbl2 gradTeta = {
+  dbl2 t0_eta = {
     cubic_df(&context->Tx_cubic, eta),
     cubic_df(&context->Ty_cubic, eta)
   };
-  dbl2_dbl_div_inplace(gradTeta, gradTnorm);
-  dbl2 t0_eta; dbl2_cproj(t0, gradTeta, t0_eta);
+  dbl2_dbl_div(t0_eta, gradTnorm, tmp);
+  dbl2_cproj(t0, tmp, t0_eta);
 
   // t1 is normalized by definition
   dbl2 t1 = {cos(th), sin(th)};
@@ -54,57 +56,49 @@ void F4_compute(dbl eta, dbl th, F4_context *context) {
 
   dbl2 lp; dbl2_sub(context->xy, xyeta, lp);
   dbl L = dbl2_norm(lp);
-  dbl L_eta = -dbl2_dot(lp, dxy)/L;
-  // dbl L_eta_eta = (dbl2_normsq(dxy) - L_eta*L_eta)/L;
+  dbl2_dbl_div_inplace(lp, L);
+  dbl L_eta = -dbl2_dot(lp, dxy);
+  // dbl L_eta_eta = (dvec2_norm_sq(dxy) - L_eta*L_eta)/L;
 
   dbl2 t1_minus_t0; dbl2_sub(t1, t0, t1_minus_t0);
 
-  dbl2 xy_plus_xyeta; dbl2_add(context->xy, xyeta, xy_plus_xyeta);
-
-  dbl2 xym;
-  dbl2_lincomb(2, xy_plus_xyeta, -L/8, t1_minus_t0, xym);
+  dbl2_add(context->xy, xyeta, tmp);
+  dbl2 xym; dbl2_lincomb(0.5, tmp, -L/8, t1_minus_t0, xym);
 
   dbl s0 = field2_f(context->slow, xyeta);
   dbl s1 = field2_f(context->slow, context->xy);
   dbl sm = field2_f(context->slow, xym);
 
-  dbl2 t0_plus_t1; dbl2_add(t0, t1, t0_plus_t1);
-
   // tm is unnormalized by definition, but its norm will be close to 1
   // because of the quasiuniform parametrization
-  dbl2 tm;
-  dbl2_lincomb(1.5, lp, -0.25, t0_plus_t1, tm);
-
+  dbl2_add(t0, t1, tmp);
+  dbl2 tm; dbl2_lincomb(1.5, lp, -0.25, tmp, tm);
   dbl tmnorm = dbl2_norm(tm);
 
-  dbl2 dxy_div_minus_L; dbl2_dbl_div(dxy, -L, dxy_div_minus_L);
-  dbl2 lp_eta; dbl2_cproj(lp, dxy_div_minus_L, lp_eta);
+  dbl2_dbl_div(dxy, -L, tmp);
+  dbl2 lp_eta; dbl2_cproj(lp, tmp, lp_eta);
 
-  dbl2 tm_eta;
-  dbl2_lincomb(1.5, lp_eta, 0.25, t0_eta, tm_eta);
-
+  dbl2 tm_eta; dbl2_lincomb(1.5, lp_eta, -0.25, t0_eta, tm_eta);
   dbl2 tm_th; dbl2_dbl_mul(t1_th, -0.25, tm_th);
 
   dbl tmnorm_eta = dbl2_dot(tm, tm_eta)/tmnorm;
   dbl tmnorm_th = dbl2_dot(tm, tm_th)/tmnorm;
 
-  dbl2 xym_eta;
-  xym_eta[0] = dxy[0]/2 + (L*t0_eta[0] - L_eta*t1_minus_t0[0])/8;
-  xym_eta[1] = dxy[1]/2 + (L*t0_eta[1] - L_eta*t1_minus_t0[1])/8;
-
+  dbl2_lincomb(L, t0_eta, -L_eta, t1_minus_t0, tmp);
+  dbl2 xym_eta; dbl2_lincomb(0.5, dxy, 0.125, tmp, xym_eta);
   dbl2 xym_th; dbl2_dbl_mul(t1_th, -L/8, xym_th);
 
   dbl2 gseta; field2_grad_f(context->slow, xyeta, gseta);
   dbl2 gsm; field2_grad_f(context->slow, xym, gsm);
 
-  // dbl22 Hsm = field2_hess_f(context->slow, xym);
+  // dmat22 Hsm = field2_hess_f(context->slow, xym);
 
   dbl s0_eta = dbl2_dot(gseta, dxy);
 
   dbl sm_eta = dbl2_dot(gsm, xym_eta);
   dbl sm_th = dbl2_dot(gsm, xym_th);
-  // dbl sm_eta_eta = dbl2_dot(dbl22_dbl2_mul(Hsm, xym_eta), xym_eta)
-  //   + dbl2_dot(gsm, xm_eta_eta);
+  // dbl sm_eta_eta = dvec2_dot(dmat22_dvec2_mul(Hsm, xym_eta), xym_eta)
+  //   + dvec2_dot(gsm, xm_eta_eta);
 
   dbl S = (s0 + s1 + 4*sm*tmnorm)/6;
   dbl S_eta = (s0_eta + 4*(sm_eta*tmnorm + sm*tmnorm_eta))/6;
@@ -125,12 +119,12 @@ void F4_compute(dbl eta, dbl th, F4_context *context) {
   // context->F4_th_th = L*S_th_th;
 }
 
-void F4_get_grad(F4_context const *context, dbl4 df) {
-  df[0] = context->F4_eta;
-  df[1] = context->F4_th;
+void F4_get_grad(F4_context const *context, dbl2 g) {
+  g[0] = context->F4_eta;
+  g[1] = context->F4_th;
 }
 
-void F4_hess_fd(dbl eta, dbl th, dbl eps, F4_context *context, dbl22 hess) {
+void F4_hess_fd(dbl eta, dbl th, dbl eps, F4_context *context, dbl22 H) {
   dbl2 gp, gm;
 
   F4_compute(eta + eps, th, context);
@@ -139,8 +133,8 @@ void F4_hess_fd(dbl eta, dbl th, dbl eps, F4_context *context, dbl22 hess) {
   F4_compute(eta - eps, th, context);
   F4_get_grad(context, gm);
 
-  dbl2_sub(gp, gm, hess[0]);
-  dbl2_dbl_div_inplace(hess[0], 2*eps);
+  dbl2_sub(gp, gm, H[0]);
+  dbl2_dbl_div_inplace(H[0], 2*eps);
 
   F4_compute(eta, th + eps, context);
   F4_get_grad(context, gp);
@@ -148,8 +142,19 @@ void F4_hess_fd(dbl eta, dbl th, dbl eps, F4_context *context, dbl22 hess) {
   F4_compute(eta, th - eps, context);
   F4_get_grad(context, gm);
 
-  dbl2_sub(gp, gm, hess[1]);
-  dbl2_dbl_div_inplace(hess[1], 2*eps);
+  dbl2_sub(gp, gm, H[1]);
+  dbl2_dbl_div_inplace(H[1], 2*eps);
+
+  // symmetrize the hessian before returning
+  H[0][1] = H[1][0] = (H[0][1] + H[1][0])/2;
+}
+
+static void make_hessian_positive_definite(dbl22 H) {
+  dbl2 lam;
+  dbl22_eigvals(H, lam);
+  assert(lam[0] > 0);
+  if (lam[1] < 0)
+    dbl22_perturb(H, -2*lam[1]);
 }
 
 void F4_bfgs_init(dbl eta, dbl th, dbl2 x0, dbl2 g0, dbl22 H0,
@@ -157,72 +162,48 @@ void F4_bfgs_init(dbl eta, dbl th, dbl2 x0, dbl2 g0, dbl22 H0,
   x0[0] = eta;
   x0[1] = th;
 
-  F4_compute(eta, th, context);
+  F4_compute(x0[0], x0[1], context);
 
   F4_get_grad(context, g0);
-  F4_hess_fd(eta, th, 1e-7, context, H0);
 
-  /**
-   * If the hessian is indefinite, we want to perturb it by a constant
-   * multiple times the identity so that it it's positive definite. We
-   * assume that the hessian can't be negative definite (hopefully
-   * this can't happen... something really weird would have had to
-   * have happened.
-   */
-  {
-    dbl2 lam;
-    dbl22_eigvals(H0, lam);
-    assert(lam[0] > 0);
-    if (lam[1] < 0) {
-      H0[0][0] -= 2*lam[1];
-      H0[1][1] -= 2*lam[1];
-    }
-  }
+  F4_hess_fd(eta, th, 1e-7, context, H0);
+  make_hessian_positive_definite(H0);
   dbl22_invert(H0);
 }
 
-static void update_dfp(dbl2 const xk, dbl2 const gk, dbl22 const Hk,
-                       dbl2 xk1, dbl2 gk1, dbl22 Hk1) {
-  if (xk1[0] == xk[0] && xk1[1] == xk[1]) {
+static void update_bfgs(dbl2 xk1, dbl2 const xk, dbl2 gk1, dbl2 const gk,
+                        dbl22 const Hk, dbl22 Hk1) {
+  if (dbl2_dist(xk1, xk) < EPS) {
+    dbl22_copy(Hk, Hk1);
     return;
   }
+
   dbl2 sk; dbl2_sub(xk1, xk, sk);
   dbl2 yk; dbl2_sub(gk1, gk, yk);
-  dbl2 tmp1; dbl22_dbl2_mul(Hk, yk, tmp1);
-  dbl tmp2 = dbl2_dot(yk, tmp1);
-  dbl22 tmp3; dbl2_outer(tmp1, tmp1, tmp3);
-  dbl22_dbl_div_inplace(tmp3, tmp2);
-  dbl22_sub(Hk, tmp3, Hk1);
-  dbl2_outer(sk, sk, tmp3);
-  tmp2 = dbl2_dot(yk, sk);
-  dbl22_dbl_div_inplace(tmp3, tmp2);
-  dbl22_add_inplace(Hk1, tmp3);
+  dbl rhok = 1/dbl2_dot(yk, sk);
+
+  dbl22 tmp1, tmp2;
+
+  dbl2_outer(sk, yk, tmp1);
+  dbl22_dbl_mul_inplace(tmp1, -rhok);
+  dbl22_perturb(tmp1, 1);
+
+  dbl22_mul(tmp1, Hk, tmp2);
+  dbl22_transpose(tmp1);
+  dbl22_mul(tmp2, tmp1, Hk1);
+
+  dbl2_outer(sk, sk, tmp1);
+  dbl22_dbl_mul_inplace(tmp1, rhok);
+  dbl22_add_inplace(Hk1, tmp1);
+
+  make_hessian_positive_definite(Hk1);
 }
-
-// static void update_bfgs(dbl2 xk1, dbl2 xk, dbl2 gk1, dbl2 gk, dbl22 Hk,
-//                         dbl22 *Hk1) {
-//   dbl2 sk = dbl2_sub(xk1, xk);
-//   dbl2 yk = dbl2_sub(gk1, gk);
-//   dbl rhok = 1/dbl2_dot(yk, sk);
-
-//   dbl22 tmp = dbl2_outer(sk, yk);
-//   tmp = dbl22_dbl_mul(tmp, -rhok);
-//   tmp.data[0][0] += 1;
-//   tmp.data[1][1] += 1;
-
-//   *Hk1 = dbl22_mul(tmp, Hk);
-//   dbl22_transpose(&tmp);
-//   *Hk1 = dbl22_mul(*Hk1, tmp);
-
-//   tmp = dbl2_outer(sk, sk);
-//   tmp = dbl22_dbl_mul(tmp, rhok);
-
-//   *Hk1 = dbl22_add(*Hk1, tmp);
-// }
 
 bool F4_bfgs_step(dbl2 const xk, dbl2 const gk, dbl22 const Hk,
                   dbl2 xk1, dbl2 gk1, dbl22 Hk1,
                   F4_context *context) {
+  assert(dbl2_maxnorm(gk) > EPS);
+
   dbl2 pk; dbl22_dbl2_mul(Hk, gk, pk);
   dbl2_negate(pk);
 
@@ -236,43 +217,66 @@ bool F4_bfgs_step(dbl2 const xk, dbl2 const gk, dbl22 const Hk,
   t /= pk[0];
   t = clamp(t, 0, 1);
 
+//  dbl const c1 = 1e-4;
+  dbl const rho = 0.5;
+
   /**
    * Do an inexact backtracking line search to find `t` such that the
    * sufficient decrease conditions are satisfied.
    */
-  if (t > EPS && pk_dot_gk < -1e-13) {
-    dbl const c1 = 1e-4;
-    dbl const rho = 0.9;
-
+  if (t > EPS && pk_dot_gk < 0) {
     dbl fk = context->F4, fk1;
     while (true) {
       dbl2_saxpy(t, pk, xk, xk1);
-      F4_compute(xk1[0], xk1[1], context);
+      F4_compute(xk1[0], xk1[0], context);
       fk1 = context->F4;
-      if (fk1 <= fk + c1*t*pk_dot_gk) {
+      if (fk1 <= fk + EPS) {
         break;
       } else {
         t *= rho;
       }
     }
   } else {
+    // TODO: don't do this if t = 0! no need, just set xk1 = xk
     dbl2_saxpy(t, pk, xk, xk1);
-    F4_compute(xk1[0], xk1[1], context);
+    F4_compute(xk1[0], xk1[0], context);
   }
 
   // Now, compute a new gradient and do the DFP update to update our
   // approximation of the inverse Hessian.
+  //
+  // TODO: this is also wasteful when t = 0! see above
   F4_get_grad(context, gk1);
-  update_dfp(xk, gk, Hk, xk1, gk1, Hk1);
+  update_bfgs(xk1, xk, gk1, gk, Hk, Hk1);
 
   if (t < 1 && (fabs(xk1[0]) < EPS || fabs(1 - xk1[0]) < EPS)) {
-    dbl F4_th_th = Hk1[0][0]/dbl22_det(Hk1);
-    dbl F4_th = gk1[1];
-    xk1[1] -= F4_th/F4_th_th;
+    dbl2_copy(gk, gk1);
+    dbl2_copy(xk, xk1);
 
-    F4_compute(xk1[0], xk1[1], context);
+    // Reset t to be a line search parameter along `th`
+    t = 1;
+
+    // Reset pk and pk_dot_gk for descent along `th`
+    dbl F4_th_th = Hk1[0][0]/dbl22_det(Hk1);
+    dbl F4_th = gk[1];
+    pk[1] = -F4_th/F4_th_th;
+    pk_dot_gk = pk[1]*gk[1];
+
+    // Backtracking line search
+    dbl fk = context->F4, fk1;
+    while (true) {
+      xk1[1] = xk[1] + t*pk[1];
+      F4_compute(xk1[0], xk1[1], context);
+      fk1 = context->F4;
+      if (fk1 <= fk + EPS) {
+        break;
+      } else {
+        t *= rho;
+      }
+    }
+
     F4_get_grad(context, gk1);
-    update_dfp(xk, gk, Hk, xk1, gk1, Hk1);
+    update_bfgs(xk1, xk, gk1, gk, Hk, Hk1);
   }
 
   return true;
