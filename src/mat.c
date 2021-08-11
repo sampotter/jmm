@@ -50,8 +50,10 @@ void dbl22_dbl2_solve(dbl22 const A, dbl2 const b, dbl2 x) {
 }
 
 void dbl22_dbl_div(dbl22 const A, dbl a, dbl22 B) {
-  B = DBL22(A[0][0]/a, A[0][1]/a,
-            A[1][0]/a, A[1][1]/a);
+  B[0][0] = A[0][0]/a;
+  B[0][1] = A[0][1]/a;
+  B[1][0] = A[1][0]/a;
+  B[1][1] = A[1][1]/a;
 }
 
 void dbl22_dbl_div_inplace(dbl22 A, dbl a) {
@@ -62,8 +64,10 @@ void dbl22_dbl_div_inplace(dbl22 A, dbl a) {
 }
 
 void dbl22_dbl_mul(dbl22 const A, dbl a, dbl22 B) {
-  B = DBL22(a*A[0][0], a*A[0][1],
-            a*A[1][0], a*A[1][1]);
+  B[0][0] = a*A[0][0];
+  B[0][1] = a*A[0][1];
+  B[1][0] = a*A[1][0];
+  B[1][1] = a*A[1][1];
 }
 
 void dbl22_eigvals(dbl22 const A, dbl2 lam) {
@@ -128,8 +132,10 @@ void dbl22_zero(dbl22 A) {
 }
 
 void dbl2_outer(dbl2 const u, dbl2 const v, dbl22 uv) {
-  uv = DBL22(u[0]*v[0], u[0]*v[1],
-             u[1]*v[0], u[1]*v[1]);
+  uv[0][0] = u[0]*v[0];
+  uv[0][1] = u[0]*v[1];
+  uv[1][0] = u[1]*v[0];
+  uv[1][1] = u[1]*v[1];
 }
 
 bool dbl33_isfinite(dbl33 const A) {

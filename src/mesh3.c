@@ -247,7 +247,7 @@ static bool edge_is_diff(mesh3_s const *mesh, size_t const le[2]) {
 static size_t find_bdf(mesh3_s const *mesh, bdf_s const *bdf) {
   bdf_s const *found = bsearch(
     bdf, mesh->bdf, mesh->nbdf, sizeof(bdf_s), (compar_t)bdf_cmp);
-  return found ? found - mesh->bdf : (size_t)NO_INDEX;
+  return (size_t)(found ? found - mesh->bdf : NO_INDEX);
 }
 
 /* Find all of the boundary faces that are adjacent to `mesh->bdf[l]`
@@ -369,7 +369,7 @@ static size_t find_bde(mesh3_s const *mesh, diff_edge_s const *bde) {
   diff_edge_s const *found = bsearch(
     bde, mesh->bde, mesh->nbde, sizeof(diff_edge_s),
     (compar_t)diff_edge_cmp);
-  return found ? found - mesh->bde : (size_t)NO_INDEX;
+  return (size_t)(found ? found - mesh->bde : NO_INDEX);
 }
 
 static void get_diff_bde_nbs(mesh3_s const *mesh, size_t le, array_s *nb) {

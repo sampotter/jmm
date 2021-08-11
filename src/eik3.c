@@ -1121,8 +1121,8 @@ static void update(eik3_s *eik, size_t l, size_t l0) {
 
     for (size_t k = 0; k < num_inc; ++k) {
       /* Skip the current edge */
-      if ((le[k][0] == l_active ^ le[k][0] == l_inactive) &&
-          (le[k][1] == l_active ^ le[k][1] == l_inactive))
+      if (((le[k][0] == l_active) ^ (le[k][0] == l_inactive)) &&
+          ((le[k][1] == l_active) ^ (le[k][1] == l_inactive)))
         continue;
 
       /* Check if this edge is already in `diff_utri`. */
@@ -1489,7 +1489,7 @@ void get_t_in_from_orig_a1(eik3_s const *eik, size_t l0, dbl3 t_in) {
     if (eik3_has_bde_bc(eik, le[i]))
       break;
 
-  assert(le[i][0] == l0 ^ le[i][1] == l0);
+  assert((le[i][0] == l0) ^ (le[i][1] == l0));
   size_t l1 = le[i][0] == l0 ? le[i][1] : le[i][0];
 
 #if JMM_DEBUG

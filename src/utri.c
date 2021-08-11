@@ -641,7 +641,7 @@ bool utri_accept_refl_BCs_update(utri_s const *u, eik3_s const *eik) {
   dbl e[3]; mesh3_get_edge_tangent(mesh, le, e);
   dbl xm[3]; mesh3_get_edge_midpoint(mesh, le, xm);
 
-  dbl lam = utri_get_lambda(u);
+  dbl lam = u->lam;
 
   dbl const *DT0 = eik3_get_DT_ptr(eik, le[0]);
   if (fabs(lam) < 1e-14 && !dbl3_isfinite(DT0))

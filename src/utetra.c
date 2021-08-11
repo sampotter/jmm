@@ -638,7 +638,9 @@ static dbl get_L(utetra_s const *u) {
 }
 
 bool utetra_update_ray_is_physical(utetra_s const *utetra, eik3_s const *eik) {
+#if JMM_DEBUG
   assert(all_inds_are_set(utetra));
+#endif
 
   if (utetra_updated_from_refl_BCs(utetra, eik))
     return true;
@@ -804,8 +806,10 @@ int utetra_get_num_interior_coefs(utetra_s const *utetra) {
 }
 
 static size_t get_shared_inds(utetra_s const *u1, utetra_s const *u2, size_t *l) {
+#if JMM_DEBUG
   assert(update_inds_are_set(u1));
   assert(update_inds_are_set(u2));
+#endif
 
   size_t const *l1 = u1->l, *l2 = u2->l;
 
@@ -819,7 +823,9 @@ static size_t get_shared_inds(utetra_s const *u1, utetra_s const *u2, size_t *l)
 }
 
 static bool get_point_for_index(utetra_s const *utetra, size_t l, dbl x[3]) {
+#if JMM_DEBUG
   assert(update_inds_are_set(utetra));
+#endif
 
   for (int i = 0; i < 3; ++i)
     if (utetra->l[i] == l) {
@@ -1103,7 +1109,9 @@ void utetra_get_x(utetra_s const *u, dbl x[3]) {
 }
 
 size_t utetra_get_active_inds(utetra_s const *utetra, size_t l[3]) {
+#if JMM_DEBUG
   assert(update_inds_are_set(utetra));
+#endif
 
   dbl const atol = 1e-14;
 
@@ -1141,8 +1149,7 @@ bool utetra_approx_hess(utetra_s const *u, dbl h, dbl33 hess) {
 
   utetra_s u_ = *u;
 
-  dbl dx[3], t[3], lam[2];
-  utetra_get_lambda(u, lam);
+  dbl dx[3], t[3], lam[2] = {u->lam[0], u->lam[1]};
 
   dbl33_zero(hess);
 
