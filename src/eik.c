@@ -76,11 +76,19 @@ static int2 offsets[NUM_NB + 1] = {
  *
  * TODO: add a picture
  */
-static int2 cell_vert_offsets[NUM_CELL_VERTS] = {
-  {0, 0},
-  {1, 0},
-  {0, 1},
-  {1, 1}
+static int2 cell_vert_offsets[NUM_ORDERS][NUM_CELL_VERTS] = {
+  { /* ORDER_ROW_MAJOR */
+    {0, 0},
+    {0, 1},
+    {1, 0},
+    {1, 1}
+  },
+  { /* ORDER_COLUMN_MAJOR */
+    {0, 0},
+    {1, 0},
+    {0, 1},
+    {1, 1}
+  }
 };
 
 /**
@@ -211,7 +219,8 @@ static void set_cell_nb_verts_dl(eik_s *eik) {
 
 static void set_vert_dl(eik_s *eik) {
   for (int i = 0; i < NUM_CELL_VERTS; ++i) {
-    eik->vert_dl[i] = grid2_ind2l(eik->grid, cell_vert_offsets[i]);
+    eik->vert_dl[i] =
+      grid2_ind2l(eik->grid, cell_vert_offsets[eik->grid->order][i]);
   }
 }
 
@@ -490,7 +499,7 @@ static bool cell_is_valid(eik_s const *eik, int2 indc) {
   }
   int l = grid2_indc2l(eik->grid, indc);
   for (int iv = 0, lv; iv < NUM_CELL_VERTS; ++iv) {
-    int2 indv; int2_add(indc, cell_vert_offsets[iv], indv);
+    int2 indv; int2_add(indc, cell_vert_offsets[eik->grid->order][iv], indv);
     if (!grid2_isind(eik->grid, indv)) {
       return false;
     }
