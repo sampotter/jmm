@@ -484,7 +484,7 @@ void dbl4_dbl44_mul(dbl4 const x, dbl44 const A, dbl4 b) {
   dbl4_zero(b);
   for (size_t i = 0; i < 4; ++i)
     for (size_t j = 0; j < 4; ++j)
-      b[j] = x[i]*A[i][j];
+      b[j] += x[i]*A[i][j];
 }
 
 void dbl44_zero(dbl44 A) {
