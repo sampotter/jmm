@@ -8,16 +8,6 @@ extern "C" {
 #include "field.h"
 #include "vec.h"
 
-// TODO: we want to make the following changes:
-//
-// instead of having these contexts, we just pass this data to
-// functions below which directly compute "complete 2-jets" (we can
-// think of the Newton iteration as being an algorithm that
-// iteratively refines a 2-jet of a scalar field)
-//
-// the benefit: everything below becomes "pure", and there's no
-// mutating state
-
 typedef struct {
   // Inputs:
   cubic_s T_cubic;
