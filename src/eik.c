@@ -77,13 +77,13 @@ static int2 offsets[NUM_NB + 1] = {
  * TODO: add a picture
  */
 static int2 cell_vert_offsets[NUM_ORDERS][NUM_CELL_VERTS] = {
-  { /* ORDER_ROW_MAJOR */
+  [ORDER_ROW_MAJOR] = {
     {0, 0},
     {0, 1},
     {1, 0},
     {1, 1}
   },
-  { /* ORDER_COLUMN_MAJOR */
+  [ORDER_COLUMN_MAJOR] = {
     {0, 0},
     {1, 0},
     {0, 1},
@@ -103,8 +103,7 @@ static int2 cell_vert_offsets[NUM_ORDERS][NUM_CELL_VERTS] = {
  * In the diagram below, we label the cells with the offsets and order
  * them so that they match the ordering used in `tri_cell_offsets`.
  *
- * TODO: maybe try to come up with a slightly more compelling
- * explanation for why we want to do this.
+ * This looks like:
  *
  *                0     1
  *             +-----+-----+
@@ -118,74 +117,131 @@ static int2 cell_vert_offsets[NUM_ORDERS][NUM_CELL_VERTS] = {
  *             +-----+-----+
  *                5     4
  */
-static int2 tri_cell_offsets[NUM_NB] = {
-  {-2, -1},
-  {-2,  0},
-  {-1,  1},
-  { 0,  1},
-  { 1,  0},
-  { 1, -1},
-  { 0, -2},
-  {-1, -2}
+static int2 tri_cell_offsets[NUM_ORDERS][NUM_NB] = {
+  [ORDER_ROW_MAJOR] = {
+    {-2, -1},
+    {-2,  0},
+    {-1,  1},
+    { 0,  1},
+    { 1,  0},
+    { 1, -1},
+    { 0, -2},
+    {-1, -2}
+  }
 };
+
+static void get_tri_cell_offset(eik_s const *eik, size_t i, int2 ind) {
+  assert(i < NUM_NB);
+  memcpy(ind, tri_cell_offsets[eik->grid->order][i], sizeof(int2));
+}
 
 /**
  * TODO: document this
  *
  * - used to set nearby_dlc
  */
-static int2 nearby_cell_offsets[NUM_NEARBY_CELLS] = {
-  {-2, -2}, {-2, -1}, {-2, 0}, {-2, 1},
-  {-1, -2}, {-1, -1}, {-1, 0}, {-1, 1},
-  { 0, -2}, { 0, -1}, { 0, 0}, { 0, 1},
-  { 1, -2}, { 1, -1}, { 1, 0}, { 1, 1},
+static int2 nearby_cell_offsets[NUM_ORDERS][NUM_NEARBY_CELLS] = {
+  [ORDER_ROW_MAJOR] = {
+    {-2, -2}, {-2, -1}, {-2, 0}, {-2, 1},
+    {-1, -2}, {-1, -1}, {-1, 0}, {-1, 1},
+    { 0, -2}, { 0, -1}, { 0, 0}, { 0, 1},
+    { 1, -2}, { 1, -1}, { 1, 0}, { 1, 1},
+  }
 };
 
-static bicubic_variable tri_bicubic_vars[NUM_NB] = {
-  /* ic0 -> */ MU, MU, LAMBDA, LAMBDA, MU, MU, LAMBDA, LAMBDA
+static void get_nearby_cell_offset(eik_s const *eik, size_t ic, int2 offset) {
+  assert(ic < NUM_NEARBY_CELLS);
+  memcpy(offset, nearby_cell_offsets[eik->grid->order][ic], sizeof(int2));
+}
+
+/* This maps from each cell neighboring the update zone to the
+ * variable along its neighboring edge, where f = f(lambda, mu) is the
+ * bicubic for that cell. The assumption is that the bicubics'
+ * coordinate system matches the order of the indexing. */
+static bicubic_variable tri_bicubic_vars[NUM_ORDERS][NUM_NB] = {
+  [ORDER_ROW_MAJOR] = {
+    /* ic0 -> */ LAMBDA, LAMBDA, MU, MU, LAMBDA, LAMBDA, MU, MU
+  },
+  [ORDER_COLUMN_MAJOR] = {
+    /* ic0 -> */ MU, MU, LAMBDA, LAMBDA, MU, MU, LAMBDA, LAMBDA
+  }
 };
 
-static int tri_edges[NUM_NB] = {
-  /* ic0 -> */ 1, 1, 0, 0, 0, 0, 1, 1
+/* This gives the value of the coordinate not selected by
+ * `tri_bicubic_vars`, restricting the bicubic to the edge incident on
+ * the update zone. E.g., if `tri_bicubic_vars == LAMBDA`, and
+ * `tri_edges == 1`, then this results in the cubic `f(lambda, 1)`. */
+static int tri_edges[NUM_ORDERS][NUM_NB] = {
+  [ORDER_ROW_MAJOR] = {
+    /* ic0 -> */ 1, 1, 0, 0, 0, 0, 1, 1
+  }
 };
 
-static bool should_reverse_cubic[NUM_NB] = {
-  /* ic0 -> */ true, false, true, false, false, true, false, true
+/* This indicates whether the cubic selected by `tri_bicubic_vars` and
+ * `tri_edges` above should be reversed so that the interval `[0, 1]`
+ * spans the interval `[x[l0], x[l1]]`. */
+static bool should_reverse_cubic[NUM_ORDERS][NUM_NB] = {
+  [ORDER_ROW_MAJOR] = {
+    /* ic0 -> */ true, false, true, false, false, true, false, true
+  }
 };
 
+/* This lookup table provides a mapping from a nearby cell back to the
+ * indices neighboring an update point. */
 #define _ NO_INDEX
-static int cell_verts_to_cell_nb_verts[NUM_NEARBY_CELLS][NUM_CELL_VERTS] = {
-  {_, _, _, 0}, {_, 0, _, 1}, {_, 1, _, 2}, {_, 2, _, _},
-  {_, _, 0, 3}, {0, 3, 1, 4}, {1, 4, 2, 5}, {2, 5, _, _},
-  {_, _, 3, 6}, {3, 6, 4, 7}, {4, 7, 5, 8}, {5, 8, _, _},
-  {_, _, 6, _}, {6, _, 7, _}, {7, _, 8, _}, {8, _, _, _}
+static int
+cell_verts_to_cell_nb_verts[NUM_ORDERS][NUM_NEARBY_CELLS][NUM_CELL_VERTS] = {
+  [ORDER_ROW_MAJOR] = {
+    {_, _, _, 0}, {_, 0, _, 1}, {_, 1, _, 2}, {_, 2, _, _},
+    {_, _, 0, 3}, {0, 3, 1, 4}, {1, 4, 2, 5}, {2, 5, _, _},
+    {_, _, 3, 6}, {3, 6, 4, 7}, {4, 7, 5, 8}, {5, 8, _, _},
+    {_, _, 6, _}, {6, _, 7, _}, {7, _, 8, _}, {8, _, _, _}
+  }
 };
 #undef _
 
+static int cell_vert_to_cell_nb_vert(eik_s const *eik, size_t ic, size_t jv) {
+  return cell_verts_to_cell_nb_verts[eik->grid->order][ic][jv];
+}
+
 #define _ NO_INDEX
-static int cell_nb_verts_to_nearby_cells[NUM_CELL_NB_VERTS][NUM_NB_CELLS] = {
-  { 5,  1,  4,  0},
-  { 6,  2,  5,  1},
-  { 7,  3,  6,  2},
-  { 9,  5,  8,  4},
-  {10,  6,  9,  5},
-  {11,  7, 10,  6},
-  {13,  9, 12,  8},
-  {14, 10, 13,  9},
-  {15, 11, 14, 10}
+static int
+cell_nb_verts_to_nearby_cells[NUM_ORDERS][NUM_CELL_NB_VERTS][NUM_NB_CELLS] = {
+  [ORDER_ROW_MAJOR] = {
+    { 5,  4,  1,  0},
+    { 6,  5,  2,  1},
+    { 7,  6,  3,  2},
+    { 9,  8,  5,  4},
+    {10,  9,  6,  5},
+    {11, 10,  7,  6},
+    {13, 12,  9,  8},
+    {14, 13, 10,  9},
+    {15, 14, 11, 10}
+  }
 };
 #undef _
+
+static int cell_nb_vert_to_nearby_cell(eik_s const *eik, size_t i, size_t j) {
+  return cell_nb_verts_to_nearby_cells[eik->grid->order][i][j];
+}
 
 /**
- * This array gives the offsets ind "indc" space from the linear
+ * This array gives the offsets in "indc" space from the linear
  * index of a grid node to its four neighboring cells.
  */
-static int2 nb_cell_offsets[NUM_NB_CELLS] = {
+static int2 nb_cell_offsets[NUM_ORDERS][NUM_NB_CELLS] = {
+  [ORDER_ROW_MAJOR] = {
     {-1, -1},
-    { 0, -1},
     {-1,  0},
+    { 0, -1},
     { 0,  0}
+  }
 };
+
+static void get_nb_cell_offset(eik_s const *eik, size_t ic, int2 indc) {
+  assert(ic < NUM_NB_CELLS);
+  memcpy(indc, nb_cell_offsets[eik->grid->order][ic], sizeof(int2));
+}
 
 static bool nearby_cell_is_cell_nb[NUM_NEARBY_CELLS] = {
   false, false, false, false,
@@ -225,20 +281,26 @@ static void set_vert_dl(eik_s *eik) {
 }
 
 static void set_tri_dlc(eik_s *eik) {
-  for (int i = 0; i < NUM_NB; ++i) {
-    eik->tri_dlc[i] = grid2_ind2lc(eik->grid, tri_cell_offsets[i]);
+  int2 offset;
+  for (size_t i = 0; i < NUM_NB; ++i) {
+    get_tri_cell_offset(eik, i, offset);
+    eik->tri_dlc[i] = grid2_ind2lc(eik->grid, offset);
   }
 }
 
 static void set_nb_dlc(eik_s *eik) {
-  for (int i = 0; i < NUM_CELL_VERTS; ++i) {
-    eik->nb_dlc[i] = grid2_ind2lc(eik->grid, nb_cell_offsets[i]);
+  int2 offset;
+  for (size_t i = 0; i < NUM_CELL_VERTS; ++i) {
+    get_nb_cell_offset(eik, i, offset);
+    eik->nb_dlc[i] = grid2_ind2lc(eik->grid, offset);
   }
 }
 
 static void set_nearby_dlc(eik_s *eik) {
-  for (int i = 0; i < NUM_NEARBY_CELLS; ++i) {
-    eik->nearby_dlc[i] = grid2_ind2lc(eik->grid, nearby_cell_offsets[i]);
+  int2 offset;
+  for (size_t i = 0; i < NUM_NEARBY_CELLS; ++i) {
+    get_nearby_cell_offset(eik, i, offset);
+    eik->nearby_dlc[i] = grid2_ind2lc(eik->grid, offset);
   }
 }
 
@@ -323,8 +385,8 @@ static void tri(eik_s *eik, int l, int l0, int l1, int ic0) {
   /**
    * Get cubic along edge of interest.
    */
-  bicubic_variable var = tri_bicubic_vars[ic0];
-  int edge = tri_edges[ic0];
+  bicubic_variable var = tri_bicubic_vars[eik->grid->order][ic0];
+  int edge = tri_edges[eik->grid->order][ic0];
   cubic_s T_cubic = bicubic_get_f_on_edge(bicubic, var, edge);
   cubic_s Tx_cubic = bicubic_get_fx_on_edge(bicubic, var, edge);
   cubic_s Ty_cubic = bicubic_get_fy_on_edge(bicubic, var, edge);
@@ -822,7 +884,9 @@ void eik_step(eik_s *eik) {
   // one of their vertices just became valid.
   bool valid_cell_nb[NUM_NB_CELLS];
   for (int ic = 0; ic < NUM_NB_CELLS; ++ic) {
-    int2 indc; int2_add(ind0, nb_cell_offsets[ic], indc);
+    int2 indc, offset;
+    get_nb_cell_offset(eik, ic, offset);
+    int2_add(ind0, offset, indc);
     valid_cell_nb[ic] = cell_is_valid(eik, indc);
   }
 
@@ -849,15 +913,17 @@ void eik_step(eik_s *eik) {
   //
   // NOTE: `use_for_Txy_average` => the cell is inbounds
   for (int ic = 0; ic < NUM_NEARBY_CELLS; ++ic) {
-    for (int j = 0, i; j < NUM_CELL_VERTS; ++j) {
-      i = cell_verts_to_cell_nb_verts[ic][j];
+    for (int jv = 0, i; jv < NUM_CELL_VERTS; ++jv) {
+      i = cell_vert_to_cell_nb_vert(eik, ic, jv);
       if (i == NO_INDEX) {
         continue;
       }
       use_for_Txy_average[ic] |= nb_incident_on_valid_cell_nb[i];
     }
 	{
-      int2 indc; int2_add(ind0, nearby_cell_offsets[ic], indc);
+      int2 offset, indc;
+      get_nearby_cell_offset(eik, ic, offset);
+      int2_add(ind0, offset, indc);
       use_for_Txy_average[ic] &= cell_is_valid(eik, indc);
 	}
   }
@@ -886,7 +952,7 @@ void eik_step(eik_s *eik) {
       Txy_sum = 0;
       nterms = 0;
       for (int j = 0, jc; j < NUM_NB_CELLS; ++j) {
-        jc = cell_nb_verts_to_nearby_cells[i][j];
+        jc = cell_nb_vert_to_nearby_cell(eik, i, j);
         if (use_for_Txy_average[jc]) {
           // We effectively access Txy[jc] in reverse here to
           // efficiently get the Txy value for cell `jc` at the vertex
