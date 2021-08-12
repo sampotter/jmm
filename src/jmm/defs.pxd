@@ -30,6 +30,10 @@ cdef extern from "def.h":
         CONSTANT
         NUM_STYPE
 
+    cdef enum order:
+        ORDER_ROW_MAJOR
+        ORDER_COLUMN_MAJOR
+
     cdef enum error:
         SUCCESS
         BAD_ARGUMENT

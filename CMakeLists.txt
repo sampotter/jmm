@@ -98,6 +98,7 @@ set (JMM_SRCS
   src/eik3.c
   src/field.c
   src/geom.c
+  src/grid2.c
   src/grid3.c
   src/heap.c
   src/hybrid.c

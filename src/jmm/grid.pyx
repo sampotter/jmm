@@ -1,5 +1,12 @@
 import numpy as np
 
+cdef class Grid2:
+    def __cinit__(self, int[:] shape, dbl[:] xymin, dbl h):
+        self._grid.shape = [shape[0], shape[1]]
+        self._grid.xymin = [xymin[0], xymin[1]]
+        self._grid.h = h
+        self._grid.order = ORDER_ROW_MAJOR
+
 cdef class Grid3:
     def __cinit__(self, int[:] dim, dbl[:] xmin, dbl h):
         self._grid.dim[0] = dim[0]

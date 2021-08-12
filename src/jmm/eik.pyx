@@ -7,7 +7,7 @@ cimport jmm.defs
 from jmm.bb cimport Bb31, Bb33
 from jmm.defs cimport int2
 from jmm.field cimport SlownessFunc2
-from jmm.grid cimport Grid3
+from jmm.grid cimport Grid2, Grid3
 from jmm.jet cimport Jet2, Jet3
 from jmm.mesh cimport mesh3, Mesh3, mesh3_nverts
 from jmm.par cimport par3, Parent3
@@ -23,12 +23,10 @@ cdef class Eik:
             raise RuntimeError('construct Eik using factory functions')
 
     @staticmethod
-    def from_s_and_grid(SlownessFunc2 s, size_t[::1] shape, dbl[::1] xymin, dbl h):
-        cdef int2 shape_ = [shape[0], shape[1]]
-
+    def from_s_and_grid(SlownessFunc2 s, Grid2 grid):
         eik = Eik()
         eik_alloc(&eik.eik)
-        eik_init(eik.eik, &s.field, shape_, &xymin[0], h)
+        eik_init(eik.eik, &s.field, &grid._grid)
         eik._init_views()
         return eik
 

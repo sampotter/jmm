@@ -3,6 +3,7 @@ from jmm.bb cimport bb31
 from jmm.defs cimport bool, dbl, dblz, dbl_or_dblz, dbl2, dbl3, dbl33, ftype, \
     int2, state
 from jmm.field cimport field2
+from jmm.grid cimport grid2
 from jmm.jet cimport jet2, jet3
 from jmm.par cimport par3
 from jmm.mesh cimport mesh3
@@ -13,7 +14,7 @@ cdef extern from "eik.h":
 
     void eik_alloc(eik **eik)
     void eik_dealloc(eik **eik)
-    void eik_init(eik *eik, const field2 *slow, int2 shape, dbl2 xymin, dbl h)
+    void eik_init(eik *eik, const field2 *slow, const grid2 *grid)
     void eik_deinit(eik *eik)
     void eik_step(eik *eik)
     void eik_solve(eik *eik)

@@ -3,6 +3,7 @@ import numpy as np
 
 from jmm.eik import Eik
 from jmm.field import LinearSpeedFunc2
+from jmm.grid import Grid2
 
 def get_trial_mask(valid_mask):
     shape = valid_mask.shape
@@ -23,15 +24,16 @@ if __name__ == '__main__':
 
     # Discretization parameters
     N = 65
-    shape = np.array([N, N], dtype=np.uintp)
+    shape = np.array([N, N], dtype=np.intc)
     xymin = np.zeros(2)
     h = 1/(N - 1)
+    grid = Grid2(shape, xymin, h)
     rfac = 0.1
-    x, y = np.meshgrid(np.linspace(0, 1, N), np.linspace(0, 1, N))
+    x, y = np.meshgrid(np.linspace(0, 1, N), np.linspace(0, 1, N), indexing='ij')
 
     def get_eik_for_pt_src(x0, y0):
         s = LinearSpeedFunc2(c, x0, y0)
-        eik = Eik.from_s_and_grid(s, shape, xymin, h)
+        eik = Eik.from_s_and_grid(s, grid)
         valid_mask = (x0 - x)**2 + (y0 - y)**2 < rfac**2
         for i, j in zip(*np.where(valid_mask)):
             ind = np.array([i, j], dtype=np.intc)
