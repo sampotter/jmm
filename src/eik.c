@@ -491,7 +491,8 @@ static void tri(eik_s *eik, int l, int l0, int l1, int ic0) {
       }
 
       if (T > Tprev) {
-        printf("no decrease in T: (%g > %g)\n", T, Tprev);
+        printf("no decrease in T: (%g > %g, num accepted: %lu)\n", T, Tprev,
+               eik->num_accepted);
         abort();
       }
 
@@ -636,25 +637,17 @@ static void get_cell_Txy_values(eik_s const *eik, int lc, dbl4 Txy) {
  * made sure this is a reasonable thing to try to do.
  */
 static void build_cell(eik_s *eik, int lc) {
-  printf("build_cell(lc = %d)\n", lc);
-
   /* Get linear indices of cell vertices */
   int l[4];
   for (int i = 0; i < NUM_CELL_VERTS; ++i) {
     l[i] = grid2_lc2l(eik->grid, lc) + eik->vert_dl[i];
   }
 
-  printf("l[4] = {%d, %d, %d, %d}\n", l[0], l[1], l[2], l[3]);
-
   /* Get jet at each cell vertex */
   jet2 *J[4];
   for (int i = 0; i < NUM_CELL_VERTS; ++i) {
     J[i] = &eik->jets[l[i]];
   }
-
-  printf("jets =\n");
-  for (int i = 0; i < 4; ++i)
-    printf("  {%g, %g, %g, %g}\n", J[i]->f, J[i]->fx, J[i]->fy, J[i]->fxy);
 
   /* Precompute scaling factors for partial derivatives */
   dbl h = eik->grid->h, h_sq = h*h;
@@ -680,14 +673,6 @@ static void build_cell(eik_s *eik, int lc) {
 
   /* Set cell data */
   bicubic_set_data(&eik->bicubics[lc], data);
-
-
-  printf("A =\n");
-  for (int i = 0; i < 4; ++i) {
-    for (int j = 0; j < 4; ++j)
-      printf("  %g", eik->bicubics[lc].A[i][j]);
-    printf("\n");
-  }
 }
 
 static void update(eik_s *eik, int l) {
