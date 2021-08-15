@@ -41,6 +41,7 @@ void cubic_reverse_on_unit_interval(cubic_s *cubic) {
   };
   dbl4 tmp;
   dbl44_dbl4_mul(M, cubic->a, tmp);
+  dbl4_copy(tmp, cubic->a);
 }
 
 dbl cubic_f(cubic_s const *cubic, dbl lam) {
