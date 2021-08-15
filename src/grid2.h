@@ -2,6 +2,29 @@
 
 #include "def.h"
 
+/* If `order == ORDER_ROW_MAJOR`, then the indexing/coordinate
+ * convention that is used is:
+ *
+ *       +j/+y
+ *   o---------->
+ *   |
+ *   |
+ *   |
+ *   |+i/+x
+ *   |
+ *   v
+ *
+ * Here, the "o" denotes the origin, where (i, j) = (0, 0) and (x, y)
+ * = (0, 0). We have shown the coordinate system oriented so that it
+ * matches the typical matrix indexing convention for languages that
+ * are row major. E.g., a numpy array `arr`, indexed `arr[i, j]`, is
+ * laid out as shown on the page. To get the usual x-y plane, we can
+ * rotate this picture counterclockwise 90 degrees.
+ *
+ * Note: `order == ORDER_COLUMN_MAJOR` isn't implemented yet, but the
+ * idea is that once it is, it will be straightforward to wrap this
+ * library for languages which are column major by convention (MATLAB,
+ * R, Fortran, Julia, ...). */
 typedef struct grid2 {
   int2 shape;
   dbl2 xymin;
