@@ -1,4 +1,5 @@
 import itertools as it
+import matplotlib.pyplot as plt
 import numpy as np
 
 from jmm.eik import Eik
@@ -23,13 +24,18 @@ if __name__ == '__main__':
     c = np.array([0.5, 5, 20])
 
     # Discretization parameters
-    N = 65
-    shape = np.array([N, N], dtype=np.intc)
-    xymin = np.zeros(2)
-    h = 1/(N - 1)
+    h = 0.01
+    xmin, ymin = 0, 0
+    xmax, ymax = 1, 0.5
+    M = int(np.round(xmax/h)) + 1
+    N = int(np.round(ymax/h)) + 1
+    shape = np.array([M, N], dtype=np.intc)
+    xymin = np.array([xmin, ymin], dtype=np.float64)
     grid = Grid2(shape, xymin, h)
     rfac = 0.1
-    x, y = np.meshgrid(np.linspace(0, 1, N), np.linspace(0, 1, N), indexing='ij')
+    x, y = np.meshgrid(np.linspace(xmin, xmax, M),
+                       np.linspace(ymin, ymax, N),
+                       indexing='ij')
 
     def get_eik_for_pt_src(x0, y0):
         s = LinearSpeedFunc2(c, x0, y0)
@@ -51,3 +57,42 @@ if __name__ == '__main__':
     print('eik1')
     eik1 = get_eik_for_pt_src(0.8, 0)
     eik1.solve()
+
+    ########################################################################
+    # debugging
+
+    s = LinearSpeedFunc2(c, 0, 0)
+
+    T = np.empty_like(x)
+    for i, j in it.product(range(65), repeat=2):
+        T[i, j] = s.tau(x[i, j], y[i, j])
+
+    Tx = np.empty_like(x)
+    for i, j in it.product(range(65), repeat=2):
+        Tx[i, j] = s.taux(x[i, j], y[i, j])
+
+    Ty = np.empty_like(x)
+    for i, j in it.product(range(65), repeat=2):
+        Ty[i, j] = s.tauy(x[i, j], y[i, j])
+
+    Txx = np.empty_like(x)
+    for i, j in it.product(range(65), repeat=2):
+        Txx[i, j] = s.tauxx(x[i, j], y[i, j])
+
+    Txy = np.empty_like(x)
+    for i, j in it.product(range(65), repeat=2):
+        Txy[i, j] = s.tauxy(x[i, j], y[i, j])
+
+    Tyy = np.empty_like(x)
+    for i, j in it.product(range(65), repeat=2):
+        Tyy[i, j] = s.tauyy(x[i, j], y[i, j])
+
+    Tx_fd, Ty_fd = np.gradient(T, h, h, edge_order=2)
+    Txx_fd, Txy_fd = np.gradient(Tx, h, h, edge_order=2)
+    Tyx_fd, Tyy_fd = np.gradient(Ty, h, h, edge_order=2)
+
+    plt.figure()
+    plt.imshow(T, extent=[0, 1, 1, 0], vmin=(0, 1))
+    # plt.imshow(np.log10(abs(eik0.T - T)), extent=[0, 1, 1, 0])
+    plt.colorbar()
+    plt.show()
