@@ -15,13 +15,13 @@ cdef class SlownessFunc2:
 
 cdef dbl linear_speed_func_2_f(dbl x, dbl y, void *context):
     cdef const dbl *c = <const dbl *>context
-    return 1/(c[0] + c[1]*x + c[2]*x)
+    return 1/(c[0] + c[1]*x + c[2]*y)
 
 cdef void linear_speed_func_2_grad_f(dbl x, dbl y, void *context, dbl2 g):
     cdef const dbl *c = <const dbl *>context
-    cdef dbl f_sq = (c[0] + c[1]*x + c[2]*x)**2
-    g[0] = -c[1]/f_sq
-    g[1] = -c[2]/f_sq
+    cdef dbl f_sq = 1/(c[0] + c[1]*x + c[2]*y)**2
+    g[0] = -c[1]*f_sq
+    g[1] = -c[2]*f_sq
 
 cdef class LinearSpeedFunc2(SlownessFunc2):
     def __cinit__(self, dbl[::1] c, dbl x0, dbl y0):
