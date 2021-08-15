@@ -102,6 +102,22 @@ cdef class Eik:
     def solve(self):
         eik_solve(self.eik)
 
+    @property
+    def T(self):
+        return np.asarray(self.T_view)
+
+    @property
+    def Tx(self):
+        return np.asarray(self.Tx_view)
+
+    @property
+    def Ty(self):
+        return np.asarray(self.Ty_view)
+
+    @property
+    def Txy(self):
+        return np.asarray(self.Txy_view)
+
 cdef class Eik3:
     def __init__(self, *args):
         if len(args) > 0:
