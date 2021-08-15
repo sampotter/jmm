@@ -580,8 +580,21 @@ static bool can_build_cell(eik_s const *eik, int lc) {
         eik->states[l] != VALID ||
         jet2_is_point_source(&eik->jets[l]))
       return false;
+  }
+
+  /* Once we know that we can build this cell, *then* we check that
+   * all of its data is finite. If we try to check for finite jets in
+   * the loop above, we'll run into trouble. A cell can have nodes
+   * which are VALID and aren't point sources, but still haven't
+   * received a value for Txy. All Txy values for a cell will be
+   * finite *only if* all of the nodes are VALID. */
+#if SJS_DEBUG
+  for (int i = 0, l; i < NUM_CELL_VERTS; ++i) {
+    l = grid2_lc2l(eik->grid, lc) + eik->vert_dl[i];
     assert(jet2_is_finite(&eik->jets[l]));
   }
+#endif
+
   return true;
 }
 
