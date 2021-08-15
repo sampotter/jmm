@@ -64,35 +64,37 @@ if __name__ == '__main__':
     s = LinearSpeedFunc2(c, 0, 0)
 
     T = np.empty_like(x)
-    for i, j in it.product(range(65), repeat=2):
+    for i, j in it.product(range(M), range(N)):
         T[i, j] = s.tau(x[i, j], y[i, j])
 
     Tx = np.empty_like(x)
-    for i, j in it.product(range(65), repeat=2):
+    for i, j in it.product(range(M), range(N)):
         Tx[i, j] = s.taux(x[i, j], y[i, j])
 
     Ty = np.empty_like(x)
-    for i, j in it.product(range(65), repeat=2):
+    for i, j in it.product(range(M), range(N)):
         Ty[i, j] = s.tauy(x[i, j], y[i, j])
 
     Txx = np.empty_like(x)
-    for i, j in it.product(range(65), repeat=2):
+    for i, j in it.product(range(M), range(N)):
         Txx[i, j] = s.tauxx(x[i, j], y[i, j])
 
     Txy = np.empty_like(x)
-    for i, j in it.product(range(65), repeat=2):
+    for i, j in it.product(range(M), range(N)):
         Txy[i, j] = s.tauxy(x[i, j], y[i, j])
 
     Tyy = np.empty_like(x)
-    for i, j in it.product(range(65), repeat=2):
+    for i, j in it.product(range(M), range(N)):
         Tyy[i, j] = s.tauyy(x[i, j], y[i, j])
 
     Tx_fd, Ty_fd = np.gradient(T, h, h, edge_order=2)
     Txx_fd, Txy_fd = np.gradient(Tx, h, h, edge_order=2)
     Tyx_fd, Tyy_fd = np.gradient(Ty, h, h, edge_order=2)
 
+    extent = [xmin, xmax, ymax, ymin]
+
     plt.figure()
-    plt.imshow(T, extent=[0, 1, 1, 0], vmin=(0, 1))
+    plt.imshow(T, extent=extent)
     # plt.imshow(np.log10(abs(eik0.T - T)), extent=[0, 1, 1, 0])
     plt.colorbar()
     plt.show()
