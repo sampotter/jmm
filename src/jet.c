@@ -4,6 +4,15 @@
 #include <math.h>
 #include <string.h>
 
+bool jet2_is_finite(jet2 const *jet) {
+  return isfinite(jet->f) && isfinite(jet->fx) && isfinite(jet->fy)
+    && isfinite(jet->fxy);
+}
+
+bool jet2_is_point_source(jet2 const *jet) {
+  return isfinite(jet->f) && isnan(jet->fx) && isnan(jet->fy) && isnan(jet->fxy);
+}
+
 jet3 jet3_make_empty() {
   return (jet3) {.f = INFINITY, .fx = NAN, .fy = NAN, .fz = NAN};
 }

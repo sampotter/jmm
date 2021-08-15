@@ -10,6 +10,9 @@ typedef struct jet {
   dbl f, fx, fy, fxy;
 } jet2;
 
+bool jet2_is_finite(jet2 const *jet);
+bool jet2_is_point_source(jet2 const *jet);
+
 typedef struct {
   dbl f;
   dbl fx, fy, fz;
