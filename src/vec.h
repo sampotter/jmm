@@ -91,6 +91,7 @@ dbl dbl4_norm(dbl4 const u);
 dbl dbl4_nsum(dbl4 const u);
 dbl dbl4_sum(dbl4 const u);
 void dbl4_add(dbl4 const u, dbl4 const v, dbl4 w);
+void dbl4_copy(dbl4 const u, dbl4 v);
 void dbl4_d2m(dbl x, dbl4 d2m);
 void dbl4_dbl_div(dbl4 const u, dbl a, dbl4 v);
 void dbl4_dbl_div_inplace(dbl4 u, dbl a);

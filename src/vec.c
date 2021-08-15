@@ -427,6 +427,13 @@ void dbl4_add(dbl4 const u, dbl4 const v, dbl4 w) {
   w[3] = u[3] + v[3];
 }
 
+void dbl4_copy(dbl4 const u, dbl4 v) {
+  v[0] = u[0];
+  v[1] = u[1];
+  v[2] = u[2];
+  v[3] = u[3];
+}
+
 void dbl4_d2m(dbl x, dbl4 d2m) {
   d2m[0] = 0.0;
   d2m[1] = 0.0;
