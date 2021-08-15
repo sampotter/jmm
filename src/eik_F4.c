@@ -3,6 +3,7 @@
 #include <assert.h>
 #include <stdio.h>
 
+#include "macros.h"
 #include "util.h"
 
 // TODO: change naming conventions to make this take up less space:
@@ -171,8 +172,9 @@ void F4_bfgs_init(dbl eta, dbl th, dbl2 x0, dbl2 g0, dbl22 H0,
   dbl22_invert(H0);
 }
 
-static void update_bfgs(dbl2 xk1, dbl2 const xk, dbl2 gk1, dbl2 const gk,
-                        dbl22 const Hk, dbl22 Hk1) {
+static void get_hess_bfgs(dbl2 const xk, dbl2 const xk1,
+                          dbl2 const gk, dbl2 const gk1,
+                          dbl22 const Hk, dbl22 Hk1) {
   if (dbl2_dist(xk1, xk) < EPS) {
     dbl22_copy(Hk, Hk1);
     return;
@@ -228,7 +230,7 @@ bool F4_bfgs_step(dbl2 const xk, dbl2 const gk, dbl22 const Hk,
     dbl fk = context->F4, fk1;
     while (true) {
       dbl2_saxpy(t, pk, xk, xk1);
-      F4_compute(xk1[0], xk1[0], context);
+      F4_compute(SPLAT2(xk1), context);
       fk1 = context->F4;
       if (fk1 <= fk + EPS) {
         break;
@@ -239,7 +241,7 @@ bool F4_bfgs_step(dbl2 const xk, dbl2 const gk, dbl22 const Hk,
   } else {
     // TODO: don't do this if t = 0! no need, just set xk1 = xk
     dbl2_saxpy(t, pk, xk, xk1);
-    F4_compute(xk1[0], xk1[0], context);
+    F4_compute(SPLAT2(xk1), context);
   }
 
   // Now, compute a new gradient and do the DFP update to update our
