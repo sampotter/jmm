@@ -201,6 +201,39 @@ static void get_hess_bfgs(dbl2 const xk, dbl2 const xk1,
   make_hessian_positive_definite(Hk1);
 }
 
+static
+void take_theta_newton_step(F4_context *context, dbl2 xk1, dbl2 gk1, dbl22 Hk1) {
+  dbl2 xk, gk;
+  dbl22 Hk;
+  dbl2_copy(gk1, gk);
+  dbl2_copy(xk1, xk);
+  dbl22_copy(Hk1, Hk);
+
+  // Set pk to a Newton step in the theta direction starting from
+  // xk. Note: the second component is -F4_th/F4_th_th.
+  dbl2 pk = {0, -gk[1]/(Hk[0][0]/dbl22_det(Hk))};
+
+  // Check that pk is a descent direction
+  dbl pk_dot_gk = dbl2_dot(pk, gk);
+  assert(pk_dot_gk < 0);
+
+  // Backtracking line search
+  dbl t = 1, fk = context->F4, fk1;
+  dbl const rho = 0.5;
+  while (true) {
+    dbl2_saxpy(t, pk, xk, xk1);
+    F4_compute(SPLAT2(xk1), context);
+    fk1 = context->F4;
+    if (fk1 <= fk + EPS)
+      break;
+    t *= rho;
+  }
+
+  // Once we've found a descent step, update gk1 and Hk1
+  F4_get_grad(context, gk1);
+  get_hess_bfgs(xk, xk1, gk, gk1, Hk, Hk1);
+}
+
 bool F4_bfgs_step(dbl2 const xk, dbl2 const gk, dbl22 const Hk,
                   dbl2 xk1, dbl2 gk1, dbl22 Hk1,
                   F4_context *context) {
@@ -214,19 +247,22 @@ bool F4_bfgs_step(dbl2 const xk, dbl2 const gk, dbl22 const Hk,
   assert(pk_dot_gk < 0);
 
   // Scale the step so that 0 <= eta <= 1.
-  dbl t = pk[0] > 0. ? 1. : 0.;
-  t -= xk[0];
-  t /= pk[0];
-  t = clamp(t, 0, 1);
+  dbl t = 1;
+  if (pk[0] > 0)
+    t = clamp(t, -xk[0]/pk[0], (1 - xk[0])/pk[0]);
+  else if (pk[0] < 0)
+    t = clamp(t, (1 - xk[0])/pk[0], -xk[0]/pk[0]);
+  assert(-EPS <= xk[0] + t*pk[0]);
+  assert(xk[0] + t*pk[0] <= 1 + EPS);
 
-//  dbl const c1 = 1e-4;
+  // dbl const c1 = 1e-4;
   dbl const rho = 0.5;
 
   /**
    * Do an inexact backtracking line search to find `t` such that the
    * sufficient decrease conditions are satisfied.
    */
-  if (t > EPS && pk_dot_gk < 0) {
+  if (t > EPS) {
     dbl fk = context->F4, fk1;
     while (true) {
       dbl2_saxpy(t, pk, xk, xk1);
@@ -244,42 +280,14 @@ bool F4_bfgs_step(dbl2 const xk, dbl2 const gk, dbl22 const Hk,
     F4_compute(SPLAT2(xk1), context);
   }
 
-  // Now, compute a new gradient and do the DFP update to update our
-  // approximation of the inverse Hessian.
-  //
-  // TODO: this is also wasteful when t = 0! see above
+  // TODO: this is wasteful when t = 0! see above
   F4_get_grad(context, gk1);
-  update_bfgs(xk1, xk, gk1, gk, Hk, Hk1);
+  get_hess_bfgs(xk, xk1, gk, gk1, Hk, Hk1);
 
-  if (t < 1 && (fabs(xk1[0]) < EPS || fabs(1 - xk1[0]) < EPS)) {
-    dbl2_copy(gk, gk1);
-    dbl2_copy(xk, xk1);
-
-    // Reset t to be a line search parameter along `th`
-    t = 1;
-
-    // Reset pk and pk_dot_gk for descent along `th`
-    dbl F4_th_th = Hk1[0][0]/dbl22_det(Hk1);
-    dbl F4_th = gk[1];
-    pk[1] = -F4_th/F4_th_th;
-    pk_dot_gk = pk[1]*gk[1];
-
-    // Backtracking line search
-    dbl fk = context->F4, fk1;
-    while (true) {
-      xk1[1] = xk[1] + t*pk[1];
-      F4_compute(xk1[0], xk1[1], context);
-      fk1 = context->F4;
-      if (fk1 <= fk + EPS) {
-        break;
-      } else {
-        t *= rho;
-      }
-    }
-
-    F4_get_grad(context, gk1);
-    update_bfgs(xk1, xk, gk1, gk, Hk, Hk1);
-  }
+  // If we hit the boundary so that eta == 0 or eta == 1, we need to
+  // take another step in the th direction to ensure descent.
+  if (t < 1 && (fabs(xk1[0]) < EPS || fabs(1 - xk1[0]) < EPS))
+    take_theta_newton_step(context, xk1, gk1, Hk1);
 
   return true;
 }

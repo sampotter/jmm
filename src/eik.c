@@ -18,15 +18,9 @@
 #define NUM_NB_CELLS 4
 #define NUM_NEARBY_CELLS 16
 
-/**
- * TODO: add a few words about what `eik` is and how it works
- *
- * TODO: add a few comments about how indexing works
- *
- * - row-major ordering is used
- * - l vs lc index spaces
- * - cell verts are in column major order
- */
+/* See the documentation for `grid2_s` for more information about how
+   indexing and the coordinate system works, depending on whether row
+   or column major indexing is used. */
 struct eik {
   field2_s const *slow;
   grid2_s const *grid;
@@ -91,6 +85,22 @@ static int2 cell_vert_offsets[NUM_ORDERS][NUM_CELL_VERTS] = {
   }
 };
 
+
+static void get_cell_vert_offset(eik_s const *eik, size_t iv, int2 offset) {
+  assert(iv <= NUM_CELL_VERTS);
+  memcpy(offset, cell_vert_offsets[eik->grid->order][iv], sizeof(int2));
+}
+
+static dbl2 cell_vert_coefs[NUM_ORDERS][NUM_CELL_VERTS] = {
+  [ORDER_ROW_MAJOR] = {{0, 0}, {0, 1}, {1, 0}, {1, 1}},
+  [ORDER_COLUMN_MAJOR] = {{0, 0}, {1, 0}, {0, 1}, {1, 1}}
+};
+
+static void get_cell_vert_coefs(eik_s const *eik, size_t iv, dbl2 cc) {
+  assert(iv <= NUM_CELL_VERTS);
+  memcpy(cc, cell_vert_coefs[eik->grid->order][iv], sizeof(dbl2));
+}
+
 /**
  * The array `tri_cell_offsets` contains the `ivec2` offsets that are
  * used to initialize the `tri_dlc` member `eik_s`, which is in turn
@@ -132,6 +142,8 @@ static int2 tri_cell_offsets[NUM_ORDERS][NUM_NB] = {
 
 static void get_tri_cell_offset(eik_s const *eik, size_t i, int2 ind) {
   assert(i < NUM_NB);
+  if (eik->grid->order != ORDER_ROW_MAJOR)
+    abort();
   memcpy(ind, tri_cell_offsets[eik->grid->order][i], sizeof(int2));
 }
 
@@ -151,6 +163,8 @@ static int2 nearby_cell_offsets[NUM_ORDERS][NUM_NEARBY_CELLS] = {
 
 static void get_nearby_cell_offset(eik_s const *eik, size_t ic, int2 offset) {
   assert(ic < NUM_NEARBY_CELLS);
+  if (eik->grid->order != ORDER_ROW_MAJOR)
+    abort();
   memcpy(offset, nearby_cell_offsets[eik->grid->order][ic], sizeof(int2));
 }
 
@@ -160,12 +174,17 @@ static void get_nearby_cell_offset(eik_s const *eik, size_t ic, int2 offset) {
  * coordinate system matches the order of the indexing. */
 static bicubic_variable tri_bicubic_vars[NUM_ORDERS][NUM_NB] = {
   [ORDER_ROW_MAJOR] = {
-    /* ic0 -> */ LAMBDA, LAMBDA, MU, MU, LAMBDA, LAMBDA, MU, MU
+    /* ic -> */ MU, MU, LAMBDA, LAMBDA, MU, MU, LAMBDA, LAMBDA
   },
   [ORDER_COLUMN_MAJOR] = {
-    /* ic0 -> */ MU, MU, LAMBDA, LAMBDA, MU, MU, LAMBDA, LAMBDA
+    /* ic -> */ LAMBDA, LAMBDA, MU, MU, LAMBDA, LAMBDA, MU, MU
   }
 };
+
+static bicubic_variable get_tri_bicubic_var(eik_s const *eik, size_t ic) {
+  assert(ic <= NUM_NB);
+  return tri_bicubic_vars[eik->grid->order][ic];
+}
 
 /* This gives the value of the coordinate not selected by
  * `tri_bicubic_vars`, restricting the bicubic to the edge incident on
@@ -173,18 +192,32 @@ static bicubic_variable tri_bicubic_vars[NUM_ORDERS][NUM_NB] = {
  * `tri_edges == 1`, then this results in the cubic `f(lambda, 1)`. */
 static int tri_edges[NUM_ORDERS][NUM_NB] = {
   [ORDER_ROW_MAJOR] = {
-    /* ic0 -> */ 1, 1, 0, 0, 0, 0, 1, 1
+    /* ic -> */ 1, 1, 0, 0, 0, 0, 1, 1
   }
 };
+
+static int get_tri_edge(eik_s const *eik, size_t ic) {
+  assert(ic <= NUM_NB);
+  if (eik->grid->order != ORDER_ROW_MAJOR)
+    abort();
+  return tri_edges[eik->grid->order][ic];
+}
 
 /* This indicates whether the cubic selected by `tri_bicubic_vars` and
  * `tri_edges` above should be reversed so that the interval `[0, 1]`
  * spans the interval `[x[l0], x[l1]]`. */
 static bool should_reverse_cubic[NUM_ORDERS][NUM_NB] = {
   [ORDER_ROW_MAJOR] = {
-    /* ic0 -> */ true, false, true, false, false, true, false, true
+    /* ic -> */ true, false, true, false, false, true, false, true
   }
 };
+
+static bool get_should_reverse_cubic(eik_s const *eik, size_t ic) {
+  assert(ic <= NUM_NB);
+  if (eik->grid->order != ORDER_ROW_MAJOR)
+    abort();
+  return should_reverse_cubic[eik->grid->order][ic];
+}
 
 /* This lookup table provides a mapping from a nearby cell back to the
  * indices neighboring an update point. */
@@ -192,6 +225,12 @@ static bool should_reverse_cubic[NUM_ORDERS][NUM_NB] = {
 static int
 cell_verts_to_cell_nb_verts[NUM_ORDERS][NUM_NEARBY_CELLS][NUM_CELL_VERTS] = {
   [ORDER_ROW_MAJOR] = {
+    {_, _, _, 0}, {_, _, 0, 1}, {_, _, 1, 2}, {_, _, 2, _},
+    {_, 0, _, 3}, {0, 1, 3, 4}, {1, 2, 4, 5}, {2, _, 5, _},
+    {_, 3, _, 6}, {3, 4, 6, 7}, {4, 5, 7, 8}, {5, _, 8, _},
+    {_, 6, _, _}, {6, 7, _, _}, {7, 8, _, _}, {8, _, _, _}
+  },
+  [ORDER_COLUMN_MAJOR] = {
     {_, _, _, 0}, {_, 0, _, 1}, {_, 1, _, 2}, {_, 2, _, _},
     {_, _, 0, 3}, {0, 3, 1, 4}, {1, 4, 2, 5}, {2, 5, _, _},
     {_, _, 3, 6}, {3, 6, 4, 7}, {4, 7, 5, 8}, {5, 8, _, _},
@@ -274,9 +313,10 @@ static void set_cell_nb_verts_dl(eik_s *eik) {
 }
 
 static void set_vert_dl(eik_s *eik) {
+  int2 offset;
   for (int i = 0; i < NUM_CELL_VERTS; ++i) {
-    eik->vert_dl[i] =
-      grid2_ind2l(eik->grid, cell_vert_offsets[eik->grid->order][i]);
+    get_cell_vert_offset(eik, i, offset);
+    eik->vert_dl[i] = grid2_ind2l(eik->grid, offset);
   }
 }
 
@@ -310,55 +350,36 @@ dbl S4_th(dbl th, void *data) {
   return context->S4_th;
 }
 
-static void line(eik_s *eik, int l, int l0) {
-  jet2 const *J0 = &eik->jets[l0];
-  dbl T0 = J0->f;
-  dbl Tx0 = J0->fx;
-  dbl Ty0 = J0->fy;
-
-  dbl2 xy; grid2_l2xy(eik->grid, l, xy);
-  dbl2 xy0; grid2_l2xy(eik->grid, l0, xy0);
-
-  S4_context context;
-  context.slow = eik->slow;
-  context.s = field2_f(eik->slow, xy);
-  context.s0 = field2_f(eik->slow, xy0);
-  dbl2_sub(xy, xy0, context.lp);
-  context.L = dbl2_norm(context.lp);
-  dbl2_dbl_div_inplace(context.lp, context.L);
-  dbl2_avg(xy, xy0, context.xy_xy0_avg);
-  dbl2_normalized(DBL2(Tx0, Ty0), context.t0);
-
-  dbl th = atan2(context.lp[1], context.lp[0]);
-  {
-    dbl th_min = th - PI_OVER_FOUR;
-    dbl th_max = th + PI_OVER_FOUR;
-    bool found = hybrid(S4_th, th_min, th_max, (void *)&context, &th);
-#if JMM_DEBUG
-    assert(found);
-#else
-    (void)found;
-#endif
-  }
-
-  dbl T = T0 + context.L*context.S4;
-
-  // Check causality
-  assert(T > T0);
-
-  jet2 *J = &eik->jets[l];
-  if (T < J->f) {
-    J->f = T;
-    J->fx = context.s*cos(th);
-    J->fy = context.s*sin(th);
-  }
-}
-
 dbl F3_eta(dbl eta, void *data) {
   F3_context *context = (F3_context *)data;
   F3_compute(eta, context);
   return context->F3_eta;
 }
+
+#if SJS_DEBUG
+static void check_cell_consistency(eik_s const *eik, size_t lc) {
+  dbl h = eik->grid->h, h_sq = h*h, f, fx, fy, fxy;
+
+  dbl2 cc;
+  bicubic_s const *bicubic = &eik->bicubics[lc];
+
+  for (int iv = 0, l; iv < NUM_CELL_VERTS; ++iv) {
+    get_cell_vert_coefs(eik, iv, cc);
+
+    f = bicubic_f(bicubic, cc);
+    fx = bicubic_fx(bicubic, cc);
+    fy = bicubic_fy(bicubic, cc);
+    fxy = bicubic_fxy(bicubic, cc);
+
+    l = grid2_lc2l(eik->grid, lc) + eik->vert_dl[iv];
+
+    assert(fabs(f - eik->jets[l].f) < EPS);
+    assert(fabs(fx - h*eik->jets[l].fx) < EPS);
+    assert(fabs(fy - h*eik->jets[l].fy) < EPS);
+    assert(fabs(fxy - h_sq*eik->jets[l].fxy) < EPS);
+  }
+}
+#endif
 
 /**
  * In this function, `ic0` is used as an index to select a nearby
@@ -382,23 +403,48 @@ static void tri(eik_s *eik, int l, int l0, int l1, int ic0) {
     return;
   }
 
+#if SJS_DEBUG
+  check_cell_consistency(eik, lc);
+#endif
+
   /**
    * Get cubic along edge of interest.
    */
-  bicubic_variable var = tri_bicubic_vars[eik->grid->order][ic0];
-  int edge = tri_edges[eik->grid->order][ic0];
+  bicubic_variable var = get_tri_bicubic_var(eik, ic0);
+  int edge = get_tri_edge(eik, ic0);
   cubic_s T_cubic = bicubic_get_f_on_edge(bicubic, var, edge);
   cubic_s Tx_cubic = bicubic_get_fx_on_edge(bicubic, var, edge);
   cubic_s Ty_cubic = bicubic_get_fy_on_edge(bicubic, var, edge);
-  if (should_reverse_cubic[ic0]) {
+  if (get_should_reverse_cubic(eik, ic0)) {
     cubic_reverse_on_unit_interval(&T_cubic);
     cubic_reverse_on_unit_interval(&Tx_cubic);
     cubic_reverse_on_unit_interval(&Ty_cubic);
   }
 
+  dbl h = eik->grid->h;
+
+  assert(fabs(cubic_f(&T_cubic, 0) - eik->jets[l0].f) < EPS);
+  assert(fabs(cubic_f(&T_cubic, 1) - eik->jets[l1].f) < EPS);
+  assert(fabs(cubic_f(&Tx_cubic, 0)/h - eik->jets[l0].fx) < EPS);
+  assert(fabs(cubic_f(&Tx_cubic, 1)/h - eik->jets[l1].fx) < EPS);
+  assert(fabs(cubic_f(&Ty_cubic, 0)/h - eik->jets[l0].fy) < EPS);
+  assert(fabs(cubic_f(&Ty_cubic, 1)/h - eik->jets[l1].fy) < EPS);
+
   dbl2 xy; grid2_l2xy(eik->grid, l, xy);
   dbl2 xy0; grid2_l2xy(eik->grid, l0, xy0);
   dbl2 xy1; grid2_l2xy(eik->grid, l1, xy1);
+
+  if (var == LAMBDA) {
+    assert(fabs(xy0[1] - xy1[1]) < EPS);
+    assert(fabs(h - fabs(xy0[0] - xy1[0])) < EPS);
+    assert(fabs(h - fabs(xy[1] - xy0[1])) < EPS);
+    assert(fabs(h - fabs(xy[1] - xy0[1])) < EPS);
+  } else if (var == MU) {
+    assert(fabs(xy0[0] - xy1[0]) < EPS);
+    assert(fabs(h - fabs(xy0[1] - xy1[1])) < EPS);
+    assert(fabs(h - fabs(xy[0] - xy0[0])) < EPS);
+    assert(fabs(h - fabs(xy[0] - xy1[0])) < EPS);
+  }
 
   // TODO: try initializing from the mp0 minimizer since it's so cheap
   // to compute...
@@ -526,24 +572,15 @@ static void tri(eik_s *eik, int l, int l0, int l1, int ic0) {
 }
 
 static bool can_build_cell(eik_s const *eik, int lc) {
-  // TODO: do this using SIMD gathers
+  int2 ind;
   for (int i = 0, l; i < NUM_CELL_VERTS; ++i) {
     l = grid2_lc2l(eik->grid, lc) + eik->vert_dl[i];
-    // TODO: this is probably wrong: need to double check what's in
-    // vert_dl to be sure---it's probably wrapping around... although
-    // this may not result in an actual bug?
-    int2 ind; grid2_l2ind(eik->grid, l, ind);
-    if (!grid2_isind(eik->grid, ind)) {
+    grid2_l2ind(eik->grid, l, ind);
+    if (!grid2_isind(eik->grid, ind) ||
+        eik->states[l] != VALID ||
+        jet2_is_point_source(&eik->jets[l]))
       return false;
-    }
-    state_e state = eik->states[l];
-    /**
-     * TODO: we don't want to build cells that only have trial values,
-     * I don't think...
-     */
-    if (state != VALID) {
-      return false;
-    }
+    assert(jet2_is_finite(&eik->jets[l]));
   }
   return true;
 }
@@ -561,8 +598,10 @@ static bool cell_is_valid(eik_s const *eik, int2 indc) {
     return false;
   }
   int l = grid2_indc2l(eik->grid, indc);
+  int2 offset, indv;
   for (int iv = 0, lv; iv < NUM_CELL_VERTS; ++iv) {
-    int2 indv; int2_add(indc, cell_vert_offsets[eik->grid->order][iv], indv);
+    get_cell_vert_offset(eik, iv, offset);
+    int2_add(indc, offset, indv);
     if (!grid2_isind(eik->grid, indv)) {
       return false;
     }
@@ -654,44 +693,37 @@ static void build_cell(eik_s *eik, int lc) {
 
   /* Compute cell data from jets and scaling factors */
   dbl44 data;
-  data[0][0] = J[0]->f;
-  data[1][0] = J[1]->f;
-  data[0][1] = J[2]->f;
-  data[1][1] = J[3]->f;
-  data[2][0] = h*J[0]->fx;
-  data[3][0] = h*J[1]->fx;
-  data[2][1] = h*J[2]->fx;
-  data[3][1] = h*J[3]->fx;
-  data[0][2] = h*J[0]->fy;
-  data[1][2] = h*J[1]->fy;
-  data[0][3] = h*J[2]->fy;
-  data[1][3] = h*J[3]->fy;
-  data[2][2] = h_sq*J[0]->fxy;
-  data[3][2] = h_sq*J[1]->fxy;
-  data[2][3] = h_sq*J[2]->fxy;
-  data[3][3] = h_sq*J[3]->fxy;
+  int2 offset;
+  for (int i = 0, di, dj; i < NUM_CELL_VERTS; ++i) {
+    get_cell_vert_offset(eik, i, offset);
+    di = offset[0];
+    dj = offset[1];
+    data[di][dj] = J[i]->f;
+    data[2 + di][dj] = h*J[i]->fx;
+    data[di][2 + dj] = h*J[i]->fy;
+    data[2 + di][2 + dj] = h_sq*J[i]->fxy;
+  }
 
   /* Set cell data */
   bicubic_set_data(&eik->bicubics[lc], data);
 }
 
-static void update(eik_s *eik, int l) {
-  /**
-   * First, precompute whether each neighboring node is inbounds. We
-   * need to do this in the (i, j) index space to avoid wrapping
-   * errors.
-   */
-  bool inbounds_[9];
-  {
-    int2 ind; grid2_l2ind(eik->grid, l, ind);
-    for (int i0 = 0; i0 < 9; ++i0) {
-      int2 ind0; int2_add(ind, offsets[i0], ind0);
-      inbounds_[i0] = grid2_isind(eik->grid, ind0);
-    }
+/* Compute whether each neighboring node is inbounds. */
+static void set_inbounds(eik_s const *eik, int l, bool inbounds[NUM_NB + 1]) {
+  int2 ind, ind0;
+  grid2_l2ind(eik->grid, l, ind);
+  for (int i0 = 0; i0 < NUM_NB + 1; ++i0) {
+    int2_add(ind, offsets[i0], ind0);
+    inbounds[i0] = grid2_isind(eik->grid, ind0);
   }
+}
+
+static void update(eik_s *eik, int l) {
+  bool inbounds[NUM_NB + 1];
+  set_inbounds(eik, l, inbounds);
 
   for (int i0 = 1, l0, l1, ic0; i0 < 8; i0 += 2) {
-    if (!inbounds_[i0]) {
+    if (!inbounds[i0]) {
       continue;
     }
 
@@ -700,7 +732,7 @@ static void update(eik_s *eik, int l) {
       continue;
     }
 
-    if (inbounds_[i0 - 1]) {
+    if (inbounds[i0 - 1]) {
       l1 = l + eik->nb_dl[i0 - 1];
       if (eik->states[l1] == VALID) {
         ic0 = i0 - 1;
@@ -708,20 +740,11 @@ static void update(eik_s *eik, int l) {
       }
     }
 
-    if (inbounds_[i0 + 1]) {
+    if (inbounds[i0 + 1]) {
       l1 = l + eik->nb_dl[i0 + 1];
       if (eik->states[l1] == VALID) {
         ic0 = i0;
         tri(eik, l, l0, l1, ic0);
-      }
-    }
-  }
-
-  for (int i0 = 0, l0; i0 < 8; ++i0) {
-    if (inbounds_[i0]) {
-      l0 = l + eik->nb_dl[i0];
-      if (eik->states[l0] == VALID) {
-        line(eik, l, l0);
       }
     }
   }
@@ -830,63 +853,50 @@ void eik_deinit(eik_s *eik) {
   heap_dealloc(&eik->heap);
 }
 
-#if SJS_DEBUG
-static void check_cell_consistency(eik_s const *eik, int l0) {
-  dbl tol = 1e-10, h = eik->grid->h, h_sq = h*h, f, fx, fy, fxy;
-  dbl2 cc[4] = {{0, 0}, {1, 0}, {0, 1}, {1, 1}};
-  bicubic_s *bicubic;
-  for (int ic = 0, lc; ic < NUM_NEARBY_CELLS; ++ic) {
-    lc = grid2_l2lc(eik->grid, l0) + eik->nearby_dlc[ic];
-    if (can_build_cell(eik, lc)) {
-      bicubic = &eik->bicubics[lc];
-      for (int jv = 0, l; jv < NUM_CELL_VERTS; ++jv) {
-        l = grid2_lc2l(eik->grid, lc) + eik->vert_dl[jv];
-        f = bicubic_f(bicubic, cc[jv]);
-        fx = bicubic_fx(bicubic, cc[jv]);
-        fy = bicubic_fy(bicubic, cc[jv]);
-        fxy = bicubic_fxy(bicubic, cc[jv]);
-        assert(fabs(f - eik->jets[l].f) < tol);
-        assert(fabs(fx - h*eik->jets[l].fx) < tol);
-        assert(fabs(fy - h*eik->jets[l].fy) < tol);
-        assert(fabs(fxy - h_sq*eik->jets[l].fxy) < tol);
-      }
-    }
-  }
-}
-#endif
+static bool recompute_nearby_cells(eik_s *eik, size_t l0) {
+  int2 ind0;
+  grid2_l2ind(eik->grid, l0, ind0);
 
-void eik_step(eik_s *eik) {
-  int l0 = heap_front(eik->heap);
-  assert(eik->states[l0] == TRIAL);
-  heap_pop(eik->heap);
-  eik->states[l0] = VALID;
-
-  int2 ind0; grid2_l2ind(eik->grid, l0, ind0);
-
+  bool nb_inc_on_valid_cell[9];
   // Determine which of the cells surrounding l0 are now valid. It's
   // enough to check if any of the four nearest cells are valid: it's
   // impossible for them to have been valid (or built before), since
   // one of their vertices just became valid.
-  bool valid_cell_nb[NUM_NB_CELLS];
+  bool valid_cell[NUM_NB_CELLS];
   for (int ic = 0; ic < NUM_NB_CELLS; ++ic) {
     int2 indc, offset;
     get_nb_cell_offset(eik, ic, offset);
     int2_add(ind0, offset, indc);
-    valid_cell_nb[ic] = cell_is_valid(eik, indc);
+    valid_cell[ic] = cell_is_valid(eik, indc);
   }
 
-  // TODO: don't build this inline?
-  bool nb_incident_on_valid_cell_nb[9] = {
-    valid_cell_nb[0],
-    valid_cell_nb[0] || valid_cell_nb[2],
-    valid_cell_nb[2],
-    valid_cell_nb[0] || valid_cell_nb[1],
-    valid_cell_nb[0] || valid_cell_nb[1] || valid_cell_nb[2] || valid_cell_nb[3],
-    valid_cell_nb[2] || valid_cell_nb[3],
-    valid_cell_nb[1],
-    valid_cell_nb[1] || valid_cell_nb[3],
-    valid_cell_nb[3]
-  };
+  if (!valid_cell[0] && !valid_cell[1] && !valid_cell[2] && !valid_cell[3])
+    return false;
+
+  bool *inc = &nb_inc_on_valid_cell[0];
+  if (eik->grid->order == ORDER_ROW_MAJOR) {
+    inc[0] = valid_cell[0];
+    inc[1] = valid_cell[0] || valid_cell[1];
+    inc[2] =                  valid_cell[1];
+    inc[3] = valid_cell[0]                  || valid_cell[2];
+    inc[4] = valid_cell[0] || valid_cell[1] || valid_cell[2] || valid_cell[3];
+    inc[5] =                  valid_cell[1]                  || valid_cell[3];
+    inc[6] =                                   valid_cell[2];
+    inc[7] =                                   valid_cell[2] || valid_cell[3];
+    inc[8] =                                                    valid_cell[3];
+  } else if (eik->grid->order == ORDER_COLUMN_MAJOR) {
+    inc[0] = valid_cell[0];
+    inc[1] = valid_cell[0]                  || valid_cell[2];
+    inc[2] =                                   valid_cell[2];
+    inc[3] = valid_cell[0] || valid_cell[1];
+    inc[4] = valid_cell[0] || valid_cell[1] || valid_cell[2] || valid_cell[3];
+    inc[5] =                                   valid_cell[2] || valid_cell[3];
+    inc[6] =                  valid_cell[1];
+    inc[7] =                  valid_cell[1]                  || valid_cell[3];
+    inc[8] =                                                    valid_cell[3];
+  } else {
+    abort();
+  }
 
   // Array used to indicated which nearby cells should be used to
   // compute average values for Txy at cell vertices.
@@ -903,14 +913,13 @@ void eik_step(eik_s *eik) {
       if (i == NO_INDEX) {
         continue;
       }
-      use_for_Txy_average[ic] |= nb_incident_on_valid_cell_nb[i];
+      use_for_Txy_average[ic] |= nb_inc_on_valid_cell[i];
     }
-	{
-      int2 offset, indc;
-      get_nearby_cell_offset(eik, ic, offset);
-      int2_add(ind0, offset, indc);
-      use_for_Txy_average[ic] &= cell_is_valid(eik, indc);
-	}
+
+    int2 offset, indc;
+    get_nearby_cell_offset(eik, ic, offset);
+    int2_add(ind0, offset, indc);
+    use_for_Txy_average[ic] &= cell_is_valid(eik, indc);
   }
 
   // Compute new Txy values at the vertices of the cells that we
@@ -964,14 +973,35 @@ void eik_step(eik_s *eik) {
     }
   }
 
+  return true;
+}
+
 #if SJS_DEBUG
-  check_cell_consistency(eik, l0);
+static void check_consistency_of_nearby_cells(eik_s const *eik, int l0) {
+  for (int ic = 0, lc; ic < NUM_NEARBY_CELLS; ++ic) {
+    lc = grid2_l2lc(eik->grid, l0) + eik->nearby_dlc[ic];
+    if (can_build_cell(eik, lc))
+      check_cell_consistency(eik, lc);
+  }
+}
 #endif
 
-  /**
-   * The section below corresponds to what's done in a "normal"
-   * Dijkstra-like algorithm for solving the eikonal equation.
-   */
+void eik_step(eik_s *eik) {
+  int l0 = heap_front(eik->heap);
+  assert(eik->states[l0] == TRIAL);
+  heap_pop(eik->heap);
+  eik->states[l0] = VALID;
+
+  ++eik->num_accepted;
+
+  bool updated_cells = recompute_nearby_cells(eik, l0);
+#if SJS_DEBUG
+  if (updated_cells)
+    check_consistency_of_nearby_cells(eik, l0);
+#endif
+
+  int2 ind0;
+  grid2_l2ind(eik->grid, l0, ind0);
 
   // Set FAR nodes to TRIAL and insert them into the heap.
   for (int i = 0, l; i < NUM_NB; ++i) {
@@ -986,6 +1016,11 @@ void eik_step(eik_s *eik) {
     }
   }
 
+  // If we didn't update any neighboring cells, we won't do any
+  // updates, so return now.
+  if (!updated_cells)
+    return;
+
   // Update neighboring nodes.
   for (int i = 0, l; i < NUM_NB; ++i) {
     int2 ind; int2_add(ind0, offsets[i], ind);
@@ -998,8 +1033,6 @@ void eik_step(eik_s *eik) {
       adjust(eik, l);
     }
   }
-
-  ++eik->num_accepted;
 }
 
 void eik_solve(eik_s *eik) {
