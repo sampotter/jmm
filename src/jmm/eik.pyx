@@ -8,7 +8,7 @@ from jmm.bb cimport Bb31, Bb33
 from jmm.defs cimport int2
 from jmm.field cimport SlownessFunc2
 from jmm.grid cimport Grid2, Grid3
-from jmm.jet cimport Jet2, Jet3
+from jmm.jet cimport jet2, Jet2, Jet3
 from jmm.mesh cimport mesh3, Mesh3, mesh3_nverts
 from jmm.par cimport par3, Parent3
 from jmm.xfer cimport xfer
@@ -46,8 +46,8 @@ cdef class Eik:
         self.T_view.ptr = <void *>&eik_get_jets_ptr(self.eik).f
         self.T_view.shape[0] = self.shape[0]
         self.T_view.shape[1] = self.shape[1]
-        self.T_view.strides[0] = self.shape[1]*sizeof(dbl)
-        self.T_view.strides[1] = 4*sizeof(dbl)
+        self.T_view.strides[0] = self.shape[1]*sizeof(jet2)
+        self.T_view.strides[1] = sizeof(jet2)
         self.T_view.format = 'd'
         self.T_view.itemsize = sizeof(dbl)
 
@@ -56,8 +56,8 @@ cdef class Eik:
         self.Tx_view.ptr = <void *>&eik_get_jets_ptr(self.eik).fx
         self.Tx_view.shape[0] = self.shape[0]
         self.Tx_view.shape[1] = self.shape[1]
-        self.Tx_view.strides[0] = self.shape[1]*sizeof(dbl)
-        self.Tx_view.strides[1] = 4*sizeof(dbl)
+        self.Tx_view.strides[0] = self.shape[1]*sizeof(jet2)
+        self.Tx_view.strides[1] = sizeof(jet2)
         self.Tx_view.format = 'd'
         self.Tx_view.itemsize = sizeof(dbl)
 
@@ -66,8 +66,8 @@ cdef class Eik:
         self.Ty_view.ptr = <void *>&eik_get_jets_ptr(self.eik).fy
         self.Ty_view.shape[0] = self.shape[0]
         self.Ty_view.shape[1] = self.shape[1]
-        self.Ty_view.strides[0] = self.shape[1]*sizeof(dbl)
-        self.Ty_view.strides[1] = 4*sizeof(dbl)
+        self.Ty_view.strides[0] = self.shape[1]*sizeof(jet2)
+        self.Ty_view.strides[1] = sizeof(jet2)
         self.Ty_view.format = 'd'
         self.Ty_view.itemsize = sizeof(dbl)
 
@@ -76,8 +76,8 @@ cdef class Eik:
         self.Txy_view.ptr = <void *>&eik_get_jets_ptr(self.eik).fxy
         self.Txy_view.shape[0] = self.shape[0]
         self.Txy_view.shape[1] = self.shape[1]
-        self.Txy_view.strides[0] = self.shape[1]*sizeof(dbl)
-        self.Txy_view.strides[1] = 4*sizeof(dbl)
+        self.Txy_view.strides[0] = self.shape[1]*sizeof(jet2)
+        self.Txy_view.strides[1] = sizeof(jet2)
         self.Txy_view.format = 'd'
         self.Txy_view.itemsize = sizeof(dbl)
 
