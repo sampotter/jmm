@@ -43,7 +43,9 @@ cdef class LinearSpeedFunc2(SlownessFunc2):
         return self.c[1], self.c[2]
 
     def s(self, dbl x, dbl y):
-        return 1.0/(self.c[0] + self.c[1]*x + self.c[2]*y)
+        cdef dbl dx = x - self.x0
+        cdef dbl dy = y - self.y0
+        return 1.0/(self.c[0] + self.c[1]*dx + self.c[2]*dy)
 
     def sx(self, dbl x, dbl y):
         return -self.c[1]*self.s(x, y)**2
@@ -72,26 +74,35 @@ cdef class LinearSpeedFunc2(SlownessFunc2):
     def scale(self):
         return self.vnormsq/(2*self.c[0])
 
+    def normsq(self, dbl x, dbl y):
+        return (x - self.x0)**2 + (y - self.y0)**2
+
     def f(self, dbl x, dbl y):
-        return 1 + self.scale*self.s(x, y)*(x**2 + y**2)
+        return 1 + self.scale*self.s(x, y)*self.normsq(x, y)
 
     def fx(self, dbl x, dbl y):
-        return self.scale*(self.sx(x, y)*(x**2 + y**2) + 2*self.s(x, y)*x)
+        cdef dbl dx = x - self.x0
+        return self.scale*(self.sx(x, y)*self.normsq(x, y) + 2*self.s(x, y)*dx)
 
     def fy(self, dbl x, dbl y):
-        return self.scale*(self.sy(x, y)*(x**2 + y**2) + 2*self.s(x, y)*y)
+        cdef dbl dy = y - self.y0
+        return self.scale*(self.sy(x, y)*self.normsq(x, y) + 2*self.s(x, y)*dy)
 
     def fxx(self, dbl x, dbl y):
+        cdef dbl dx = x - self.x0
         return self.scale*(
-            self.sxx(x, y)*(x**2 + y**2) + 4*self.sx(x, y)*x + 2*self.s(x, y))
+            self.sxx(x, y)*self.normsq(x, y) + 4*self.sx(x, y)*dx + 2*self.s(x, y))
 
     def fxy(self, dbl x, dbl y):
+        cdef dbl dx = x - self.x0
+        cdef dbl dy = y - self.y0
         return self.scale*(
-            self.sxy(x, y)*(x**2 + y**2) + 2*(self.sx(x, y)*y + self.sy(x, y)*x))
+            self.sxy(x, y)*self.normsq(x, y) + 2*(self.sx(x, y)*dy + self.sy(x, y)*dx))
 
     def fyy(self, dbl x, dbl y):
+        cdef dbl dy = y - self.y0
         return self.scale*(
-            self.syy(x, y)*(x**2 + y**2) + 4*self.sy(x, y)*y + 2*self.s(x, y))
+            self.syy(x, y)*self.normsq(x, y) + 4*self.sy(x, y)*dy + 2*self.s(x, y))
 
     def tau(self, dbl x, dbl y):
         return np.arccosh(self.f(x, y))/self.vnorm
