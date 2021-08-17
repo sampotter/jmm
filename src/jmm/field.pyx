@@ -14,12 +14,18 @@ cdef class SlownessFunc2:
     pass
 
 cdef dbl linear_speed_func_2_f(dbl x, dbl y, void *context):
-    cdef const dbl *c = <const dbl *>context
-    return 1/(c[0] + c[1]*x + c[2]*y)
+    cdef LinearSpeedFunc2 lsf = <LinearSpeedFunc2>context
+    cdef dbl *c = lsf.c
+    cdef dbl dx = x - lsf.x0
+    cdef dbl dy = y - lsf.y0
+    return 1/(c[0] + c[1]*dx + c[2]*dy)
 
 cdef void linear_speed_func_2_grad_f(dbl x, dbl y, void *context, dbl2 g):
-    cdef const dbl *c = <const dbl *>context
-    cdef dbl f_sq = 1/(c[0] + c[1]*x + c[2]*y)**2
+    cdef LinearSpeedFunc2 lsf = <LinearSpeedFunc2>context
+    cdef dbl *c = lsf.c
+    cdef dbl dx = x - lsf.x0
+    cdef dbl dy = y - lsf.y0
+    cdef dbl f_sq = 1/(c[0] + c[1]*dx + c[2]*dy)**2
     g[0] = -c[1]*f_sq
     g[1] = -c[2]*f_sq
 
@@ -32,7 +38,7 @@ cdef class LinearSpeedFunc2(SlownessFunc2):
         self.y0 = y0
         self.field.f = linear_speed_func_2_f
         self.field.grad_f = linear_speed_func_2_grad_f
-        self.field.context = <void *>&self.c[0]
+        self.field.context = <void *>self
 
     @property
     def s0(self):
