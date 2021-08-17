@@ -96,6 +96,9 @@ cdef class Eik:
     def build_cells(self):
         eik_build_cells(self.eik)
 
+    def peek(self):
+        return eik_peek(self.eik)
+
     def step(self):
         eik_step(self.eik)
 

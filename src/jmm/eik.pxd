@@ -16,6 +16,7 @@ cdef extern from "eik.h":
     void eik_dealloc(eik **eik)
     void eik_init(eik *eik, const field2 *slow, const grid2 *grid)
     void eik_deinit(eik *eik)
+    size_t eik_peek(const eik *eik)
     void eik_step(eik *eik)
     void eik_solve(eik *eik)
     void eik_add_trial(eik *eik, int2 ind, jet2 jet)

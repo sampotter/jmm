@@ -19,6 +19,7 @@ void eik_alloc(eik_s **eik);
 void eik_dealloc(eik_s **eik);
 void eik_init(eik_s *eik, field2_s const *slow, grid2_s const *grid);
 void eik_deinit(eik_s *eik);
+size_t eik_peek(eik_s const *eik);
 void eik_step(eik_s *eik);
 void eik_solve(eik_s *eik);
 void eik_add_trial(eik_s *eik, int2 ind, jet2 jet);

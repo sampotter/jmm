@@ -866,6 +866,10 @@ void eik_deinit(eik_s *eik) {
   heap_dealloc(&eik->heap);
 }
 
+size_t eik_peek(eik_s const *eik) {
+  return heap_front(eik->heap);
+}
+
 static bool recompute_nearby_cells(eik_s *eik, size_t l0) {
   int2 ind0;
   grid2_l2ind(eik->grid, l0, ind0);
