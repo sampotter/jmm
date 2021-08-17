@@ -7,6 +7,11 @@ cdef class Grid2:
         self._grid.h = h
         self._grid.order = ORDER_ROW_MAJOR
 
+    def l2ind(self, int l):
+        cdef int2 ind
+        grid2_l2ind(&self._grid, l, ind)
+        return (ind[0], ind[1])
+
 cdef class Grid3:
     def __cinit__(self, int[:] dim, dbl[:] xmin, dbl h):
         self._grid.dim[0] = dim[0]

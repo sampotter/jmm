@@ -7,6 +7,8 @@ cdef extern from "grid2.h":
         dbl h
         order order
 
+    void grid2_l2ind(const grid2 *grid, int l, int2 ind)
+
 cdef class Grid2:
     cdef grid2 _grid
 
