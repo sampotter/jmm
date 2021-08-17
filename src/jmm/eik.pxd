@@ -1,5 +1,6 @@
 from jmm.array_view cimport ArrayView
 from jmm.bb cimport bb31
+from jmm.bicubic cimport bicubic
 from jmm.defs cimport bool, dbl, dblz, dbl_or_dblz, dbl2, dbl3, dbl33, ftype, \
     int2, state
 from jmm.field cimport field2
@@ -29,6 +30,7 @@ cdef extern from "eik.h":
     dbl eik_Ty(eik *eik, dbl2 xy)
     dbl eik_Txy(eik *eik, dbl2 xy)
     void eik_build_cells(eik *eik)
+    bicubic eik_get_bicubic(const eik *eik, int2 indc)
 
 cdef class Eik:
     cdef:

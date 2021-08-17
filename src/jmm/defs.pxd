@@ -6,9 +6,13 @@ cdef extern from "def.h":
     ctypedef double dbl
 
     ctypedef dbl[2] dbl2
+    ctypedef dbl2[2] dbl22
 
     ctypedef dbl[3] dbl3
     ctypedef dbl3[3] dbl33
+
+    ctypedef dbl[4] dbl4
+    ctypedef dbl4[4] dbl44
 
     ctypedef int[2] int2
 

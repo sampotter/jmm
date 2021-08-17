@@ -5,6 +5,7 @@ from jmm.defs import Ftype
 cimport jmm.defs
 
 from jmm.bb cimport Bb31, Bb33
+from jmm.bicubic cimport Bicubic
 from jmm.defs cimport int2
 from jmm.field cimport SlownessFunc2
 from jmm.grid cimport Grid2, Grid3
@@ -104,6 +105,9 @@ cdef class Eik:
 
     def solve(self):
         eik_solve(self.eik)
+
+    def get_bicubic(self, int[::1] indc):
+        return Bicubic.from_bicubic(eik_get_bicubic(self.eik, &indc[0]))
 
     @property
     def T(self):
