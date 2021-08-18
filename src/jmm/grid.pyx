@@ -12,6 +12,30 @@ cdef class Grid2:
         grid2_l2ind(&self._grid, l, ind)
         return (ind[0], ind[1])
 
+    @property
+    def shape(self):
+        return np.asarray(self._grid.shape)
+
+    @property
+    def h(self):
+        return self._grid.h
+
+    @property
+    def xmin(self):
+        return self._grid.xymin[0]
+
+    @property
+    def ymin(self):
+        return self._grid.xymin[1]
+
+    @property
+    def xmax(self):
+        return self.xmin + self.h*(self.shape[0] - 1)
+
+    @property
+    def ymax(self):
+        return self.ymin + self.h*(self.shape[1] - 1)
+
 cdef class Grid3:
     def __cinit__(self, int[:] dim, dbl[:] xmin, dbl h):
         self._grid.dim[0] = dim[0]
