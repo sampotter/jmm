@@ -5,6 +5,26 @@ cdef class Jet2:
         self.jet.fy = fy
         self.jet.fxy = fxy
 
+    @property
+    def f(self):
+        return self.jet.f
+
+    @property
+    def fx(self):
+        return self.jet.fx
+
+    @property
+    def fy(self):
+        return self.jet.fy
+
+    @property
+    def fxy(self):
+        return self.jet.fxy
+
+    def __repr__(self):
+        return 'Jet2(f = %f, fx = %f, fy = %f, fxy = %f)' % (
+            self.jet.f, self.jet.fx, self.jet.fy, self.jet.fxy)
+
 cdef class Jet3:
     def __cinit__(self, dbl f, dbl fx, dbl fy, dbl fz):
         self.jet.f = f
