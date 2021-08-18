@@ -1109,7 +1109,7 @@ state_e *eik_get_states_ptr(eik_s const *eik) {
  * these functions to avoid calling `can_build_cell` over and over.
  */
 
-dbl eik_T(eik_s *eik, dbl2 xy) {
+dbl eik_T(eik_s const *eik, dbl2 xy) {
   dbl2 cc;
   int lc = grid2_xy2lc(eik->grid, xy, cc);
   if (!can_build_cell(eik, lc)) {
@@ -1119,7 +1119,7 @@ dbl eik_T(eik_s *eik, dbl2 xy) {
   return bicubic_f(bicubic, cc);
 }
 
-dbl eik_Tx(eik_s *eik, dbl2 xy) {
+dbl eik_Tx(eik_s const *eik, dbl2 xy) {
   dbl2 cc;
   int lc = grid2_xy2lc(eik->grid, xy, cc);
   if (!can_build_cell(eik, lc)) {
@@ -1129,7 +1129,7 @@ dbl eik_Tx(eik_s *eik, dbl2 xy) {
   return bicubic_fx(bicubic, cc)/eik->grid->h;
 }
 
-dbl eik_Ty(eik_s *eik, dbl2 xy) {
+dbl eik_Ty(eik_s const *eik, dbl2 xy) {
   dbl2 cc;
   int lc = grid2_xy2lc(eik->grid, xy, cc);
   if (!can_build_cell(eik, lc)) {
@@ -1149,7 +1149,7 @@ dbl eik_Txx(eik_s const *eik, dbl2 xy) {
   return bicubic_fxx(bicubic, cc)/(eik->grid->h*eik->grid->h);
 }
 
-dbl eik_Txy(eik_s *eik, dbl2 xy) {
+dbl eik_Txy(eik_s const *eik, dbl2 xy) {
   dbl2 cc;
   int lc = grid2_xy2lc(eik->grid, xy, cc);
   if (!can_build_cell(eik, lc)) {
