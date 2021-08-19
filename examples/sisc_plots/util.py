@@ -17,9 +17,7 @@ def get_trial_mask(valid_mask):
                 trial_mask[i, j] = True
     return trial_mask
 
-def get_eik_for_pt_src(grid, c, x0, y0, rfac):
-    s = LinearSpeedFunc2(c, x0, y0)
-    eik = Eik.from_s_and_grid(s, grid)
+def add_exact_data_for_pt_src(eik, grid, s, x0, y0, rfac):
     M, N = grid.shape
     x, y = np.meshgrid(np.linspace(grid.xmin, grid.xmax, M),
                        np.linspace(grid.ymin, grid.ymax, N),
@@ -31,5 +29,10 @@ def get_eik_for_pt_src(grid, c, x0, y0, rfac):
     for i, j in zip(*np.where(get_trial_mask(valid_mask))):
         ind = np.array([i, j], dtype=np.intc)
         eik.add_trial(ind, s.get_jet(x[i, j], y[i, j]))
+
+def get_eik_for_pt_src(grid, c, x0, y0, rfac):
+    s = LinearSpeedFunc2(c, x0, y0)
+    eik = Eik.from_s_and_grid(s, grid)
+    add_exact_data_for_pt_src(eik, grid, s, x0, y0, rfac)
     eik.build_cells()
     return s, eik
