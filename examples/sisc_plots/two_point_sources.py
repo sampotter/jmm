@@ -16,7 +16,7 @@ if __name__ == '__main__':
     c1 = c0 + np.array([c0[1]*x1 + c0[2]*y1, 0, 0])
 
     # Discretization parameters
-    h = 0.0125/2
+    h = 1/32
     xmin, ymin = 0, 0
     xmax, ymax = 1, 1
     M = int(np.round(xmax/h)) + 1
@@ -64,11 +64,11 @@ if __name__ == '__main__':
 
     extent = [xmin, xmax, ymin, ymax]
 
-    plt.figure(figsize=(15, 6))
+    plt.figure(figsize=(12, 6))
 
     # column #1: tau vs T
 
-    plt.subplot(2, 4, 1)
+    plt.subplot(2, 3, 1)
     plt.imshow(np.rot90(eik.T), extent=extent, cmap=cc.cm.rainbow)
     plt.colorbar()
     plt.contour(X, Y, eik.T, linewidths=1, linestyles='--', colors='k')
@@ -77,16 +77,17 @@ if __name__ == '__main__':
     plt.title(r'$T$')
 
     E = abs(tau - eik.T)
-    plt.subplot(2, 4, 5)
+    plt.subplot(2, 3, 4)
     plt.imshow(np.rot90(E), extent=extent, cmap=cc.cm.fire)
-    plt.colorbar()
+    cbar = plt.colorbar()
+    cbar.formatter.set_powerlimits((0, 0))
     plt.xlabel('$x$')
     plt.ylabel('$y$')
     plt.title(r'$|\tau - T|$')
 
     # column #2: tau_x vs T_x
 
-    plt.subplot(2, 4, 2)
+    plt.subplot(2, 3, 2)
     plt.imshow(np.rot90(eik.Tx), extent=extent, cmap=cc.cm.rainbow)
     plt.colorbar()
     plt.contour(X, Y, eik.T, linewidths=1, linestyles='--', colors='k')
@@ -95,16 +96,17 @@ if __name__ == '__main__':
     plt.title(r'$T_x$')
 
     E = abs(taux - eik.Tx)
-    plt.subplot(2, 4, 6)
+    plt.subplot(2, 3, 5)
     plt.imshow(np.rot90(E), extent=extent, cmap=cc.cm.fire)
-    plt.colorbar()
+    cbar = plt.colorbar()
+    cbar.formatter.set_powerlimits((0, 0))
     plt.xlabel('$x$')
     plt.ylabel('$y$')
     plt.title(r'$|\tau_x - T_x|$')
 
     # column #3: tau_y vs T_y
 
-    plt.subplot(2, 4, 3)
+    plt.subplot(2, 3, 3)
     plt.imshow(np.rot90(eik.Ty), extent=extent, cmap=cc.cm.rainbow)
     plt.colorbar()
     plt.contour(X, Y, eik.T, linewidths=1, linestyles='--', colors='k')
@@ -113,30 +115,16 @@ if __name__ == '__main__':
     plt.title(r'$T_y$')
 
     E = abs(tauy - eik.Ty)
-    plt.subplot(2, 4, 7)
+    plt.subplot(2, 3, 6)
     plt.imshow(np.rot90(E), extent=extent, cmap=cc.cm.fire)
-    plt.colorbar()
+    cbar = plt.colorbar()
+    cbar.formatter.set_powerlimits((0, 0))
     plt.xlabel('$x$')
     plt.ylabel('$y$')
     plt.title(r'$|\tau_y - T_y|$')
 
-    # column #3: tau_{xy} vs T_{xy}
-
-    plt.subplot(2, 4, 4)
-    plt.imshow(np.rot90(eik.Txy), extent=extent, cmap=cc.cm.rainbow)
-    plt.colorbar()
-    plt.contour(X, Y, eik.T, linewidths=1, linestyles='--', colors='k')
-    plt.xlabel('$x$')
-    plt.ylabel('$y$')
-    plt.title(r'$T_{xy}$')
-
-    E = abs(tauxy - eik.Txy)
-    plt.subplot(2, 4, 8)
-    plt.imshow(np.rot90(E), extent=extent, cmap=cc.cm.fire)
-    plt.colorbar()
-    plt.xlabel('$x$')
-    plt.ylabel('$y$')
-    plt.title(r'$|\tau_{xy} - T_{xy}|$')
-
     plt.tight_layout()
+
+    plt.savefig('two-point-sources.pdf')
+
     plt.show()
