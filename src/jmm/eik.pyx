@@ -11,7 +11,7 @@ from jmm.field cimport SlownessFunc2
 from jmm.grid cimport Grid2, Grid3
 from jmm.jet cimport jet2, Jet2, Jet3
 from jmm.mesh cimport mesh3, Mesh3, mesh3_nverts
-from jmm.par cimport par3, Parent3
+from jmm.par cimport Parent2, Parent3
 from jmm.xfer cimport xfer
 
 cdef class Eik:
@@ -82,6 +82,19 @@ cdef class Eik:
         self.Txy_view.format = 'd'
         self.Txy_view.itemsize = sizeof(dbl)
 
+        print(self.size)
+        self.accepted_view = ArrayView(1)
+        self.accepted_view.readonly = True
+        self.accepted_view.ptr = <void *>eik_get_accepted_ptr(self.eik)
+        self.accepted_view.shape[0] = self.size
+        self.accepted_view.strides[0] = sizeof(size_t)
+        self.accepted_view.format = 'Q'
+        self.accepted_view.itemsize = sizeof(size_t)
+
+    @property
+    def size(self):
+        return np.product(self.shape)
+
     @property
     def shape(self):
         cdef int[::1] shape = np.empty((2,), dtype=np.intc)
@@ -109,6 +122,28 @@ cdef class Eik:
     def get_bicubic(self, int[::1] indc):
         return Bicubic.from_bicubic(eik_get_bicubic(self.eik, &indc[0]))
 
+    def get_par(self, int[::1] ind):
+        if eik_has_par(self.eik, &ind[0]):
+            return Parent2(eik_get_par(self.eik, &ind[0]))
+
+    def get_T(self, dbl[::1] xy):
+        return eik_T(self.eik, &xy[0])
+
+    def get_Tx(self, dbl[::1] xy):
+        return eik_Tx(self.eik, &xy[0])
+
+    def get_Ty(self, dbl[::1] xy):
+        return eik_Ty(self.eik, &xy[0])
+
+    def get_Txx(self, dbl[::1] xy):
+        return eik_Txx(self.eik, &xy[0])
+
+    def get_Txy(self, dbl[::1] xy):
+        return eik_Txy(self.eik, &xy[0])
+
+    def get_Tyy(self, dbl[::1] xy):
+        return eik_Tyy(self.eik, &xy[0])
+
     @property
     def T(self):
         return np.asarray(self.T_view)
@@ -124,6 +159,10 @@ cdef class Eik:
     @property
     def Txy(self):
         return np.asarray(self.Txy_view)
+
+    @property
+    def accepted(self):
+        return np.asarray(self.accepted_view)
 
 cdef class Eik3:
     def __init__(self, *args):

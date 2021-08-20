@@ -6,7 +6,7 @@ from jmm.defs cimport bool, dbl, dblz, dbl_or_dblz, dbl2, dbl3, dbl33, ftype, \
 from jmm.field cimport field2
 from jmm.grid cimport grid2
 from jmm.jet cimport jet2, jet3
-from jmm.par cimport par3
+from jmm.par cimport par2, par3
 from jmm.mesh cimport mesh3
 
 cdef extern from "eik.h":
@@ -25,12 +25,17 @@ cdef extern from "eik.h":
     void eik_get_shape(const eik *eik, int2 shape)
     jet2 *eik_get_jets_ptr(const eik *eik)
     state *eik_get_states_ptr(const eik *eik)
-    dbl eik_T(eik *eik, dbl2 xy)
-    dbl eik_Tx(eik *eik, dbl2 xy)
-    dbl eik_Ty(eik *eik, dbl2 xy)
-    dbl eik_Txy(eik *eik, dbl2 xy)
+    dbl eik_T(const eik *eik, dbl2 xy)
+    dbl eik_Tx(const eik *eik, dbl2 xy)
+    dbl eik_Ty(const eik *eik, dbl2 xy)
+    dbl eik_Txx(const eik *eik, dbl2 xy)
+    dbl eik_Txy(const eik *eik, dbl2 xy)
+    dbl eik_Tyy(const eik *eik, dbl2 xy)
     void eik_build_cells(eik *eik)
     bicubic eik_get_bicubic(const eik *eik, int2 indc)
+    par2 eik_get_par(const eik *eik, int2 ind)
+    bool eik_has_par(const eik *eik, int2 ind)
+    const size_t *eik_get_accepted_ptr(const eik *eik)
 
 cdef class Eik:
     cdef:
@@ -40,6 +45,7 @@ cdef class Eik:
         ArrayView Tx_view
         ArrayView Ty_view
         ArrayView Txy_view
+        ArrayView accepted_view
 
 cdef extern from "eik3.h":
     cdef struct eik3:

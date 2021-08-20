@@ -10,7 +10,6 @@
 #include "eik_F4.h"
 #include "eik_S4.h"
 #include "hybrid.h"
-#include "jet.h"
 
 #define NUM_CELL_VERTS 4
 #define NUM_CELL_NB_VERTS 9
@@ -37,6 +36,8 @@ struct eik {
   int *positions;
   heap_s *heap;
   size_t num_accepted;
+  size_t *accepted;
+  par2_s *par;
 };
 
 /**
@@ -549,6 +550,7 @@ static void tri(eik_s *eik, int l, int l0, int l1, int ic0) {
       dbl22_copy(Hk1, Hk);
     }
 
+    eta = xk[0];
     th = xk[1];
   }
 
@@ -568,6 +570,9 @@ static void tri(eik_s *eik, int l, int l0, int l1, int ic0) {
     dbl s = field2_f(eik->slow, xy);
     jet->fx = s*cos(th);
     jet->fy = s*sin(th);
+
+    // Update node's parent
+    eik->par[l] = (par2_s) {.l = {l0, l1}, .b = {1 - eta, eta}};
   }
 }
 
@@ -825,6 +830,13 @@ void eik_init(eik_s *eik, field2_s const *slow, grid2_s const *grid) {
   heap_init(eik->heap, capacity, value, setpos, (void *)eik);
 
   eik->num_accepted = 0;
+  eik->accepted = malloc(eik->nnodes*sizeof(size_t));
+  for (int l = 0; l < eik->nnodes; ++l)
+    eik->accepted[l] = (size_t)NO_INDEX;
+
+  eik->par = malloc(eik->nnodes*sizeof(par2_s));
+  for (int l = 0; l < eik->nnodes; ++l)
+    par2_init_empty(&eik->par[l]);
 
   set_nb_dl(eik);
   set_cell_nb_verts_dl(eik);
@@ -850,17 +862,23 @@ void eik_init(eik_s *eik, field2_s const *slow, grid2_s const *grid) {
 }
 
 void eik_deinit(eik_s *eik) {
+  printf("eik_deinit()\n");
+
   eik->slow = NULL;
 
   free(eik->bicubics);
   free(eik->jets);
   free(eik->states);
   free(eik->positions);
+  free(eik->accepted);
+  free(eik->par);
 
   eik->bicubics = NULL;
   eik->jets = NULL;
   eik->states = NULL;
   eik->positions = NULL;
+  eik->accepted = NULL;
+  eik->par = NULL;
 
   heap_deinit(eik->heap);
   heap_dealloc(&eik->heap);
@@ -1009,7 +1027,7 @@ void eik_step(eik_s *eik) {
   heap_pop(eik->heap);
   eik->states[l0] = VALID;
 
-  ++eik->num_accepted;
+  eik->accepted[eik->num_accepted++] = l0;
 
   bool updated_cells = recompute_nearby_cells(eik, l0);
 #if SJS_DEBUG
@@ -1071,6 +1089,7 @@ void eik_add_valid(eik_s *eik, int2 ind, jet2 jet) {
   eik->jets[l] = jet;
   assert(eik->states[l] != TRIAL && eik->states[l] != VALID);
   eik->states[l] = VALID;
+  eik->accepted[eik->num_accepted++] = l;
 }
 
 void eik_make_bd(eik_s *eik, int2 ind) {
@@ -1193,4 +1212,18 @@ bicubic_s *eik_get_bicubics_ptr(eik_s const *eik) {
 
 heap_s *eik_get_heap(eik_s const *eik) {
   return eik->heap;
+}
+
+par2_s eik_get_par(eik_s const *eik, int2 ind) {
+  int l = grid2_ind2l(eik->grid, ind);
+  return eik->par[l];
+}
+
+bool eik_has_par(eik_s const *eik, int2 ind) {
+  int l = grid2_ind2l(eik->grid, ind);
+  return !par2_is_empty(&eik->par[l]);
+}
+
+size_t const *eik_get_accepted_ptr(eik_s const *eik) {
+  return eik->accepted;
 }

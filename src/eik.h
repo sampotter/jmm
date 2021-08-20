@@ -11,6 +11,7 @@ extern "C" {
 #include "grid2.h"
 #include "heap.h"
 #include "jet.h"
+#include "par.h"
 #include "vec.h"
 
 typedef struct eik eik_s;
@@ -41,6 +42,9 @@ void eik_build_cells(eik_s *eik);
 bicubic_s eik_get_bicubic(eik_s const *eik, int2 indc);
 bicubic_s *eik_get_bicubics_ptr(eik_s const *eik);
 heap_s *eik_get_heap(eik_s const *eik);
+par2_s eik_get_par(eik_s const *eik, int2 ind);
+bool eik_has_par(eik_s const *eik, int2 ind);
+size_t const *eik_get_accepted_ptr(eik_s const *eik);
 
 #ifdef __cplusplus
 }
