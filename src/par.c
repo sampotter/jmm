@@ -8,6 +8,15 @@
 #include "macros.h"
 #include "mesh3.h"
 
+void par2_init_empty(par2_s *par) {
+  par->l[0] = par->l[1] = NO_PARENT;
+  par->b[0] = par->b[1] = NAN;
+}
+
+bool par2_is_empty(par2_s const *par) {
+  return par->l[0] == NO_PARENT;
+}
+
 par3_s make_par3(size_t l[3], dbl b[3]) {
   par3_s par = {.l = {l[0], l[1], l[2]}, .b = {b[0], b[1], b[2]}};
   for (int i = 0; i < 2; ++i) {

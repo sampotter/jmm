@@ -7,6 +7,14 @@ extern "C" {
 #include "common.h"
 #include "def.h"
 
+typedef struct par2 {
+  size_t l[2];
+  dbl b[2];
+} par2_s;
+
+void par2_init_empty(par2_s *par);
+bool par2_is_empty(par2_s const *par);
+
 typedef struct par3 {
   size_t l[3];
   dbl b[3];
