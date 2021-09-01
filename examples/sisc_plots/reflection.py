@@ -54,11 +54,10 @@ if __name__ == '__main__':
 
     # Speed function
     x0, y0 = 0, 0
-    c = np.array([1, 0, 0.1])
-    # c = np.array([1.0, 0, 0.0])
+    c = np.array([2, 5, 7], dtype=np.float64)
 
     # Discretization parameters
-    h = 0.025
+    h = 0.01
     xmin, ymin = 0, 0
     xmax, ymax = 1, 1
     M = int(np.round(xmax/h)) + 1
@@ -126,7 +125,7 @@ if __name__ == '__main__':
     Tmin, Tmax = 0, eik_refl.T.max()
     levels = np.linspace(Tmin, Tmax, 19)
 
-    plt.figure(figsize=(11, 4))
+    plt.figure(figsize=(10, 4))
     plt.subplot(1, 2, 1)
     cs = plt.contour(x, y, eik.T, levels, linewidths=1.5, linestyles='--',
                      zorder=1, cmap=cc.cm.rainbow)

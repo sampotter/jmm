@@ -62,25 +62,41 @@ if __name__ == '__main__':
         for x, y, i in zip(X.ravel(), Y.ravel(), argmin.ravel())
     ]).reshape(X.shape)
 
+    # T = np.array([eik.get_T(np.array(_)) for _
+    #               in zip(X.ravel(), Y.ravel())]).reshape(X.shape)
+
+    # Tx = np.array([eik.get_Tx(np.array(_)) for _
+    #               in zip(X.ravel(), Y.ravel())]).reshape(X.shape)
+
+    # Ty = np.array([eik.get_Ty(np.array(_)) for _
+    #               in zip(X.ravel(), Y.ravel())]).reshape(X.shape)
+
+    T = eik.T
+    Tx = eik.Tx
+    Ty = eik.Ty
+
     extent = [xmin, xmax, ymin, ymax]
 
-    plt.figure(figsize=(12, 6))
+    plt.figure(figsize=(11, 6))
 
     # column #1: tau vs T
 
     plt.subplot(2, 3, 1)
-    plt.imshow(np.rot90(eik.T), extent=extent, cmap=cc.cm.rainbow)
+    plt.imshow(np.rot90(T), extent=extent, cmap=cc.cm.rainbow)
     plt.colorbar()
-    plt.contour(X, Y, eik.T, linewidths=1, linestyles='--', colors='k')
+    plt.contour(X, Y, T, linewidths=1, linestyles='--', colors='k')
     plt.xlabel('$x$')
     plt.ylabel('$y$')
     plt.title(r'$T$')
 
-    E = abs(tau - eik.T)
+    E = tau - T
+    vmin, vmax = -np.nanmax(abs(E)), np.nanmax(abs(E))
     plt.subplot(2, 3, 4)
-    plt.imshow(np.rot90(E), extent=extent, cmap=cc.cm.fire)
+    plt.imshow(np.rot90(E), extent=extent, vmin=vmin, vmax=vmax,
+               cmap=cc.cm.coolwarm)
     cbar = plt.colorbar()
     cbar.formatter.set_powerlimits((0, 0))
+    plt.contour(X, Y, T, linewidths=1, linestyles='--', colors='k')
     plt.xlabel('$x$')
     plt.ylabel('$y$')
     plt.title(r'$|\tau - T|$')
@@ -88,18 +104,21 @@ if __name__ == '__main__':
     # column #2: tau_x vs T_x
 
     plt.subplot(2, 3, 2)
-    plt.imshow(np.rot90(eik.Tx), extent=extent, cmap=cc.cm.rainbow)
+    plt.imshow(np.rot90(Tx), extent=extent, cmap=cc.cm.rainbow)
     plt.colorbar()
-    plt.contour(X, Y, eik.T, linewidths=1, linestyles='--', colors='k')
+    plt.contour(X, Y, T, linewidths=1, linestyles='--', colors='k')
     plt.xlabel('$x$')
     plt.ylabel('$y$')
     plt.title(r'$T_x$')
 
-    E = abs(taux - eik.Tx)
+    E = taux - Tx
+    vmin, vmax = -np.nanmax(abs(E)), np.nanmax(abs(E))
     plt.subplot(2, 3, 5)
-    plt.imshow(np.rot90(E), extent=extent, cmap=cc.cm.fire)
+    plt.imshow(np.rot90(E), extent=extent, vmin=vmin, vmax=vmax,
+               cmap=cc.cm.coolwarm)
     cbar = plt.colorbar()
     cbar.formatter.set_powerlimits((0, 0))
+    plt.contour(X, Y, T, linewidths=1, linestyles='--', colors='k')
     plt.xlabel('$x$')
     plt.ylabel('$y$')
     plt.title(r'$|\tau_x - T_x|$')
@@ -107,18 +126,22 @@ if __name__ == '__main__':
     # column #3: tau_y vs T_y
 
     plt.subplot(2, 3, 3)
-    plt.imshow(np.rot90(eik.Ty), extent=extent, cmap=cc.cm.rainbow)
+    plt.imshow(np.rot90(Ty), extent=extent, cmap=cc.cm.rainbow)
     plt.colorbar()
-    plt.contour(X, Y, eik.T, linewidths=1, linestyles='--', colors='k')
+    plt.contour(X, Y, T, linewidths=1, linestyles='--', colors='k')
+    plt.contour(X, Y, T, linewidths=1, linestyles='--', colors='k')
     plt.xlabel('$x$')
     plt.ylabel('$y$')
     plt.title(r'$T_y$')
 
-    E = abs(tauy - eik.Ty)
+    E = tauy - Ty
+    vmin, vmax = -np.nanmax(abs(E)), np.nanmax(abs(E))
     plt.subplot(2, 3, 6)
-    plt.imshow(np.rot90(E), extent=extent, cmap=cc.cm.fire)
+    plt.imshow(np.rot90(E), extent=extent, vmin=vmin, vmax=vmax,
+               cmap=cc.cm.coolwarm)
     cbar = plt.colorbar()
     cbar.formatter.set_powerlimits((0, 0))
+    plt.contour(X, Y, T, linewidths=1, linestyles='--', colors='k')
     plt.xlabel('$x$')
     plt.ylabel('$y$')
     plt.title(r'$|\tau_y - T_y|$')
