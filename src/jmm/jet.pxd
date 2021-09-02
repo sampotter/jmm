@@ -7,6 +7,15 @@ cdef extern from "jet.h":
         dbl fy
         dbl fxy
 
+    ctypedef struct jet22t:
+        dbl f
+        dbl fx
+        dbl fy
+        dbl fxx
+        dbl fyx
+        dbl fxy
+        dbl fyy
+
     ctypedef struct jet3:
         dbl f
         dbl fx
@@ -17,6 +26,9 @@ cdef extern from "jet.h":
 
 cdef class Jet2:
     cdef jet2 jet
+
+cdef class Jet22t:
+    cdef jet22t jet
 
 cdef class Jet3:
     cdef jet3 jet

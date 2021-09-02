@@ -13,6 +13,10 @@ cdef class Grid2:
         return (ind[0], ind[1])
 
     @property
+    def size(self):
+        return np.product(self.shape)
+
+    @property
     def shape(self):
         return np.asarray(self._grid.shape)
 

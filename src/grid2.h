@@ -2,6 +2,8 @@
 
 #include "def.h"
 
+#define GRID2_NUM_NB 8
+
 /* If `order == ORDER_ROW_MAJOR`, then the indexing/coordinate
  * convention that is used is:
  *
@@ -32,6 +34,8 @@ typedef struct grid2 {
   order_e order;
 } grid2_s;
 
+typedef struct grid2info grid2info_s;
+
 size_t grid2_nind(grid2_s const *grid);
 size_t grid2_nindc(grid2_s const *grid);
 int grid2_ind2l(grid2_s const *grid, int2 const ind);
@@ -48,3 +52,12 @@ void grid2_l2xy(grid2_s const *grid, int l, dbl2 xy);
 int grid2_xy2lc(grid2_s const *grid, dbl2 const xy, dbl2 cc);
 bool grid2_isind(grid2_s const *grid, int2 ind);
 bool grid2_isindc(grid2_s const *grid, int2 indc);
+void grid2_get_inbounds(grid2_s const *grid, grid2info_s const *info,
+                        int l, bool inbounds[GRID2_NUM_NB + 1]);
+
+struct grid2info {
+  int2 offsets[GRID2_NUM_NB + 1];
+  int nb_dl[GRID2_NUM_NB + 1];
+};
+
+void grid2info_init(grid2info_s *info, grid2_s const *grid);

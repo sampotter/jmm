@@ -92,6 +92,7 @@ set (JMM_SRCS
   # src/dial.c
   src/edge.c
   src/eik.c
+  src/eik2g1.c
   src/eik_F3.c
   src/eik_F4.c
   src/eik_S4.c

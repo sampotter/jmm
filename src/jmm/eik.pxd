@@ -4,8 +4,8 @@ from jmm.bicubic cimport bicubic
 from jmm.defs cimport bool, dbl, dblz, dbl_or_dblz, dbl2, dbl3, dbl33, ftype, \
     int2, state
 from jmm.field cimport field2
-from jmm.grid cimport grid2
-from jmm.jet cimport jet2, jet3
+from jmm.grid cimport grid2, Grid2
+from jmm.jet cimport jet2, jet22t, jet3
 from jmm.par cimport par2, par3
 from jmm.mesh cimport mesh3
 
@@ -46,6 +46,32 @@ cdef class Eik:
         ArrayView Ty_view
         ArrayView Txy_view
         ArrayView accepted_view
+
+cdef extern from "eik2g1.h":
+    cdef struct eik2g1:
+        pass
+
+    void eik2g1_alloc(eik2g1 **eik)
+    void eik2g1_dealloc(eik2g1 **eik)
+    void eik2g1_init(eik2g1 *eik, const grid2 *grid)
+    void eik2g1_deinit(eik2g1 *eik)
+    size_t eik2g1_peek(const eik2g1 *eik)
+    size_t eik2g1_step(eik2g1 *eik)
+    void eik2g1_solve(eik2g1 *eik)
+    bool eik2g1_is_solved(const eik2g1 *eik)
+    void eik2g1_add_trial(eik2g1 *eik, const int2 ind, jet22t jet)
+    void eik2g1_add_valid(eik2g1 *eik, const int2 ind, jet22t jet)
+    const state *eik2g1_get_state_ptr(const eik2g1 *eik)
+    const jet22t *eik2g1_get_jet_ptr(const eik2g1 *eik)
+
+cdef class Eik2g1:
+    cdef:
+        eik2g1 *eik
+        Grid2 grid
+        ArrayView state_view
+        ArrayView T_view
+        ArrayView DT_view
+        ArrayView D2T_view
 
 cdef extern from "eik3.h":
     cdef struct eik3:

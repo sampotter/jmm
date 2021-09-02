@@ -1,6 +1,7 @@
 #include "grid2.h"
 
 #include <assert.h>
+#include <string.h>
 
 #include "vec.h"
 
@@ -142,4 +143,32 @@ bool grid2_isind(grid2_s const *grid, int2 ind) {
 bool grid2_isindc(grid2_s const *grid, int2 indc) {
   return 0 <= indc[0] && indc[0] < grid->shape[0] - 1 &&
          0 <= indc[1] && indc[1] < grid->shape[1] - 1;
+}
+
+void grid2_get_inbounds(grid2_s const *grid, grid2info_s const *info,
+                        int l, bool inbounds[GRID2_NUM_NB + 1]) {
+  int2 ind, ind0;
+  grid2_l2ind(grid, l, ind);
+  for (int i0 = 0; i0 < GRID2_NUM_NB + 1; ++i0) {
+    int2_add(ind, info->offsets[i0], ind0);
+    inbounds[i0] = grid2_isind(grid, ind0);
+  }
+}
+
+void grid2info_init(grid2info_s *info, grid2_s const *grid) {
+  static int2 offsets[GRID2_NUM_NB + 1] = {
+    {-1, -1},
+    {-1,  0},
+    {-1,  1},
+    { 0,  1},
+    { 1,  1},
+    { 1,  0},
+    { 1, -1},
+    { 0, -1},
+    {-1, -1}
+  };
+  memcpy(info->offsets, offsets, 9*sizeof(int2));
+
+  for (int i = 0; i < GRID2_NUM_NB + 1; ++i)
+    info->nb_dl[i] = grid2_ind2l(grid, offsets[i]);
 }

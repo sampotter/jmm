@@ -15,6 +15,15 @@ bool jet2_is_point_source(jet2 const *jet);
 
 typedef struct {
   dbl f;
+  dbl fx, fy;
+  dbl fxx, fyx, fxy, fyy;
+} jet22t;
+
+jet22t jet22t_make_empty();
+bool jet22t_is_point_source(jet22t const *jet);
+
+typedef struct {
+  dbl f;
   dbl fx, fy, fz;
 } jet3;
 

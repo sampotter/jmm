@@ -13,6 +13,20 @@ bool jet2_is_point_source(jet2 const *jet) {
   return isfinite(jet->f) && isnan(jet->fx) && isnan(jet->fy) && isnan(jet->fxy);
 }
 
+jet22t jet22t_make_empty() {
+  return (jet22t) {
+    .f = INFINITY,
+    .fx = NAN, .fy = NAN,
+    .fxx = NAN, .fyx = NAN, .fxy = NAN, .fyy = NAN
+  };
+}
+
+bool jet22t_is_point_source(jet22t const *jet) {
+  return isfinite(jet->f)
+    && isnan(jet->fx) && isnan(jet->fy)
+    && isnan(jet->fxx) && isnan(jet->fyx) && isnan(jet->fxy) && isnan(jet->fyy);
+}
+
 jet3 jet3_make_empty() {
   return (jet3) {.f = INFINITY, .fx = NAN, .fy = NAN, .fz = NAN};
 }
