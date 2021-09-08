@@ -165,7 +165,8 @@ static void tri(eik2g1_s *eik, size_t l, size_t l0, size_t l1) {
   jet->fx = DT[0];
   jet->fy = DT[1];
   jet->fxx = D2T[0][0];
-  jet->fxy = D2T[0][1];
+  jet->fyx = D2T[0][1];
+  jet->fxy = D2T[1][0];
   jet->fyy = D2T[1][1];
 }
 
