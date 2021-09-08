@@ -138,8 +138,15 @@ static void tri(eik2g1_s *eik, size_t l, size_t l0, size_t l1) {
   } else {
     dbl T0 = tri_F(0, &wkspc);
     dbl T1 = tri_F(1, &wkspc);
-    T = fmin(T0, T1);
     lam = T0 < T1 ? 0 : 1;
+
+    // Compute the Lagrange multiplier for the active constraint and
+    // return if it's positive
+    dbl mu = pow(-1, lam)*tri_F_lam(lam, &wkspc);
+    if (mu > 0)
+      return;
+
+    T = fmin(T0, T1);
   }
 
   assert(T > eik->jet[l0].f);
