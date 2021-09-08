@@ -116,7 +116,7 @@ dbl tri_F_lam(dbl lam, tri_wkspc_s const *wkspc) {
 }
 
 static void tri(eik2g1_s *eik, size_t l, size_t l0, size_t l1) {
-  grid2_s const *grid;
+  grid2_s const *grid = eik->grid;
 
   tri_wkspc_s wkspc;
 
@@ -170,7 +170,7 @@ static void tri(eik2g1_s *eik, size_t l, size_t l0, size_t l1) {
 }
 
 static void update(eik2g1_s *eik, int l) {
-  grid2_s const *grid;
+  grid2_s const *grid = eik->grid;
 
   bool inbounds[GRID2_NUM_NB + 1];
   grid2_get_inbounds(grid, &eik->grid_info, l, inbounds);
