@@ -9,6 +9,7 @@ extern "C" {
 #define DBL22(a00, a01, a10, a11) (dbl22) {{a00, a01}, {a10, a11}}
 
 bool dbl22_isfinite(dbl22 const A);
+bool dbl22_all_nan(dbl22 const A);
 dbl dbl22_det(dbl22 const X);
 dbl dbl22_trace(dbl22 const A);
 void dbl22_add(dbl22 const A, dbl22 const B, dbl22 C);

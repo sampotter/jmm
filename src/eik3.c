@@ -152,7 +152,7 @@ void eik3_init(eik3_s *eik, mesh3_s *mesh, ftype_e ftype, eik3_s const *orig) {
 
   eik->jet = malloc(nverts*sizeof(jet3));
   for (size_t l = 0; l < nverts; ++l) {
-    eik->jet[l] = (jet3) {.f = INFINITY, .fx = NAN, .fy = NAN, .fz = NAN};
+    eik->jet[l] = (jet3) {.f = INFINITY, .Df = {NAN, NAN, NAN}};
   }
 
   eik->hess = malloc(nverts*sizeof(dbl33));
@@ -288,7 +288,7 @@ void eik3_deinit(eik3_s *eik) {
 }
 
 static bool is_singular(eik3_s const *eik, size_t l) {
-  bool singular_gradient = !dbl3_isfinite(&eik->jet[l].fx);
+  bool singular_gradient = !dbl3_isfinite(eik->jet[l].Df);
 #if JMM_DEBUG
   assert(singular_gradient == !dbl33_isfinite(eik->hess[l]));
 #endif
@@ -324,7 +324,7 @@ static void prop_hess_from_pt_src(eik3_s *eik, size_t l, size_t l0) {
                     mesh3_get_vert_ptr(eik->mesh, l0));
 
   dbl eye[3][3]; dbl33_eye(eye);
-  dbl op[3][3]; dbl3_outer(&eik->jet[l].fx, &eik->jet[l].fx, op);
+  dbl op[3][3]; dbl3_outer(eik->jet[l].Df, eik->jet[l].Df, op);
   dbl33_sub(eye, op, eik->hess[l]);
   dbl33_dbl_div_inplace(eik->hess[l], L);
 
@@ -340,8 +340,8 @@ static void do_1pt_update(eik3_s *eik, size_t l, size_t l0,
   jet3 jet;
   dbl const *x = mesh3_get_vert_ptr(eik->mesh, l);
   dbl const *x0 = mesh3_get_vert_ptr(eik->mesh, l0);
-  dbl3_sub(x, x0, &jet.fx);
-  dbl L = dbl3_normalize(&jet.fx);
+  dbl3_sub(x, x0, jet.Df);
+  dbl L = dbl3_normalize(jet.Df);
   jet.f = eik->jet[l0].f + L;
 
   bool should_commit = jet.f <= eik->jet[l].f;
@@ -489,7 +489,7 @@ bool get_rho1_cc(eik3_s const *eik, dbl const e[3], size_t const *l,
       if (isfinite(rho1[i]))
         continue;
 
-      dbl const *t = &eik->jet[l[i]].fx;
+      dbl const *t = eik->jet[l[i]].Df;
       if (!dbl3_isfinite(t))
         continue;
 
@@ -1623,7 +1623,7 @@ static void compute_t_in(eik3_s *eik, size_t l0) {
   for (size_t i = 0; i < num_active; ++i) {
     if (finite[i]) continue;
     assert(eik->num_BCs[l[i]] > 0);
-    dbl3_copy(&eik->jet[l[i]].fx, t_in[i]);
+    dbl3_copy(eik->jet[l[i]].Df, t_in[i]);
 
     /* Note: this may fail! After running this loop, we may still have
      * num_finite < num_active. */
@@ -1694,7 +1694,7 @@ static void compute_t_out(eik3_s *eik, size_t l0) {
    * result of this 2pt BVP would just be the gradient at `l0`, so we
    * just copy that over now. */
   if (num_finite < num_active) {
-    dbl3_copy(&eik->jet[l0].fx, eik->t_out[l0]);
+    dbl3_copy(eik->jet[l0].Df, eik->t_out[l0]);
     return;
   }
 
@@ -1894,11 +1894,11 @@ bool eik3_has_par(eik3_s const *eik, size_t l) {
 }
 
 void eik3_get_DT(eik3_s const *eik, size_t l, dbl DT[3]) {
-  memcpy(DT, &eik->jet[l].fx, 3*sizeof(dbl));
+  memcpy(DT, eik->jet[l].Df, 3*sizeof(dbl));
 }
 
 dbl const *eik3_get_DT_ptr(eik3_s const *eik, size_t l) {
-  return &eik->jet[l].fx;
+  return eik->jet[l].Df;
 }
 
 dbl *eik3_get_t_in_ptr(eik3_s const *eik) {
@@ -1924,8 +1924,8 @@ void eik3_add_refl_BCs(eik3_s *eik, size_t const lf[3], jet3 const jet[3],
   dbl nu[3];
   mesh3_get_face_normal(eik->mesh, lf, nu);
   for (size_t i = 0; i < 3; ++i)
-    if (dbl3_isfinite(&jet[i].fx))
-      assert(dbl3_dot(nu, &jet[i].fx) > 0);
+    if (dbl3_isfinite(jet[i].Df))
+      assert(dbl3_dot(nu, jet[i].Df) > 0);
 #endif
 
   for (size_t i = 0; i < 3; ++i)
@@ -1947,8 +1947,8 @@ void eik3_add_refl_BCs(eik3_s *eik, size_t const lf[3], jet3 const jet[3],
     le[1] = lf[j];
     if (mesh3_is_diff_edge(eik->mesh, le)) {
       dbl f[2] = {jet[i].f, jet[j].f}, Df[2][3], x[2][3];
-      dbl3_copy(&jet[i].fx, Df[0]);
-      dbl3_copy(&jet[j].fx, Df[1]);
+      dbl3_copy(jet[i].Df, Df[0]);
+      dbl3_copy(jet[j].Df, Df[1]);
       mesh3_copy_vert(eik->mesh, le[0], x[0]);
       mesh3_copy_vert(eik->mesh, le[1], x[1]);
 

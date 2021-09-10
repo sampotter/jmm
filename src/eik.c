@@ -375,8 +375,8 @@ static void check_cell_consistency(eik_s const *eik, size_t lc) {
     l = grid2_lc2l(eik->grid, lc) + eik->vert_dl[iv];
 
     assert(fabs(f - eik->jets[l].f) < EPS);
-    assert(fabs(fx - h*eik->jets[l].fx) < EPS);
-    assert(fabs(fy - h*eik->jets[l].fy) < EPS);
+    assert(fabs(fx - h*eik->jets[l].Df[0]) < EPS);
+    assert(fabs(fy - h*eik->jets[l].Df[1]) < EPS);
     assert(fabs(fxy - h_sq*eik->jets[l].fxy) < EPS);
   }
 }
@@ -426,10 +426,10 @@ static void tri(eik_s *eik, int l, int l0, int l1, int ic0) {
 
   assert(fabs(cubic_f(&T_cubic, 0) - eik->jets[l0].f) < EPS);
   assert(fabs(cubic_f(&T_cubic, 1) - eik->jets[l1].f) < EPS);
-  assert(fabs(cubic_f(&Tx_cubic, 0)/h - eik->jets[l0].fx) < EPS);
-  assert(fabs(cubic_f(&Tx_cubic, 1)/h - eik->jets[l1].fx) < EPS);
-  assert(fabs(cubic_f(&Ty_cubic, 0)/h - eik->jets[l0].fy) < EPS);
-  assert(fabs(cubic_f(&Ty_cubic, 1)/h - eik->jets[l1].fy) < EPS);
+  assert(fabs(cubic_f(&Tx_cubic, 0)/h - eik->jets[l0].Df[0]) < EPS);
+  assert(fabs(cubic_f(&Tx_cubic, 1)/h - eik->jets[l1].Df[0]) < EPS);
+  assert(fabs(cubic_f(&Ty_cubic, 0)/h - eik->jets[l0].Df[1]) < EPS);
+  assert(fabs(cubic_f(&Ty_cubic, 1)/h - eik->jets[l1].Df[1]) < EPS);
 
   dbl2 xy; grid2_l2xy(eik->grid, l, xy);
   dbl2 xy0; grid2_l2xy(eik->grid, l0, xy0);
@@ -568,8 +568,8 @@ static void tri(eik_s *eik, int l, int l0, int l1, int ic0) {
     jet->f = T;
 
     dbl s = field2_f(eik->slow, xy);
-    jet->fx = s*cos(th);
-    jet->fy = s*sin(th);
+    jet->Df[0] = s*cos(th);
+    jet->Df[1] = s*sin(th);
 
     // Update node's parent
     eik->par[l] = (par2_s) {.l = {l0, l1}, .b = {1 - eta, eta}};
@@ -641,8 +641,8 @@ static void interpolate_Txy_at_verts(eik_s *eik, int lc, dbl4 Txy) {
   // int l = lc2l(eik->shape, lc);
   // for (int iv = 0, lv; iv < NUM_CELL_VERTS; ++iv) {
   //   lv = l + eik->vert_dl[iv];
-  //   fx.data[iv] = eik->jets[lv].fx;
-  //   fy.data[iv] = eik->jets[lv].fy;
+  //   fx.data[iv] = eik->jets[lv].Df[0];
+  //   fy.data[iv] = eik->jets[lv].Df[1];
   // }
   // return interpolate_fxy_at_verts(fx, fy, eik->grid->h);
 
@@ -655,8 +655,8 @@ static void interpolate_Txy_at_verts(eik_s *eik, int lc, dbl4 Txy) {
 
   for (int i = 0, l; i < NUM_CELL_VERTS; ++i) {
     l = grid2_lc2l(eik->grid, lc) + eik->vert_dl[i];
-    fx[i] = eik->jets[l].fx;
-    fy[i] = eik->jets[l].fy;
+    fx[i] = eik->jets[l].Df[0];
+    fy[i] = eik->jets[l].Df[1];
   }
 
   dbl fxy[NUM_CELL_VERTS] = {
@@ -717,8 +717,8 @@ static void build_cell(eik_s *eik, int lc) {
     di = offset[0];
     dj = offset[1];
     data[di][dj] = J[i]->f;
-    data[2 + di][dj] = h*J[i]->fx;
-    data[di][2 + dj] = h*J[i]->fy;
+    data[2 + di][dj] = h*J[i]->Df[0];
+    data[di][2 + dj] = h*J[i]->Df[1];
     data[2 + di][2 + dj] = h_sq*J[i]->fxy;
   }
 
@@ -851,8 +851,8 @@ void eik_init(eik_s *eik, field2_s const *slow, grid2_s const *grid) {
 
   for (int l = 0; l < eik->nnodes; ++l) {
     eik->jets[l].f = INFINITY;
-    eik->jets[l].fx = NAN;
-    eik->jets[l].fy = NAN;
+    eik->jets[l].Df[0] = NAN;
+    eik->jets[l].Df[1] = NAN;
     eik->jets[l].fxy = NAN;
   }
 

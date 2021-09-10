@@ -18,5 +18,8 @@ void eik2g1_solve(eik2g1_s *eik);
 bool eik2g1_is_solved(eik2g1_s const *eik);
 void eik2g1_add_trial(eik2g1_s *eik, int2 const ind, jet22t jet);
 void eik2g1_add_valid(eik2g1_s *eik, int2 const ind, jet22t jet);
+bool eik2g1_is_valid(eik2g1_s const *eik, int2 const ind);
+bool eik2g1_is_trial(eik2g1_s const *eik, int2 const ind);
+bool eik2g1_is_far(eik2g1_s const *eik, int2 const ind);
 state_e const *eik2g1_get_state_ptr(eik2g1_s const *eik);
 jet22t const *eik2g1_get_jet_ptr(eik2g1_s const *eik);

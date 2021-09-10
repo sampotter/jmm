@@ -28,7 +28,7 @@ setup(
             'embedsignature': True,
             'language_level': 3
         },
-        nthreads=multiprocessing.cpu_count()
+        # nthreads=multiprocessing.cpu_count()
     ),
     zip_safe=False
 )

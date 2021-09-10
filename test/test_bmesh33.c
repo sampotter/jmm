@@ -92,13 +92,13 @@ create_approximate_sphere_bmesh33(
     // We specially set the jet at (0, 0, 0) to zero to avoid a
     // singularity. This makes the overall approximation worse, but
     // this is just a test...
-    (*jet_handle)[8*i] = (jet3) {.f = 0, .fx = 0, .fy = 0, .fz = 0};
+    (*jet_handle)[8*i] = (jet3) {.f = 0, .Df = {0, 0, 0}};
 
     dbl *x;
     for (int j = 1; j < 8; ++j) {
       x = verts[8*i + j];
       jet3 J = {.f = dbl3_norm(x)};
-      dbl3_normalized(x, &J.fx);
+      dbl3_normalized(x, J.Df);
       (*jet_handle)[8*i + j] = J;
     }
   }

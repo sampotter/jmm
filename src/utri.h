@@ -21,7 +21,7 @@ utri_spec_s utri_spec_empty();
 utri_spec_s utri_spec_from_eik(eik3_s const *eik, size_t l, size_t l0, size_t l1);
 utri_spec_s utri_spec_from_eik_without_l(eik3_s const *eik, dbl const x[3],
                                          size_t l0, size_t l1);
-utri_spec_s utri_spec_from_raw_data(dbl const x[3], dbl const Xt[2][3], jet3 jet[2]);
+utri_spec_s utri_spec_from_raw_data(dbl3 const x, dbl3 const Xt[2], jet3 const jet[2]);
 
 typedef struct utri utri_s;
 

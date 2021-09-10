@@ -12,6 +12,10 @@ bool dbl22_isfinite(dbl22 const A) {
          isfinite(A[1][1]);
 }
 
+bool dbl22_all_nan(dbl22 const A) {
+  return isnan(A[0][0]) && isnan(A[0][1]) && isnan(A[1][0]) && isnan(A[1][1]);
+}
+
 dbl dbl22_det(dbl22 const X) {
   return X[0][0]*X[1][1] - X[1][0]*X[0][1];
 }

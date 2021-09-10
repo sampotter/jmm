@@ -25,7 +25,7 @@ typedef struct {
   dbl c[10];
 } bb32;
 
-void bb32_init_from_3d_data(bb32 *bb, dbl const f[3], dbl const Df[3][3], dbl const x[3][3]);
+void bb32_init_from_3d_data(bb32 *bb, dbl3 const f, dbl3 const Df[3], dbl3 const x[3]);
 void bb32_init_from_jets(bb32 *bb, jet3 const jet[3], dbl const x[3][3]);
 dbl bb32_f(bb32 const *bb, dbl const *b);
 dbl bb32_df(bb32 const *bb, dbl const *b, dbl const *a);

@@ -54,6 +54,8 @@ bool grid2_isind(grid2_s const *grid, int2 ind);
 bool grid2_isindc(grid2_s const *grid, int2 indc);
 void grid2_get_inbounds(grid2_s const *grid, grid2info_s const *info,
                         int l, bool inbounds[GRID2_NUM_NB + 1]);
+void grid2_get_nb(grid2_s const *grid, grid2info_s const *info,
+                  int l, int l_nb[GRID2_NUM_NB], bool inbounds[GRID2_NUM_NB]);
 
 struct grid2info {
   int2 offsets[GRID2_NUM_NB + 1];

@@ -1,26 +1,20 @@
-from jmm.defs cimport bool, dbl
+from jmm.defs cimport bool, dbl, dbl2, dbl22, dbl3
 
 cdef extern from "jet.h":
     ctypedef struct jet2:
         dbl f
-        dbl fx
-        dbl fy
+        dbl2 Df
         dbl fxy
 
     ctypedef struct jet22t:
         dbl f
-        dbl fx
-        dbl fy
-        dbl fxx
-        dbl fyx
-        dbl fxy
-        dbl fyy
+        dbl2 Df
+        dbl22 D2f
 
     ctypedef struct jet3:
         dbl f
-        dbl fx
-        dbl fy
-        dbl fz
+        dbl3 Df
+
     jet3 jet3_make_point_source(dbl tau)
     bool jet3_is_finite(const jet3 *jet)
 

@@ -43,9 +43,9 @@ cdef class Bmesh33:
         cdef int i
         for i in range(f.size):
             jet[i].f = f[i]
-            jet[i].fx = Df[i, 0]
-            jet[i].fy = Df[i, 1]
-            jet[i].fz = Df[i, 2]
+            jet[i].Df[0] = Df[i, 0]
+            jet[i].Df[1] = Df[i, 1]
+            jet[i].Df[2] = Df[i, 2]
         bmesh = Bmesh33()
         bmesh.ptr_owner = True
         bmesh33_alloc(&bmesh.bmesh)

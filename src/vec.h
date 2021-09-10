@@ -17,8 +17,9 @@ extern "C" {
 
 bool dbl2_bary(dbl2 const u);
 bool dbl2_isfinite(dbl2 const u);
+bool dbl2_all_nan(dbl2 const u);
 dbl dbl2_dist(dbl2 const u, dbl2 const v);
-dbl dbl2_dot(dbl const *u, dbl const *v);
+dbl dbl2_dot(dbl2 const u, dbl2 const v);
 dbl dbl2_maxdist(dbl2 const u, dbl2 const v);
 dbl dbl2_maxnorm(dbl2 const u);
 dbl dbl2_norm(dbl2 const u);
@@ -44,13 +45,14 @@ void dbl2_lincomb(dbl a, dbl2 const u, dbl b, dbl2 const v, dbl2 w);
 bool dbl3_equal(dbl3 const x, dbl3 const y);
 bool dbl3_is_zero(dbl3 const u);
 bool dbl3_isfinite(dbl3 const x);
+bool dbl3_all_nan(dbl3 const x);
 bool dbl3_valid_bary_coord(dbl3 const b);
 dbl dbl3_dist(dbl3 const u, dbl3 const v);
 dbl dbl3_dist_sq(dbl3 const u, dbl3 const v);
 dbl dbl3_dot(dbl3 const u, dbl3 const v);
 dbl dbl3_maxdist(dbl3 const u, dbl3 const v);
 dbl dbl3_maxnorm(dbl3 const u);
-dbl dbl3_ndot(dbl const * restrict u, dbl const * restrict v);
+dbl dbl3_ndot(dbl3 const u, dbl3 const v);
 dbl dbl3_norm(dbl3 const u);
 dbl dbl3_normalize(dbl3 u);
 dbl dbl3_normsq(dbl3 const u);
@@ -84,7 +86,7 @@ void dbl3_sub_inplace(dbl3 u, dbl3 const v);
 void dbl3_zero(dbl3 u);
 
 bool dbl4_nonneg(dbl4 const u);
-bool dbl4_valid_bary_coord(dbl3 const b);
+bool dbl4_valid_bary_coord(dbl4 const b);
 dbl dbl4_dist(dbl4 const u, dbl4 const v);
 dbl dbl4_dot(dbl4 const u, dbl4 const v);
 dbl dbl4_norm(dbl4 const u);

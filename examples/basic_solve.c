@@ -61,9 +61,7 @@ int main(int argc, char *argv[]) {
   jet3 const *jet = eik3_get_jet_ptr(eik);
   for (size_t l = 0; l < nverts; ++l) {
     fwrite(&jet[l].f, sizeof(dbl), 1, fp);
-    fwrite(&jet[l].fx, sizeof(dbl), 1, fp);
-    fwrite(&jet[l].fy, sizeof(dbl), 1, fp);
-    fwrite(&jet[l].fz, sizeof(dbl), 1, fp);
+    fwrite(jet[l].Df, sizeof(dbl[3]), 3, fp);
   }
   fclose(fp);
 

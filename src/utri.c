@@ -24,8 +24,8 @@ utri_spec_s utri_spec_empty() {
       {NAN, NAN, NAN}
     },
     .jet = {
-      {.f = INFINITY, .fx = NAN, .fy = NAN, .fz = NAN},
-      {.f = INFINITY, .fx = NAN, .fy = NAN, .fz = NAN}
+      {.f = INFINITY, .Df = {NAN, NAN, NAN}},
+      {.f = INFINITY, .Df = {NAN, NAN, NAN}}
     },
     .orig_index = (size_t)NO_INDEX
   };
@@ -44,8 +44,8 @@ utri_spec_s utri_spec_from_eik(eik3_s const *eik, size_t l, size_t l0, size_t l1
       {NAN, NAN, NAN}
     },
     .jet = {
-      {.f = INFINITY, .fx = NAN, .fy = NAN, .fz = NAN},
-      {.f = INFINITY, .fx = NAN, .fy = NAN, .fz = NAN}
+      {.f = INFINITY, .Df = {NAN, NAN, NAN}},
+      {.f = INFINITY, .Df = {NAN, NAN, NAN}}
     }
   };
 }
@@ -64,13 +64,13 @@ utri_spec_s utri_spec_from_eik_without_l(eik3_s const *eik, dbl const x[3],
       {NAN, NAN, NAN}
     },
     .jet = {
-      {.f = INFINITY, .fx = NAN, .fy = NAN, .fz = NAN},
-      {.f = INFINITY, .fx = NAN, .fy = NAN, .fz = NAN}
+      {.f = INFINITY, .Df = {NAN, NAN, NAN}},
+      {.f = INFINITY, .Df = {NAN, NAN, NAN}}
     }
   };
 }
 
-utri_spec_s utri_spec_from_raw_data(dbl const x[3], dbl const Xt[2][3], jet3 jet[2]) {
+utri_spec_s utri_spec_from_raw_data(dbl3 const x, dbl3 const Xt[2], jet3 const jet[2]) {
   return (utri_spec_s) {
     .eik = NULL,
     .lhat = NO_INDEX,
@@ -297,9 +297,8 @@ dbl utri_get_value(utri_s const *u) {
 
 void utri_get_jet(utri_s const *utri, jet3 *jet) {
   jet->f = utri->f;
-  jet->fx = utri->x_minus_xb[0]/utri->L;
-  jet->fy = utri->x_minus_xb[1]/utri->L;
-  jet->fz = utri->x_minus_xb[2]/utri->L;
+
+  dbl3_dbl_div(utri->x_minus_xb, utri->L, jet->Df);
 }
 
 static dbl get_lag_mult(utri_s const *utri) {

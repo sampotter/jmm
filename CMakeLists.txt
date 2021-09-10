@@ -174,6 +174,11 @@ add_executable (viz_error_using_raytracing examples/viz_error_using_raytracing.c
 target_link_libraries (viz_error_using_raytracing jmm)
 target_include_directories (viz_error_using_raytracing PRIVATE jmm)
 
+# run_eik2g1
+add_executable (run_eik2g1 examples/na_plots/run_eik2g1.c)
+target_link_libraries (run_eik2g1 jmm)
+target_include_directories (run_eik2g1 PRIVATE jmm)
+
 #
 # Unit tests
 #

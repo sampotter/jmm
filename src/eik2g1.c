@@ -101,7 +101,7 @@ dbl tri_F(dbl lam, tri_wkspc_s const *wkspc) {
 }
 
 dbl tri_F_lam(dbl lam, tri_wkspc_s const *wkspc) {
-  dbl T_lam = bb31_df(&wkspc->T, (dbl2) {1 - lam, lam}, (dbl2) {1, -1});
+  dbl T_lam = bb31_df(&wkspc->T, (dbl2) {1 - lam, lam}, (dbl2) {-1, 1});
 
   dbl2 xlam;
   dbl2_saxpy(lam, wkspc->dx, wkspc->x[0], xlam);
@@ -157,24 +157,19 @@ static void tri(eik2g1_s *eik, size_t l, size_t l0, size_t l1) {
   if (T >= jet->f)
     return;
 
-  dbl2 xlam, DT;
-  dbl2_saxpy(lam, wkspc.dx, wkspc.x[0], xlam);
-  dbl2_sub(wkspc.xhat, xlam, DT);
-  dbl L = dbl2_norm(DT);
-  dbl2_dbl_div_inplace(DT, L);
-
-  dbl22 eye, tt, D2T;
-  dbl22_eye(eye);
-  dbl2_outer(DT, DT, tt);
-  dbl22_sub(eye, tt, D2T);
-
   jet->f = T;
-  jet->fx = DT[0];
-  jet->fy = DT[1];
-  jet->fxx = D2T[0][0];
-  jet->fyx = D2T[0][1];
-  jet->fxy = D2T[1][0];
-  jet->fyy = D2T[1][1];
+
+  dbl2 xlam;
+  dbl2_saxpy(lam, wkspc.dx, wkspc.x[0], xlam);
+  dbl2_sub(wkspc.xhat, xlam, jet->Df);
+  dbl L = dbl2_norm(jet->Df);
+  dbl2_dbl_div_inplace(jet->Df, L);
+
+  dbl22 eye, tt;
+  dbl22_eye(eye);
+  dbl2_outer(jet->Df, jet->Df, tt);
+  dbl22_sub(eye, tt, jet->D2f);
+  dbl22_dbl_div_inplace(jet->D2f, jet->f);
 }
 
 static void update(eik2g1_s *eik, int l) {
@@ -207,7 +202,6 @@ static void update(eik2g1_s *eik, int l) {
 
 static void adjust(eik2g1_s *eik, size_t l0) {
   assert(eik->state[l0] == TRIAL);
-  assert(l0 >= 0);
   assert(l0 < grid2_nind(eik->grid));
 
   heap_swim(eik->heap, eik->pos[l0]);
@@ -263,6 +257,21 @@ void eik2g1_add_valid(eik2g1_s *eik, int2 const ind, jet22t jet) {
   eik->jet[l] = jet;
   assert(eik->state[l] != TRIAL && eik->state[l] != VALID);
   eik->state[l] = VALID;
+}
+
+bool eik2g1_is_valid(eik2g1_s const *eik, int2 const ind) {
+  size_t l = grid2_ind2l(eik->grid, ind);
+  return eik->state[l] == VALID;
+}
+
+bool eik2g1_is_trial(eik2g1_s const *eik, int2 const ind) {
+  size_t l = grid2_ind2l(eik->grid, ind);
+  return eik->state[l] == TRIAL;
+}
+
+bool eik2g1_is_far(eik2g1_s const *eik, int2 const ind) {
+  size_t l = grid2_ind2l(eik->grid, ind);
+  return eik->state[l] == FAR;
 }
 
 state_e const *eik2g1_get_state_ptr(eik2g1_s const *eik) {

@@ -14,6 +14,10 @@ bool dbl2_isfinite(dbl2 const u) {
   return isfinite(u[0]) && isfinite(u[1]);
 }
 
+bool dbl2_all_nan(dbl2 const u) {
+  return isnan(u[0]) && isnan(u[1]);
+}
+
 dbl dbl2_dist(dbl2 const u, dbl2 const v) {
   dbl tmp[2] = {v[0] - u[0], v[1] - u[1]};
   return sqrt(tmp[0]*tmp[0] + tmp[1]*tmp[1]);
@@ -133,6 +137,10 @@ bool dbl3_is_zero(dbl3 const u) {
 
 bool dbl3_isfinite(dbl3 const x) {
   return isfinite(x[0]) && isfinite(x[1]) && isfinite(x[2]);
+}
+
+bool dbl3_all_nan(dbl3 const x) {
+  return isnan(x[0]) && isnan(x[1]) && isnan(x[2]);
 }
 
 bool dbl3_valid_bary_coord(dbl3 const b) {
@@ -372,7 +380,7 @@ void dbl3_sort(dbl3 u) {
   u[1] = tmp;
 }
 
-void dbl3_sub(dbl const *u, dbl const *v, dbl *w) {
+void dbl3_sub(dbl3 const u, dbl3 const v, dbl3 w) {
   w[0] = u[0] - v[0];
   w[1] = u[1] - v[1];
   w[2] = u[2] - v[2];

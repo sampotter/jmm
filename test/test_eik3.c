@@ -18,7 +18,7 @@ void get_gt_jet(dbl const xsrc[3], dbl const x[3], jet3 *jet) {
   dbl3_sub(x, xsrc, tmp);
   dbl L = dbl3_norm(tmp);
   jet->f = L;
-  dbl3_dbl_div(tmp, L, &jet->fx);
+  dbl3_dbl_div(tmp, L, jet->Df);
 }
 
 Describe(eik3);
@@ -172,9 +172,9 @@ Ensure(eik3, tetra_works_for_olim18_222_update) {
   size_t cells[4] = {0, 1, 2, 3};
 
   jet3 jet[3] = {
-    {.f = 1, .fx = 1, .fy = 0, .fz = 0},
-    {.f = 1, .fx = 0, .fy = 1, .fz = 0},
-    {.f = 1, .fx = 0, .fy = 0, .fz = 1}
+    {.f = 1, .Df = {1, 0, 0}},
+    {.f = 1, .Df = {0, 1, 0}},
+    {.f = 1, .Df = {0, 0, 1}}
   };
 
   mesh3_s *mesh;
@@ -187,9 +187,7 @@ Ensure(eik3, tetra_works_for_olim18_222_update) {
 
   jet3 const jet_gt = {
     .f = 1.821367205045918,
-    .fx = 0.57735026918962551,
-    .fy = 0.57735026918962551,
-    .fz = 0.57735026918962551
+    .Df = {0.57735026918962551, 0.57735026918962551, 0.57735026918962551}
   };
 
   utetra_s *cf;
@@ -204,9 +202,9 @@ Ensure(eik3, tetra_works_for_olim18_222_update) {
   assert_that_double(lambda[0], is_nearly_double(1./3));
   assert_that_double(lambda[0], is_nearly_double(1./3));
   assert_that_double(jet_gt.f, is_nearly_double(newjet.f));
-  assert_that_double(jet_gt.fx, is_nearly_double(newjet.fx));
-  assert_that_double(jet_gt.fy, is_nearly_double(newjet.fy));
-  assert_that_double(jet_gt.fz, is_nearly_double(newjet.fz));
+  assert_that_double(jet_gt.Df[0], is_nearly_double(newjet.Df[0]));
+  assert_that_double(jet_gt.Df[1], is_nearly_double(newjet.Df[1]));
+  assert_that_double(jet_gt.Df[2], is_nearly_double(newjet.Df[2]));
   assert_that(utetra_get_num_iter(cf), is_equal_to(0));
 
   lambda[0] = 0;
@@ -217,9 +215,9 @@ Ensure(eik3, tetra_works_for_olim18_222_update) {
   assert_that_double(lambda[0], is_nearly_double(1./3));
   assert_that_double(lambda[1], is_nearly_double(1./3));
   assert_that_double(jet_gt.f, is_nearly_double(newjet.f));
-  assert_that_double(jet_gt.fx, is_nearly_double(newjet.fx));
-  assert_that_double(jet_gt.fy, is_nearly_double(newjet.fy));
-  assert_that_double(jet_gt.fz, is_nearly_double(newjet.fz));
+  assert_that_double(jet_gt.Df[0], is_nearly_double(newjet.Df[0]));
+  assert_that_double(jet_gt.Df[1], is_nearly_double(newjet.Df[1]));
+  assert_that_double(jet_gt.Df[2], is_nearly_double(newjet.Df[2]));
   assert_that(utetra_get_num_iter(cf), is_less_than(10));
 
   lambda[0] = 1;
@@ -230,9 +228,9 @@ Ensure(eik3, tetra_works_for_olim18_222_update) {
   assert_that_double(lambda[0], is_nearly_double(1./3));
   assert_that_double(lambda[1], is_nearly_double(1./3));
   assert_that_double(jet_gt.f, is_nearly_double(newjet.f));
-  assert_that_double(jet_gt.fx, is_nearly_double(newjet.fx));
-  assert_that_double(jet_gt.fy, is_nearly_double(newjet.fy));
-  assert_that_double(jet_gt.fz, is_nearly_double(newjet.fz));
+  assert_that_double(jet_gt.Df[0], is_nearly_double(newjet.Df[0]));
+  assert_that_double(jet_gt.Df[1], is_nearly_double(newjet.Df[1]));
+  assert_that_double(jet_gt.Df[2], is_nearly_double(newjet.Df[2]));
   assert_that(utetra_get_num_iter(cf), is_less_than(10));
 
   lambda[0] = 0;
@@ -243,9 +241,9 @@ Ensure(eik3, tetra_works_for_olim18_222_update) {
   assert_that_double(lambda[0], is_nearly_double(1./3));
   assert_that_double(lambda[1], is_nearly_double(1./3));
   assert_that_double(jet_gt.f, is_nearly_double(newjet.f));
-  assert_that_double(jet_gt.fx, is_nearly_double(newjet.fx));
-  assert_that_double(jet_gt.fy, is_nearly_double(newjet.fy));
-  assert_that_double(jet_gt.fz, is_nearly_double(newjet.fz));
+  assert_that_double(jet_gt.Df[0], is_nearly_double(newjet.Df[0]));
+  assert_that_double(jet_gt.Df[1], is_nearly_double(newjet.Df[1]));
+  assert_that_double(jet_gt.Df[2], is_nearly_double(newjet.Df[2]));
   assert_that(utetra_get_num_iter(cf), is_less_than(10));
 
   for (int i = 0; i < NUM_RANDOM_TRIALS; ++i) {
@@ -286,9 +284,9 @@ Ensure(eik3, olim18_222_is_symmetric) {
   size_t cells[4] = {0, 1, 2, 3};
 
   jet3 jet[3] = {
-    {.f = 1, .fx = 1, .fy = 0, .fz = 0},
-    {.f = 1, .fx = 0, .fy = 1, .fz = 0},
-    {.f = 1, .fx = 0, .fy = 0, .fz = 1}
+    {.f = 1, .Df = {1, 0, 0}},
+    {.f = 1, .Df = {0, 1, 0}},
+    {.f = 1, .Df = {0, 0, 1}},
   };
 
   mesh3_s *mesh;

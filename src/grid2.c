@@ -155,6 +155,18 @@ void grid2_get_inbounds(grid2_s const *grid, grid2info_s const *info,
   }
 }
 
+void grid2_get_nb(grid2_s const *grid, grid2info_s const *info,
+                  int l, int l_nb[GRID2_NUM_NB],
+                  bool inbounds[GRID2_NUM_NB]) {
+  int2 ind, ind_nb;
+  grid2_l2ind(grid, l, ind);
+  for (int i_nb = 0; i_nb < GRID2_NUM_NB; ++i_nb) {
+    int2_add(ind, info->offsets[i_nb], ind_nb);
+    inbounds[i_nb] = grid2_isind(grid, ind_nb);
+    l_nb[i_nb] = inbounds[i_nb] ? grid2_ind2l(grid, ind_nb) : NO_INDEX;
+  }
+}
+
 void grid2info_init(grid2info_s *info, grid2_s const *grid) {
   static int2 offsets[GRID2_NUM_NB + 1] = {
     {-1, -1},

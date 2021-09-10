@@ -181,10 +181,10 @@ void bb31_init_from_jets(bb31 *bb, jet3 const jet[2], dbl const x[2][3]) {
   dbl3_sub(x[1], x[0], dx);
 
   if (!is_pt_src[0])
-    bb->c[1] = c[0] + dbl3_ndot(&jet[0].fx, dx)/3;
+    bb->c[1] = c[0] + dbl3_ndot(jet[0].Df, dx)/3;
 
   if (!is_pt_src[1])
-    bb->c[2] = c[3] - dbl3_ndot(&jet[1].fx, dx)/3;
+    bb->c[2] = c[3] - dbl3_ndot(jet[1].Df, dx)/3;
 
   if (is_pt_src[0])
     bb->c[1] = is_pt_src[1] ? (2*c[0] + c[3])/3 : (c[0] + c[2])/2;
@@ -210,10 +210,10 @@ void bb31_init_from_jet22t(bb31 *bb, jet22t const jet[2], dbl2 const x[2]) {
   dbl2_sub(x[1], x[0], dx);
 
   if (!is_pt_src[0])
-    c[1] = c[0] + dbl2_dot(&jet[0].fx, dx)/3;
+    c[1] = c[0] + dbl2_dot(jet[0].Df, dx)/3;
 
   if (!is_pt_src[1])
-    c[2] = c[3] - dbl2_dot(&jet[1].fx, dx)/3;
+    c[2] = c[3] - dbl2_dot(jet[1].Df, dx)/3;
 
   if (is_pt_src[0])
     c[1] = is_pt_src[1] ? (2*c[0] + c[3])/3 : (c[0] + c[2])/2;
@@ -327,26 +327,26 @@ void bb32_init_from_jets(bb32 *bb, jet3 const jet[3], dbl const x[3][3]) {
 
   if (!is_point_source[TRI100]) {
     dbl3_sub(x[TRI010], x[TRI100], tmp);
-    c[TRI210] = c[TRI300] + dbl3_ndot(&jet[TRI100].fx, tmp)/3;
+    c[TRI210] = c[TRI300] + dbl3_ndot(jet[TRI100].Df, tmp)/3;
 
     dbl3_sub(x[TRI001], x[TRI100], tmp);
-    c[TRI201] = c[TRI300] + dbl3_ndot(&jet[TRI100].fx, tmp)/3;
+    c[TRI201] = c[TRI300] + dbl3_ndot(jet[TRI100].Df, tmp)/3;
   }
 
   if (!is_point_source[TRI010]) {
     dbl3_sub(x[TRI001], x[TRI010], tmp);
-    c[TRI021] = c[TRI030] + dbl3_ndot(&jet[TRI010].fx, tmp)/3;
+    c[TRI021] = c[TRI030] + dbl3_ndot(jet[TRI010].Df, tmp)/3;
 
     dbl3_sub(x[TRI100], x[TRI010], tmp);
-    c[TRI120] = c[TRI030] + dbl3_ndot(&jet[TRI010].fx, tmp)/3;
+    c[TRI120] = c[TRI030] + dbl3_ndot(jet[TRI010].Df, tmp)/3;
   }
 
   if (!is_point_source[TRI001]) {
     dbl3_sub(x[TRI100], x[TRI001], tmp);
-    c[TRI102] = c[TRI003] + dbl3_ndot(&jet[TRI001].fx, tmp)/3;
+    c[TRI102] = c[TRI003] + dbl3_ndot(jet[TRI001].Df, tmp)/3;
 
     dbl3_sub(x[TRI010], x[TRI001], tmp);
-    c[TRI012] = c[TRI003] + dbl3_ndot(&jet[TRI001].fx, tmp)/3;
+    c[TRI012] = c[TRI003] + dbl3_ndot(jet[TRI001].Df, tmp)/3;
   }
 
   /* Next, use condensation of parameters to compute the ordinates
@@ -591,49 +591,49 @@ void bb33_init_from_jets(bb33 *bb, jet3 const jet[4], dbl const x[4][3]) {
   /* 1 => {2, 3, 4} */
   if (!is_point_source[TET1000]) {
     dbl3_sub(x[TET0100], x[TET1000], dx);
-    c[TET2100] = c[TET3000] + dbl3_ndot(&jet[TET1000].fx, dx)/3;
+    c[TET2100] = c[TET3000] + dbl3_ndot(jet[TET1000].Df, dx)/3;
 
     dbl3_sub(x[TET0010], x[TET1000], dx);
-    c[TET2010] = c[TET3000] + dbl3_ndot(&jet[TET1000].fx, dx)/3;
+    c[TET2010] = c[TET3000] + dbl3_ndot(jet[TET1000].Df, dx)/3;
 
     dbl3_sub(x[TET0001], x[TET1000], dx);
-    c[TET2001] = c[TET3000] + dbl3_ndot(&jet[TET1000].fx, dx)/3;
+    c[TET2001] = c[TET3000] + dbl3_ndot(jet[TET1000].Df, dx)/3;
   }
 
   /* 2 => {1, 3, 4} */
   if (!is_point_source[TET0100]) {
     dbl3_sub(x[TET1000], x[TET0100], dx);
-    c[TET1200] = c[TET0300] + dbl3_ndot(&jet[TET0100].fx, dx)/3;
+    c[TET1200] = c[TET0300] + dbl3_ndot(jet[TET0100].Df, dx)/3;
 
     dbl3_sub(x[TET0010], x[TET0100], dx);
-    c[TET0210] = c[TET0300] + dbl3_ndot(&jet[TET0100].fx, dx)/3;
+    c[TET0210] = c[TET0300] + dbl3_ndot(jet[TET0100].Df, dx)/3;
 
     dbl3_sub(x[TET0001], x[TET0100], dx);
-    c[TET0201] = c[TET0300] + dbl3_ndot(&jet[TET0100].fx, dx)/3;
+    c[TET0201] = c[TET0300] + dbl3_ndot(jet[TET0100].Df, dx)/3;
   }
 
   /* 3 => {1, 2, 4} */
   if (!is_point_source[TET0010]) {
     dbl3_sub(x[TET1000], x[TET0010], dx);
-    c[TET1020] = c[TET0030] + dbl3_ndot(&jet[TET0010].fx, dx)/3;
+    c[TET1020] = c[TET0030] + dbl3_ndot(jet[TET0010].Df, dx)/3;
 
     dbl3_sub(x[TET0100], x[TET0010], dx);
-    c[TET0120] = c[TET0030] + dbl3_ndot(&jet[TET0010].fx, dx)/3;
+    c[TET0120] = c[TET0030] + dbl3_ndot(jet[TET0010].Df, dx)/3;
 
     dbl3_sub(x[TET0001], x[TET0010], dx);
-    c[TET0021] = c[TET0030] + dbl3_ndot(&jet[TET0010].fx, dx)/3;
+    c[TET0021] = c[TET0030] + dbl3_ndot(jet[TET0010].Df, dx)/3;
   }
 
   /* 4 <-> {1, 2, 3} */
   if (!is_point_source[TET0001]){
     dbl3_sub(x[TET1000], x[TET0001], dx);
-    c[TET1002] = c[TET0003] + dbl3_ndot(&jet[TET0001].fx, dx)/3;
+    c[TET1002] = c[TET0003] + dbl3_ndot(jet[TET0001].Df, dx)/3;
 
     dbl3_sub(x[TET0100], x[TET0001], dx);
-    c[TET0102] = c[TET0003] + dbl3_ndot(&jet[TET0001].fx, dx)/3;
+    c[TET0102] = c[TET0003] + dbl3_ndot(jet[TET0001].Df, dx)/3;
 
     dbl3_sub(x[TET0010], x[TET0001], dx);
-    c[TET0012] = c[TET0003] + dbl3_ndot(&jet[TET0001].fx, dx)/3;
+    c[TET0012] = c[TET0003] + dbl3_ndot(jet[TET0001].Df, dx)/3;
   }
 
   /* Next, use condensation of parameters to compute the ordinates

@@ -33,7 +33,8 @@ Ensure (utri, tri11_works) {
   dbl const f_gt = 1.4571067811865475;
   dbl const lam_gt = 0.5;
 
-  dbl x_perm[3], Xt_perm[2][3], jet_data_perm[2][4];
+  dbl3 x_perm, Xt_perm[2];
+  dbl jet_data_perm[2][4];
 
   jet_data_perm[0][0] = jet_data[0][0];
   jet_data_perm[1][0] = jet_data[1][0];
@@ -50,7 +51,15 @@ Ensure (utri, tri11_works) {
     memcpy(&jet[0], jet_data_perm[0], 4*sizeof(dbl));
     memcpy(&jet[1], jet_data_perm[1], 4*sizeof(dbl));
 
+    // TODO: can't for the life of me figure out what the problem here
+    // is... seems to be some weird issue with GCC 11.2.1 on Fedora...
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wstringop-overflow"
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wstringop-overread"
     utri_spec_s spec = utri_spec_from_raw_data(x_perm, Xt_perm, jet);
+#pragma GCC diagnostic pop
+#pragma GCC diagnostic pop
     utri_init(utri, &spec);
     assert_that(utri_is_causal(utri));
 

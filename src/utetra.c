@@ -29,9 +29,9 @@ utetra_spec_s utetra_spec_empty() {
       {NAN, NAN, NAN}
     },
     .jet = {
-      {.f = INFINITY, .fx = NAN, .fy = NAN, .fz = NAN},
-      {.f = INFINITY, .fx = NAN, .fy = NAN, .fz = NAN},
-      {.f = INFINITY, .fx = NAN, .fy = NAN, .fz = NAN}
+      {.f = INFINITY, .Df = {NAN, NAN, NAN}},
+      {.f = INFINITY, .Df = {NAN, NAN, NAN}},
+      {.f = INFINITY, .Df = {NAN, NAN, NAN}}
     },
     .tol = NAN
   };
@@ -54,9 +54,9 @@ utetra_spec_s utetra_spec_from_eik_and_inds(eik3_s const *eik, size_t l,
       {NAN, NAN, NAN}
     },
     .jet = {
-      {.f = INFINITY, .fx = NAN, .fy = NAN, .fz = NAN},
-      {.f = INFINITY, .fx = NAN, .fy = NAN, .fz = NAN},
-      {.f = INFINITY, .fx = NAN, .fy = NAN, .fz = NAN}
+      {.f = INFINITY, .Df = {NAN, NAN, NAN}},
+      {.f = INFINITY, .Df = {NAN, NAN, NAN}},
+      {.f = INFINITY, .Df = {NAN, NAN, NAN}}
     },
     .tol = pow(h, 4)
   };
@@ -79,9 +79,9 @@ utetra_spec_s utetra_spec_from_eik_without_l(eik3_s const *eik, dbl const x[3],
       {NAN, NAN, NAN}
     },
     .jet = {
-      {.f = INFINITY, .fx = NAN, .fy = NAN, .fz = NAN},
-      {.f = INFINITY, .fx = NAN, .fy = NAN, .fz = NAN},
-      {.f = INFINITY, .fx = NAN, .fy = NAN, .fz = NAN}
+      {.f = INFINITY, .Df = {NAN, NAN, NAN}},
+      {.f = INFINITY, .Df = {NAN, NAN, NAN}},
+      {.f = INFINITY, .Df = {NAN, NAN, NAN}}
     },
     .tol = pow(h, 4)
   };
@@ -252,12 +252,12 @@ bool utetra_init(utetra_s *u, utetra_spec_s const *spec) {
   } else {
     /* If we have all the gradient data we need, do regular ol' BB
      * interpolation. */
-    dbl T[3], DT[3][3];
+    dbl3 T, DT[3];
     for (int i = 0; i < 3; ++i) {
       T[i] = jet[i].f;
-      memcpy(DT[i], &jet[i].fx, sizeof(dbl[3]));
+      memcpy(DT[i], jet[i].Df, sizeof(dbl3));
     }
-    bb32_init_from_3d_data(&u->T, T, &DT[0], u->Xt);
+    bb32_init_from_3d_data(&u->T, T, DT, u->Xt);
   }
 
   // Compute the surface normal for the plane spanned by (x1 - x0, x2
@@ -273,7 +273,7 @@ bool utetra_init(utetra_s *u, utetra_spec_s const *spec) {
 
   int sgn[3];
   for (size_t i = 0; i < 3; ++i) {
-    sgn[i] = pt_src[i] ? 0 : signum(dbl3_dot(&jet[i].fx, n));
+    sgn[i] = pt_src[i] ? 0 : signum(dbl3_dot(jet[i].Df, n));
   };
 
   /* Verify that the jets don't span the same plane as the base of the
@@ -474,9 +474,8 @@ dbl utetra_get_value(utetra_s const *cf) {
 
 void utetra_get_jet(utetra_s const *cf, jet3 *jet) {
   jet->f = cf->f;
-  jet->fx = cf->x_minus_xb[0]/cf->L;
-  jet->fy = cf->x_minus_xb[1]/cf->L;
-  jet->fz = cf->x_minus_xb[2]/cf->L;
+
+  dbl3_dbl_div(cf->x_minus_xb, cf->L, jet->Df);
 }
 
 /**
@@ -1003,7 +1002,7 @@ bool utetras_yield_same_update(utetra_s const **u, size_t n) {
     // Get the normal for the plane spanned by the edge and update ray,
     // taking advantage of the fact that all the update rays can be
     // assumed to be equal at this point
-    dbl3_cross(dy, &jet.fx, normal);
+    dbl3_cross(dy, jet.Df, normal);
     dbl3_normalize(normal); // (probably overkill)
 
     // For each tetrahedron update, pull out the points corresponding to

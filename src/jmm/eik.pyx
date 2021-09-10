@@ -54,7 +54,7 @@ cdef class Eik:
 
         self.Tx_view = ArrayView(2)
         self.Tx_view.readonly = True
-        self.Tx_view.ptr = <void *>&eik_get_jets_ptr(self.eik).fx
+        self.Tx_view.ptr = <void *>&eik_get_jets_ptr(self.eik).Df[0]
         self.Tx_view.shape[0] = self.shape[0]
         self.Tx_view.shape[1] = self.shape[1]
         self.Tx_view.strides[0] = self.shape[1]*sizeof(jet2)
@@ -64,7 +64,7 @@ cdef class Eik:
 
         self.Ty_view = ArrayView(2)
         self.Ty_view.readonly = True
-        self.Ty_view.ptr = <void *>&eik_get_jets_ptr(self.eik).fy
+        self.Ty_view.ptr = <void *>&eik_get_jets_ptr(self.eik).Df[1]
         self.Ty_view.shape[0] = self.shape[0]
         self.Ty_view.shape[1] = self.shape[1]
         self.Ty_view.strides[0] = self.shape[1]*sizeof(jet2)
@@ -209,7 +209,7 @@ cdef class Eik2g1:
 
         self.DT_view = ArrayView(3)
         self.DT_view.readonly = True
-        self.DT_view.ptr = <void *>&eik2g1_get_jet_ptr(self.eik).fx
+        self.DT_view.ptr = <void *>eik2g1_get_jet_ptr(self.eik).Df
         self.DT_view.shape[0] = self.shape[0]
         self.DT_view.shape[1] = self.shape[1]
         self.DT_view.shape[2] = 2
@@ -221,7 +221,7 @@ cdef class Eik2g1:
 
         self.D2T_view = ArrayView(4)
         self.D2T_view.readonly = True
-        self.D2T_view.ptr = <void *>&eik2g1_get_jet_ptr(self.eik).fxx
+        self.D2T_view.ptr = <void *>eik2g1_get_jet_ptr(self.eik).D2f
         self.D2T_view.shape[0] = self.shape[0]
         self.D2T_view.shape[1] = self.shape[1]
         self.D2T_view.shape[2] = 2
@@ -315,7 +315,7 @@ cdef class Eik3:
 
         self.grad_T_view = ArrayView(2)
         self.grad_T_view.readonly = True
-        self.grad_T_view.ptr = <void *>&eik3_get_jet_ptr(self.eik).fx
+        self.grad_T_view.ptr = <void *>&eik3_get_jet_ptr(self.eik).Df[0]
         self.grad_T_view.shape[0] = self.size
         self.grad_T_view.shape[1] = 3
         self.grad_T_view.strides[0] = 4*sizeof(dbl)

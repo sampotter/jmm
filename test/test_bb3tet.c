@@ -72,9 +72,7 @@ Ensure (bb33, has_linear_precision) {
   jet3 jet[4];
   for (size_t i = 0; i < 4; ++i) {
     jet[i].f = f[i];
-    jet[i].fx = Df[i][0];
-    jet[i].fy = Df[i][1];
-    jet[i].fz = Df[i][2];
+    dbl3_copy(Df[i], jet[i].Df);
   }
 
   dbl f_gt, f_bb;

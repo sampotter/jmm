@@ -61,7 +61,7 @@ size_t utetra_get_l(utetra_s const *utetra);
 void utetra_set_update_inds(utetra_s *utetra, size_t l[3]);
 bool utetra_opt_inc_on_other_utetra(utetra_s const *u1, utetra_s const *u2);
 void utetra_get_x(utetra_s const *u, dbl x[3]);
-size_t utetra_get_active_inds(utetra_s const *utetra, size_t l[2]);
+size_t utetra_get_active_inds(utetra_s const *utetra, size_t l[3]);
 par3_s utetra_get_parent(utetra_s const *utetra);
 void utetra_get_t(utetra_s const *u, dbl t[3]);
 dbl utetra_get_L(utetra_s const *u);
