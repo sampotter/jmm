@@ -5,10 +5,9 @@
 #include <stdlib.h>
 
 #include "bb.h"
-#include "def.h"
 #include "heap.h"
-#include "hybrid.h"
 #include "mat.h"
+#include "utri21.h"
 #include "vec.h"
 
 struct eik2g1 {
@@ -89,95 +88,23 @@ size_t eik2g1_peek(eik2g1_s const *eik) {
   return heap_front(eik->heap);
 }
 
-typedef struct tri_wkspc {
-  dbl2 xhat, x[2], dx;
-  bb31 T;
-} tri_wkspc_s;
-
-dbl tri_F(dbl lam, tri_wkspc_s const *wkspc) {
-  dbl T = bb31_f(&wkspc->T, (dbl2) {1 - lam, lam});
-
-  dbl2 xlam;
-  dbl2_saxpy(lam, wkspc->dx, wkspc->x[0], xlam);
-
-  dbl2 xhat_minus_xlam;
-  dbl2_sub(wkspc->xhat, xlam, xhat_minus_xlam);
-
-  dbl L = dbl2_norm(xhat_minus_xlam);
-
-  return T + L;
-}
-
-dbl tri_F_lam(dbl lam, tri_wkspc_s const *wkspc) {
-  dbl T_lam = bb31_df(&wkspc->T, (dbl2) {1 - lam, lam}, (dbl2) {-1, 1});
-
-  dbl2 xlam;
-  dbl2_saxpy(lam, wkspc->dx, wkspc->x[0], xlam);
-
-  dbl2 xhat_minus_xlam;
-  dbl2_sub(wkspc->xhat, xlam, xhat_minus_xlam);
-
-  dbl L = dbl2_norm(xhat_minus_xlam);
-  dbl L_lam = -dbl2_dot(wkspc->dx, xhat_minus_xlam)/L;
-
-  return T_lam + L_lam;
-}
-
 static void tri(eik2g1_s *eik, size_t l, size_t l0, size_t l1) {
-  grid2_s const *grid = eik->grid;
+  dbl2 xhat, x[2];
+  grid2_l2xy(eik->grid, l, xhat);
+  grid2_l2xy(eik->grid, l0, x[0]);
+  grid2_l2xy(eik->grid, l1, x[1]);
 
-  tri_wkspc_s wkspc;
+  jet22t jet[2] = {eik->jet[l0], eik->jet[l1]};
 
-  grid2_l2xy(grid, l, wkspc.xhat);
-  grid2_l2xy(grid, l0, wkspc.x[0]);
-  grid2_l2xy(grid, l1, wkspc.x[1]);
-
-  dbl2_sub(wkspc.x[1], wkspc.x[0], wkspc.dx);
-
-  bb31_init_from_jet22t(
-    &wkspc.T, (jet22t[2]) {eik->jet[l0], eik->jet[l1]}, wkspc.x);
+  utri21_s utri;
+  utri21_init(&utri, xhat, x, jet);
 
   dbl lam;
-  bool found = hybrid((hybrid_cost_func_t)tri_F_lam, 0, 1, &wkspc, &lam);
-
-  dbl T;
-  if (found) {
-    T = tri_F(lam, &wkspc);
-  } else {
-    dbl T0 = tri_F(0, &wkspc);
-    dbl T1 = tri_F(1, &wkspc);
-    lam = T0 < T1 ? 0 : 1;
-
-    // Compute the Lagrange multiplier for the active constraint and
-    // return if it's positive
-    dbl mu = pow(-1, lam)*tri_F_lam(lam, &wkspc);
-    if (mu > 0)
-      return;
-
-    T = fmin(T0, T1);
-  }
-
-  assert(T > eik->jet[l0].f);
-  assert(T > eik->jet[l1].f);
-
-  jet22t *jet = &eik->jet[l];
-
-  if (T >= jet->f)
+  if (!utri21_solve(&utri, &lam))
     return;
 
-  jet->f = T;
-
-  dbl2 xlam;
-  dbl2_saxpy(lam, wkspc.dx, wkspc.x[0], xlam);
-  dbl2_sub(wkspc.xhat, xlam, jet->Df);
-  dbl L = dbl2_norm(jet->Df);
-  dbl2_dbl_div_inplace(jet->Df, L);
-
-  dbl22 eye, tt;
-  dbl22_eye(eye);
-  dbl2_outer(jet->Df, jet->Df, tt);
-  dbl22_sub(eye, tt, jet->D2f);
-  dbl22_dbl_div_inplace(jet->D2f, jet->f);
+  // update jet
+  eik->jet[l] = utri.jet;
 
   // set parent
   eik->par[l] = (par2_s) {.l = {l0, l1}, .b = {1 - lam, lam}};
