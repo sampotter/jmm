@@ -943,6 +943,7 @@ int mesh3_nvv(mesh3_s const *mesh, size_t i) {
   size_t *vc = malloc(sizeof(size_t)*nvc);
   mesh3_vc(mesh, i, vc);
 
+  /* trivial upper bound: nvv <= 3*nvc */
   size_t *vv = malloc(3*sizeof(size_t)*nvc);
 
   int nvv = 0;
