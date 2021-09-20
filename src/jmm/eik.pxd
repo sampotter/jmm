@@ -63,6 +63,7 @@ cdef extern from "eik2g1.h":
     void eik2g1_add_valid(eik2g1 *eik, const int2 ind, jet22t jet)
     const state *eik2g1_get_state_ptr(const eik2g1 *eik)
     const jet22t *eik2g1_get_jet_ptr(const eik2g1 *eik)
+    const par2 *eik2g1_get_par_ptr(const eik2g1 *eik)
 
 cdef class Eik2g1:
     cdef:
@@ -72,6 +73,8 @@ cdef class Eik2g1:
         ArrayView T_view
         ArrayView DT_view
         ArrayView D2T_view
+        ArrayView l_view
+        ArrayView lam_view
 
 cdef extern from "eik3.h":
     cdef struct eik3:

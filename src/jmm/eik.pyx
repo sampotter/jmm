@@ -82,7 +82,6 @@ cdef class Eik:
         self.Txy_view.format = 'd'
         self.Txy_view.itemsize = sizeof(dbl)
 
-        print(self.size)
         self.accepted_view = ArrayView(1)
         self.accepted_view.readonly = True
         self.accepted_view.ptr = <void *>eik_get_accepted_ptr(self.eik)
@@ -233,6 +232,28 @@ cdef class Eik2g1:
         self.D2T_view.format = 'd'
         self.D2T_view.itemsize = sizeof(dbl)
 
+        self.l_view = ArrayView(3)
+        self.l_view.readonly = True
+        self.l_view.ptr = <void *>&eik2g1_get_par_ptr(self.eik).l[0]
+        self.l_view.shape[0] = self.shape[0]
+        self.l_view.shape[1] = self.shape[1]
+        self.l_view.shape[2] = 2
+        self.l_view.strides[0] = self.shape[1]*sizeof(size_t)
+        self.l_view.strides[1] = 2*sizeof(size_t)
+        self.l_view.strides[2] = 1*sizeof(size_t)
+        self.l_view.format = 'Q'
+        self.accepted_view.itemsize = sizeof(size_t)
+
+        self.lam_view = ArrayView(2)
+        self.lam_view.readonly = True
+        self.lam_view.ptr = <void *>&eik2g1_get_par_ptr(self.eik).b[1]
+        self.lam_view.shape[0] = self.shape[0]
+        self.lam_view.shape[1] = self.shape[1]
+        self.lam_view.strides[0] = self.shape[1]*sizeof(dbl)
+        self.lam_view.strides[2] = 1*sizeof(dbl)
+        self.lam_view.format = 'd'
+        self.accepted_view.itemsize = sizeof(dbl)
+
     def add_valid(self, int[::1] ind, Jet22t jet):
         eik2g1_add_valid(self.eik, &ind[0], jet.jet)
 
@@ -271,6 +292,14 @@ cdef class Eik2g1:
     @property
     def D2T(self):
         return np.asarray(self.D2T_view)
+
+    @property
+    def l(self):
+        return np.asarray(self.l_view)
+
+    @property
+    def lam(self):
+        return np.asarray(self.lam_view)
 
 cdef class Eik3:
     def __init__(self, *args):

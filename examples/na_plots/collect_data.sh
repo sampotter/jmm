@@ -11,5 +11,9 @@ exe() { echo "$@"; "$@"; }
 for P in 7 8 9 10 11
 do
     N=$((2**P + 1))
-    exe $RUN_EIK2G1_PATH $N $RFAC $OUTDIR/jet_gt_$N.bin $OUTDIR/jet_$N.bin
+    exe $RUN_EIK2G1_PATH $N $RFAC \
+        $OUTDIR/jet_gt_$N.bin \
+        $OUTDIR/jet_$N.bin \
+        $OUTDIR/l_$N.bin \
+        $OUTDIR/lam_$N.bin
 done

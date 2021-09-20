@@ -18,6 +18,7 @@ struct eik2g1 {
   state_e *state;
   size_t *pos;
   heap_s *heap;
+  par2_s *par;
 };
 
 static dbl value(eik2g1_s const *eik, int l) {
@@ -59,6 +60,10 @@ void eik2g1_init(eik2g1_s *eik, grid2_s const *grid) {
 
   heap_alloc(&eik->heap);
   heap_init(eik->heap,3*sqrt(num_nodes),(value_f)value,(setpos_f)setpos,eik);
+
+  eik->par = malloc(num_nodes*sizeof(par2_s));
+  for (size_t i = 0; i < num_nodes; ++i)
+    par2_init_empty(&eik->par[i]);
 }
 
 void eik2g1_deinit(eik2g1_s *eik) {
@@ -75,6 +80,9 @@ void eik2g1_deinit(eik2g1_s *eik) {
 
   heap_deinit(eik->heap);
   heap_dealloc(&eik->heap);
+
+  free(eik->par);
+  eik->par = NULL;
 }
 
 size_t eik2g1_peek(eik2g1_s const *eik) {
@@ -170,6 +178,9 @@ static void tri(eik2g1_s *eik, size_t l, size_t l0, size_t l1) {
   dbl2_outer(jet->Df, jet->Df, tt);
   dbl22_sub(eye, tt, jet->D2f);
   dbl22_dbl_div_inplace(jet->D2f, jet->f);
+
+  // set parent
+  eik->par[l] = (par2_s) {.l = {l0, l1}, .b = {1 - lam, lam}};
 }
 
 static void update(eik2g1_s *eik, int l) {
@@ -280,4 +291,13 @@ state_e const *eik2g1_get_state_ptr(eik2g1_s const *eik) {
 
 jet22t const *eik2g1_get_jet_ptr(eik2g1_s const *eik) {
   return eik->jet;
+}
+
+par2_s eik2g1_get_par(eik2g1_s const *eik, int2 const ind) {
+  size_t l = grid2_ind2l(eik->grid, ind);
+  return eik->par[l];
+}
+
+par2_s const *eik2g1_get_par_ptr(eik2g1_s const *eik) {
+  return eik->par;
 }

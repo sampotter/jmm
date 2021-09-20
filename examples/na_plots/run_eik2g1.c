@@ -20,8 +20,8 @@ jet22t get_jet_gt(dbl x, dbl y) {
 }
 
 int main(int argc, char *argv[]) {
-  if (argc != 5) {
-    fprintf(stderr, "usage: %s <n> <rfac> <jet_gt_path> <jet_path>\n", argv[0]);
+  if (argc != 7) {
+    fprintf(stderr, "usage: %s <n> <rfac> <jet_gt_path> <jet_path> <l_path> <lam_path>\n", argv[0]);
     return EXIT_FAILURE;
   }
 
@@ -100,6 +100,22 @@ int main(int argc, char *argv[]) {
 
   fp = fopen(argv[4], "w");
   fwrite(eik2g1_get_jet_ptr(eik), sizeof(jet22t), grid2_nind(&grid), fp);
+  fclose(fp);
+
+  fp = fopen(argv[5], "w");
+  for (size_t l = 0; l < grid2_nind(&grid); ++l) {
+    grid2_l2ind(&grid, l, ind);
+    par2_s par = eik2g1_get_par(eik, ind);
+    fwrite(par.l, sizeof(size_t[2]), 1, fp);
+  }
+  fclose(fp);
+
+  fp = fopen(argv[6], "w");
+  for (size_t l = 0; l < grid2_nind(&grid); ++l) {
+    grid2_l2ind(&grid, l, ind);
+    par2_s par = eik2g1_get_par(eik, ind);
+    fwrite(&par.b[1], sizeof(dbl), 1, fp);
+  }
   fclose(fp);
 
   eik2g1_deinit(eik);

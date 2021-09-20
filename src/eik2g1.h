@@ -7,6 +7,7 @@ extern "C" {
 #include "common.h"
 #include "grid2.h"
 #include "jet.h"
+#include "par.h"
 
 void eik2g1_alloc(eik2g1_s **eik);
 void eik2g1_dealloc(eik2g1_s **eik);
@@ -23,3 +24,5 @@ bool eik2g1_is_trial(eik2g1_s const *eik, int2 const ind);
 bool eik2g1_is_far(eik2g1_s const *eik, int2 const ind);
 state_e const *eik2g1_get_state_ptr(eik2g1_s const *eik);
 jet22t const *eik2g1_get_jet_ptr(eik2g1_s const *eik);
+par2_s eik2g1_get_par(eik2g1_s const *eik, int2 const ind);
+par2_s const *eik2g1_get_par_ptr(eik2g1_s const *eik);
