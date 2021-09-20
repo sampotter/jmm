@@ -1066,9 +1066,8 @@ bool utetras_yield_same_update(utetra_s const **u, size_t n) {
 
 #if JMM_DEBUG
   die();
-#else
-  return false;
 #endif
+  return false;
 }
 
 size_t utetra_get_l(utetra_s const *utetra) {

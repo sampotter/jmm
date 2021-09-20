@@ -197,4 +197,5 @@ bool par3_is_on_BC_boundary(par3_s const *par, eik3_s const *eik) {
   }
 
   assert(false);
+  return false;
 }
