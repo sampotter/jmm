@@ -932,16 +932,6 @@ void mesh3_vf(mesh3_s const *mesh, size_t l, size_t (*vf)[3]) {
   free(vc);
 }
 
-static bool contains(void *arr, int len, void *elt, size_t size) {
-  char *ptr = (char *)arr;
-  for (int i = 0; i < len; ++i) {
-    if (!memcmp((void *)(ptr + size*i), elt, size)) {
-      return true;
-    }
-  }
-  return false;
-}
-
 /**
  * TODO: the functions below are simple, unoptimized
  * implementations. There are lots of ways to improve these, but we

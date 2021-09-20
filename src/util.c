@@ -1,6 +1,7 @@
 #include "util.h"
 
 #include <math.h>
+#include <string.h>
 
 #include "mat.h"
 #include "vec.h"
@@ -61,4 +62,14 @@ int signum(dbl x) {
 
 dbl shrink(dbl x, dbl eps) {
   return fmax(0, x - eps) + fmin(0, x + eps);
+}
+
+bool contains(void const *arr, size_t len, void const *elt, size_t size) {
+  char *ptr = (char *)arr;
+  for (int i = 0; i < len; ++i) {
+    if (!memcmp((void *)(ptr + size*i), elt, size)) {
+      return true;
+    }
+  }
+  return false;
 }
