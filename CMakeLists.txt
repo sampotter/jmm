@@ -120,6 +120,7 @@ set (JMM_SRCS
   src/utetra.c
   src/util.c
   src/utri.c
+  src/utri21.c
   src/vec.c
   src/xfer.c
   )
