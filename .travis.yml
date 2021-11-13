@@ -11,9 +11,9 @@ before_script:
   - cd cgreen; make; sudo make install; cd -
   - sudo ldconfig # ...
   # Set up tetgen
-  - unzip tetgen1.6.0.zip
-  - cd tetgen1.6.0; make -j; cd -
-  - PATH=`pwd`/tetgen1.6.0:$PATH export PATH
+  - cd extra; unzip tetgen1.6.0.zip; cd -
+  - cd extra/tetgen1.6.0; make -j; cd -
+  - PATH=`pwd`/extra/tetgen1.6.0:$PATH export PATH
 script:
   # Build everything and run the unit tests
   - ./quick_build.sh
