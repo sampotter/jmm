@@ -182,7 +182,7 @@
 //         refl_tol = self.domain.mesh.eps
 
 //         # Traverse the faces and pull out the BCs for the reflection
-//         bd_faces, bd_T, bd_grad_T, bd_hess_T, bd_t_in, bd_amplitude = \
+//         bd_faces, bd_T, bd_grad_T, bd_hess_T, bd_t_in, bd_amplitude =
 //             [], [], [], [], [], []
 //         for lf in faces:
 //             t_in = self.eik.grad_T[lf]
@@ -230,7 +230,7 @@
 //         if np.nanmax(abs(np.array(bd_amplitude))) < Field.minimum_magnitude:
 //             return
 
-//         return np.array(bd_faces), np.array(bd_T), np.array(bd_grad_T), \
+//         return np.array(bd_faces), np.array(bd_T), np.array(bd_grad_T),
 //             np.array(bd_hess_T), np.array(bd_t_in), np.array(bd_amplitude)
 
 //     def _impute_diffracted_bd_grad_T(self, le, t_in):
@@ -304,7 +304,7 @@
 //         e = -np.subtract(*self.domain.verts[edges[0]])
 //         e /= np.linalg.norm(e)
 
-//         bd_edges, bd_T_bb, bd_rho1, bd_t_in, bd_amplitude = \
+//         bd_edges, bd_T_bb, bd_rho1, bd_t_in, bd_amplitude =
 //             [], [], [], [], []
 
 //         # Traverse the faces and pull out the BCs for the
@@ -369,7 +369,7 @@
 //         if np.nanmax(abs(np.array(bd_amplitude))) < Field.minimum_magnitude:
 //             return
 
-//         return np.array(bd_edges), np.array(bd_T_bb), np.array(bd_rho1), \
+//         return np.array(bd_edges), np.array(bd_T_bb), np.array(bd_rho1),
 //             np.array(bd_t_in), np.array(bd_amplitude)
 
 //     def _init_scattered_fields(self):
@@ -393,7 +393,7 @@
 
 //             # Don't reflect from reflectors which contain the parent
 //             # diffractor
-//             if isinstance(self, DiffractedField) and \
+//             if isinstance(self, DiffractedField) and
 //                np.in1d(np.unique(self.bd_inds), np.unique(faces)).all():
 //                 continue
 
@@ -411,7 +411,7 @@
 
 //             # Don't diffract from edges which are contained in the
 //             # parent reflector
-//             if isinstance(self, ReflectedField) and \
+//             if isinstance(self, ReflectedField) and
 //                np.in1d(np.unique(edges), np.unique(self.bd_inds)).all():
 //                 continue
 
@@ -804,10 +804,10 @@
 //             raise RuntimeError('entered bad state...')
 
 //         if nan_bd_inds:
-//             kappa1_in, kappa2_in = \
+//             kappa1_in, kappa2_in =
 //                 self._fill_in_missing_kappa1_in_and_kappa2_in(
 //                     kappa1_in, kappa2_in, nan_bd_inds)
-//             amplitude_in = \
+//             amplitude_in =
 //                 self._fill_in_missing_amplitude_in(amplitude_in)
 
 //         kappa1_in = self.transport_curvature(kappa1_in)
@@ -849,9 +849,9 @@
 //         if num_edges == 0:
 //             raise ValueError('no boundary edges were passed!')
 
-//         if bd_T_bb.shape[0] != num_edges or \
-//            bd_rho1.shape[0] != num_edges or \
-//            bd_t_in.shape[0] != num_edges or \
+//         if bd_T_bb.shape[0] != num_edges or
+//            bd_rho1.shape[0] != num_edges or
+//            bd_t_in.shape[0] != num_edges or
 //            bd_amplitude.shape[0] != num_edges:
 //             raise ValueError('BCs and edges must be compatible')
 
@@ -1083,7 +1083,7 @@
 //                 np.finfo(np.float64).eps, np.nanmax(abs(field.amplitude)))
 //             max_mag_dB = 20*np.log10(max_mag_dB)
 
-//             perc_above_thresh = \
+//             perc_above_thresh =
 //                 100*field.magnitude_mask.sum()/self.domain.num_verts
 
 //             self.log.info('accepted %s (%d fields)', type(field).__name__,
@@ -1106,7 +1106,7 @@
 //             self._time = np.take_along_axis(self._time, perm, axis=1)
 //             self._amplitude = np.take_along_axis(self._amplitude, perm, axis=1)
 //             for i in range(self._direction.shape[-1]):
-//                 self._direction[:, :, i] = \
+//                 self._direction[:, :, i] =
 //                     np.take_along_axis(self._direction[:, :, i], perm, axis=1)
 
 //             finite_time = np.isfinite(self.time)
