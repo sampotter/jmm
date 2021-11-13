@@ -147,42 +147,6 @@ target_include_directories (
   )
 
 #
-# Examples
-#
-
-# basic_solve
-add_executable (basic_solve examples/basic_solve.c)
-target_link_libraries (basic_solve jmm)
-target_include_directories (basic_solve PRIVATE jmm)
-set_property (
-  TARGET basic_solve
-  PROPERTY XCODE_SCHEME_ARGUMENTS
-  "${CMAKE_CURRENT_BINARY_DIR}/sphere_verts.bin"
-  "${CMAKE_CURRENT_BINARY_DIR}/sphere_cells.bin"
-  "830"
-  "${CMAKE_CURRENT_BINARY_DIR}/sphere_jets.bin")
-
-# raytracing
-add_executable (raytracing examples/raytracing.c)
-target_link_libraries (raytracing jmm)
-target_include_directories (raytracing PRIVATE jmm)
-
-# transfer_solution
-add_executable (transfer_solution examples/transfer_solution.c)
-target_link_libraries (transfer_solution jmm)
-target_include_directories (transfer_solution PRIVATE jmm)
-
-# viz_error_using_raytracing
-add_executable (viz_error_using_raytracing examples/viz_error_using_raytracing.c)
-target_link_libraries (viz_error_using_raytracing jmm)
-target_include_directories (viz_error_using_raytracing PRIVATE jmm)
-
-# run_eik2g1
-add_executable (run_eik2g1 examples/na_plots/run_eik2g1.c)
-target_link_libraries (run_eik2g1 jmm)
-target_include_directories (run_eik2g1 PRIVATE jmm)
-
-#
 # Unit tests
 #
 
