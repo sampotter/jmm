@@ -10,69 +10,6 @@
   3D will be added later, as well as JMMs for solving other related
   equations.
 
-  At the moment, a mixture of serial Dijkstra-like and Dial-like
-  solvers included.
-
-  The library comes with a Python interface which is a straightforward
-  mapping of the "object-oriented" C interface. Similar wrappers for
-  other high-level scientific computing languages (MATLAB and Julia,
-  namely) are planned.
-
-** Compilation
-
-*** Requirements
-
-    The unit tests depend on the [[https://github.com/catchorg/Catch2/][Catch2]] library. Make sure to install
-    the ~v2.x~ branch. The Catch2 ~master~ branch is now version 3 and
-    includes breaking changes.
-
-*** Using the C library
-
-    To compile the C library and run the tests, do  the following:
- #+BEGIN_SRC sh
-$ mkdir build
-$ cd build
-$ cmake -DCMAKE_BUILD_TYPE=Release
-$ make
-$ ctest
-#+END_SRC
-    Afterwards, to install the library, run:
- #+BEGIN_SRC sh
-$ sudo make install
-#+END_SRC
-    This uses the default generated Makefiles, and will install a CMake config
-    file which can be used to find libjmm from another CMake project. For example,
-    from another project's CMakeLists.txt file:
-#+BEGIN_SRC cmake
-...
-find_package (JMM REQUIRED)
-...
-target_link_libraries (my_target PRIVATE jmm)
-...
-#+END_SRC
-
-*** Compiling the Python wrapper library
-
-    First, follow the instructions in [[*Compiling the C library][compiling the C library]]. Make
-    sure to do an out-of-source build in the ~build~ directory (or pass
-    ~-L~ below). Then, from the root directory of the repository, run:
-#+BEGIN_SRC sh
-$ python setup.py install
-#+END_SRC
-   Alternatively, run:
-#+BEGIN_SRC sh
-$ pip install .
-#+END_SRC
-   This will install a Python module named ~jmm~.
-
-** Tests
-
-   After following the steps under [[*Compiling the C library][compiling the C library]], run:
-#+BEGIN_SRC
-$ ctest
-#+END_SRC
-   from ~build~.
-
 ** Tagged versions
 
    Some important versions are tagged (you can find these under the
@@ -81,5 +18,5 @@ $ ctest
 
    | Tag    | Description                                    |
    |--------+------------------------------------------------|
-   | v0.1.1 | First version with ~eik~ working for s \neq 1. |
+   | v0.1.1 | First version with ~eik~ working for s \neq 1.   |
    | v0.1.0 | First version with ~eik~ working for s \equiv 1. |

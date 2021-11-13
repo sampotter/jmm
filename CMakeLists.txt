@@ -97,6 +97,7 @@ set (JMM_SRCS
   src/eik_F4.c
   src/eik_S4.c
   src/eik3.c
+  src/eik3_branch.c
   src/field.c
   src/geom.c
   src/grid2.c
@@ -118,6 +119,7 @@ set (JMM_SRCS
   src/stats.c
   src/triBoxOverlap.c
   src/utetra.c
+  src/utd.c
   src/util.c
   src/utri.c
   src/utri21.c
@@ -228,53 +230,6 @@ if (BUILD_TESTS)
 endif ()
 
 #
-# Build documentation
-#
-
-if (BUILD_DOCS)
-  find_package (Doxygen REQUIRED)
-  find_package (Sphinx REQUIRED)
-
-  set (DOXYGEN_INDEX_FILE ${CMAKE_CURRENT_BINARY_DIR}/html/index.html)
-  set (DOXYFILE_IN ${CMAKE_CURRENT_SOURCE_DIR}/Doxyfile.in)
-  set (DOXYFILE_OUT ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile)
-
-  set (SPHINX_SOURCE ${CMAKE_CURRENT_SOURCE_DIR})
-  set (SPHINX_BUILD ${CMAKE_CURRENT_BINARY_DIR})
-
-  configure_file (${DOXYFILE_IN} ${DOXYFILE_OUT} @ONLY)
-
-  add_custom_command(
-    OUTPUT ${DOXYGEN_INDEX_FILE}
-    DEPENDS ${JMM_PUBLIC_HEADERS}
-    COMMAND ${DOXYGEN_EXECUTABLE} ${DOXYFILE_OUT}
-    MAIN_DEPENDENCY ${DOXYFILE_OUT} ${DOXYFILE_IN}
-    COMMENT "Generating Doxygen documentation"
-    VERBATIM
-    )
-
-  configure_file (
-    ${CMAKE_CURRENT_SOURCE_DIR}/conf.py.in
-    ${CMAKE_CURRENT_BINARY_DIR}/conf.py
-    @ONLY
-    )
-
-  add_custom_target (
-    Sphinx ALL
-    COMMAND
-    ${SPHINX_EXECUTABLE}
-    -b html -Dbreathe_projects.CatCutifier=${CMAKE_CURRENT_BINARY_DIR}
-	-c ${CMAKE_CURRENT_BINARY_DIR}
-    ${CMAKE_CURRENT_SOURCE_DIR} # sourcedir
-	${CMAKE_CURRENT_BINARY_DIR} # outputdir
-    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
-    COMMENT "Generating Sphinx documentation"
-    )
-
-  add_custom_target (Doxygen ALL DEPENDS ${DOXYGEN_INDEX_FILE})
-endif ()
-
-#
 # Installation and packaging
 #
 
@@ -313,7 +268,7 @@ install (FILES
   )
 
 include (InstallRequiredSystemLibraries)
-set (CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE.txt")
+set (CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE")
 set (CPACK_PACKAGE_VERSION_MAJOR "${jmm_VERSION_MAJOR}")
 set (CPACK_PACKAGE_VERSION_MINOR "${jmm_VERSION_MINOR}")
 include (CPack)
