@@ -4,11 +4,7 @@
 * libjmm
 
   This is a C library implementing a variety of *jet marching methods*
-  (JMMs) for solving the eikonal equation in 2D on a regular
-  grid. Other JMMs for solving the eikonal equation on unstructured
-  grids (triangle and tetrahedron meshes) and on structured grids in
-  3D will be added later, as well as JMMs for solving other related
-  equations.
+  (JMMs) for solving the eikonal equation in two and three dimensions.
 
 ** Tagged versions
 
