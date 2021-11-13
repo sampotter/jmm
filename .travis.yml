@@ -6,12 +6,11 @@ compiler:
 before_install:
   - sudo apt-get -y install libgsl0-dev
 before_script:
-  # Set up cgreen manually
+  # Set up cgreen
   - git clone https://github.com/sampotter/cgreen
   - cd cgreen; make; sudo make install; cd -
   - sudo ldconfig # ...
-  # Set up tetgen manually
-  - wget https://www.umiacs.umd.edu/~sfp/tetgen1.6.0.zip
+  # Set up tetgen
   - unzip tetgen1.6.0.zip
   - cd tetgen1.6.0; make -j; cd -
   - PATH=`pwd`/tetgen1.6.0:$PATH export PATH

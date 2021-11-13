@@ -48,3 +48,4 @@ scratch
 src/jmm/*.c
 srcs
 vgcore.*
+tetgen1.6.0
