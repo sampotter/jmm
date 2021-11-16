@@ -1,5 +1,4 @@
-#+CAPTION: Build status
-[[https://travis-ci.com/github/sampotter/jmm][https://travis-ci.com/sampotter/jmm.svg?branch=bvh]]
+[![Build Status](https://app.travis-ci.com/sampotter/jmm.svg?branch=master)](https://app.travis-ci.com/sampotter/jmm)
 
 # libjmm
 
