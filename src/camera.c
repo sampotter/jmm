@@ -60,7 +60,7 @@ ray3 camera_get_ray_for_index(camera_s const *camera, int i, int j) {
     assert(isfinite(camera->near));
     assert(isfinite(camera->fovy));
     assert(isfinite(camera->aspect));
-    dbl height = 2*camera->near*tan(PI*(camera->fovy/2)/180);
+    dbl height = 2*camera->near*tan(JMM_PI*(camera->fovy/2)/180);
     dbl width = camera->aspect*height;
     h[0] = height/(2*camera->dim[0]);
     h[1] = width/(2*camera->dim[1]);

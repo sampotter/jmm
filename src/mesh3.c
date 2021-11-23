@@ -241,7 +241,7 @@ static bool edge_is_diff(mesh3_s const *mesh, size_t const le[2]) {
 
   free(ec);
 
-  return angle_sum > PI + mesh->eps;
+  return angle_sum > JMM_PI + mesh->eps;
 }
 
 static size_t find_bdf(mesh3_s const *mesh, bdf_s const *bdf) {
@@ -1723,7 +1723,7 @@ dbl mesh3_get_edge_ext_angle(mesh3_s const *mesh, size_t const le[2]) {
   size_t *ec = malloc(nec*sizeof(size_t));
   mesh3_ec(mesh, le[0], le[1], ec);
 
-  dbl ext_angle = 2*PI;
+  dbl ext_angle = 2*JMM_PI;
   for (int i = 0; i < nec; ++i)
     ext_angle -= get_dihedral_angle(mesh, ec[i], le);
 
