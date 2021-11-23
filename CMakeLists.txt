@@ -98,6 +98,7 @@ set (JMM_SRCS
   src/eik_S4.c
   src/eik3.c
   src/eik3_branch.c
+  src/error.c
   src/field.c
   src/geom.c
   src/grid2.c
@@ -192,6 +193,12 @@ if (BUILD_TESTS)
     file (COPY ${test_data_file} DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
   endforeach ()
 endif ()
+
+#
+# Examples
+#
+
+add_subdirectory (examples)
 
 #
 # Installation and packaging
