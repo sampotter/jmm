@@ -8,7 +8,7 @@ extern "C" {
 #include "def.h"
 #include "jet.h"
 
-void xfer(mesh3_s const *mesh, jet3 const *jet, grid3_s const *grid, dbl *y);
+void xfer(mesh3_s const *mesh, jet31t const *jet, grid3_s const *grid, dbl *y);
 
 #ifdef __cplusplus
 }

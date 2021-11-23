@@ -13,7 +13,7 @@
 struct eik2g1 {
   grid2_s const *grid;
   grid2info_s grid_info;
-  jet22t *jet;
+  jet21t *jet;
   state_e *state;
   size_t *pos;
   heap_s *heap;
@@ -45,15 +45,15 @@ void eik2g1_init(eik2g1_s *eik, grid2_s const *grid) {
 
   size_t num_nodes = grid2_nind(grid);
 
-  eik->jet = malloc(num_nodes*sizeof(jet22t));
+  eik->jet = malloc(num_nodes*sizeof(jet21t));
   for (size_t i = 0; i < num_nodes; ++i)
-    eik->jet[i] = jet22t_make_empty();
+    eik->jet[i] = jet21t_make_empty();
 
-  eik->state = malloc(num_nodes*sizeof(jet22t));
+  eik->state = malloc(num_nodes*sizeof(jet21t));
   for (size_t i = 0; i < num_nodes; ++i)
     eik->state[i] = FAR;
 
-  eik->pos = malloc(num_nodes*sizeof(jet22t));
+  eik->pos = malloc(num_nodes*sizeof(jet21t));
   for (size_t i = 0; i < num_nodes; ++i)
     eik->pos[i] = NO_INDEX;
 
@@ -94,7 +94,7 @@ static void tri(eik2g1_s *eik, size_t l, size_t l0, size_t l1) {
   grid2_l2xy(eik->grid, l0, x[0]);
   grid2_l2xy(eik->grid, l1, x[1]);
 
-  jet22t jet[2] = {eik->jet[l0], eik->jet[l1]};
+  jet21t jet[2] = {eik->jet[l0], eik->jet[l1]};
 
   utri21_s utri;
   utri21_init(&utri, xhat, x, jet);
@@ -182,7 +182,7 @@ void eik2g1_solve(eik2g1_s *eik) {
     eik2g1_step(eik);
 }
 
-void eik2g1_add_trial(eik2g1_s *eik, int2 const ind, jet22t jet) {
+void eik2g1_add_trial(eik2g1_s *eik, int2 const ind, jet21t jet) {
   size_t l = grid2_ind2l(eik->grid, ind);
   eik->jet[l] = jet;
   assert(eik->state[l] != TRIAL && eik->state[l] != VALID);
@@ -190,7 +190,7 @@ void eik2g1_add_trial(eik2g1_s *eik, int2 const ind, jet22t jet) {
   heap_insert(eik->heap, l);
 }
 
-void eik2g1_add_valid(eik2g1_s *eik, int2 const ind, jet22t jet) {
+void eik2g1_add_valid(eik2g1_s *eik, int2 const ind, jet21t jet) {
   size_t l = grid2_ind2l(eik->grid, ind);
   eik->jet[l] = jet;
   assert(eik->state[l] != TRIAL && eik->state[l] != VALID);
@@ -216,7 +216,7 @@ state_e const *eik2g1_get_state_ptr(eik2g1_s const *eik) {
   return eik->state;
 }
 
-jet22t const *eik2g1_get_jet_ptr(eik2g1_s const *eik) {
+jet21t const *eik2g1_get_jet_ptr(eik2g1_s const *eik) {
   return eik->jet;
 }
 

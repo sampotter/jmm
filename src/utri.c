@@ -70,7 +70,7 @@ utri_spec_s utri_spec_from_eik_without_l(eik3_s const *eik, dbl const x[3],
   };
 }
 
-utri_spec_s utri_spec_from_raw_data(dbl3 const x, dbl3 const Xt[2], jet3 const jet[2]) {
+utri_spec_s utri_spec_from_raw_data(dbl3 const x, dbl3 const Xt[2], jet31t const jet[2]) {
   return (utri_spec_s) {
     .eik = NULL,
     .lhat = NO_INDEX,
@@ -147,9 +147,9 @@ bool utri_init(utri_s *u, utri_spec_s const *spec) {
   bool passed_l = passed_l0 && passed_l1;
 
   bool passed_jet0 = (spec->state[0] == VALID || spec->state[0] == UNKNOWN)
-    && jet3_is_finite(&spec->jet[0]);
+    && jet31t_is_finite(&spec->jet[0]);
   bool passed_jet1 = (spec->state[1] == VALID || spec->state[1] == UNKNOWN)
-    && jet3_is_finite(&spec->jet[1]);
+    && jet31t_is_finite(&spec->jet[1]);
   bool passed_jet = passed_jet0 && passed_jet1;
 
 #if JMM_DEBUG
@@ -217,13 +217,15 @@ bool utri_init(utri_s *u, utri_spec_s const *spec) {
   /* Grab the jets for interpolating over the base of the
    * update. These will come from `eik` or `spec`, depending on if we
    * passed them. */
-  jet3 jet[2];
+  jet31t jet[2];
   for (size_t i = 0; i < 2; ++i)
-    jet[i] = passed_jet ? spec->jet[i] : eik3_get_jet(spec->eik, spec->l[i]);
+    jet[i] = passed_jet ?
+      spec->jet[i] :
+      jet31t_from_jet32t(eik3_get_jet(spec->eik, spec->l[i]));
 
   bool pt_src[2];
   for (size_t i = 0; i < 2; ++i)
-    pt_src[i] = jet3_is_point_source(&jet[i]);
+    pt_src[i] = jet31t_is_point_source(&jet[i]);
 
   /* If we're solving a point source problem, then we *have* found a
    * point source, and we shouldn't try do a triangle update
@@ -295,7 +297,7 @@ dbl utri_get_value(utri_s const *u) {
   return u->f;
 }
 
-void utri_get_jet(utri_s const *utri, jet3 *jet) {
+void utri_get_jet(utri_s const *utri, jet31t *jet) {
   jet->f = utri->f;
 
   dbl3_dbl_div(utri->x_minus_xb, utri->L, jet->Df);
@@ -642,20 +644,19 @@ bool utri_accept_refl_BCs_update(utri_s const *u, eik3_s const *eik) {
 
   dbl lam = u->lam;
 
-  dbl const *DT0 = eik3_get_DT_ptr(eik, le[0]);
-  if (fabs(lam) < 1e-14 && !dbl3_isfinite(DT0))
+  jet32t jet0 = eik3_get_jet(eik, le[0]);
+  if (fabs(lam) < 1e-14 && !dbl3_isfinite(jet0.Df))
     return true;
 
-  dbl const *DT1 = eik3_get_DT_ptr(eik, le[1]);
-  if (fabs(1 - lam) < 1e-14 && !dbl3_isfinite(DT1))
+  jet32t jet1 = eik3_get_jet(eik, le[1]);
+  if (fabs(1 - lam) < 1e-14 && !dbl3_isfinite(jet1.Df))
     return true;
-
 
   dbl DT[3];
-  if (!dbl3_isfinite(DT0) || !dbl3_isfinite(DT1)) {
+  if (!dbl3_isfinite(jet0.Df) || !dbl3_isfinite(jet1.Df)) {
 
   } else {
-    slerp2(DT0, DT1, DBL2(1 - lam, lam), DT);
+    slerp2(jet0.Df, jet1.Df, DBL2(1 - lam, lam), DT);
   }
 
   /* First, get the unit vector that supports the reflection boundary
@@ -693,11 +694,11 @@ bool utris_yield_same_update(utri_s const *utri1, utri_s const *utri2) {
   if (fabs(lam1 - lam2) > atol)
     return false;
 
-  jet3 jet1, jet2;
+  jet31t jet1, jet2;
   utri_get_jet(utri1, &jet1);
   utri_get_jet(utri2, &jet2);
 
-  return jet3_approx_eq(&jet1, &jet2, atol);
+  return jet31t_approx_eq(&jet1, &jet2, atol);
 }
 
 #if JMM_TEST

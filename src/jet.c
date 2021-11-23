@@ -6,47 +6,83 @@
 
 #include "mat.h"
 
-bool jet2_is_finite(jet2 const *jet) {
+bool jet21p_is_finite(jet21p const *jet) {
   return isfinite(jet->f) && dbl2_isfinite(jet->Df) && isfinite(jet->fxy);
 }
 
-bool jet2_is_point_source(jet2 const *jet) {
+bool jet21p_is_point_source(jet21p const *jet) {
   return isfinite(jet->f) && dbl2_all_nan(jet->Df) && isnan(jet->fxy);
 }
 
-jet22t jet22t_make_empty() {
-  return (jet22t) {
+jet21t jet21t_make_empty() {
+  return (jet21t) {
     .f = INFINITY,
     .Df = {NAN, NAN},
     .D2f = {{NAN, NAN}, {NAN, NAN}}
   };
 }
 
-bool jet22t_is_point_source(jet22t const *jet) {
+bool jet21t_is_point_source(jet21t const *jet) {
   return isfinite(jet->f) && dbl2_all_nan(jet->Df) && dbl22_all_nan(jet->D2f);
 }
 
-jet3 jet3_make_empty() {
-  return (jet3) {.f = INFINITY, .Df = {NAN, NAN, NAN}};
+jet31t jet31t_make_empty() {
+  return (jet31t) {.f = INFINITY, .Df = {NAN, NAN, NAN}};
 }
 
-jet3 jet3_make_point_source(dbl tau) {
-  return (jet3) {.f = tau, .Df = {NAN, NAN, NAN}};
+jet31t jet31t_make_point_source(dbl tau) {
+  return (jet31t) {.f = tau, .Df = {NAN, NAN, NAN}};
 }
 
-bool jet3_approx_eq(jet3 const *jet1, jet3 const *jet2, dbl atol) {
+bool jet31t_approx_eq(jet31t const *jet1, jet31t const *jet2, dbl atol) {
   return fabs(jet1->f - jet2->f) <= atol &&
     dbl3_maxdist(jet1->Df, jet2->Df) <= atol;
 }
 
-bool jet3_eq(jet3 const *jet1, jet3 const *jet2) {
-  return !memcmp((void *)jet1, (void *)jet2, sizeof(jet3));
+bool jet31t_eq(jet31t const *jet1, jet31t const *jet2) {
+  return !memcmp((void *)jet1, (void *)jet2, sizeof(jet31t));
 }
 
-bool jet3_is_finite(jet3 const *jet) {
+bool jet31t_is_finite(jet31t const *jet) {
   return isfinite(jet->f) && dbl3_isfinite(jet->Df);
 }
 
-bool jet3_is_point_source(jet3 const *jet) {
+bool jet31t_is_point_source(jet31t const *jet) {
   return isfinite(jet->f) && dbl3_all_nan(jet->Df);
+}
+
+jet32t jet32t_make_empty() {
+  return (jet32t) {
+    .f = INFINITY,
+    .Df = {NAN, NAN, NAN},
+    .D2f = {{NAN, NAN, NAN},
+            {NAN, NAN, NAN},
+            {NAN, NAN, NAN}}
+  };
+}
+
+jet32t jet32t_make_point_source(dbl tau) {
+  return (jet32t) {
+    .f = tau,
+    .Df = {NAN, NAN, NAN},
+    .D2f = {{NAN, NAN, NAN},
+            {NAN, NAN, NAN},
+            {NAN, NAN, NAN}}
+  };
+}
+
+bool jet32t_is_finite(jet32t const *jet) {
+  return isfinite(jet->f)
+    && dbl3_isfinite(jet->Df)
+    && dbl33_isfinite(jet->D2f);
+}
+
+bool jet32t_is_point_source(jet32t const *jet) {
+  return isfinite(jet->f)
+    && dbl3_all_nan(jet->Df)
+    && dbl33_isnan(jet->D2f);
+}
+
+jet31t jet31t_from_jet32t(jet32t jet) {
+  return (jet31t) {.f = jet.f, .Df = {jet.Df[0], jet.Df[1], jet.Df[2]}};
 }

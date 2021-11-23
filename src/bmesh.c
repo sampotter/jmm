@@ -147,7 +147,7 @@ void bmesh33_dealloc(bmesh33_s **bmesh) {
 }
 
 void bmesh33_init_from_mesh3_and_jets(bmesh33_s *bmesh, mesh3_s const *mesh,
-                                      jet3 const *jet) {
+                                      jet31t const *jet) {
   bmesh->mesh = mesh;
   bmesh->mesh_owner = false;
   bmesh->num_cells = mesh3_ncells(mesh);

@@ -87,7 +87,7 @@ utetra_spec_s utetra_spec_from_eik_without_l(eik3_s const *eik, dbl const x[3],
   };
 }
 
-utetra_spec_s utetra_spec_from_ptrs(mesh3_s const *mesh, jet3 const *jet,
+utetra_spec_s utetra_spec_from_ptrs(mesh3_s const *mesh, jet31t const *jet,
                                     size_t l, size_t l0, size_t l1, size_t l2) {
   dbl h = mesh3_get_min_edge_length(mesh);
 
@@ -153,9 +153,9 @@ bool utetra_init(utetra_s *u, utetra_spec_s const *spec) {
   bool passed_l2 = spec->l[2] != (size_t)NO_INDEX;
   bool passed_l = passed_l0 && passed_l1 && passed_l2;
 
-  bool passed_jet0 = jet3_is_finite(&spec->jet[0]);
-  bool passed_jet1 = jet3_is_finite(&spec->jet[1]);
-  bool passed_jet2 = jet3_is_finite(&spec->jet[2]);
+  bool passed_jet0 = jet31t_is_finite(&spec->jet[0]);
+  bool passed_jet1 = jet31t_is_finite(&spec->jet[1]);
+  bool passed_jet2 = jet31t_is_finite(&spec->jet[2]);
   bool passed_jet = passed_jet0 && passed_jet1 && passed_jet2;
   if (passed_jet0 || passed_jet1 || passed_jet2)
     assert(passed_jet);
@@ -228,15 +228,17 @@ bool utetra_init(utetra_s *u, utetra_spec_s const *spec) {
 
   memcpy(u->state, spec->state, sizeof(state_e[3]));
 
-  jet3 jet[3];
+  jet31t jet[3];
   for (size_t i = 0; i < 3; ++i)
-    jet[i] = passed_jet ? spec->jet[i] : eik3_get_jet(spec->eik, spec->l[i]);
+    jet[i] = passed_jet ?
+      spec->jet[i] :
+      jet31t_from_jet32t(eik3_get_jet(spec->eik, spec->l[i]));
 
   /* Figure out which jets lack gradient information */
   bool pt_src[3];
   size_t num_pt_srcs = 0;
   for (size_t i = 0; i < 3; ++i)
-    num_pt_srcs += pt_src[i] = jet3_is_point_source(&jet[i]);
+    num_pt_srcs += pt_src[i] = jet31t_is_point_source(&jet[i]);
 
   if (num_pt_srcs == 3) {
     /* If all of the jets lack point source data, just return false
@@ -472,7 +474,7 @@ dbl utetra_get_value(utetra_s const *cf) {
   return cf->f;
 }
 
-void utetra_get_jet(utetra_s const *cf, jet3 *jet) {
+void utetra_get_jet(utetra_s const *cf, jet31t *jet) {
   jet->f = cf->f;
 
   dbl3_dbl_div(cf->x_minus_xb, cf->L, jet->Df);
@@ -864,7 +866,7 @@ static size_t get_num_equal(utetra_s const **u, size_t n) {
    * update and the start of the update ray parametrized by each
    * update is the same. This is necessary but not sufficient. */
 
-  jet3 jet[2];
+  jet31t jet[2];
 
   // Prefetch the first coords and jet
   utetra_get_x(u[0], x);
@@ -883,7 +885,7 @@ static size_t get_num_equal(utetra_s const **u, size_t n) {
   for (neq = 1; neq < n; ++neq) {
     // Get the next jet and check that it's finite
     utetra_get_jet(u[neq], &jet[1]);
-    if (!jet3_is_finite(&jet[1]))
+    if (!jet31t_is_finite(&jet[1]))
       break;
 
     // Get the next coords
@@ -894,7 +896,7 @@ static size_t get_num_equal(utetra_s const **u, size_t n) {
       break;
 
     // Check if the computed jets are the same...
-    if (!jet3_approx_eq(&jet[0], &jet[1], atol))
+    if (!jet31t_approx_eq(&jet[0], &jet[1], atol))
       break;
 
     // Swap the coords and jet that we just fetched to make way for
@@ -979,7 +981,7 @@ bool utetras_yield_same_update(utetra_s const **u, size_t n) {
    * were unable to find a single update with an interior point
    * solution. */
 
-  jet3 jet;
+  jet31t jet;
   utetra_get_jet(u[0], &jet);
 
   if (neq == 2) {

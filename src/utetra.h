@@ -14,7 +14,7 @@ typedef struct utetra_spec {
   size_t lhat, l[3];
   state_e state[3];
   dbl xhat[3], x[3][3];
-  jet3 jet[3];
+  jet31t jet[3];
 
   /* Tolerance for SQP iteration. Method has converged if |p| <=
    * tol*(1 + |p0|), where p is the constrained Newton step at each
@@ -27,7 +27,7 @@ utetra_spec_s utetra_spec_from_eik_and_inds(eik3_s const *eik, size_t l,
                                             size_t l0, size_t l1, size_t l2);
 utetra_spec_s utetra_spec_from_eik_without_l(eik3_s const *eik, dbl const x[3],
                                              size_t l0, size_t l1, size_t l2);
-utetra_spec_s utetra_spec_from_ptrs(mesh3_s const *mesh, jet3 const *jet,
+utetra_spec_s utetra_spec_from_ptrs(mesh3_s const *mesh, jet31t const *jet,
                                     size_t l, size_t l0, size_t l1, size_t l2);
 
 // TODO: we want to create a new module... "utetras"
@@ -46,7 +46,7 @@ void utetra_deinit(utetra_s *u);
 bool utetra_is_degenerate(utetra_s const *u);
 void utetra_solve(utetra_s *cf, dbl const *lam);
 dbl utetra_get_value(utetra_s const *cf);
-void utetra_get_jet(utetra_s const *cf, jet3 *jet);
+void utetra_get_jet(utetra_s const *cf, jet31t *jet);
 bool utetra_emits_terminal_ray(utetra_s const *u, eik3_s const *eik);
 bool utetra_has_interior_point_solution(utetra_s const *cf);
 bool utetra_has_shadow_boundary_solution(utetra_s const *u);
