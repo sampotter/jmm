@@ -119,10 +119,14 @@ struct eik3 {
   size_t *accepted;
 
   ftype_e ftype;
+
+  bool is_initialized;
 };
 
 void eik3_alloc(eik3_s **eik) {
   *eik = malloc(sizeof(eik3_s));
+
+  (*eik)->is_initialized = false;
 }
 
 void eik3_dealloc(eik3_s **eik) {
@@ -226,6 +230,8 @@ void eik3_init(eik3_s *eik, mesh3_s *mesh, ftype_e ftype, eik3_s const *orig) {
   eik->h3 = eik->h*eik->h*eik->h;
 
   eik->slerp_tol = eik->h3;
+
+  eik->is_initialized = true;
 }
 
 void eik3_deinit(eik3_s *eik) {
@@ -285,6 +291,12 @@ void eik3_deinit(eik3_s *eik) {
     alist_deinit(eik->rho1);
     alist_dealloc(&eik->rho1);
   }
+
+  eik->is_initialized = false;
+}
+
+bool eik3_is_initialized(eik3_s const *eik) {
+  return eik->is_initialized;
 }
 
 static bool is_singular(eik3_s const *eik, size_t l) {
