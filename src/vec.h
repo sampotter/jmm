@@ -108,7 +108,7 @@ void dbl4_sub(dbl4 const u, dbl4 const v, dbl4 w);
 void dbl4_zero(dbl4 u);
 
 dbl dblN_mean(dbl const *x, size_t n);
-dbl dblN_ndot(dbl const * restrict x, dbl const * restrict y, size_t n);
+dbl dblN_ndot(dbl const *x, dbl const *y, size_t n);
 dbl dblN_nsum(dbl const *x, size_t n);
 void dblN_minmax(dbl const *x, size_t n, dbl *min, dbl *max);
 
