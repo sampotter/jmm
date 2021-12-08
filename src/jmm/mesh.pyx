@@ -86,6 +86,70 @@ cdef class Mesh2:
     def bounding_box(self):
         return Rect3(mesh2_get_bounding_box(self.mesh))
 
+cdef class Mesh22:
+    def __dealloc__(self):
+        if self.ptr_owner:
+            mesh22_deinit(self.mesh)
+            mesh22_dealloc(&self.mesh)
+
+    @staticmethod
+    def from_verts_and_faces(dbl[:, ::1] verts, size_t[:, ::1] faces):
+        mesh = Mesh22()
+        mesh.ptr_owner = True
+        mesh22_alloc(&mesh.mesh)
+        cdef size_t nverts = verts.shape[0]
+        cdef size_t nfaces = faces.shape[0]
+        mesh22_init(mesh.mesh,
+                    <const dbl2 *>&verts[0, 0], nverts,
+                    <const size_t (*)[3]>&faces[0, 0], nfaces)
+        mesh._set_views()
+        return mesh
+
+    @staticmethod
+    cdef from_ptr(const mesh22 *mesh_ptr, ptr_owner=False):
+        mesh = Mesh22()
+        mesh.ptr_owner = ptr_owner
+        mesh.mesh = <mesh22 *>mesh_ptr
+        mesh._set_views()
+        return mesh
+
+    cdef _set_views(self):
+        self.verts_view = ArrayView(2)
+        self.verts_view.readonly = True
+        self.verts_view.ptr = <void *>mesh22_get_verts_ptr(self.mesh)
+        self.verts_view.shape[0] = self.num_verts
+        self.verts_view.shape[1] = 2
+        self.verts_view.strides[0] = 2*sizeof(dbl)
+        self.verts_view.strides[1] = 1*sizeof(dbl)
+        self.verts_view.format = 'd'
+        self.verts_view.itemsize = sizeof(dbl)
+
+        self.faces_view = ArrayView(2)
+        self.faces_view.readonly = True
+        self.faces_view.ptr = <void *>mesh22_get_faces_ptr(self.mesh)
+        self.faces_view.shape[0] = self.num_faces
+        self.faces_view.shape[1] = 3
+        self.faces_view.strides[0] = 3*sizeof(size_t)
+        self.faces_view.strides[1] = 1*sizeof(size_t)
+        self.faces_view.format = 'L'
+        self.faces_view.itemsize = sizeof(size_t)
+
+    @property
+    def num_verts(self):
+        return mesh22_nverts(self.mesh)
+
+    @property
+    def num_faces(self):
+        return mesh22_nfaces(self.mesh)
+
+    @property
+    def verts(self):
+        return np.asarray(self.verts_view)
+
+    @property
+    def faces(self):
+        return np.asarray(self.faces_view)
+
 cdef class Mesh3Tetra:
     @staticmethod
     cdef from_robj_ptr(const robj *obj):

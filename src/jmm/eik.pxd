@@ -7,7 +7,7 @@ from jmm.field cimport field2
 from jmm.grid cimport grid2, Grid2
 from jmm.jet cimport jet2, jet22t, jet3
 from jmm.par cimport par2, par3
-from jmm.mesh cimport mesh3
+from jmm.mesh cimport mesh22, mesh3
 
 cdef extern from "eik.h":
     cdef struct eik:
@@ -75,6 +75,36 @@ cdef class Eik2g1:
         ArrayView D2T_view
         ArrayView l_view
         ArrayView lam_view
+
+cdef extern from "eik2m1.h":
+    cdef struct eik2m1:
+        pass
+
+    void eik2m1_alloc(eik2m1 **eik)
+    void eik2m1_dealloc(eik2m1 **eik)
+    void eik2m1_init(eik2m1 *eik, const mesh22 *mesh)
+    void eik2m1_deinit(eik2m1 *eik)
+    size_t eik2m1_peek(const eik2m1 *eik)
+    size_t eik2m1_step(eik2m1 *eik)
+    void eik2m1_solve(eik2m1 *eik)
+    bool eik2m1_is_solved(const eik2m1 *eik)
+    void eik2m1_add_trial(eik2m1 *eik, size_t l, jet22t jet)
+    void eik2m1_add_valid(eik2m1 *eik, size_t l, jet22t jet)
+    bool eik2m1_is_valid(const eik2m1 *eik, size_t l)
+    bool eik2m1_is_trial(const eik2m1 *eik, size_t l)
+    bool eik2m1_is_far(const eik2m1 *eik, size_t l)
+    const state *eik2m1_get_state_ptr(const eik2m1 *eik)
+    const jet22t *eik2m1_get_jet_ptr(const eik2m1 *eik)
+    par2 eik2m1_get_par(const eik2m1 *eik, size_t l)
+    const par2 *eik2m1_get_par_ptr(const eik2m1 *eik)
+
+cdef class Eik2m1:
+    cdef:
+        eik2m1 *eik
+        ArrayView state_view
+        ArrayView T_view
+        ArrayView DT_view
+        ArrayView D2T_view
 
 cdef extern from "eik3.h":
     cdef struct eik3:

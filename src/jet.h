@@ -22,7 +22,9 @@ typedef struct {
 } jet22t;
 
 jet22t jet22t_make_empty();
+bool jet22t_is_finite(jet22t const *jet);
 bool jet22t_is_point_source(jet22t const *jet);
+jet22t jet22t_sub(jet22t const *J, jet22t const *K);
 
 typedef struct {
   dbl f;

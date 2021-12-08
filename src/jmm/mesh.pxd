@@ -1,5 +1,5 @@
 from jmm.array_view cimport ArrayView
-from jmm.defs cimport bool, dbl
+from jmm.defs cimport bool, dbl, dbl2, dbl3, uint3
 from jmm.geom cimport rect3, tri3
 from jmm.rtree cimport robj
 
@@ -41,6 +41,37 @@ cdef class Mesh2:
 
     @staticmethod
     cdef from_ptr(const mesh2 *mesh_ptr, ptr_owner=?)
+
+    cdef _set_views(self)
+
+cdef extern from "mesh22.h":
+    cdef struct mesh22:
+        pass
+
+    void mesh22_alloc(mesh22 **mesh)
+    void mesh22_dealloc(mesh22 **mesh)
+    void mesh22_init(mesh22 *mesh, const dbl2 *verts, size_t nverts,
+                     const uint3 *faces, size_t nfaces)
+    void mesh22_deinit(mesh22 *mesh)
+    const dbl2 *mesh22_get_verts_ptr(const mesh22 *mesh)
+    const uint3 *mesh22_get_faces_ptr(const mesh22 *mesh)
+    size_t mesh22_nverts(const mesh22 *mesh)
+    size_t mesh22_nfaces(const mesh22 *mesh)
+    void mesh22_get_vert(const mesh22 *mesh, size_t l, dbl2 x)
+    size_t mesh22_nvf(const mesh22 *mesh, size_t l)
+    void mesh22_vf(const mesh22 *mesh, size_t l, size_t *vf)
+    size_t mesh22_nvv(const mesh22 *mesh, size_t l)
+    void mesh22_vv(const mesh22 *mesh, size_t l, size_t *vv)
+
+cdef class Mesh22:
+    cdef:
+        bool ptr_owner
+        mesh22 *mesh
+        ArrayView verts_view
+        ArrayView faces_view
+
+    @staticmethod
+    cdef from_ptr(mesh22 *mesh_ptr, ptr_owner=?)
 
     cdef _set_views(self)
 

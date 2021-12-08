@@ -16,6 +16,8 @@ cdef extern from "def.h":
 
     ctypedef int[2] int2
 
+    ctypedef size_t[3] uint3
+
     cdef enum state:
         FAR
         TRIAL

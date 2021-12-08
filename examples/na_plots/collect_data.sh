@@ -1,7 +1,7 @@
 #!/bin/sh
 
 RUN_EIK2G1_PATH=../../build/run_eik2g1
-RFAC=0.1
+RFAC=0.3
 OUTDIR=./out
 
 mkdir -p $OUTDIR
@@ -15,5 +15,6 @@ do
         $OUTDIR/jet_gt_$N.bin \
         $OUTDIR/jet_$N.bin \
         $OUTDIR/l_$N.bin \
-        $OUTDIR/lam_$N.bin
+        $OUTDIR/lam_$N.bin \
+	$OUTDIR/sol_infos_for_par_$N.txt
 done

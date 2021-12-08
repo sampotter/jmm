@@ -47,6 +47,11 @@ dbl dbl2_sum(dbl2 const u) {
   return u[0] + u[1];
 }
 
+dbl dbl2_wnormsq(dbl22 const A, dbl2 const x) {
+  dbl2 y = {dbl2_dot(A[0], x), dbl2_dot(A[1], x)};
+  return dbl2_dot(y, x);
+}
+
 void dbl2_add(dbl2 const u, dbl2 const v, dbl2 w) {
   w[0] = u[0] + v[0];
   w[1] = u[1] + v[1];

@@ -22,8 +22,20 @@ jet22t jet22t_make_empty() {
   };
 }
 
+bool jet22t_is_finite(jet22t const *jet) {
+  return isfinite(jet->f) && dbl2_isfinite(jet->Df) && dbl22_isfinite(jet->D2f);
+}
+
 bool jet22t_is_point_source(jet22t const *jet) {
   return isfinite(jet->f) && dbl2_all_nan(jet->Df) && dbl22_all_nan(jet->D2f);
+}
+
+jet22t jet22t_sub(jet22t const *J, jet22t const *K) {
+  jet22t L;
+  L.f = J->f - K->f;
+  dbl2_sub(J->Df, K->Df, L.Df);
+  dbl22_sub(J->D2f, K->D2f, L.D2f);
+  return L;
 }
 
 jet3 jet3_make_empty() {

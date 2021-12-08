@@ -49,8 +49,8 @@ void dbl22_dbl2_mul(dbl22 const A, dbl2 const x, dbl2 b) {
 
 void dbl22_dbl2_solve(dbl22 const A, dbl2 const b, dbl2 x) {
   dbl det = dbl22_det(A);
-  x[0] = (A[1][1]*b[0] - A[1][0]*b[1])/det;
-  x[1] = (A[0][0]*b[1] - A[0][1]*b[0])/det;
+  x[0] = (A[1][1]*b[0] - A[0][1]*b[1])/det;
+  x[1] = (A[0][0]*b[1] - A[1][0]*b[0])/det;
 }
 
 void dbl22_dbl_div(dbl22 const A, dbl a, dbl22 B) {

@@ -10,7 +10,7 @@ from jmm.defs cimport int2
 from jmm.field cimport SlownessFunc2
 from jmm.grid cimport Grid2, Grid3
 from jmm.jet cimport jet2, Jet2, Jet22t, Jet3
-from jmm.mesh cimport mesh3, Mesh3, mesh3_nverts
+from jmm.mesh cimport Mesh22, mesh3, Mesh3, mesh3_nverts
 from jmm.par cimport Parent2, Parent3
 from jmm.xfer cimport xfer
 
@@ -300,6 +300,93 @@ cdef class Eik2g1:
     @property
     def lam(self):
         return np.asarray(self.lam_view)
+
+cdef class Eik2m1:
+    def __init__(self, *args):
+        if len(args) > 0:
+            raise RuntimeError('construct Eik2m1 using factory functions')
+
+    def __cinit__(self, *args):
+        if len(args) > 0:
+            raise RuntimeError('construct Eik2m1 using factory functions')
+
+    @staticmethod
+    def from_mesh(Mesh22 mesh):
+        eik = Eik2m1()
+        eik2m1_alloc(&eik.eik)
+        eik2m1_init(eik.eik, mesh.mesh)
+        eik._init_views()
+        return eik
+
+    def _init_views(self):
+        self.state_view = ArrayView(1)
+        self.state_view.readonly = True
+        self.state_view.ptr = <void *>eik2m1_get_state_ptr(self.eik)
+        self.state_view.shape[0] = self.size
+        self.state_view.strides[0] = sizeof(state)
+        self.state_view.format = 'i'
+        self.state_view.itemsize = sizeof(state)
+
+        self.T_view = ArrayView(1)
+        self.T_view.readonly = True
+        self.T_view.ptr = <void *>&eik2m1_get_jet_ptr(self.eik).f
+        self.T_view.shape[0] = self.size
+        self.T_view.strides[0] = sizeof(jet22t)
+        self.T_view.format = 'd'
+        self.T_view.itemsize = 1*sizeof(dbl)
+
+        self.DT_view = ArrayView(2)
+        self.DT_view.readonly = True
+        self.DT_view.ptr = <void *>&eik2m1_get_jet_ptr(self.eik).Df
+        self.DT_view.shape[0] = self.size
+        self.DT_view.shape[1] = 2
+        self.DT_view.strides[0] = sizeof(jet22t)
+        self.DT_view.strides[1] = 1*sizeof(dbl)
+        self.DT_view.format = 'd'
+        self.DT_view.itemsize = 1*sizeof(dbl)
+
+        self.D2T_view = ArrayView(3)
+        self.D2T_view.readonly = True
+        self.D2T_view.ptr = <void *>eik2m1_get_jet_ptr(self.eik)
+        self.D2T_view.shape[0] = self.size
+        self.D2T_view.shape[1] = 2
+        self.D2T_view.shape[2] = 2
+        self.D2T_view.strides[0] = sizeof(jet22t)
+        self.D2T_view.strides[1] = 2*sizeof(dbl)
+        self.D2T_view.strides[2] = 1*sizeof(dbl)
+        self.D2T_view.format = 'd'
+        self.D2T_view.itemsize = 1*sizeof(dbl)
+
+    def add_valid(self, size_t l, Jet22t jet):
+        eik2m1_add_valid(self.eik, l, jet.jet)
+
+    def add_trial(self, size_t l, Jet22t jet):
+        eik2m1_add_trial(self.eik, l, jet.jet)
+
+    def peek(self):
+        return eik2m1_peek(self.eik)
+
+    def step(self):
+        eik2m1_step(self.eik)
+
+    def solve(self):
+        eik2m1_solve(self.eik)
+
+    @property
+    def state(self):
+        return np.asarray(self.state_view)
+
+    @property
+    def T(self):
+        return np.asarray(self.T_view)
+
+    @property
+    def DT(self):
+        return np.asarray(self.DT_view)
+
+    @property
+    def D2T(self):
+        return np.asarray(self.D2T_view)
 
 cdef class Eik3:
     def __init__(self, *args):

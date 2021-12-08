@@ -25,6 +25,7 @@ dbl dbl2_maxnorm(dbl2 const u);
 dbl dbl2_norm(dbl2 const u);
 dbl dbl2_normsq(dbl2 const u);
 dbl dbl2_sum(dbl2 const u);
+dbl dbl2_wnormsq(dbl22 const A, dbl2 const x);
 void dbl2_add(dbl2 const u, dbl2 const v, dbl2 w);
 void dbl2_avg(dbl2 const u, dbl2 const v, dbl2 w);
 void dbl2_copy(dbl2 const u, dbl2 v);

@@ -7,6 +7,7 @@
 #include "bb.h"
 #include "heap.h"
 #include "mat.h"
+#include "util.h"
 #include "utri21.h"
 #include "vec.h"
 
@@ -220,6 +221,11 @@ jet22t const *eik2g1_get_jet_ptr(eik2g1_s const *eik) {
   return eik->jet;
 }
 
+bool eik2g1_has_par(eik2g1_s const *eik, int2 const ind) {
+  size_t l = grid2_ind2l(eik->grid, ind);
+  return !par2_is_empty(&eik->par[l]);
+}
+
 par2_s eik2g1_get_par(eik2g1_s const *eik, int2 const ind) {
   size_t l = grid2_ind2l(eik->grid, ind);
   return eik->par[l];
@@ -227,4 +233,105 @@ par2_s eik2g1_get_par(eik2g1_s const *eik, int2 const ind) {
 
 par2_s const *eik2g1_get_par_ptr(eik2g1_s const *eik) {
   return eik->par;
+}
+
+eik2g1_sol_info_s eik2g1_get_sol_info(eik2g1_s const *eik, int2 const ind) {
+  eik2g1_sol_info_s sol_info;
+
+  size_t l = grid2_ind2l(eik->grid, ind);
+  size_t l0 = eik->par[l].l[0], l1 = eik->par[l].l[1];
+
+  sol_info.lam_T = eik->par[l].b[1];
+
+  dbl2 xhat, x[2], dx;
+  grid2_l2xy(eik->grid, l, xhat);
+  grid2_l2xy(eik->grid, l0, x[0]);
+  grid2_l2xy(eik->grid, l1, x[1]);
+  dbl2_sub(x[1], x[0], dx);
+
+  jet22t jet_tau[2];
+
+  jet_tau[0].f = dbl2_norm(x[0]);
+  jet_tau[1].f = dbl2_norm(x[1]);
+
+  dbl2_normalized(x[0], jet_tau[0].Df);
+  dbl2_normalized(x[1], jet_tau[1].Df);
+
+  dbl22 eye;
+  dbl22_eye(eye);
+
+  for (size_t i = 0; i < 2; ++i) {
+    dbl22 DT_otimes_DT;
+    dbl2_outer(jet_tau[i].Df, jet_tau[i].Df, DT_otimes_DT);
+
+    dbl22_sub(eye, DT_otimes_DT, jet_tau[i].D2f);
+
+    dbl22_dbl_div_inplace(jet_tau[i].D2f, jet_tau[i].f);
+  }
+
+  utri21_s utri_tau;
+  utri21_init(&utri_tau, xhat, x, jet_tau);
+  utri21_solve(&utri_tau, &sol_info.lam_tau);
+
+  dbl22 Dtau_otimes_Dtau;
+  dbl2_outer(xhat, xhat, Dtau_otimes_Dtau);
+  dbl22_dbl_div_inplace(Dtau_otimes_Dtau, dbl2_dot(xhat, xhat));
+
+  dbl22 D2tau;
+  dbl22_sub(eye, Dtau_otimes_Dtau, D2tau);
+  dbl22_dbl_div_inplace(D2tau, dbl2_norm(xhat));
+
+  dbl numer = dbl2_wnormsq(D2tau, x[0]);
+  dbl denom = dbl2_wnormsq(D2tau, dx);
+  sol_info.lam_star = sqrt(clamp(numer/denom, 0, 1));
+
+  dbl T[2] = {eik->jet[l0].f, eik->jet[l1].f};
+  dbl DT[2] = {dbl2_dot(dx, eik->jet[l0].Df), dbl2_dot(dx, eik->jet[l1].Df)};
+  bb31 bb_T;
+  bb31_init_from_1d_data(&bb_T, T, DT, (dbl2) {0, 1});
+
+  sol_info.E0 = eik->jet[l].f - dbl2_norm(xhat);
+
+  dbl2 xlamT;
+  dbl2_saxpy(sol_info.lam_T, dx, x[0], xlamT);
+
+  sol_info.That = bb31_f(&bb_T, (dbl2) {1 - sol_info.lam_T, sol_info.lam_T}) +
+    dbl2_dist(xhat, xlamT);
+
+  jet22t jet_T[2] = {eik->jet[l0], eik->jet[l1]};
+
+  utri21_s utri_T;
+  utri21_init(&utri_T, xhat, x, jet_T);
+  utri21_solve(&utri_T, &sol_info.lam_T_check);
+
+  sol_info.FT_lamT = utri21_F(&utri_T, sol_info.lam_T);
+  sol_info.Ftau_lamT = utri21_F(&utri_tau, sol_info.lam_T);
+  sol_info.Ftau_lamtau = utri21_F(&utri_tau, sol_info.lam_tau);
+
+  sol_info.E0_check0 = sol_info.That - dbl2_norm(xhat);
+  sol_info.E0_check1 = sol_info.FT_lamT - dbl2_norm(xhat);
+  sol_info.E0_check2 = sol_info.FT_lamT - sol_info.Ftau_lamT
+    + sol_info.Ftau_lamT - dbl2_norm(xhat);
+  sol_info.E0_check3 = sol_info.FT_lamT - sol_info.Ftau_lamT
+    + sol_info.Ftau_lamT - sol_info.Ftau_lamtau
+    + sol_info.Ftau_lamtau - dbl2_norm(xhat);
+
+  sol_info.E0_term1 = sol_info.FT_lamT - sol_info.Ftau_lamT;
+  sol_info.E0_term2 = sol_info.Ftau_lamT - sol_info.Ftau_lamtau;
+  sol_info.E0_term3 = sol_info.Ftau_lamtau - dbl2_norm(xhat);
+
+  jet22t jet_E[2];
+  jet_E[0] = jet22t_sub(&jet_T[0], &jet_tau[0]);
+  jet_E[1] = jet22t_sub(&jet_T[1], &jet_tau[1]);
+
+  bb31 bb_E;
+  bb31_init_from_jet22t(&bb_E, jet_E, x);
+  sol_info.E0_term1_v2 = bb31_f(&bb_E, (dbl2) {1 - sol_info.lam_T, sol_info.lam_T});
+
+  sol_info.T0_error = jet_E[0].f;
+  sol_info.T1_error = jet_E[1].f;
+  sol_info.DT0_error = dbl2_dot(dx, jet_E[0].Df);
+  sol_info.DT1_error = dbl2_dot(dx, jet_E[1].Df);
+
+  return sol_info;
 }

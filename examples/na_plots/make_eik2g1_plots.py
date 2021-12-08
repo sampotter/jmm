@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import colorcet as cc
+import itertools as it
 import matplotlib.pyplot as plt
 import numpy as np
 import sys
@@ -45,12 +46,14 @@ if __name__ == '__main__':
 
     print('making pointwise error plots')
 
+    E = dict()
+
     for n in N:
         print(f'- n = {n}')
 
-        E = jet[n] - jet_gt[n]
+        E[n] = jet[n] - jet_gt[n]
 
-        vmax = np.nanmax(abs(E), axis=0)
+        vmax = np.nanmax(abs(E[n]), axis=0)
         vmin = -vmax
 
         def get_kwargs(i):
@@ -70,13 +73,13 @@ if __name__ == '__main__':
             plt.title(title)
 
         plt.figure(figsize=(14, 4))
-        make_subplot((2, 4, 1), E[:, 0].reshape(n, n), 0, r'$T - \tau$')
-        make_subplot((2, 4, 2), E[:, 1].reshape(n, n), 1, r'$T_x - \tau_x$')
-        make_subplot((2, 4, 6), E[:, 2].reshape(n, n), 2, r'$T_y - \tau_y$')
-        make_subplot((2, 4, 3), E[:, 3].reshape(n, n), 3, r'$T_{xx} - \tau_{xx}$')
-        make_subplot((2, 4, 4), E[:, 4].reshape(n, n), 4, r'$T_{yx} - \tau_{yx}$')
-        make_subplot((2, 4, 7), E[:, 5].reshape(n, n), 5, r'$T_{xy} - \tau_{xy}$')
-        make_subplot((2, 4, 8), E[:, 6].reshape(n, n), 6, r'$T_{yy} - \tau_{yy}$')
+        make_subplot((2, 4, 1), E[n][:, 0].reshape(n, n), 0, r'$T - \tau$')
+        make_subplot((2, 4, 2), E[n][:, 1].reshape(n, n), 1, r'$T_x - \tau_x$')
+        make_subplot((2, 4, 6), E[n][:, 2].reshape(n, n), 2, r'$T_y - \tau_y$')
+        make_subplot((2, 4, 3), E[n][:, 3].reshape(n, n), 3, r'$T_{xx} - \tau_{xx}$')
+        make_subplot((2, 4, 4), E[n][:, 4].reshape(n, n), 4, r'$T_{yx} - \tau_{yx}$')
+        make_subplot((2, 4, 7), E[n][:, 5].reshape(n, n), 5, r'$T_{xy} - \tau_{xy}$')
+        make_subplot((2, 4, 8), E[n][:, 6].reshape(n, n), 6, r'$T_{yy} - \tau_{yy}$')
         plt.tight_layout()
         # plt.show()
         plt.savefig('out/eik2g1_E_%d.png' % n)
@@ -191,29 +194,85 @@ if __name__ == '__main__':
         mask = np.isfinite(e)
         error_rel2_D2J.append(np.linalg.norm(e[mask])/np.linalg.norm(jet[n][:, I].ravel()[mask]))
 
-    plt.figure(figsize=(8, 8))
-    plt.loglog(N, error_rel2_J, label=r'$\tau - T$', marker='*')
-    plt.loglog(N, error_rel2_DJ, label=r'$\nabla\tau - \nabla T$', marker='*')
-    plt.loglog(N, error_rel2_D2J, label=r'$\nabla^2\tau - \nabla^2 T$', marker='*')
+    H = 1/np.array(N)
+
+    plt.figure(figsize=(4, 4))
+    plt.loglog(H, error_rel2_J, label=r'$\tau - T$', marker='*')
+    plt.loglog(H, error_rel2_DJ, label=r'$\nabla\tau - \nabla T$', marker='*')
+    plt.loglog(H, error_rel2_D2J, label=r'$\nabla^2\tau - \nabla^2 T$', marker='*')
     plt.legend()
-    plt.xlabel('$n$')
+    plt.xlabel('$h$')
     plt.ylabel(r'Relative $\ell_2$ error')
     plt.tight_layout()
-    plt.savefig('out/error_rel2.png')
+    plt.savefig('out/eik2g1_error_rel2.png')
     plt.close()
 
     ########################################################################
     # fit Ch^p to each set of errors
 
-    print('writing convergence rates to out/convergence_rates.txt')
-
-    H = 1/np.array(N)
+    print('writing convergence rates to out/eik2g1_convergence_rates.txt')
 
     p_J, C_J = np.polyfit(np.log(H), np.log(error_rel2_J), 1)
     p_DJ, C_DJ = np.polyfit(np.log(H), np.log(error_rel2_DJ), 1)
     p_D2J, C_D2J = np.polyfit(np.log(H), np.log(error_rel2_D2J), 1)
 
-    with open('out/convergence_rates.txt', 'w') as f:
+    with open('out/eik2g1_convergence_rates.txt', 'w') as f:
         print('J: p = %1.3f (C = %1.3f)' % (p_J, C_J), file=f)
         print('DJ: p = %1.3f (C = %1.3f)' % (p_DJ, C_DJ), file=f)
         print('D2J: p = %1.3f (C = %1.3f)' % (p_D2J, C_D2J), file=f)
+
+    ########################################################################
+    # do pointwise convergence plots
+
+    E0 = np.empty((N[0], N[0], 7, len(N)))
+    for i, n in enumerate(N):
+        step = int((n - 1)/(N[0] - 1))
+        E0[:, :, :, i] = E[n].reshape(n, n, 7)[::step, ::step]
+
+    C = np.empty(E0.shape[:3])
+    C[...] = np.nan
+
+    p = C.copy()
+    p[...] = np.nan
+
+    for i, j, k in it.product(range(N[0]), range(N[0]), range(7)):
+        abs_error = abs(E0[i, j, k, :])
+        if abs_error.max() > np.finfo(np.float64).resolution and \
+           np.isfinite(abs_error).all():
+            p_k, C_k = np.polyfit(np.log(H), np.log(abs(E0[i, j, k, :])), 1)
+            C[i, j, k] = C_k
+            p[i, j, k] = p_k
+
+    plt.figure(figsize=(9, 2.75))
+
+    plt.subplot(1, 3, 1)
+    plt.imshow(p[:, :, 0], extent=[-1, 1, -1, 1], cmap=cc.cm.rainbow,
+               vmin=2.5, vmax=3.5, interpolation='none')
+    plt.xlabel('$x$')
+    plt.ylabel('$y$')
+    plt.title(r'$\tau - T$')
+    plt.gca().set_aspect('equal')
+    plt.colorbar(shrink=0.8)
+
+    plt.subplot(1, 3, 2)
+    plt.imshow(p[:, :, 1], extent=[-1, 1, -1, 1], cmap=cc.cm.rainbow,
+               vmin=2.5, vmax=3.5, interpolation='none')
+    plt.xlabel('$x$')
+    plt.ylabel('$y$')
+    plt.title(r'$\tau_x - T_x$')
+    plt.gca().set_aspect('equal')
+    plt.colorbar(shrink=0.8)
+
+    plt.subplot(1, 3, 3)
+    plt.imshow(p[:, :, 3], extent=[-1, 1, -1, 1], cmap=cc.cm.rainbow,
+               vmin=2.5, vmax=3.5, interpolation='none')
+    plt.xlabel('$x$')
+    plt.ylabel('$y$')
+    plt.title(r'$\tau_{xx} - T_{xx}$')
+    plt.gca().set_aspect('equal')
+    plt.colorbar(shrink=0.8)
+
+    plt.tight_layout()
+    # plt.show()
+    plt.savefig('out/eik2g1_ptwise.png')
+    plt.close()

@@ -66,10 +66,8 @@ dbl shrink(dbl x, dbl eps) {
 
 bool contains(void const *arr, size_t len, void const *elt, size_t size) {
   char *ptr = (char *)arr;
-  for (int i = 0; i < len; ++i) {
-    if (!memcmp((void *)(ptr + size*i), elt, size)) {
+  for (size_t i = 0; i < len; ++i)
+    if (!memcmp((void *)(ptr + size*i), elt, size))
       return true;
-    }
-  }
   return false;
 }

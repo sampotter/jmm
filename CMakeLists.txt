@@ -93,6 +93,7 @@ set (JMM_SRCS
   src/edge.c
   src/eik.c
   src/eik2g1.c
+  src/eik2m1.c
   src/eik_F3.c
   src/eik_F4.c
   src/eik_S4.c
@@ -108,6 +109,7 @@ set (JMM_SRCS
   src/log.c
   src/mat.c
   src/mesh2.c
+  src/mesh22.c
   src/mesh3.c
   src/opt.c
   src/par.c
@@ -120,6 +122,7 @@ set (JMM_SRCS
   src/utetra.c
   src/util.c
   src/utri.c
+  src/utri21.c
   src/vec.c
   src/xfer.c
   )
@@ -178,6 +181,11 @@ target_include_directories (viz_error_using_raytracing PRIVATE jmm)
 add_executable (run_eik2g1 examples/na_plots/run_eik2g1.c)
 target_link_libraries (run_eik2g1 jmm)
 target_include_directories (run_eik2g1 PRIVATE jmm)
+
+# run_eik2m1
+add_executable (run_eik2m1 examples/na_plots/run_eik2m1.c)
+target_link_libraries (run_eik2m1 jmm)
+target_include_directories (run_eik2m1 PRIVATE jmm)
 
 #
 # Unit tests

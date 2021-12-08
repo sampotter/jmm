@@ -3,6 +3,7 @@
 #include <assert.h>
 
 #include "hybrid.h"
+#include "log.h"
 #include "mat.h"
 
 void utri21_init(utri21_s *utri, dbl2 const xhat, dbl2 const x[2],
@@ -48,14 +49,14 @@ dbl utri21_dF(utri21_s const *wkspc, dbl lam) {
 bool utri21_solve(utri21_s *utri, dbl *lam) {
   bool found = hybrid((hybrid_cost_func_t)utri21_dF, 0, 1, utri, lam);
 
-  dbl T0 = utri21_F(utri, 0);
-  dbl T1 = utri21_F(utri, 1);
+  dbl F0 = utri21_F(utri, 0);
+  dbl F1 = utri21_F(utri, 1);
 
   dbl T;
   if (found) {
     T = utri21_F(utri, *lam);
   } else {
-    *lam = T0 < T1 ? 0 : 1;
+    *lam = F0 < F1 ? 0 : 1;
 
     // Compute the Lagrange multiplier for the active constraint and
     // return if it's positive
@@ -63,11 +64,16 @@ bool utri21_solve(utri21_s *utri, dbl *lam) {
     if (mu > 0)
       return false;
 
-    T = fmin(T0, T1);
+    T = fmin(F0, F1);
   }
 
-  assert(T > T0);
-  assert(T > T1);
+  // TODO: undecided about whether forcing this is necessary... seems
+  // like it's doing more harm than good:
+
+  // dbl T0 = utri->T.c[0], T1 = utri->T.c[3];
+  // assert(T > fmax(T0, T1));
+  // if (T <= fmax(T0, T1))
+  //   return false;
 
   jet22t *jet = &utri->jet;
 

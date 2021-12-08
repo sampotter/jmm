@@ -367,6 +367,12 @@ void ray3_get_point(ray3 const *ray, dbl t, dbl x[3]) {
 }
 
 bool ray3_intersects_rect3(ray3 const *ray, rect3 const *rect, dbl *t) {
+  // TODO: this is probably wrong. See:
+  //
+  //   http://people.csail.mit.edu/amy/papers/box-jgt.pdf
+  //
+  // for an algorithm which should work.
+
   dbl const *p = ray->org, *d = ray->dir;
   dbl const *m = rect->min, *M = rect->max;
 
