@@ -46,8 +46,12 @@ dbl utri21_dF(utri21_s const *wkspc, dbl lam) {
   return T_lam + L_lam;
 }
 
+static dbl cost_func(dbl lam, void *context) {
+  return utri21_dF(context, lam);
+}
+
 bool utri21_solve(utri21_s *utri, dbl *lam) {
-  bool found = hybrid((hybrid_cost_func_t)utri21_dF, 0, 1, utri, lam);
+  bool found = hybrid(cost_func, 0, 1, utri, lam);
 
   dbl F0 = utri21_F(utri, 0);
   dbl F1 = utri21_F(utri, 1);
