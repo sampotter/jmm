@@ -83,7 +83,7 @@ jmm_3d_wedge_problem_solve(jmm_3d_wedge_problem_s *wedge, dbl sp, dbl phip,
 
   /* Set up and solve the direct eikonal problem */
 
-  eik3_init(wedge->eik_direct, wedge->mesh, FTYPE_POINT_SOURCE, NULL);
+  eik3_init(wedge->eik_direct, wedge->mesh, FTYPE_POINT_SOURCE);
 
   size_t num_initialized = 0;
   for (size_t i = 0; i < mesh3_ncells(wedge->mesh); ++i) {
