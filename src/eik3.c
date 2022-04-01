@@ -259,6 +259,18 @@ bool eik3_is_initialized(eik3_s const *eik) {
   return eik->is_initialized;
 }
 
+void eik3_dump_jet(eik3_s const *eik, char const *path) {
+  FILE *fp = fopen(path, "wb");
+  fwrite(eik->jet, sizeof(eik->jet[0]), mesh3_nverts(eik->mesh), fp);
+  fclose(fp);
+}
+
+void eik3_dump_state(eik3_s const *eik, char const *path) {
+  FILE *fp = fopen(path, "wb");
+  fwrite(eik->state, sizeof(eik->state[0]), mesh3_nverts(eik->mesh), fp);
+  fclose(fp);
+}
+
 static bool is_singular(eik3_s const *eik, size_t l) {
   bool singular_gradient = !dbl3_isfinite(eik->jet[l].Df);
 #if JMM_DEBUG

@@ -19,6 +19,8 @@ void mesh2_init(mesh2_s *mesh, dbl const *verts, size_t nverts,
 void mesh2_init_from_binary_files(mesh2_s *mesh, char const *verts_path,
                                   char const *faces_path);
 void mesh2_deinit(mesh2_s *mesh);
+void mesh2_dump_verts(mesh2_s const *mesh, char const *path);
+void mesh2_dump_faces(mesh2_s const *mesh, char const *path);
 size_t mesh2_get_num_points(mesh2_s const *mesh);
 dbl *mesh2_get_points_ptr(mesh2_s const *mesh);
 size_t mesh2_get_num_faces(mesh2_s const *mesh);

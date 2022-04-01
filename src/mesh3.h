@@ -123,6 +123,8 @@ void mesh3_get_bdf_inc_on_edge(mesh3_s const *mesh, size_t const le[2], size_t (
 void mesh3_get_edge_tangent(mesh3_s const *mesh, size_t const le[2], dbl t[3]);
 void mesh3_get_edge_midpoint(mesh3_s const *mesh, size_t const le[2], dbl p[3]);
 void mesh3_get_face_centroid(mesh3_s const *mesh, size_t const lf[3], dbl p[3]);
+void mesh3_dump_verts(mesh3_s const *mesh, char const *path);
+void mesh3_dump_cells(mesh3_s const *mesh, char const *path);
 
 #ifdef __cplusplus
 }

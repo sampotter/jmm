@@ -1821,3 +1821,15 @@ void mesh3_get_face_centroid(mesh3_s const *mesh, size_t const lf[3], dbl p[3]) 
     dbl3_add_inplace(p, mesh->verts[lf[i]]);
   dbl3_dbl_div_inplace(p, 3);
 }
+
+void mesh3_dump_verts(mesh3_s const *mesh, char const *path) {
+  FILE *fp = fopen(path, "wb");
+  fwrite(mesh->verts, sizeof(dbl[3]), mesh->nverts, fp);
+  fclose(fp);
+}
+
+void mesh3_dump_cells(mesh3_s const *mesh, char const *path) {
+  FILE *fp = fopen(path, "wb");
+  fwrite(mesh->cells, sizeof(size_t[4]), mesh->ncells, fp);
+  fclose(fp);
+}

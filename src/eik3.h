@@ -18,6 +18,9 @@ void eik3_init(eik3_s *eik, mesh3_s *mesh, ftype_e ftype);
 void eik3_deinit(eik3_s *eik);
 bool eik3_is_initialized(eik3_s const *eik);
 
+void eik3_dump_jet(eik3_s const *eik, char const *path);
+void eik3_dump_state(eik3_s const *eik, char const *path);
+
 void eik3_add_pt_src_BCs(eik3_s *eik, size_t l, jet32t jet);
 void eik3_add_refl_BCs(eik3_s *eik, size_t const lf[3], jet32t const jet[3]);
 

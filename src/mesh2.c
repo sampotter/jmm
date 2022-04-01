@@ -103,6 +103,18 @@ void mesh2_deinit(mesh2_s *mesh) {
   mesh->num_faces = 0;
 }
 
+void mesh2_dump_verts(mesh2_s const *mesh, char const *path) {
+  FILE *fp = fopen(path, "wb");
+  fwrite(mesh->points, sizeof(dbl[3]), mesh->num_points, fp);
+  fclose(fp);
+}
+
+void mesh2_dump_faces(mesh2_s const *mesh, char const *path) {
+  FILE *fp = fopen(path, "wb");
+  fwrite(mesh->faces, sizeof(size_t[3]), mesh->num_faces, fp);
+  fclose(fp);
+}
+
 size_t mesh2_get_num_points(mesh2_s const *mesh) {
   return mesh->num_points;
 }
