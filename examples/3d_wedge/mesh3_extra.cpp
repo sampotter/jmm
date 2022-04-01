@@ -33,48 +33,30 @@
 #define Y(i) in.pointlist[3*(i) + 1]
 #define Z(i) in.pointlist[3*(i) + 2]
 
-static void init_tetgenio_in_case1(tetgenio & in, jmm_3d_wedge_spec_s const *spec) {
-  size_t num_poly_corners = 7;
-
+static void init_tetgenio_before(tetgenio & in,
+                                 jmm_3d_wedge_spec_s const *spec,
+                                 size_t num_poly_corners,
+                                 dbl & xmin, dbl & ymin, dbl & zmin,
+                                 dbl & xmax, dbl & ymax, dbl & zmax,
+                                 dbl & theta)
+{
   in.numberofpoints = 2*num_poly_corners;
   in.pointlist = new REAL[3*in.numberofpoints];
 
-  dbl xmin = -spec->w/2, xmax = spec->w/2;
-  dbl ymin = -spec->w/2, ymax = spec->w/2;
-  dbl zmin = -spec->h/2, zmax = spec->h/2;
+  xmin = -spec->w/2, xmax = spec->w/2;
+  ymin = -spec->w/2, ymax = spec->w/2;
+  zmin = -spec->h/2, zmax = spec->h/2;
+  theta = JMM_PI*spec->n;
 
-  dbl theta = JMM_PI*spec->n;
+  for (size_t i = 0; i < num_poly_corners; ++i) {
+    Z(i) = zmin;
+    Z(i + num_poly_corners) = zmax;
+  }
+}
 
-  /* First num_poly_corners points are the bottom polygon */
-
-  X(0) = 0;
-  Y(0) = 0;
-  Z(0) = zmin;
-
-  X(1) = xmax;
-  Y(1) = ymax*sin(theta);
-  Z(1) = zmin;
-
-  X(2) = xmax;
-  Y(2) = ymax;
-  Z(2) = zmin;
-
-  X(3) = xmin;
-  Y(3) = ymax;
-  Z(3) = zmin;
-
-  X(4) = xmin;
-  Y(4) = ymin;
-  Z(4) = zmin;
-
-  X(5) = xmax;
-  Y(5) = ymin;
-  Z(5) = zmin;
-
-  X(6) = xmax;
-  Y(6) = 0;
-  Z(6) = zmin;
-
+static void init_tetgenio_after(tetgenio & in,
+                                size_t num_poly_corners,
+                                dbl zmax) {
   /* The next num_poly_corners are the top polygon. Same as before but with
    * Z(i) = zmax instead of zmin. */
 
@@ -148,26 +130,89 @@ static void init_tetgenio_in_case1(tetgenio & in, jmm_3d_wedge_spec_s const *spe
     in.facetmarkerlist[i] = i;
 }
 
+static void init_tetgenio_in_case1(tetgenio & in, jmm_3d_wedge_spec_s const *spec) {
+  size_t num_poly_corners = 7;
+  dbl xmin, ymin, zmin, xmax, ymax, zmax, theta;
+
+  init_tetgenio_before(
+    in, spec, num_poly_corners, xmin, ymin, zmin, xmax, ymax, zmax, theta);
+
+  X(0) = 0;     Y(0) = 0;
+  X(1) = xmax;  Y(1) = ymax*sin(theta);
+  X(2) = xmax;  Y(2) = ymax;
+  X(3) = xmin;  Y(3) = ymax;
+  X(4) = xmin;  Y(4) = ymin;
+  X(5) = xmax;  Y(5) = ymin;
+  X(6) = xmax;  Y(6) = 0;
+
+  init_tetgenio_after(in, num_poly_corners, zmax);
+}
+
+static void init_tetgenio_in_case2(tetgenio & in, jmm_3d_wedge_spec_s const *spec) {
+  size_t num_poly_corners = 6;
+  dbl xmin, ymin, zmin, xmax, ymax, zmax, theta;
+
+  init_tetgenio_before(
+    in, spec, num_poly_corners, xmin, ymin, zmin, xmax, ymax, zmax, theta);
+
+  X(0) = 0;                         Y(0) = 0;
+  X(1) = xmax*sin(JMM_PI - theta);  Y(1) = ymax;
+  X(2) = xmin;                      Y(2) = ymax;
+  X(3) = xmin;                      Y(3) = ymin;
+  X(4) = xmax;                      Y(4) = ymin;
+  X(5) = xmax;                      Y(5) = 0;
+
+  init_tetgenio_after(in, num_poly_corners, zmax);
+}
+
+static void init_tetgenio_in_case3(tetgenio & in, jmm_3d_wedge_spec_s const *spec) {
+  size_t num_poly_corners = 5;
+  dbl xmin, ymin, zmin, xmax, ymax, zmax, theta;
+
+  init_tetgenio_before(
+    in, spec, num_poly_corners, xmin, ymin, zmin, xmax, ymax, zmax, theta);
+
+  X(0) = 0;     Y(0) = 0;
+  X(1) = xmin;  Y(1) = ymax*sin(theta);
+  X(2) = xmin;  Y(2) = ymin;
+  X(3) = xmin;  Y(3) = ymax;
+  X(4) = xmax;  Y(4) = 0;
+
+  init_tetgenio_after(in, num_poly_corners, zmax);
+}
+
+static void init_tetgenio_in_case4(tetgenio & in, jmm_3d_wedge_spec_s const *spec) {
+  size_t num_poly_corners = 4;
+  dbl xmin, ymin, zmin, xmax, ymax, zmax, theta;
+
+  init_tetgenio_before(
+    in, spec, num_poly_corners, xmin, ymin, zmin, xmax, ymax, zmax, theta);
+
+  X(0) = 0;                                 Y(0) = 0;
+  X(1) = xmin*sin(theta - (5.0/4)*JMM_PI);  Y(1) = ymin;
+  X(2) = xmax;                              Y(2) = ymin;
+  X(3) = xmax;                              Y(3) = 0;
+
+  init_tetgenio_after(in, num_poly_corners, zmax);
+}
+
+static void init_tetgenio_in_case5(tetgenio & in, jmm_3d_wedge_spec_s const *spec) {
+  size_t num_poly_corners = 3;
+  dbl xmin, ymin, zmin, xmax, ymax, zmax, theta;
+
+  init_tetgenio_before(
+    in, spec, num_poly_corners, xmin, ymin, zmin, xmax, ymax, zmax, theta);
+
+  X(0) = 0;     Y(0) = 0;
+  X(1) = xmax;  Y(1) = ymin*sin(-theta);
+  X(2) = xmax;  Y(2) = 0;
+
+  init_tetgenio_after(in, num_poly_corners, zmax);
+}
+
 #undef X
 #undef Y
 #undef Z
-
-// static void init_tetgenio_in_case2(tetgenio & in, jmm_3d_wedge_spec_s const *spec) {
-//   assert(false);
-// }
-
-// static void init_tetgenio_in_case3(tetgenio & in, jmm_3d_wedge_spec_s const *spec) {
-//   (void)in;
-//   assert(false);
-// }
-
-// static void init_tetgenio_in_case4(tetgenio & in, jmm_3d_wedge_spec_s const *spec) {
-//   assert(false);
-// }
-
-// static void init_tetgenio_in_case5(tetgenio & in, jmm_3d_wedge_spec_s const *spec) {
-//   assert(false);
-// }
 
 static std::string get_switches_str(jmm_3d_wedge_spec_s const *spec) {
   std::ostringstream oss;
@@ -185,10 +230,10 @@ jmm_error_e mesh3_init_from_3d_wedge_spec(mesh3_s *mesh, jmm_3d_wedge_spec_s con
   tetgenio in, out;
 
   if (0 < spec->n && spec->n < 0.25) init_tetgenio_in_case1(in, spec);
-  // else if (0.25 < spec->n && spec->n < 0.75) init_tetgenio_in_case2(in, spec);
-  // else if (0.75 < spec->n && spec->n < 1.25) init_tetgenio_in_case3(in, spec);
-  // else if (1.25 < spec->n && spec->n < 1.75) init_tetgenio_in_case4(in, spec);
-  // else if (1.75 < spec->n && spec->n < 2) init_tetgenio_in_case5(in, spec);
+  else if (0.25 <= spec->n && spec->n < 0.75) init_tetgenio_in_case2(in, spec);
+  else if (0.75 <= spec->n && spec->n < 1.25) init_tetgenio_in_case3(in, spec);
+  else if (1.25 <= spec->n && spec->n < 1.75) init_tetgenio_in_case4(in, spec);
+  else if (1.75 <= spec->n && spec->n < 2) init_tetgenio_in_case5(in, spec);
   else return JMM_ERROR_BAD_ARGUMENTS;
 
   std::string switches = get_switches_str(spec);
@@ -206,6 +251,13 @@ jmm_error_e mesh3_init_from_3d_wedge_spec(mesh3_s *mesh, jmm_3d_wedge_spec_s con
     cells[i] = out.tetrahedronlist[i];
 
   mesh3_init(mesh, verts, nverts, cells, ncells, true, NULL);
+
+  rect3 bbox;
+  mesh3_get_bbox(mesh, &bbox);
+
+  printf("bounding box: [%g, %g] x [%g, %g] x [%g, %g]\n",
+         bbox.min[0], bbox.max[0], bbox.min[1], bbox.max[1],
+         bbox.min[2], bbox.max[2]);
 
   return JMM_ERROR_NONE;
 }

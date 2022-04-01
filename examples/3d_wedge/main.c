@@ -2,10 +2,6 @@
 #include <stdbool.h>
 #include <stdlib.h>
 
-#include <pthread.h>
-
-#include <GLFW/glfw3.h>
-
 #include "3d_wedge.h"
 
 const char *argp_program_version = "3d_wedge 0.0";
@@ -101,30 +97,21 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
   return EXIT_SUCCESS;
 }
 
-static struct argp argp = {options, parse_opt, args_doc, doc, 0, 0, 0};
-
-static void *solve_wedge_problem(void *vp) {
-  wkspc_s *w = (wkspc_s *)vp;
-
-  jmm_3d_wedge_problem_s *wedge = &w->wedge;
-  jmm_3d_wedge_spec_s *spec = &wedge->spec;
-
-  w->error = JMM_ERROR_NONE;
-
-  w->error = jmm_3d_wedge_problem_init(wedge, spec);
-  if (w->error != JMM_ERROR_NONE) {
-    w->error_msg = "Failed to initialize wedge problem";
-    pthread_exit(NULL);
-  }
-
-  w->error = jmm_3d_wedge_problem_solve(wedge, w->sp, w->phip, w->rfac, w->omega);
-  if (w->error != JMM_ERROR_NONE) {
-    w->error_msg = "Failed to solve wedge problem";
-    pthread_exit(NULL);
-  }
-
-  pthread_exit(NULL);
+static void print_params(wkspc_s const *wkspc, jmm_3d_wedge_spec_s const *spec) {
+  printf("wedge parameters:\n");
+  printf("* maxvol: %g\n", spec->maxvol);
+  printf("* n: %g\n", spec->n);
+  printf("* w: %g\n", spec->w);
+  printf("* h: %g\n", spec->h);
+  printf("* R: %g\n", spec->R);
+  printf("solve parameters:\n");
+  printf("* sp: %g\n", wkspc->sp);
+  printf("* phip: %g\n", wkspc->phip);
+  printf("* rfac: %g\n", wkspc->rfac);
+  printf("* omega: %g\n", wkspc->omega);
 }
+
+static struct argp argp = {options, parse_opt, args_doc, doc, 0, 0, 0};
 
 int main(int argc, char *argv[]) {
   struct arguments arguments = {
@@ -153,44 +140,24 @@ int main(int argc, char *argv[]) {
   jmm_3d_wedge_problem_s *wedge = &wkspc->wedge;
   jmm_3d_wedge_spec_s *spec = &wedge->spec;
 
-  if (spec->verbose) {
-    printf("wedge parameters:\n");
-    printf("* maxvol: %g\n", spec->maxvol);
-    printf("* n: %g\n", spec->n);
-    printf("* w: %g\n", spec->w);
-    printf("* h: %g\n", spec->h);
-    printf("* R: %g\n", spec->R);
-    printf("solve parameters:\n");
-    printf("* sp: %g\n", wkspc->sp);
-    printf("* phip: %g\n", wkspc->phip);
-    printf("* rfac: %g\n", wkspc->rfac);
-    printf("* omega: %g\n", wkspc->omega);
+  if (spec->verbose)
+    print_params(wkspc, spec);
+
+  jmm_error_e error = JMM_ERROR_NONE;
+
+  error = jmm_3d_wedge_problem_init(wedge, spec);
+  if (error != JMM_ERROR_NONE) {
+    printf("ERROR: Failed to initialize wedge problem\n");
+    goto cleanup;
   }
 
-  GLFWwindow *window = NULL;
-
-  pthread_t thread;
-
-  pthread_attr_t attr;
-  pthread_attr_init(&attr);
-  pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
-
-  pthread_create(&thread, &attr, solve_wedge_problem, wkspc);
-
-  if (spec->visualize) {
-    glfwInit();
-    window = glfwCreateWindow(1280, 720, "Viz", NULL, NULL);
-    glfwMakeContextCurrent(window);
-    glfwDestroyWindow(window);
-    glfwTerminate();
+  error = jmm_3d_wedge_problem_solve(
+    wedge, wkspc->sp, wkspc->phip, wkspc->rfac, wkspc->omega);
+  if (error != JMM_ERROR_NONE) {
+    printf("ERROR: Failed to solve wedge problem\n");
+    goto cleanup;
   }
 
-  pthread_join(thread, NULL);
-
-  if (wkspc->error != JMM_ERROR_NONE) {
-    printf("%s: %s\n", jmm_error_to_string(wkspc->error), wkspc->error_msg);
-    exit(EXIT_FAILURE);
-  }
-
-  exit(EXIT_SUCCESS);
+cleanup:
+  exit(error == JMM_ERROR_NONE ? EXIT_SUCCESS : EXIT_FAILURE);
 }

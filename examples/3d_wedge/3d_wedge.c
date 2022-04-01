@@ -2,11 +2,27 @@
 
 #include <assert.h>
 #include <stdio.h>
+#include <string.h>
 
 #include <error.h>
 #include <mat.h>
+#include <mesh2.h>
 
 #include "mesh3_extra.h"
+
+void jmm_3d_wedge_spec_dump(jmm_3d_wedge_spec_s const *spec, char const *path) {
+  FILE *fp = fopen(path, "w");
+
+  fprintf(fp, "verbose: %s\n", spec->verbose ? "true" : "false");
+  fprintf(fp, "visualize: %s\n", spec->visualize ? "true" : "false");
+  fprintf(fp, "maxvol: %g\n", spec->maxvol);
+  fprintf(fp, "n: %g\n", spec->n);
+  fprintf(fp, "w: %g\n", spec->w);
+  fprintf(fp, "h: %g\n", spec->h);
+  fprintf(fp, "R: %g\n", spec->R);
+
+  fclose(fp);
+}
 
 void jmm_3d_wedge_problem_alloc(jmm_3d_wedge_problem_s **wedge) {
   *wedge = malloc(sizeof(jmm_3d_wedge_problem_s));
@@ -85,17 +101,23 @@ jmm_3d_wedge_problem_solve(jmm_3d_wedge_problem_s *wedge, dbl sp, dbl phip,
 
   eik3_init(wedge->eik_direct, wedge->mesh, FTYPE_POINT_SOURCE);
 
+  /* Find all vertices which lie inside the factoring radius, and
+   * initialize the vertices of all cells incident on those vertices
+   * with exact data. Note that there may be some cells which
+   * intersect the factoring radius, but which aren't discovered this
+   * way. */
   size_t num_initialized = 0;
   for (size_t i = 0; i < mesh3_ncells(wedge->mesh); ++i) {
     size_t cv[4];
     mesh3_cv(wedge->mesh, i, cv);
 
-    /* first, check if any of the current cell's vertices intersection
+    /* first, check if any of the current cell's vertices intersect
      * the initialization ball... */
     bool found_intersection = false;
     for (size_t j = 0; j < 4; ++j) {
-      mesh3_copy_vert(wedge->mesh, i, x);
+      mesh3_copy_vert(wedge->mesh, cv[j], x);
       if (dbl3_dist(x, xsrc) <= rfac) {
+        puts("x");
         found_intersection = true;
         break;
       }
@@ -129,6 +151,7 @@ jmm_3d_wedge_problem_solve(jmm_3d_wedge_problem_s *wedge, dbl sp, dbl phip,
   }
 
   if (num_initialized == 0) {
+    printf("No TRIAL vertices!\n");
     return JMM_ERROR_BAD_ARGUMENTS;
   }
 
@@ -142,4 +165,64 @@ jmm_3d_wedge_problem_solve(jmm_3d_wedge_problem_s *wedge, dbl sp, dbl phip,
   (void)omega;
 
   return JMM_ERROR_NONE;
+}
+
+void jmm_3d_wedge_problem_dump(jmm_3d_wedge_problem_s *wedge,char const *path) {
+  size_t file_path_strlen = strlen(path) + 64;
+  char *file_path = malloc(file_path_strlen + 1);
+
+  /* Dump the wedge problem specification: */
+
+  strcpy(file_path, path);
+  file_path = strcat(file_path, "/spec.txt");
+  jmm_3d_wedge_spec_dump(&wedge->spec, file_path);
+
+  /* Dump the domain tetrahedron mesh's vertices and cell indices: */
+
+  strcpy(file_path, path);
+  file_path = strcat(file_path, "/verts.bin");
+  mesh3_dump_verts(wedge->mesh, file_path);
+
+  strcpy(file_path, path);
+  file_path = strcat(file_path, "/cells.bin");
+  mesh3_dump_cells(wedge->mesh, file_path);
+
+  /* Create and dump the surface mesh's vertices and faces indices: */
+
+  mesh2_s *surface_mesh = mesh3_get_surface_mesh(wedge->mesh);
+
+  strcpy(file_path, path);
+  file_path = strcat(file_path, "/surface_verts.bin");
+  mesh2_dump_verts(surface_mesh, file_path);
+
+  strcpy(file_path, path);
+  file_path = strcat(file_path, "/surface_faces.bin");
+  mesh2_dump_faces(surface_mesh, file_path);
+
+  mesh2_deinit(surface_mesh);
+  mesh2_dealloc(&surface_mesh);
+
+  /* Dump the direct eikonal's data: */
+
+  strcpy(file_path, path);
+  file_path = strcat(file_path, "/direct_jet.bin");
+  eik3_dump_jet(wedge->eik_direct, file_path);
+
+  strcpy(file_path, path);
+  file_path = strcat(file_path, "/direct_state.bin");
+  eik3_dump_state(wedge->eik_direct, file_path);
+
+  /* Dump the o-face reflected eikonal's data: */
+
+  // strcpy(file_path, path);
+  // file_path = strcat(file_path, "/o_refl_jet.bin");
+  // eik3_dump_jet(wedge->eik_o_refl, file_path);
+
+  /* Dump the n-face reflected eikonal's data: */
+
+  // strcpy(file_path, path);
+  // file_path = strcat(file_path, "/n_refl_jet.bin");
+  // eik3_dump_jet(wedge->eik_n_refl, file_path);
+
+  free(file_path);
 }

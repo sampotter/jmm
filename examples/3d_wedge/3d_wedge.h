@@ -55,3 +55,4 @@ void jmm_3d_wedge_problem_dealloc(jmm_3d_wedge_problem_s **wedge);
 jmm_error_e jmm_3d_wedge_problem_solve(jmm_3d_wedge_problem_s *wedge,
                                        dbl sp, dbl phip,
                                        dbl rfac, double omega);
+void jmm_3d_wedge_problem_dump(jmm_3d_wedge_problem_s *wedge, char const *path);
