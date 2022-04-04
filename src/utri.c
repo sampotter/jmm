@@ -297,10 +297,41 @@ dbl utri_get_value(utri_s const *u) {
   return u->f;
 }
 
-void utri_get_jet(utri_s const *utri, jet31t *jet) {
+void utri_get_jet31t(utri_s const *utri, jet31t *jet) {
   jet->f = utri->f;
-
   dbl3_dbl_div(utri->x_minus_xb, utri->L, jet->Df);
+}
+
+void utri_get_jet32t(utri_s const *utri, jet32t *jet) {
+  utri_get_jet31t(utri, (jet31t *)jet);
+
+  dbl3 v1;
+  dbl3_normalized(utri->x1_minus_x0, v1);
+
+  dbl3 x_minus_x0;
+  dbl3_sub(utri->x, utri->x0, x_minus_x0);
+
+  dbl s = dbl3_dot(v1, x_minus_x0);
+  dbl3 xproj;
+  dbl3_saxpy(s, v1, utri->x0, xproj);
+
+  dbl3 v2;
+  dbl3_sub(utri->x, xproj, v2);
+  dbl x_minus_xproj_norm = dbl3_normalize(v2);
+
+  dbl3 q1;
+  dbl3_cross(v1, v2, q1);
+
+  dbl3 q2;
+  dbl3_cross(jet->Df, q1, q2);
+
+  dbl33 outer1;
+  dbl3_outer(q1, q1, outer1);
+  dbl33_dbl_div_inplace(outer1, -x_minus_xproj_norm);
+
+  dbl33 outer2;
+  dbl3_outer(q2, q2, outer2);
+  dbl33_dbl_div_inplace(outer2, -jet->f);
 }
 
 static dbl get_lag_mult(utri_s const *utri) {
@@ -695,8 +726,8 @@ bool utris_yield_same_update(utri_s const *utri1, utri_s const *utri2) {
     return false;
 
   jet31t jet1, jet2;
-  utri_get_jet(utri1, &jet1);
-  utri_get_jet(utri2, &jet2);
+  utri_get_jet31t(utri1, &jet1);
+  utri_get_jet31t(utri2, &jet2);
 
   return jet31t_approx_eq(&jet1, &jet2, atol);
 }

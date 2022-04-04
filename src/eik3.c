@@ -665,8 +665,7 @@ static bool commit_tri_update(eik3_s *eik, size_t lhat, utri_s const *utri) {
     return false;
 
   jet32t jet;
-  utri_get_jet(utri, (jet31t *)&jet);
-  assert(false); // integrate to compute D2f
+  utri_get_jet32t(utri, &jet);
 
   eik3_set_jet(eik, lhat, jet);
 
