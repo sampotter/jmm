@@ -52,6 +52,7 @@ void dbl33_mul(dbl33 const A, dbl33 const B, dbl33 C);
 void dbl33_nan(dbl33 A);
 void dbl33_set_column(dbl33 A, int i, dbl3 const a);
 void dbl33_sub(dbl33 const A, dbl33 const B, dbl33 C);
+void dbl33_sub_inplace(dbl33 A, dbl33 const B);
 void dbl33_symmetrize(dbl33 A);
 void dbl33_transpose(dbl33 A);
 void dbl33_transposed(dbl33 const A, dbl33 At);

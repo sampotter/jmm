@@ -1,0 +1,5 @@
+* Possible sources of error
+
+** Big error in Hessian just past edge
+  - [ ] Check that we're rejecting triangle updates with nonzero
+    Lagrange multipliers

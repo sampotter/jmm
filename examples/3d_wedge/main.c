@@ -158,6 +158,8 @@ int main(int argc, char *argv[]) {
     goto cleanup;
   }
 
+  jmm_3d_wedge_problem_dump(wedge, ".");
+
 cleanup:
   exit(error == JMM_ERROR_NONE ? EXIT_SUCCESS : EXIT_FAILURE);
 }

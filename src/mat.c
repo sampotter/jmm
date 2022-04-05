@@ -301,6 +301,12 @@ void dbl33_sub(dbl33 const A, dbl33 const B, dbl33 C) {
       C[i][j] = A[i][j] - B[i][j];
 }
 
+void dbl33_sub_inplace(dbl33 A, dbl33 const B) {
+  for (int i = 0; i < 3; ++i)
+    for (int j = 0; j < 3; ++j)
+      A[i][j] -= B[i][j];
+}
+
 void dbl33_symmetrize(dbl33 A) {
   A[1][0] = A[0][1] = (A[1][0] + A[0][1])/2;
   A[2][0] = A[0][2] = (A[2][0] + A[0][2])/2;

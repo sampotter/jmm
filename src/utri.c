@@ -305,6 +305,15 @@ void utri_get_jet31t(utri_s const *utri, jet31t *jet) {
 void utri_get_jet32t(utri_s const *utri, jet32t *jet) {
   utri_get_jet31t(utri, (jet31t *)jet);
 
+  /* After using `utri_get_jet31t` to compute the eikonal and its
+   * gradient, we compute the Hessian. This assumes that edge
+   * diffraction has occurred, with the edge being defined by the
+   * affine hull of [x0, x1] (the base of the triangle update).
+   *
+   * This should work even if edge difraction has not occurred,
+   * although our goal is to avoid doing this as much as is
+   * practical. */
+
   dbl3 v1;
   dbl3_normalized(utri->x1_minus_x0, v1);
 
@@ -327,11 +336,13 @@ void utri_get_jet32t(utri_s const *utri, jet32t *jet) {
 
   dbl33 outer1;
   dbl3_outer(q1, q1, outer1);
-  dbl33_dbl_div_inplace(outer1, -x_minus_xproj_norm);
+  dbl33_dbl_div_inplace(outer1, x_minus_xproj_norm);
 
   dbl33 outer2;
   dbl3_outer(q2, q2, outer2);
-  dbl33_dbl_div_inplace(outer2, -jet->f);
+  dbl33_dbl_div_inplace(outer2, jet->f);
+
+  dbl33_add(outer1, outer2, jet->D2f);
 }
 
 static dbl get_lag_mult(utri_s const *utri) {

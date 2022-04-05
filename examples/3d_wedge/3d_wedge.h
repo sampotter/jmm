@@ -45,6 +45,9 @@ typedef struct jmm_3d_wedge_problem {
 
   /* The eikonal problem for the "n-face" reflection. */
   eik3_s *eik_n_refl;
+
+  /* Groundtruth data: */
+  jet32t *jet_direct_gt;
 } jmm_3d_wedge_problem_s;
 
 void jmm_3d_wedge_problem_alloc(jmm_3d_wedge_problem_s **wedge);
