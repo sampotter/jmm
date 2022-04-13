@@ -653,7 +653,7 @@ bool prop_hess(eik3_s *eik, size_t num_active, size_t const *l, dbl const *b,
   return success;
 }
 
-static bool commit_tri_update(eik3_s *eik, size_t lhat, utri_s const *utri) {
+static bool commit_utri(eik3_s *eik, size_t lhat, utri_s const *utri) {
   if (utri_get_value(utri) >= eik->jet[lhat].f)
     return false;
 
@@ -801,13 +801,13 @@ static void do_2pt_bd_updates(eik3_s *eik, size_t l, size_t l0) {
       break;
     if (utri_has_interior_point_solution(utri[i])) {
       if (utri_update_ray_is_physical(utri[i], eik) &&
-          commit_tri_update(eik, l, utri[i])) {
+          commit_utri(eik, l, utri[i])) {
         break;
       }
     } else if (i + 1 < nup &&
                utris_yield_same_update(utri[i], utri[i + 1]) &&
                utri_update_ray_is_physical(utri[i], eik) &&
-               commit_tri_update(eik, l, utri[i])) {
+               commit_utri(eik, l, utri[i])) {
       break;
     } else {
       array_append(eik->old_bd_utri, &utri[i]);
@@ -1114,7 +1114,7 @@ static void update(eik3_s *eik, size_t l, size_t l0) {
       continue;
     if (utri_has_interior_point_solution(u)) {
       if (utri_update_ray_is_physical(u, eik) &&
-          commit_tri_update(eik, l, u)) {
+          commit_utri(eik, l, u)) {
         if (utri_has_orig_index(u)) {
           j = utri_get_orig_index(u);
           updated_from_diff_edge[j] = true;
@@ -1125,7 +1125,7 @@ static void update(eik3_s *eik, size_t l, size_t l0) {
       array_get(diff_utri, i + 1, &u_);
       if (utris_yield_same_update(u, u_) &&
           utri_update_ray_is_physical(u, eik) &&
-          commit_tri_update(eik, l, u)) {
+          commit_utri(eik, l, u)) {
         if (utri_has_orig_index(u)) {
           j = utri_get_orig_index(u);
           updated_from_diff_edge[j] = true;
@@ -1342,7 +1342,7 @@ void do_diff_edge_updates_and_adjust(eik3_s *eik, size_t l0, size_t l1,
     if ((utri_has_interior_point_solution(utri) ||
          utri_emits_terminal_ray(utri, eik)) &&
         utri_update_ray_is_physical(utri, eik) &&
-        commit_tri_update(eik, l, utri))
+        commit_utri(eik, l, utri))
       adjust(eik, l);
   }
 
