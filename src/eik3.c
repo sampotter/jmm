@@ -1465,6 +1465,11 @@ bool eik3_is_solved(eik3_s const *eik) {
 }
 
 void eik3_add_trial(eik3_s *eik, size_t l, jet32t jet) {
+  if (eik->has_bc[l]) {
+    log_warn("tried to add BCs for node %lu more than once\n", l);
+    return;
+  }
+
   if (eik->state[l] == VALID) {
     log_warn("failed to add TRIAL node %lu (already VALID)", l);
     return;
