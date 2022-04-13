@@ -232,7 +232,6 @@ jmm_3d_wedge_problem_solve(jmm_3d_wedge_problem_s *wedge, dbl sp, dbl phip,
     for (size_t j = 0; j < 4; ++j) {
       mesh3_copy_vert(wedge->mesh, cv[j], x);
       if (dbl3_dist(x, xsrc) <= rfac) {
-        puts("x");
         found_intersection = true;
         break;
       }
