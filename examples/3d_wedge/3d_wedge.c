@@ -272,9 +272,92 @@ jmm_3d_wedge_problem_solve(jmm_3d_wedge_problem_s *wedge, dbl sp, dbl phip,
   if (wedge->spec.verbose) {
     printf("Number of vertices in the initialization ball: %lu\n",
            num_initialized);
+    printf("Solving point source problem...\n");
   }
 
+
   eik3_solve(wedge->eik_direct);
+
+  /* If the geometry is right for it, set up and solve the o-face
+   * reflection eikonal problem: */
+
+  if (-phip > -JMM_PI) {
+    eik3_init(wedge->eik_o_refl, wedge->mesh, FTYPE_REFLECTION);
+
+    for (size_t i = 0; i < mesh3_nverts(wedge->mesh); ++i) {
+      mesh3_copy_vert(wedge->mesh, i, x);
+
+      if (x[0] < 0 || x[1] != 0)
+        continue;
+
+      jet32t jet = eik3_get_jet(wedge->eik_direct, i);
+
+      /* Reflect gradient over the o-face */
+      jet.Df[1] *= -1;
+
+      /* Reflect the Hessian over the o-face (multiply the incoming
+       * Hessian on both sides by the reflector [[1 0 0]; [0 -1 0]; [0
+       * 0 1]]). */
+      jet.D2f[0][1] *= -1;
+      jet.D2f[1][0] *= -1;
+      jet.D2f[1][2] *= -1;
+      jet.D2f[2][1] *= -1;
+
+      eik3_add_trial(wedge->eik_o_refl, i, jet);
+    }
+
+    if (wedge->spec.verbose)
+      printf("Computing o-face reflection...\n");
+
+    eik3_solve(wedge->eik_o_refl);
+  }
+
+  /* Ditto for the n-face problem: */
+
+  dbl n_radians = JMM_PI*wedge->spec.n;
+
+  if (-phip < n_radians - JMM_PI) {
+    eik3_init(wedge->eik_n_refl, wedge->mesh, FTYPE_REFLECTION);
+
+    /* Get the surface normal for the n-face */
+    dbl3 n_normal = {-sin(n_radians), cos(n_radians), 0};
+
+    /* Compute reflection matrix for the surface normal */
+    dbl33 n_refl;
+    for (size_t i = 0; i < 3; ++i)
+      for (size_t j = 0; j < 3; ++j)
+        n_refl[i][j] = i == j ?
+          1 - 2*n_normal[i]*n_normal[j] : -2*n_normal[i]*n_normal[j];
+
+    for (size_t i = 0; i < mesh3_nverts(wedge->mesh); ++i) {
+      /* Skip vertices that aren't on the boundary */
+      if (!mesh3_bdv(wedge->mesh, i))
+        continue;
+
+      /* Check if the angle of the vertex matches the angle of the
+       * n-face of the wedge */
+      mesh3_copy_vert(wedge->mesh, i, x);
+      if (fabs(atan2(x[1], x[0]) - n_radians) > 1e-7)
+        continue;
+
+      jet32t jet = eik3_get_jet(wedge->eik_direct, i);
+
+      /* Reflected gradient over n-face */
+      dbl33_dbl3_mul_inplace(n_refl, jet.Df);
+
+      /* Reflect Hessian over n-face */
+      dbl33 tmp;
+      dbl33_mul(jet.D2f, n_refl, tmp);
+      dbl33_mul(n_refl, tmp, jet.D2f);
+
+      eik3_add_trial(wedge->eik_n_refl, i, jet);
+    }
+
+    if (wedge->spec.verbose)
+      printf("Computing n-face reflection...\n");
+
+    eik3_solve(wedge->eik_n_refl);
+  }
 
   /* Compute groundtruth data: */
 
