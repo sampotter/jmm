@@ -73,16 +73,9 @@ struct eik3 {
   array_s *old_updates;
   array_s *old_bd_utri; // old two-point boundary `utri`
 
-  /* The number of times each vertex has had a boundary condition
-   * set. This is used to quickly check where what kind of point we're
-   * updating from. Each entry of `num_BCs` starts at `0` and is
-   * incremented each time a boundary condition is added. For a point
-   * source, there will be exactly one node with `num_BCs[l] ==
-   * 1`. For a diffracting edge, each interior node of the BCs will
-   * have `num_BCs[l] == 2`, the terminal nodes will have `num_BCs[l]
-   * == 1`, and similarly for reflectors, where `num_BCs[l] <= 3` will
-   * hold. */
-  int8_t *num_BCs;
+  /* If `has_bc[l] == true`, then node `l` had boundary conditions
+   * specified. */
+  bool *has_bc;
 
   /* Boundary conditions for a (diffracting) boundary edge, which are
    * just cubic polynomials defined over the edge. These are used to
@@ -186,7 +179,7 @@ void eik3_init(eik3_s *eik, mesh3_s *mesh, ftype_e ftype) {
   array_alloc(&eik->old_bd_utri);
   array_init(eik->old_bd_utri, sizeof(utri_s *), 16);
 
-  eik->num_BCs = calloc(nverts, sizeof(int8_t));
+  eik->has_bc = calloc(nverts, sizeof(bool));
 
   array_alloc(&eik->bde_bc);
   array_init(eik->bde_bc, sizeof(bde_bc_s), ARRAY_DEFAULT_CAPACITY);
@@ -241,8 +234,8 @@ void eik3_deinit(eik3_s *eik) {
   array_deinit(eik->old_bd_utri);
   array_dealloc(&eik->old_bd_utri);
 
-  free(eik->num_BCs);
-  eik->num_BCs = NULL;
+  free(eik->has_bc);
+  eik->has_bc = NULL;
 
   array_deinit(eik->bde_bc);
   array_dealloc(&eik->bde_bc);
@@ -1489,7 +1482,7 @@ void eik3_add_trial(eik3_s *eik, size_t l, jet32t jet) {
   eik->state[l] = TRIAL;
   heap_insert(eik->heap, l);
 
-  ++eik->num_BCs[l];
+  eik->has_bc[l] = true;
 }
 
 bool eik3_is_point_source(eik3_s const *eik, size_t l) {
@@ -1723,7 +1716,7 @@ dbl eik3_get_slerp_tol(eik3_s const *eik) {
 }
 
 bool eik3_has_BCs(eik3_s const *eik, size_t l) {
-  return eik->num_BCs[l] > 0;
+  return eik->has_bc[l];
 }
 
 dbl eik3_get_h(eik3_s const *eik) {
