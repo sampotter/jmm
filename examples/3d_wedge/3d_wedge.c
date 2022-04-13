@@ -295,7 +295,12 @@ jmm_3d_wedge_problem_dump_direct_jet_gt(
   fclose(fp);
 }
 
-void jmm_3d_wedge_problem_dump(jmm_3d_wedge_problem_s *wedge,char const *path) {
+void jmm_3d_wedge_problem_dump(jmm_3d_wedge_problem_s *wedge,
+                               char const *path,
+                               bool dump_direct,
+                               bool dump_o_face,
+                               bool dump_n_face)
+{
   size_t file_path_strlen = strlen(path) + 64;
   char *file_path = malloc(file_path_strlen + 1);
 
@@ -330,33 +335,49 @@ void jmm_3d_wedge_problem_dump(jmm_3d_wedge_problem_s *wedge,char const *path) {
   mesh2_deinit(surface_mesh);
   mesh2_dealloc(&surface_mesh);
 
-  /* Dump the direct eikonal's data: */
+  if (dump_direct) {
 
-  strcpy(file_path, path);
-  file_path = strcat(file_path, "/direct_jet.bin");
-  eik3_dump_jet(wedge->eik_direct, file_path);
+    /* Dump the direct eikonal's data: */
 
-  strcpy(file_path, path);
-  file_path = strcat(file_path, "/direct_state.bin");
-  eik3_dump_state(wedge->eik_direct, file_path);
+    strcpy(file_path, path);
+    file_path = strcat(file_path, "/direct_jet.bin");
+    eik3_dump_jet(wedge->eik_direct, file_path);
 
-  /* Dump the o-face reflected eikonal's data: */
+    strcpy(file_path, path);
+    file_path = strcat(file_path, "/direct_state.bin");
+    eik3_dump_state(wedge->eik_direct, file_path);
 
-  // strcpy(file_path, path);
-  // file_path = strcat(file_path, "/o_refl_jet.bin");
-  // eik3_dump_jet(wedge->eik_o_refl, file_path);
+    /* Dump the direct eikonal's groundtruth data: */
 
-  /* Dump the n-face reflected eikonal's data: */
+    strcpy(file_path, path);
+    file_path = strcat(file_path, "/direct_jet_gt.bin");
+    jmm_3d_wedge_problem_dump_direct_jet_gt(wedge, file_path);
 
-  // strcpy(file_path, path);
-  // file_path = strcat(file_path, "/n_refl_jet.bin");
-  // eik3_dump_jet(wedge->eik_n_refl, file_path);
+  }
 
-  /* Dump the direct eikonal's groundtruth data: */
+  if (dump_o_face) {
 
-  strcpy(file_path, path);
-  file_path = strcat(file_path, "/direct_jet_gt.bin");
-  jmm_3d_wedge_problem_dump_direct_jet_gt(wedge, file_path);
+    /* Dump the o-face reflected eikonal's data: */
+
+    strcpy(file_path, path);
+    file_path = strcat(file_path, "/o_refl_jet.bin");
+    eik3_dump_jet(wedge->eik_o_refl, file_path);
+
+    strcpy(file_path, path);
+    file_path = strcat(file_path, "/o_refl_state.bin");
+    eik3_dump_state(wedge->eik_o_refl, file_path);
+
+  }
+
+  if (dump_n_face) {
+
+    /* Dump the n-face reflected eikonal's data: */
+
+    strcpy(file_path, path);
+    file_path = strcat(file_path, "/n_refl_jet.bin");
+    eik3_dump_jet(wedge->eik_n_refl, file_path);
+
+  }
 
   /* Clean up: */
 
