@@ -155,12 +155,12 @@ static void init_tetgenio_in_case2(tetgenio & in, jmm_3d_wedge_spec_s const *spe
   init_tetgenio_before(
     in, spec, num_poly_corners, xmin, ymin, zmin, xmax, ymax, zmax, theta);
 
-  X(0) = 0;                         Y(0) = 0;
-  X(1) = xmax*sin(JMM_PI - theta);  Y(1) = ymax;
-  X(2) = xmin;                      Y(2) = ymax;
-  X(3) = xmin;                      Y(3) = ymin;
-  X(4) = xmax;                      Y(4) = ymin;
-  X(5) = xmax;                      Y(5) = 0;
+  X(0) = 0;                Y(0) = 0;
+  X(1) = xmax/tan(theta);  Y(1) = ymax;
+  X(2) = xmin;             Y(2) = ymax;
+  X(3) = xmin;             Y(3) = ymin;
+  X(4) = xmax;             Y(4) = ymin;
+  X(5) = xmax;             Y(5) = 0;
 
   init_tetgenio_after(in, num_poly_corners, zmax);
 }
