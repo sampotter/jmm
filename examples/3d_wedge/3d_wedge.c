@@ -291,7 +291,7 @@ jmm_3d_wedge_problem_solve(jmm_3d_wedge_problem_s *wedge, dbl sp, dbl phip,
       if (x[0] < 0 || x[1] != 0)
         continue;
 
-      jet32t jet = eik3_get_jet(wedge->eik_direct, i);
+      jet32t jet = eik3_get_jet32t(wedge->eik_direct, i);
 
       /* Reflect gradient over the o-face */
       jet.Df[1] *= -1;
@@ -341,7 +341,7 @@ jmm_3d_wedge_problem_solve(jmm_3d_wedge_problem_s *wedge, dbl sp, dbl phip,
       if (fabs(atan2(x[1], x[0]) - n_radians) > 1e-7)
         continue;
 
-      jet32t jet = eik3_get_jet(wedge->eik_direct, i);
+      jet32t jet = eik3_get_jet32t(wedge->eik_direct, i);
 
       /* Reflected gradient over n-face */
       dbl33_dbl3_mul_inplace(n_refl, jet.Df);

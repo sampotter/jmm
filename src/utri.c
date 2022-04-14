@@ -221,7 +221,7 @@ void utri_init(utri_s *u, utri_spec_s const *spec) {
   for (size_t i = 0; i < 2; ++i)
     jet[i] = passed_jet ?
       spec->jet[i] :
-      jet31t_from_jet32t(eik3_get_jet(spec->eik, spec->l[i]));
+      jet31t_from_jet32t(eik3_get_jet32t(spec->eik, spec->l[i]));
 
   dbl Xt[2][3];
   dbl3_copy(u->x0, Xt[0]);

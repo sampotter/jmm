@@ -438,11 +438,17 @@ void get_valid_incident_diff_edges(eik3_s const *eik, size_t l0,
   free(vv);
 }
 
-static bool commit_utetra(eik3_s *eik, size_t lhat, utetra_s const *utetra) {
-  (void)eik;
-  (void)lhat;
-  (void)utetra;
-  assert(false);
+static void commit_utetra(eik3_s *eik, size_t lhat, utetra_s const *utetra) {
+  /* If the value isn't a strict improvement, return early and do
+   * nothing.
+   *
+   * TODO: at some point, we may want to look into dealing with the
+   * case where the new value is approximately equal to the current
+   * value. This is a sign that a caustic has formed. */
+  if (utetra_get_value(utetra) >= eik->jet[lhat].f)
+    return;
+
+  utetra_get_jet32t(utetra, eik, &eik->jet[lhat]);
 }
 
 static void update(eik3_s *eik, size_t l, size_t l0) {
@@ -691,17 +697,17 @@ static void update(eik3_s *eik, size_t l, size_t l0) {
     if (!isfinite(utetra_get_value(utetra[i])))
       break;
     if (utetra_has_interior_point_solution(utetra[i]) &&
-        utetra_update_ray_is_physical(utetra[i], eik) &&
-        commit_utetra(eik, l, utetra[i])) {
-        break;
+        utetra_update_ray_is_physical(utetra[i], eik)) {
+      commit_utetra(eik, l, utetra[i]);
+      break;
     } else {
       size_t num_int = utetra_get_num_interior_coefs(utetra[i]);
       assert(num_int == 1 || num_int == 2);
       size_t num_adj = 4 - num_int;
       if (i + num_adj <= num_utetra &&
           utetras_yield_same_update((utetra_s const **)&utetra[i], num_adj) &&
-          utetra_update_ray_is_physical(utetra[i], eik) &&
-          commit_utetra(eik, l, utetra[i])) {
+          utetra_update_ray_is_physical(utetra[i], eik)) {
+        commit_utetra(eik, l, utetra[i]);
         break;
       } else {
         array_append(eik->old_updates, &utetra[i]);
@@ -951,7 +957,7 @@ mesh3_s *eik3_get_mesh(eik3_s const *eik) {
   return eik->mesh;
 }
 
-jet32t eik3_get_jet(eik3_s const *eik, size_t l) {
+jet32t eik3_get_jet32t(eik3_s const *eik, size_t l) {
   return eik->jet[l];
 }
 

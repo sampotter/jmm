@@ -215,17 +215,62 @@ void dbl33_dbl3_nmul(dbl33 const A, dbl3 const x, dbl3 b) {
 }
 
 void dbl33_dbl3_solve(dbl33 const A, dbl3 const b, dbl3 x) {
-  // TODO: bad---solving using Cramer's rule... need to implement
-  // pivoted LU instead
-  dbl det = dbl33_det(A);
-  dbl3 tmp;
-  dbl33 A_;
-  memcpy(A_, A, sizeof(dbl33));
-  for (int j = 0; j < 3; ++j) {
-    dbl33_get_column(A_, j, tmp);
-    dbl33_set_column(A_, j, b);
-    x[j] = dbl33_det(A_)/det;
-    dbl33_set_column(A_, j, tmp);
+  dbl33 LU;
+  memcpy(LU, A, 3*3*sizeof(dbl));
+
+  dbl const n = 3;
+
+  int perm[3] = {0, 1, 2};
+
+  // LU decomposition with partial pivoting
+  for (int k = 0; k < n - 1; ++k) {
+    // Find max |Ui:| for i >= k
+    int argi = k;
+    dbl absmax = fabs(LU[k][k]);
+    for (int i = k + 1; i < n; ++i) {
+      dbl tmp = fabs(LU[i][k]);
+      if (tmp > absmax) {
+        absmax = tmp;
+        argi = i;
+      }
+    }
+
+    if (argi != k) {
+      // Swap rows i and k of L and U
+      for (int j = 0; j < n; ++j)
+        SWAP(LU[k][j], LU[argi][j]);
+
+      // Swap entries i and k of permutation
+      SWAP(perm[k], perm[argi]);
+    }
+
+    if (fabs(LU[k][k]) < 1e-15)
+      continue;
+
+    // Normalize column k of L
+    for (int i = k + 1; i < n; ++i)
+      LU[i][k] /= LU[k][k];
+
+    // Subtract outer product
+    for (int i = k + 1; i < n; ++i)
+      for (int j = k + 1; j < n; ++j)
+        LU[i][j] -= LU[i][k]*LU[k][j];
+  }
+
+  // Solve Ly = Pb
+  for (int i = 0; i < n; ++i) {
+    x[i] = b[perm[i]];
+    for (int j = 0; j < i; ++j) {
+      x[i] -= LU[i][j]*x[j];
+    }
+  }
+
+  // Solve Ux = y
+  for (int i = n - 1; i >= 0; --i) {
+    for (int j = i + 1; j < n; ++j) {
+      x[i] -= LU[i][j]*x[j];
+    }
+    x[i] /= LU[i][i];
   }
 }
 
@@ -247,10 +292,23 @@ void dbl33_eye(dbl33 A) {
   A[2][0] = 0; A[2][1] = 0; A[2][2] = 1;
 }
 
-void dbl33_get_column(dbl33 const A, int i, dbl3 x) {
+void dbl33_get_column( dbl33 const A, int i, dbl3 x) {
   x[0] = A[0][i];
   x[1] = A[1][i];
   x[2] = A[2][i];
+}
+
+void dbl33_invert(dbl33 A) {
+  dbl33 eye;
+  dbl33_eye(eye);
+
+  // TODO: very inefficient: should do LU with partial pivoting with
+  // multiple RHSs
+  dbl33 tmp;
+  for (size_t i = 0; i < 3; ++i)
+    dbl33_dbl3_solve(A, eye[i], tmp[i]);
+
+  dbl33_transposed(tmp, A);
 }
 
 void dbl33_make_axis_angle_rotation_matrix(dbl3 axis, dbl angle, dbl33 rot) {
@@ -287,6 +345,12 @@ void dbl33_nan(dbl33 A) {
   for (size_t i = 0; i < 3; ++i)
     for (size_t j = 0; j < 3; ++j)
       A[i][j] = NAN;
+}
+
+void dbl33_saxpy(dbl a, dbl33 const X, dbl33 const Y, dbl33 Z) {
+  for (size_t i = 0; i < 3; ++i)
+    for (size_t j = 0; j < 3; ++j)
+      Z[i][j] = a*X[i][j] + Y[i][j];
 }
 
 void dbl33_set_column(dbl33 A, int i, dbl3 const x) {

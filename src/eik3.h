@@ -34,7 +34,7 @@ mesh3_s *eik3_get_mesh(eik3_s const *eik);
 dbl eik3_get_slerp_tol(eik3_s const *eik);
 dbl eik3_get_h(eik3_s const *eik);
 
-jet32t eik3_get_jet(eik3_s const *eik, size_t l);
+jet32t eik3_get_jet32t(eik3_s const *eik, size_t l);
 jet32t *eik3_get_jet_ptr(eik3_s const *eik);
 state_e *eik3_get_state_ptr(eik3_s const *eik);
 par3_s eik3_get_par(eik3_s const *eik, size_t l);

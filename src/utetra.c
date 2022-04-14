@@ -232,7 +232,7 @@ bool utetra_init(utetra_s *u, utetra_spec_s const *spec) {
   for (size_t i = 0; i < 3; ++i)
     jet[i] = passed_jet ?
       spec->jet[i] :
-      jet31t_from_jet32t(eik3_get_jet(spec->eik, spec->l[i]));
+      jet31t_from_jet32t(eik3_get_jet32t(spec->eik, spec->l[i]));
 
   /* Figure out which jets lack gradient information */
   bool pt_src[3];
@@ -474,10 +474,42 @@ dbl utetra_get_value(utetra_s const *cf) {
   return cf->f;
 }
 
-void utetra_get_jet(utetra_s const *cf, jet31t *jet) {
+void utetra_get_t(utetra_s const *u, dbl t[3]) {
+  dbl3_normalized(u->x_minus_xb, t);
+}
+
+void utetra_get_jet31t(utetra_s const *cf, jet31t *jet) {
   jet->f = cf->f;
 
-  dbl3_dbl_div(cf->x_minus_xb, cf->L, jet->Df);
+  utetra_get_t(cf, jet->Df);
+}
+
+void utetra_get_jet32t(utetra_s const *cf, eik3_s const *eik, jet32t *jet) {
+  utetra_get_jet31t(cf, (jet31t *)jet);
+
+  /* Get convex combination of Hessians at start of update ray: */
+  dbl33 D2f_lam;
+  {
+    /* get the jets at the base of the tetrahedron update */
+    jet32t jet_[3] = {
+      eik3_get_jet32t(eik, cf->l[0]),
+      eik3_get_jet32t(eik, cf->l[1]),
+      eik3_get_jet32t(eik, cf->l[2])
+    };
+
+    /* compute the convex combination */
+    for (size_t i = 0; i < 3; ++i)
+      for (size_t j = 0; j < 3; ++j)
+        D2f_lam[i][j] = (1 - cf->lam[0] - cf->lam[1])*jet_[0].D2f[i][j]
+          + cf->lam[0]*jet_[1].D2f[i][j] + cf->lam[1]*jet_[2].D2f[i][j];
+  }
+
+  /* Propagate the Hessian along the update ray: */
+  dbl33 eye, tmp;
+  dbl33_eye(eye);
+  dbl33_saxpy(cf->L, D2f_lam, eye, tmp);
+  dbl33_invert(tmp);
+  dbl33_mul(D2f_lam, tmp, jet->D2f);
 }
 
 /**
@@ -578,10 +610,6 @@ static bool all_inds_are_set(utetra_s const *utetra) {
 }
 #endif
 
-static dbl get_L(utetra_s const *u) {
-  return u->L;
-}
-
 bool utetra_update_ray_is_physical(utetra_s const *utetra, eik3_s const *eik) {
 #if JMM_DEBUG
   assert(all_inds_are_set(utetra));
@@ -676,8 +704,6 @@ bool utetra_update_ray_is_physical(utetra_s const *utetra, eik3_s const *eik) {
     }
   }
 
-  dbl L = get_L(utetra);
-
   // Check for intersections with the nearby boundary faces
   bool found_bdf_isect = false;
   size_t lf[3];
@@ -688,7 +714,7 @@ bool utetra_update_ray_is_physical(utetra_s const *utetra, eik3_s const *eik) {
       continue;
     dbl t;
     bool isect = ray3_intersects_tri3(&ray, &tri, &t);
-    if (isect && t <= L) {
+    if (isect && t <= utetra->L) {
       found_bdf_isect = true;
       break;
     }
@@ -707,7 +733,7 @@ bool utetra_update_ray_is_physical(utetra_s const *utetra, eik3_s const *eik) {
    * lies in a cell. */
 
   dbl xhatm[3];
-  ray3_get_point(&ray, L - h, xhatm);
+  ray3_get_point(&ray, utetra->L - h, xhatm);
 
   int nvc = mesh3_nvc(mesh, utetra->lhat);
   size_t *vc = malloc(nvc*sizeof(size_t));
@@ -810,7 +836,7 @@ static size_t get_num_equal(utetra_s const **u, size_t n) {
 
   // Prefetch the first coords and jet
   utetra_get_x(u[0], x);
-  utetra_get_jet(u[0], &jet[0]);
+  utetra_get_jet31t(u[0], &jet[0]);
 
   size_t neq = 1;
 
@@ -824,7 +850,7 @@ static size_t get_num_equal(utetra_s const **u, size_t n) {
   // same. This is cheaper than the topological check that follows.
   for (neq = 1; neq < n; ++neq) {
     // Get the next jet and check that it's finite
-    utetra_get_jet(u[neq], &jet[1]);
+    utetra_get_jet31t(u[neq], &jet[1]);
     if (!jet31t_is_finite(&jet[1]))
       break;
 
@@ -922,7 +948,7 @@ bool utetras_yield_same_update(utetra_s const **u, size_t n) {
    * solution. */
 
   jet31t jet;
-  utetra_get_jet(u[0], &jet);
+  utetra_get_jet31t(u[0], &jet);
 
   if (neq == 2) {
     // Get the indices of the shared edge, and validate that this edge
@@ -1071,14 +1097,6 @@ par3_s utetra_get_parent(utetra_s const *utetra) {
   assert(dbl3_valid_bary_coord(par.b));
   memcpy(par.l, utetra->l, sizeof(size_t[3]));
   return par;
-}
-
-void utetra_get_t(utetra_s const *u, dbl t[3]) {
-  dbl3_normalized(u->x_minus_xb, t);
-}
-
-dbl utetra_get_L(utetra_s const *u) {
-  return u->L;
 }
 
 bool utetra_approx_hess(utetra_s const *u, dbl h, dbl33 hess) {
