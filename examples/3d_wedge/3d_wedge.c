@@ -214,7 +214,7 @@ jmm_3d_wedge_problem_solve(jmm_3d_wedge_problem_s *wedge, dbl sp, dbl phip,
 
   /* Set up and solve the direct eikonal problem */
 
-  eik3_init(wedge->eik_direct, wedge->mesh, FTYPE_POINT_SOURCE);
+  eik3_init(wedge->eik_direct, wedge->mesh);
 
   /* Find all vertices which lie inside the factoring radius, and
    * initialize the vertices of all cells incident on those vertices
@@ -259,7 +259,8 @@ jmm_3d_wedge_problem_solve(jmm_3d_wedge_problem_s *wedge, dbl sp, dbl phip,
       dbl33_sub(eye, Df_otimes_Df, jet.D2f);
       dbl33_dbl_div_inplace(jet.D2f, jet.f);
 
-      eik3_add_pt_src_BCs(wedge->eik_direct, cv[j], jet);
+      eik3_add_trial(wedge->eik_direct, cv[j], jet);
+
       ++num_initialized;
     }
   }
@@ -282,7 +283,7 @@ jmm_3d_wedge_problem_solve(jmm_3d_wedge_problem_s *wedge, dbl sp, dbl phip,
    * reflection eikonal problem: */
 
   if (-phip > -JMM_PI) {
-    eik3_init(wedge->eik_o_refl, wedge->mesh, FTYPE_REFLECTION);
+    eik3_init(wedge->eik_o_refl, wedge->mesh);
 
     for (size_t i = 0; i < mesh3_nverts(wedge->mesh); ++i) {
       mesh3_copy_vert(wedge->mesh, i, x);
@@ -317,7 +318,7 @@ jmm_3d_wedge_problem_solve(jmm_3d_wedge_problem_s *wedge, dbl sp, dbl phip,
   dbl n_radians = JMM_PI*wedge->spec.n;
 
   if (-phip < n_radians - JMM_PI) {
-    eik3_init(wedge->eik_n_refl, wedge->mesh, FTYPE_REFLECTION);
+    eik3_init(wedge->eik_n_refl, wedge->mesh);
 
     /* Get the surface normal for the n-face */
     dbl3 n_normal = {-sin(n_radians), cos(n_radians), 0};

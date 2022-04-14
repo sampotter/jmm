@@ -140,7 +140,7 @@ static dbl utri_hybrid_f(dbl lam, utri_s *utri) {
   return utri->Df;
 }
 
-bool utri_init(utri_s *u, utri_spec_s const *spec) {
+void utri_init(utri_s *u, utri_spec_s const *spec) {
   bool passed_lhat = spec->lhat != (size_t)NO_INDEX;
   bool passed_l0 = spec->l[0] != (size_t)NO_INDEX;
   bool passed_l1 = spec->l[1] != (size_t)NO_INDEX;
@@ -223,37 +223,12 @@ bool utri_init(utri_s *u, utri_spec_s const *spec) {
       spec->jet[i] :
       jet31t_from_jet32t(eik3_get_jet(spec->eik, spec->l[i]));
 
-  bool pt_src[2];
-  for (size_t i = 0; i < 2; ++i)
-    pt_src[i] = jet31t_is_point_source(&jet[i]);
-
-  /* If we're solving a point source problem, then we *have* found a
-   * point source, and we shouldn't try do a triangle update
-   * involving this point. */
-  if (spec->eik &&
-      eik3_get_ftype(spec->eik) == FTYPE_POINT_SOURCE &&
-      (pt_src[0] ^ pt_src[1]))
-    return false;
-
-  /* If the jets at the update vertices are finite, we can go ahead
-   * and do the interpolation now. On the other hand, if they aren't,
-   * we assume that: 1) this is a diffracting update, and 2) we have
-   * supplied precomputed boundary data for this update. */
-  if (pt_src[0] && pt_src[1]) {
-    /* use the precomputed boundary data */
-    assert(passed_l);
-    assert(mesh3_is_diff_edge(mesh, spec->l));
-    assert(eik3_get_bde_bc(spec->eik, spec->l, &u->T));
-  } else {
-    dbl Xt[2][3];
-    dbl3_copy(u->x0, Xt[0]);
-    dbl3_copy(u->x1, Xt[1]);
-    bb31_init_from_jets(&u->T, jet, Xt);
-  }
+  dbl Xt[2][3];
+  dbl3_copy(u->x0, Xt[0]);
+  dbl3_copy(u->x1, Xt[1]);
+  bb31_init_from_jets(&u->T, jet, Xt);
 
   u->orig_index = spec->orig_index;
-
-  return true;
 }
 
 void utri_solve(utri_s *utri) {
@@ -368,24 +343,15 @@ static dbl get_L(utri_s const *u) {
 }
 
 bool utri_emits_terminal_ray(utri_s const *utri, eik3_s const *eik) {
-  par3_s par = utri_get_par(utri);
-
-  // TODO: anything else we need to check?
-
-  return par3_is_on_BC_boundary(&par, eik);
+  (void)utri;
+  (void)eik;
+  assert(false);
 }
 
 bool utri_update_ray_is_physical(utri_s const *utri, eik3_s const *eik) {
   mesh3_s const *mesh = eik3_get_mesh(eik);
 
   size_t l[2] = {utri->l0, utri->l1};
-
-  /* Check if we're trying to update from a diffracting edge with
-   * precomputed boundary conditions. If this is the case, we're
-   * solving an edge diffraction problem and are updating from the
-   * original diffracting edge. */
-  if (eik3_has_bde_bc(eik, l))
-    return true;
 
   /**
    * First, we check if the ray is spuriously emanating from the
@@ -642,82 +608,6 @@ bool utri_approx_hess(utri_s const *u, dbl h, dbl33 hess) {
   dbl33_symmetrize(hess);
 
   return true;
-}
-
-bool utri_inc_on_refl_BCs(utri_s const *u, eik3_s const *eik) {
-  assert(eik3_get_ftype(eik) == FTYPE_REFLECTION);
-  return eik3_has_BCs(eik, u->l0) && eik3_has_BCs(eik, u->l1);
-}
-
-bool utri_accept_refl_BCs_update(utri_s const *u, eik3_s const *eik) {
-  size_t l = utri_get_l(u);
-  size_t le[2]; utri_get_update_inds(u, le);
-
-  assert(eik3_has_BCs(eik, le[0]));
-  assert(eik3_has_BCs(eik, le[1]));
-
-  if (eik3_has_BCs(eik, l))
-    return false;
-
-  mesh3_s const *mesh = eik3_get_mesh(eik);
-
-  /* First, get the incident reflecting faces. There should only be
-   * one that's adjacent to `le`, since we're assuming for now that
-   * reflectors consist only of coplanar facets. */
-  size_t lf[3];
-  if (!eik3_get_refl_bdf_inc_on_diff_edge(eik, le, lf))
-    return true;
-
-  dbl xf[3];
-  mesh3_get_face_centroid(mesh, lf, xf);
-
-  dbl nu[3];
-  mesh3_get_face_normal(mesh, lf, nu);
-
-  dbl const *x = mesh3_get_vert_ptr(mesh, l);
-
-  if (dbl3_dot(nu, x) - dbl3_dot(nu, xf) < 0)
-    return true;
-
-  /* Get the edge's tangent and midpoint and the centroid of the
-   * reflecting face. */
-  dbl e[3]; mesh3_get_edge_tangent(mesh, le, e);
-  dbl xm[3]; mesh3_get_edge_midpoint(mesh, le, xm);
-
-  dbl lam = u->lam;
-
-  jet32t jet0 = eik3_get_jet(eik, le[0]);
-  if (fabs(lam) < 1e-14 && !dbl3_isfinite(jet0.Df))
-    return true;
-
-  jet32t jet1 = eik3_get_jet(eik, le[1]);
-  if (fabs(1 - lam) < 1e-14 && !dbl3_isfinite(jet1.Df))
-    return true;
-
-  dbl DT[3];
-  if (!dbl3_isfinite(jet0.Df) || !dbl3_isfinite(jet1.Df)) {
-
-  } else {
-    slerp2(jet0.Df, jet1.Df, DBL2(1 - lam, lam), DT);
-  }
-
-  /* First, get the unit vector that supports the reflection boundary
-   * (which we'll denote `t`) */
-
-  dbl t[3];
-  dbl3_cross(e, DT, t);
-  dbl3_normalize(t);
-
-  dbl t_dot_xm = dbl3_dot(t, xm);
-  dbl dot = dbl3_dot(t, xf) - t_dot_xm;
-
-  if (dot == 0)
-    return dbl3_dot(nu, x) - dbl3_dot(nu, xm) < 0;
-
-  if (dot > 0)
-    dbl3_negate(t);
-
-  return dbl3_dot(t, x) - t_dot_xm;
 }
 
 static dbl get_lambda(utri_s const *u) {
