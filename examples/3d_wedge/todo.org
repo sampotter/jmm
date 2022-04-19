@@ -1,3 +1,35 @@
+* Todo
+
+** Things to do
+
+   - [-] propagate parents
+     - [X] direct
+     - [ ] reflection
+
+** Plots to make
+   - [ ] slice plots
+     + restrict BBmesh to xy plane
+     + pull out data
+     + use this guy to make the plot: [[https://matplotlib.org/3.1.1/gallery/images_contours_and_fields/tricontour_smooth_user.html#sphx-glr-gallery-images-contours-and-fields-tricontour-smooth-user-py][link]]
+     + plot these (value & errors):
+       - [ ] direct T
+       - [ ] direct DT
+       - [ ] direct D2T
+       - [ ] direct amplitude
+       - [ ] direct field
+       - [ ] o-refl T
+       - [ ] o-refl DT
+       - [ ] o-refl D2T
+       - [ ] o-refl amplitude
+       - [ ] o-refl field
+       - [ ] n-refl T
+       - [ ] n-refl DT
+       - [ ] n-refl D2T
+       - [ ] n-refl amplitude
+       - [ ] n-refl field
+       for a couple different parameters
+     + [ ] plot combined field
+
 * Possible sources of error
 
 ** Big error in Hessian just past edge
