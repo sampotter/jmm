@@ -70,8 +70,9 @@ struct eik3 {
 
   /* In some cases, we'll skip old updates that might be useful at a
    * later stage. We keep track of them here. */
-  array_s *old_updates;
+  array_s *old_utetra;
   array_s *old_bd_utri; // old two-point boundary `utri`
+  array_s *old_diff_utri; // old two-point updates from diff. edges
 
   /* If `has_bc[l] == true`, then node `l` had boundary conditions
    * specified. */
@@ -168,11 +169,14 @@ void eik3_init(eik3_s *eik, mesh3_s *mesh) {
   for (size_t i = 0; i < nverts; ++i)
     eik->accepted[i] = (size_t)NO_INDEX;
 
-  array_alloc(&eik->old_updates);
-  array_init(eik->old_updates, sizeof(utetra_s *), 16);
+  array_alloc(&eik->old_utetra);
+  array_init(eik->old_utetra, sizeof(utetra_s *), 16);
 
   array_alloc(&eik->old_bd_utri);
   array_init(eik->old_bd_utri, sizeof(utri_s *), 16);
+
+  array_alloc(&eik->old_diff_utri);
+  array_init(eik->old_diff_utri, sizeof(utri_s *), 16);
 
   eik->has_bc = calloc(nverts, sizeof(bool));
 
@@ -207,22 +211,32 @@ void eik3_deinit(eik3_s *eik) {
   heap_deinit(eik->heap);
   heap_dealloc(&eik->heap);
 
-  utetra_s *utetra;
-  for (size_t i = 0; i < array_size(eik->old_updates); ++i) {
-    array_get(eik->old_updates, i, &utetra);
-    utetra_deinit(utetra);
-    utetra_dealloc(&utetra);
-  }
-  array_deinit(eik->old_updates);
-  array_dealloc(&eik->old_updates);
+  /* release the "old update" data structures */
+  {
+    utetra_s *utetra;
+    utri_s *utri;
 
-  utri_s *utri;
-  for (size_t i = 0; i < array_size(eik->old_bd_utri); ++i) {
-    array_get(eik->old_bd_utri, i, &utri);
-    utri_dealloc(&utri);
+    for (size_t i = 0; i < array_size(eik->old_utetra); ++i) {
+      array_get(eik->old_utetra, i, &utetra);
+      utetra_dealloc(&utetra);
+    }
+    array_deinit(eik->old_utetra);
+    array_dealloc(&eik->old_utetra);
+
+    for (size_t i = 0; i < array_size(eik->old_bd_utri); ++i) {
+      array_get(eik->old_bd_utri, i, &utri);
+      utri_dealloc(&utri);
+    }
+    array_deinit(eik->old_bd_utri);
+    array_dealloc(&eik->old_bd_utri);
+
+    for (size_t i = 0; i < array_size(eik->old_diff_utri); ++i) {
+      array_get(eik->old_diff_utri, i, &utri);
+      utri_dealloc(&utri);
+    }
+    array_deinit(eik->old_diff_utri);
+    array_dealloc(&eik->old_diff_utri);
   }
-  array_deinit(eik->old_bd_utri);
-  array_dealloc(&eik->old_bd_utri);
 
   free(eik->has_bc);
   eik->has_bc = NULL;
@@ -249,174 +263,62 @@ void eik3_dump_state(eik3_s const *eik, char const *path) {
   fclose(fp);
 }
 
-static bool commit_utri(eik3_s *eik, size_t lhat, utri_s const *utri) {
-  if (utri_get_value(utri) >= eik->jet[lhat].f)
+static void adjust(eik3_s *eik, size_t l) {
+  assert(eik->state[l] == TRIAL);
+  assert(l < mesh3_nverts(eik->mesh));
+
+  heap_swim(eik->heap, eik->pos[l]);
+}
+
+static void commit_utri(eik3_s *eik, size_t lhat, utri_s const *utri) {
+  /* TODO: see comment about caustics in `commit_utetra` */
+  assert(utri_get_value(utri) < eik->jet[lhat].f);
+
+  utri_get_jet32t(utri, &eik->jet[lhat]);
+
+  eik3_set_par(eik, lhat, utri_get_par(utri));
+}
+
+/** Functions for `do_bd_utri` and `do_diff_utri`: */
+
+/* Check whether the edge indexed by `l` is:
+ *   1) a boundary edge (a mesh edge that's  immersed in the boundary)
+ *   2) on the `VALID` front (in this case, since we know that `l[0]`
+ *   is newly `VALID`, this means that `l[1]` has at least one
+ *   boundary vertex neighbor that's `TRIAL`) */
+static bool is_valid_front_bde(eik3_s const *eik, size_t const l[2]) {
+  mesh3_s const *mesh = eik->mesh;
+
+  if (!mesh3_bde(mesh, l))
     return false;
 
-  // TODO: set T
-  // TODO: set DT
-  // TODO: set D2T
+  size_t nvv = mesh3_nvv(mesh, l[1]);
+  size_t *vv = malloc(nvv*sizeof(size_t));
+  mesh3_vv(mesh, l[1], vv);
 
-  return true;
-}
-
-static void do_2pt_bd_updates(eik3_s *eik, size_t l, size_t l0) {
-  size_t nve = mesh3_nve(eik->mesh, l);
-  size_t (*ve)[2] = malloc(nve*sizeof(size_t[2]));
-  mesh3_ve(eik->mesh, l, ve);
-
-  utri_s **utri = calloc(nve, sizeof(size_t *));
-
-  size_t l1;
-  size_t nup = 0;
-  for (size_t i = 0; i < nve; ++i) {
-    utri[i] = NULL;
-    if (ve[i][0] == l0 || ve[i][1] == l0) {
-      l1 = ve[i][0] == l0 ? ve[i][1] : ve[i][0];
-      size_t lf[3] = {l, l0, l1};
-      if (eik->state[l1] == VALID && mesh3_is_bdf(eik->mesh, lf)) {
-        utri_alloc(&utri[i]);
-        utri_spec_s spec = utri_spec_from_eik(eik, l, l0, l1);
-        ++nup;
-        utri_init(utri[i], &spec);
-        utri_solve(utri[i]);
-      }
-    }
-  }
-
-  qsort(utri, nve, sizeof(utri_s *), (compar_t)utri_cmp);
-
-  for (size_t i = 0; i < nup; ++i)
-    assert(utri[i] != NULL);
-  for (size_t i = nup; i < nve; ++i)
-    assert(utri[i] == NULL);
-
-  /* Go through old boundary triangle updates and append any that have
-   * the same update index and share an edge with the current updates
-   * in `utri`. We will have solved these already, so don't need to
-   * resolve them. */
-  size_t copied_utri = 0;
-  for (size_t i = 0; i < nve; ++i) {
-    if (utri[i] == NULL)
-      continue;
-    utri_s *u_old;
-    for (size_t j = array_size(eik->old_bd_utri); j > 0; --j) {
-      array_get(eik->old_bd_utri, j - 1, &u_old);
-      if (utri_get_l(u_old) != l ||
-          !utri_opt_inc_on_other_utri(u_old, utri[i]))
-        continue;
-      array_delete(eik->old_bd_utri, j - 1);
-      if (nup + copied_utri + 1 > nve)
-        utri = realloc(utri, (nup + copied_utri + 1)*sizeof(utri_s *));
-      utri[nup + copied_utri++] = u_old;
-    }
-  }
-  nup += copied_utri;
-
-  qsort(utri, nup, sizeof(utri_s *), (compar_t)utri_cmp);
-
-  // Keep track of which utri to free. If we copy any over to
-  // `old_bd_utri`, we want to make sure we don't accidentally free
-  // them.
-  bool *free_utri = malloc(nup*sizeof(bool));
-  for (size_t i = 0; i < nup; ++i)
-    free_utri[i] = true;
-
-  // Try to commit a triangle update
-  //
-  // TODO: as always, this is a bit complicated. Would be nice to
-  // simplify this or at least factor it out somewhere else.
-  for (size_t i = 0; i < nup; ++i) {
-    if (!utri_is_finite(utri[i]))
+  bool has_trial_nb = false;
+  for (size_t i = 0; i < nvv; ++i) {
+    if (vv[i] != l[0] &&
+        mesh3_bdv(mesh, vv[i]) &&
+        eik->state[vv[i]] == TRIAL) {
+      has_trial_nb = true;
       break;
-    if (utri_has_interior_point_solution(utri[i])) {
-      if (utri_update_ray_is_physical(utri[i], eik) &&
-          commit_utri(eik, l, utri[i])) {
-        break;
-      }
-    } else if (i + 1 < nup &&
-               utris_yield_same_update(utri[i], utri[i + 1]) &&
-               utri_update_ray_is_physical(utri[i], eik) &&
-               commit_utri(eik, l, utri[i])) {
-      break;
-    } else {
-      array_append(eik->old_bd_utri, &utri[i]);
-      free_utri[i] = false;
     }
   }
 
-  for (size_t i = 0; i < nup; ++i) {
-    if (utri[i] == NULL || !free_utri[i]) continue;
-    utri_dealloc(&utri[i]);
-  }
+  free(vv);
 
-  free(free_utri);
-  free(utri);
-  free(ve);
+  return has_trial_nb;
 }
 
-static
-size_t get_update_fan(eik3_s const *eik, size_t l0, size_t **l1, size_t **l2) {
-  size_t nvc = mesh3_nvc(eik->mesh, l0);
-  size_t *vc = malloc(nvc*sizeof(size_t));
-  mesh3_vc(eik->mesh, l0, vc);
-
-  array_s *le_arr;
-  array_alloc(&le_arr);
-  array_init(le_arr, sizeof(size_t[2]), ARRAY_DEFAULT_CAPACITY);
-
-  bool is_valid[4];
-  size_t cv[4], le[2], num_valid;
-  for (size_t i = 0; i < nvc; ++i) {
-    mesh3_cv(eik->mesh, vc[i], cv);
-
-    num_valid = 0;
-    for (size_t j = 0; j < 4; ++j)
-      num_valid += is_valid[j] = eik->state[cv[j]] == VALID;
-
-    if (num_valid != 3)
-      continue;
-
-    size_t k = 0;
-    for (size_t j = 0; j < 4; ++j)
-      if (cv[j] != l0 && is_valid[j])
-        le[k++] = cv[j];
-    assert(k == 2);
-
-    SORT2(le[0], le[1]);
-
-    if (eik->state[le[0]] != VALID || eik->state[le[1]] != VALID)
-      continue;
-
-    if (array_contains(le_arr, &le))
-      continue;
-
-    array_append(le_arr, &le);
-  }
-
-  size_t num_updates = array_size(le_arr);
-
-  *l1 = malloc(num_updates*sizeof(size_t));
-  *l2 = malloc(num_updates*sizeof(size_t));
-
-  for (size_t i = 0; i < array_size(le_arr); ++i) {
-    array_get(le_arr, i, &le);
-    (*l1)[i] = le[0];
-    (*l2)[i] = le[1];
-  }
-
-  array_deinit(le_arr);
-  array_dealloc(&le_arr);
-
-  free(vc);
-
-  return num_updates;
+static bool is_diff_edge(eik3_s const *eik, size_t const l[2]) {
+  return mesh3_is_diff_edge(eik->mesh, l);
 }
 
-static
-void get_valid_incident_diff_edges(eik3_s const *eik, size_t l0,
-                                   array_s *l1) {
-  mesh3_s const *mesh = eik3_get_mesh(eik);
+static void
+get_valid_inc_edges(eik3_s const *eik, size_t l0, array_s *l1,
+                    bool (*pred)(eik3_s const *, size_t const[2])) {
+mesh3_s const *mesh = eik3_get_mesh(eik);
 
   int nvv = mesh3_nvv(mesh, l0);
   size_t *vv = malloc(nvv*sizeof(size_t));
@@ -426,7 +328,7 @@ void get_valid_incident_diff_edges(eik3_s const *eik, size_t l0,
   for (int i = 0; i < nvv; ++i) {
     le[1] = vv[i];
 
-    if (!mesh3_is_diff_edge(mesh, le))
+    if (!pred(eik, le))
       continue;
 
     if (!eik3_is_valid(eik, le[1]))
@@ -438,385 +340,374 @@ void get_valid_incident_diff_edges(eik3_s const *eik, size_t l0,
   free(vv);
 }
 
-static void commit_utetra(eik3_s *eik, size_t lhat, utetra_s const *utetra) {
-  /* If the value isn't a strict improvement, return early and do
-   * nothing.
-   *
-   * TODO: at some point, we may want to look into dealing with the
+/* Look through the cache of old edge-diffracted two-point updates for
+ * an update which matches `utri` (is incident on it and which shares
+ * the same active index). If we find one, delete it from the cache
+ * and return it. */
+static utri_s *
+find_and_delete_cached_utri(array_s *utri_cache, utri_s const *utri) {
+  /* get indices of current `utri` */
+  size_t l = utri_get_l(utri);
+  size_t l_active = utri_get_active_ind(utri);
+  size_t l_inactive = utri_get_inactive_ind(utri);
+
+  utri_s *utri_other = NULL;
+
+  /* iterate over the other `utri` in the cache... */
+  for (size_t i = 0; i < array_size(utri_cache); ++i) {
+    array_get(utri_cache, i, &utri_other);
+
+    /* if this is a distinct `utri`, with the same target index and
+     * the same active index (so, the inactive index must be
+     * different!) ... */
+    if (l == utri_get_l(utri_other) &&
+        l_active == utri_get_active_ind(utri_other) &&
+        l_inactive != utri_get_inactive_ind(utri_other)) {
+      /* ... then delete it and break from the loop */
+      array_delete(utri_cache, i);
+      break;
+    }
+
+    /* make sure to set `utri_other` back to `NULL` here---if we don't
+     * end up breaking, on the last loop, we will return `NULL` to
+     * signal that we didn't find a matching `utri` to delete */
+    utri_other = NULL;
+  }
+
+  return utri_other;
+}
+
+/* Check whether `utri` has been stored in the cache for
+ * edge-diffracted updates already. */
+static bool utri_is_cached(array_s const *utri_cache, utri_s const *utri) {
+  utri_s const *utri_other = NULL;
+  for (size_t i = 0; i < array_size(utri_cache); ++i) {
+    array_get(utri_cache, i, &utri_other);
+    if (utris_have_same_inds(utri, utri_other))
+      return true;
+  }
+  return false;
+}
+
+static void do_utri(eik3_s *eik, size_t l, size_t l0, array_s *utri_cache,
+                    bool (*pred)(eik3_s const *, size_t const[2])) {
+  assert(l != l0);
+
+  /* find the diffracting edges incident on l0 with VALID indices */
+  array_s *l1_arr;
+  array_alloc(&l1_arr);
+  array_init(l1_arr, sizeof(size_t), ARRAY_DEFAULT_CAPACITY);
+  get_valid_inc_edges(eik, l0, l1_arr, pred);
+
+  for (size_t i = 0, l1; i < array_size(l1_arr); ++i) {
+    array_get(l1_arr, i, &l1);
+    if (l == l1)
+      continue;
+
+    utri_spec_s spec = utri_spec_from_eik(eik, l, l0, l1);
+    utri_s *utri;
+    utri_alloc(&utri);
+    utri_init(utri, &spec);
+
+    if (utri_is_degenerate(utri))
+      goto next;
+
+    utri_solve(utri);
+
+    if (utri_get_value(utri) >= eik->jet[l].f)
+      goto next;
+
+    if (!utri_update_ray_is_physical(utri, eik))
+      goto next;
+
+    if (utri_has_interior_point_solution(utri)) {
+      commit_utri(eik, l, utri);
+      adjust(eik, l);
+      goto next;
+    }
+
+    /* see if we can find an old triangle update which matches the
+     * current one, and commit the update if we can
+     *
+     * (if successful, delete the old one!) */
+    utri_s *utri_other = find_and_delete_cached_utri(utri_cache, utri);
+    if (utri_other) {
+      commit_utri(eik, l, utri);
+      adjust(eik, l);
+      utri_dealloc(&utri_other);
+      goto next;
+    }
+
+    /* if we failed, we cache this update for later (... if we
+     * haven't already) */
+    if (!utri_is_cached(utri_cache, utri)) {
+      array_append(utri_cache, &utri);
+      continue; /* don't dealloc in this case! */
+    }
+
+  next:
+    utri_dealloc(&utri);
+  }
+
+  /* release array of VALID diff edges */
+  array_deinit(l1_arr);
+  array_dealloc(&l1_arr);
+}
+
+/** Functions for `do_freespace_utetra`: */
+
+static void get_update_fan(eik3_s const *eik, size_t l0, array_s *l_arr) {
+  /* Find all of the cells incident on `l0` */
+  size_t nvc = mesh3_nvc(eik->mesh, l0);
+  size_t *vc = malloc(nvc*sizeof(size_t));
+  mesh3_vc(eik->mesh, l0, vc);
+
+  /* Iterate over each cell incident on `l0` */
+  for (size_t i = 0; i < nvc; ++i) {
+    size_t cv[4];
+    mesh3_cv(eik->mesh, vc[i], cv);
+
+    /* Find the current cell's `VALID` vertices */
+    size_t num_valid = 0, l_valid[4];
+    for (size_t j = 0; j < 4; ++j)
+      if (eik->state[cv[j]] == VALID)
+        l_valid[num_valid++] = cv[j];
+
+    /* Only interested in cells on the `VALID` front */
+    if (num_valid != 3)
+      continue;
+
+    /* Grab the two non-`l0` `VALID` vertices in sorted order */
+    size_t l[2];
+    for (size_t j = 0, k = 0; j < num_valid; ++j)
+      if (l_valid[j] != l0)
+        l[k++] = l_valid[j];
+    SORT2(l[0], l[1]);
+
+    if (array_contains(l_arr, &l))
+      continue;
+
+    array_append(l_arr, &l);
+  }
+
+  /* Release the cell array */
+  free(vc);
+}
+
+static void commit_utetra(eik3_s *eik, size_t l, utetra_s const *utetra) {
+  /* TODO: at some point, we may want to look into dealing with the
    * case where the new value is approximately equal to the current
    * value. This is a sign that a caustic has formed. */
-  if (utetra_get_value(utetra) >= eik->jet[lhat].f)
-    return;
+  assert(utetra_get_value(utetra) < eik->jet[l].f);
 
-  utetra_get_jet32t(utetra, eik, &eik->jet[lhat]);
+  utetra_get_jet32t(utetra, eik, &eik->jet[l]);
+
+  eik3_set_par(eik, l, utetra_get_parent(utetra));
+}
+
+static bool
+utetras_bracket_ray(utetra_s const *utetra, size_t l0,
+                    utetra_s **utetra_other, size_t num_utetra_other) {
+  if (num_utetra_other == 0)
+    return false;
+
+  size_t num_interior = utetra_get_num_interior_coefs(utetra);
+  assert(num_interior == 0 || num_interior == 2);
+
+  bool l0_is_active = utetra_index_is_active(utetra, l0);
+
+  if (num_interior == 2)
+    return l0_is_active;
+
+  if (!l0_is_active)
+    return false;
+
+  /* Get the first utetra... if any of the vertices are boundary
+   * vertices, we should do something a little different here. Namely,
+   * we should make sure that l_start is on the boundary! But I'm not
+   * sure whether this is actually that important... see comment
+   * below. */
+
+  size_t i_current = 0;
+
+  size_t l_other[2] = {NO_INDEX, NO_INDEX};
+  utetra_get_other_inds(utetra_other[i_current], l0, l_other);
+
+  size_t l_start = l_other[0], l_current = l_other[1];
+
+  /* Next, we walk around the ring of utetra until we've visited all
+   * of them... */
+  size_t num_visited = 1;
+  while (num_visited++ < num_utetra_other) {
+    /* Search through the utetra for the one we should step to next */
+    for (size_t i = 0; i < num_utetra_other; ++i) {
+      if (i == i_current)
+        continue;
+
+      utetra_get_other_inds(utetra_other[i], l0, l_other);
+      if (l_current != l_other[0] && l_current != l_other[1])
+        continue;
+
+      /* Update l_current and i_current and break */
+      l_current = l_current == l_other[0] ? l_other[1] : l_other[0];
+      i_current = i;
+      break;
+    }
+  }
+
+  /* We're done walking... check if we're back where we started */
+  return l_start == l_current;
+}
+
+
+static utetra_s **
+find_and_delete_cached_utetra(eik3_s *eik, size_t l0,
+                              utetra_s const *utetra, size_t *num_utetra) {
+  size_t l = utetra_get_l(utetra);
+
+  /* First, find the indices of the cached utetra which share the same
+   * target node and have the same active indices as `utetra`. */
+  array_s *i_arr;
+  array_alloc(&i_arr);
+  array_init(i_arr, sizeof(size_t), ARRAY_DEFAULT_CAPACITY);
+  for (size_t i = 0; i < array_size(eik->old_utetra); ++i) {
+    utetra_s const *utetra_other;
+    array_get(eik->old_utetra, i, &utetra_other);
+
+    if (l != utetra_get_l(utetra_other))
+      continue;
+
+    if (!utetras_have_same_minimizer(utetra, utetra_other))
+      continue;
+
+    /* Initially just append here so we can check whether we actually
+     * want to return these utetras! */
+    array_append(i_arr, &i);
+  }
+
+  /* Get the pointers to the utetra we found */
+  *num_utetra = array_size(i_arr);
+  utetra_s **utetra_found = malloc(*num_utetra*sizeof(utetra_s *));
+  for (size_t j = 0, i; j < array_size(i_arr); ++j) {
+    array_get(i_arr, j, &i);
+    array_get(eik->old_utetra, i, &utetra_found[j]);
+    assert(!utetras_have_same_inds(utetra, utetra_found[j]));
+  }
+
+  /* We're good if we've found at least one utetra, and either: 1)
+   * we're dealing with an optimum on the interior of an edge, or 2)
+   * we have an optimum on a corner and we can "walk" the ring of
+   * surrounding utetra */
+  bool found = *num_utetra > 0 &&
+    utetras_bracket_ray(utetra, l0, utetra_found, *num_utetra);
+  if (found) {
+    array_delete_all(eik->old_utetra, i_arr);
+  } else {
+    free(utetra_found);
+    utetra_found = NULL;
+  }
+
+  array_deinit(i_arr);
+  array_dealloc(&i_arr);
+
+  return utetra_found;
+}
+
+static bool utetra_cached_already(eik3_s const *eik, utetra_s const *utetra) {
+  utetra_s const *utetra_other = NULL;
+  for (size_t i = 0; i < array_size(eik->old_utetra); ++i) {
+    array_get(eik->old_utetra, i, &utetra_other);
+    if (utetras_have_same_inds(utetra, utetra_other))
+      return true;
+  }
+  return false;
+}
+
+static void do_freespace_utetra(eik3_s *eik, size_t l, size_t l0) {
+  /* Get the fan of `VALID` triangles incident on `l0`. */
+  array_s *le_arr;
+  array_alloc(&le_arr);
+  array_init(le_arr, sizeof(size_t[2]), ARRAY_DEFAULT_CAPACITY);
+  get_update_fan(eik, l0, le_arr);
+
+  for (size_t i = 0, le[2]; i < array_size(le_arr); ++i) {
+    array_get(le_arr, i, &le);
+
+    utetra_spec_s spec = utetra_spec_from_eik_and_inds(eik,l,l0,le[0],le[1]);
+    utetra_s *utetra;
+    utetra_alloc(&utetra);
+    utetra_init(utetra, &spec);
+
+    // TODO: sanity check...
+    for (size_t j = 0; j < array_size(eik->old_utetra); ++j) {
+      utetra_s *utetra_other;
+      array_get(eik->old_utetra, j, &utetra_other);
+      assert(!utetras_have_same_inds(utetra, utetra_other));
+    }
+
+    if (utetra_is_degenerate(utetra))
+      goto next;
+
+    utetra_solve(utetra, /* warm start: */ NULL);
+
+    if (utetra_get_value(utetra) >= eik->jet[l].f)
+      goto next;
+
+    if (!utetra_update_ray_is_physical(utetra, eik))
+      goto next;
+
+    if (utetra_has_interior_point_solution(utetra)) {
+      commit_utetra(eik, l, utetra);
+      adjust(eik, l);
+      goto next;
+    }
+
+    size_t num_interior = utetra_get_num_interior_coefs(utetra);
+    assert(num_interior == 0 || num_interior == 2);
+
+    size_t num_utetra_other;
+    utetra_s **utetra_other =
+      find_and_delete_cached_utetra(eik, l0, utetra, &num_utetra_other);
+    if (utetra_other) {
+      commit_utetra(eik, l, utetra);
+      adjust(eik, l);
+      for (size_t j = 0; j < num_utetra_other; ++j)
+        utetra_dealloc(&utetra_other[j]);
+      free(utetra_other);
+      goto next;
+    }
+
+    if (!utetra_cached_already(eik, utetra)) {
+      array_append(eik->old_utetra, &utetra);
+      continue; /* don't dealloc */
+    }
+
+  next:
+    utetra_dealloc(&utetra);
+  }
+
+  array_deinit(le_arr);
+  array_dealloc(&le_arr);
 }
 
 static void update(eik3_s *eik, size_t l, size_t l0) {
-  // Next, if `l` is a boundary point, we want to do any two-point
-  // updates that are immersed in the boundary. (These are "creeping
-  // rays", which can be physical.)
+  /* If `l` is a boundary point, do two-point updates that are
+   * immersed in the boundary. These are updates that can yield
+   * "creeping rays". */
   if (mesh3_bdv(eik->mesh, l) && mesh3_bdv(eik->mesh, l0))
-    do_2pt_bd_updates(eik, l, l0);
+    do_utri(eik, l, l0, eik->old_bd_utri, is_valid_front_bde);
 
-  /**
-   * First, find the "update triangle fan"
-   */
-  // TODO: would be better to use array_s for l1 and l2 and allocate
-  // them here, so it's clear that it's this function's responsibility
-  // to free them
-  size_t *l1, *l2;
-  size_t num_utetra = get_update_fan(eik, l0, &l1, &l2);
-  if (num_utetra == 0) {
-    free(l1);
-    free(l2);
-    return;
-  }
+  /* If `l0` is incident on a diffracting edge, look for corresponding
+   * two-point updates to do. */
+  if (mesh3_vert_incident_on_diff_edge(eik->mesh, l0))
+    do_utri(eik, l, l0, eik->old_diff_utri, is_diff_edge);
 
-  /**
-   * Before doing tetrahedron updates, we want to check if there are
-   * any diffracting edges updates that aren't adjacent to `l0`. These
-   * won't be covered by `do_all_diff_edge_updates_and_adjust` in
-   * `update_neighbors`.
-   */
-
-  // First, check which of the l1's and l2's are adjacent to l
-
-  // TODO: the way we're checking for adjacent updates here is pretty
-  // inefficient, but not sure if we can do better...
-
-  bool *l_l1_adj = malloc(num_utetra*sizeof(bool));
-  for (size_t i = 0; i < num_utetra; ++i)
-    l_l1_adj[i] = mesh3_is_edge(eik->mesh, (size_t[2]) {l, l1[i]});
-
-  bool *l_l2_adj = malloc(num_utetra*sizeof(bool));
-  for (size_t i = 0; i < num_utetra; ++i)
-    l_l2_adj[i] = mesh3_is_edge(eik->mesh, (size_t[2]) {l, l2[i]});
-
-  // Count and mark the non-adjacent edges are diffracting edges
-
-  size_t num_diff_edges = 0;
-  bool *is_diff_edge = calloc(num_utetra, sizeof(bool));
-  for (size_t i = 0; i < num_utetra; ++i) {
-    if (l_l1_adj[i] || l_l2_adj[i]) {
-      is_diff_edge[i] = false;
-      continue;
-    } else {
-      size_t e[2] = {l1[i], l2[i]};
-      is_diff_edge[i] = mesh3_is_diff_edge(eik->mesh, e);
-      num_diff_edges += is_diff_edge[i];
-    }
-  }
-
-  array_s *diff_utri;
-  array_alloc(&diff_utri);
-  array_init(diff_utri, sizeof(utri_s *), 2*num_diff_edges);
-
-  utri_s *u;
-  utri_spec_s spec;
-  for (size_t i = 0; i < num_utetra; ++i) {
-    if (!is_diff_edge[i]) continue;
-
-    utri_alloc(&u);
-
-    array_append(diff_utri, &u);
-
-    spec = utri_spec_from_eik(eik, l, l1[i], l2[i]);
-    spec.orig_index = i;
-    utri_init(u, &spec);
-    utri_solve(u);
-    if (utri_has_interior_point_solution(u))
-      continue;
-
-    // TODO: <wtf?>
-
-    size_t l_active = utri_get_active_ind(u);
-    assert(l_active != (size_t)NO_INDEX);
-
-    size_t l_inactive = utri_get_inactive_ind(u);
-    assert(l_inactive != (size_t)NO_INDEX);
-
-    size_t num_inc = mesh3_get_num_inc_diff_edges(eik->mesh, l_active);
-    size_t (*le)[2] = malloc(num_inc*sizeof(size_t[2]));
-    mesh3_get_inc_diff_edges(eik->mesh, l_active, le);
-
-    for (size_t k = 0; k < num_inc; ++k) {
-      /* Skip the current edge */
-      if (((le[k][0] == l_active) ^ (le[k][0] == l_inactive)) &&
-          ((le[k][1] == l_active) ^ (le[k][1] == l_inactive)))
-        continue;
-
-      /* Check if this edge is already in `diff_utri`. */
-      bool already_found = false;
-      for (size_t m = 0; m < array_size(diff_utri); ++m) {
-        utri_s *u_;
-        array_get(diff_utri, m, &u_);
-        if (utri_contains_update_ind(u_, le[k][0]) &&
-            utri_contains_update_ind(u_, le[k][1])) {
-          already_found = true;
-          break;
-        }
-      }
-      if (already_found)
-        continue;
-
-      /* Add the edge! */
-      utri_alloc(&u);
-      array_append(diff_utri, &u);
-      spec = utri_spec_from_eik(eik, l, le[k][0], le[k][1]);
-      utri_init(u, &spec);
-      utri_solve(u);
-    }
-
-    free(le);
-
-    // TODO: </wtf?>
-  }
-
-  array_sort(diff_utri, (compar_t)utri_cmp);
-
-  bool *updated_from_diff_edge = calloc(num_utetra, sizeof(bool));
-
-  for (size_t i = 0, j; i < array_size(diff_utri); ++i) {
-    utri_s *u, *u_;
-    array_get(diff_utri, i, &u);
-    if (!utri_is_finite(u))
-      continue;
-    if (utri_has_interior_point_solution(u)) {
-      if (utri_update_ray_is_physical(u, eik) &&
-          commit_utri(eik, l, u)) {
-        if (utri_has_orig_index(u)) {
-          j = utri_get_orig_index(u);
-          updated_from_diff_edge[j] = true;
-        }
-        break;
-      }
-    } else if (i + 1 < array_size(diff_utri)) {
-      array_get(diff_utri, i + 1, &u_);
-      if (utris_yield_same_update(u, u_) &&
-          utri_update_ray_is_physical(u, eik) &&
-          commit_utri(eik, l, u)) {
-        if (utri_has_orig_index(u)) {
-          j = utri_get_orig_index(u);
-          updated_from_diff_edge[j] = true;
-        }
-        if (utri_has_orig_index(u_)) {
-          j = utri_get_orig_index(u_);
-          updated_from_diff_edge[j] = true;
-        }
-      }
-    }
-  }
-
-  for (size_t i = 0; i < array_size(diff_utri); ++i) {
-    utri_s *u;
-    array_get(diff_utri, i, &u);
-    utri_dealloc(&u);
-  }
-
-  array_deinit(diff_utri);
-  array_dealloc(&diff_utri);
-
-  free(is_diff_edge);
-
-  free(l_l1_adj);
-  free(l_l2_adj);
-
-  /**
-   * Now we move on to doing tetrahedron updates
-   */
-
-  // Allocate tetrahedron updates
-  utetra_s **utetra = malloc(num_utetra*sizeof(utetra_s *));
-
-  // Do each tetrahedron update and sort
-  for (size_t i = 0; i < num_utetra; ++i) {
-    utetra_alloc(&utetra[i]);
-
-    utetra_spec_s spec = utetra_spec_from_eik_and_inds(eik, l, l0, l1[i], l2[i]);
-    if (!utetra_init(utetra[i], &spec))
-      continue;
-
-    // This is a gross hack. What we do here is prioritize a
-    // diffracting edge that's incident on this tetrahedron update. It
-    // might yield a somewhat higher value, but when we're close to a
-    // diffracting edge, it's important to correct the ray to ensure
-    // that it emits from the diffracting edge. So, we skip the
-    // tetrahedron update here.
-    if (updated_from_diff_edge[i])
-      continue;
-
-    // TODO: move into utetra_init?
-    if (utetra_is_degenerate(utetra[i]))
-      continue;
-
-    utetra_solve(utetra[i], NULL);
-  }
-
-  free(updated_from_diff_edge);
-
-  // Go through old updates and append any that have the same update
-  // index (`l`) and share an edge with the updates currently in
-  // `utetra`. Note: we will have already solved these updates! No
-  // need to redo them.
-  //
-  // TODO: this is a bit of a mess :-(
-  size_t copied_utetra = 0;
-  for (size_t i = 0; i < num_utetra; ++i) {
-    utetra_s *old_utetra;
-    for (size_t j = array_size(eik->old_updates); j > 0; --j) {
-      array_get(eik->old_updates, j - 1, &old_utetra);
-      // TODO: should filter out the entries of `old_updates` that
-      // have `lhat == l` beforehand so that we don't have to do this
-      // check for each element of `utetra[]`... wasteful
-      if (utetra_get_l(old_utetra) != l)
-        continue;
-      if (!utetra_opt_inc_on_other_utetra(old_utetra, utetra[i]))
-        continue;
-      // TODO: ACTUALLY, need to check if `old_utetra`'s optimum is
-      // incident on `utetra[i]`'s base!
-      array_delete(eik->old_updates, j - 1);
-      utetra = realloc(
-        utetra, (num_utetra + copied_utetra + 1)*sizeof(utetra_s *));
-      utetra[num_utetra + copied_utetra++] = old_utetra;
-    }
-  }
-  num_utetra += copied_utetra;
-
-  // Sort the updates by their eikonal value
-  qsort(utetra, num_utetra, sizeof(utetra_s *), (compar_t)utetra_cmp);
-
-  // Keep track of which updates to free. If we copy any updates over
-  // to `old_updates`, we want to make sure we don't accidentally free
-  // them.
-  bool *should_free_utetra = malloc(num_utetra*sizeof(bool));
-  for (size_t i = 0; i < num_utetra; ++i)
-    should_free_utetra[i] = true;
-
-  // See if we can commit a tetrahedron update
-  for (size_t i = 0; i < num_utetra; ++i) {
-    if (!isfinite(utetra_get_value(utetra[i])))
-      break;
-    if (utetra_has_interior_point_solution(utetra[i]) &&
-        utetra_update_ray_is_physical(utetra[i], eik)) {
-      commit_utetra(eik, l, utetra[i]);
-      break;
-    } else {
-      size_t num_int = utetra_get_num_interior_coefs(utetra[i]);
-      assert(num_int == 1 || num_int == 2);
-      size_t num_adj = 4 - num_int;
-      if (i + num_adj <= num_utetra &&
-          utetras_yield_same_update((utetra_s const **)&utetra[i], num_adj) &&
-          utetra_update_ray_is_physical(utetra[i], eik)) {
-        commit_utetra(eik, l, utetra[i]);
-        break;
-      } else {
-        array_append(eik->old_updates, &utetra[i]);
-        should_free_utetra[i] = false;
-      }
-    }
-  }
-
-  for (size_t i = 0; i < num_utetra; ++i)
-    if (should_free_utetra[i]) {
-      utetra_deinit(utetra[i]);
-      utetra_dealloc(&utetra[i]);
-    }
-  free(utetra);
-
-  free(should_free_utetra);
-
-  free(l1);
-  free(l2);
-}
-
-static void adjust(eik3_s *eik, size_t l) {
-  assert(eik->state[l] == TRIAL);
-  assert(l < mesh3_nverts(eik->mesh));
-
-  heap_swim(eik->heap, eik->pos[l]);
+  /* Finally, do the fan of free-space tetrahedron updates. */
+  do_freespace_utetra(eik, l, l0);
 }
 
 size_t eik3_peek(eik3_s const *eik) {
   return heap_front(eik->heap);
-}
-
-void do_diff_edge_updates_and_adjust(eik3_s *eik, size_t l0, size_t l1,
-                                     size_t *l0_nb, int l0_nnb) {
-  int l1_nnb = mesh3_nvv(eik->mesh, l1);
-  size_t *l1_nb = malloc(l1_nnb*sizeof(size_t));
-  mesh3_vv(eik->mesh, l1, l1_nb);
-
-  array_s *nb;
-  array_alloc(&nb);
-  array_init(nb, sizeof(size_t), ARRAY_DEFAULT_CAPACITY);
-
-  // TODO: should really do this work in the calling function, passing
-  // in a copy of the array each time...
-  for (int i = 0; i < l0_nnb; ++i)
-    if (eik3_is_trial(eik, l0_nb[i]))
-      array_append(nb, &l0_nb[i]);
-
-  for (int i = 0; i < l1_nnb; ++i)
-    if (eik3_is_trial(eik, l1_nb[i]) && !array_contains(nb, &l1_nb[i]))
-      array_append(nb, &l1_nb[i]);
-
-  free(l1_nb);
-
-  int nnb = array_size(nb);
-
-  utri_s *utri;
-  utri_alloc(&utri);
-
-  size_t l;
-
-  // TODO: a problem with what I'm doing here: may need to do adjacent
-  // diffracting edge updates. This could be a problem if I have
-  // curved obstacle, or if a ray goes around the corner of an
-  // obstacle. We'll see how far we can get with this for now...
-
-  /* Do a triangle update for each neighbor of the diff. edge */
-  for (int i = 0; i < nnb; ++i) {
-    array_get(nb, i, &l);
-
-    if (l == l0 || l == l1)
-      continue;
-
-    utri_spec_s spec = utri_spec_from_eik(eik, l, l0, l1);
-
-    utri_init(utri, &spec);
-
-    if (utri_is_degenerate(utri))
-      continue;
-
-    utri_solve(utri);
-
-    if ((utri_has_interior_point_solution(utri) ||
-         utri_emits_terminal_ray(utri, eik)) &&
-        utri_update_ray_is_physical(utri, eik) &&
-        commit_utri(eik, l, utri))
-      adjust(eik, l);
-  }
-
-  utri_dealloc(&utri);
-
-  array_deinit(nb);
-  array_dealloc(&nb);
-}
-
-void do_all_diff_edge_updates_and_adjust(eik3_s *eik, size_t l0, size_t *l0_nb,
-                                         int l0_nnb) {
-  array_s *l1;
-  array_alloc(&l1);
-  array_init(l1, sizeof(size_t), ARRAY_DEFAULT_CAPACITY);
-
-  get_valid_incident_diff_edges(eik, l0, l1);
-
-  for (size_t i = 0; i < array_size(l1); ++i)
-    do_diff_edge_updates_and_adjust(
-      eik, l0, *(size_t *)array_get_ptr(l1, i), l0_nb, l0_nnb);
-
-  array_deinit(l1);
-  array_dealloc(&l1);
 }
 
 void update_neighbors(eik3_s *eik, size_t l0) {
@@ -835,12 +726,6 @@ void update_neighbors(eik3_s *eik, size_t l0) {
     }
   }
 
-  // Find newly VALID diffracting edges (l0, l1) and update all
-  // neighboring nodes---these are nodes neighboring *both* l0 and
-  // l1. If we don't look at all of these neighbors, we could miss
-  // important edge updates.
-  do_all_diff_edge_updates_and_adjust(eik, l0, nb, nnb);
-
   // Update neighboring nodes.
   for (int i = 0; i < nnb; ++i) {
     if (eik->state[l = nb[i]] == TRIAL) {
@@ -858,13 +743,13 @@ void update_neighbors(eik3_s *eik, size_t l0) {
 
 /* Remove old tetrahedron and two-point boundary updates targeting
  * `l0` from `eik`. */
-static void purge_old_updates(eik3_s *eik, size_t l0) {
+static void purge_old_utetra(eik3_s *eik, size_t l0) {
   utetra_s *old_utetra;
-  for (size_t i = array_size(eik->old_updates); i > 0; --i) {
-    array_get(eik->old_updates, i - 1, &old_utetra);
+  for (size_t i = array_size(eik->old_utetra); i > 0; --i) {
+    array_get(eik->old_utetra, i - 1, &old_utetra);
     if (utetra_get_l(old_utetra) == l0) {
       utetra_dealloc(&old_utetra);
-      array_delete(eik->old_updates, i - 1);
+      array_delete(eik->old_utetra, i - 1);
     }
   }
 
@@ -882,6 +767,7 @@ jmm_error_e eik3_step(eik3_s *eik, size_t *l0) {
   /* Pop the first node from the front of the heap and set it to
    * VALID. Do some basic sanity checks. */
   *l0 = heap_front(eik->heap);
+  assert(isfinite(eik->jet[*l0].f));
   assert(eik->state[*l0] == TRIAL);
   heap_pop(eik->heap);
   eik->state[*l0] = VALID;
@@ -891,7 +777,7 @@ jmm_error_e eik3_step(eik3_s *eik, size_t *l0) {
   if (!isfinite(eik->jet[*l0].f))
     return JMM_ERROR_RUNTIME_ERROR;
 
-  purge_old_updates(eik, *l0);
+  purge_old_utetra(eik, *l0);
   update_neighbors(eik, *l0);
 
   /* Increment the number of nodes that have been accepted, and mark

@@ -41,7 +41,7 @@ typedef struct utetra utetra_s;
 
 void utetra_alloc(utetra_s **cf);
 void utetra_dealloc(utetra_s **cf);
-bool utetra_init(utetra_s *u, utetra_spec_s const *spec);
+void utetra_init(utetra_s *u, utetra_spec_s const *spec);
 bool utetra_is_degenerate(utetra_s const *u);
 void utetra_solve(utetra_s *cf, dbl const *lam);
 dbl utetra_get_value(utetra_s const *cf);
@@ -55,9 +55,9 @@ bool utetra_diff(utetra_s const *utetra, mesh3_s const *mesh, size_t const l[3])
 bool utetra_update_ray_is_physical(utetra_s const *utetra, eik3_s const *eik);
 bool utetra_updated_from_refl_BCs(utetra_s const *utetra, eik3_s const *eik);
 int utetra_get_num_interior_coefs(utetra_s const *utetra);
-bool utetras_yield_same_update(utetra_s const **u, size_t n);
 size_t utetra_get_l(utetra_s const *utetra);
-void utetra_set_update_inds(utetra_s *utetra, size_t l[3]);
+void utetra_get_update_inds(utetra_s const *utetra, size_t l[3]);
+void utetra_set_update_inds(utetra_s *utetra, size_t const l[3]);
 bool utetra_opt_inc_on_other_utetra(utetra_s const *u1, utetra_s const *u2);
 void utetra_get_x(utetra_s const *u, dbl x[3]);
 size_t utetra_get_active_inds(utetra_s const *utetra, size_t l[3]);
@@ -65,6 +65,11 @@ par3_s utetra_get_parent(utetra_s const *utetra);
 void utetra_get_t(utetra_s const *u, dbl t[3]);
 dbl utetra_get_L(utetra_s const *u);
 bool utetra_approx_hess(utetra_s const *u, dbl h, dbl33 hess);
+void utetra_get_other_inds(utetra_s const *utetra, size_t li, size_t l[2]);
+bool utetra_index_is_active(utetra_s const *utetra, size_t l);
+
+bool utetras_have_same_minimizer(utetra_s const *u1, utetra_s const *u2);
+bool utetras_have_same_inds(utetra_s const *u1, utetra_s const *u2);
 
 #if JMM_TEST
 void utetra_step(utetra_s *u);

@@ -287,6 +287,8 @@ void utri_get_jet32t(utri_s const *utri, jet32t *jet) {
    * although our goal is to avoid doing this as much as is
    * practical. */
 
+  // TODO: make sure this is OK to use for boundary updates...
+
   dbl3 v1;
   dbl3_normalized(utri->x1_minus_x0, v1);
 
@@ -600,6 +602,16 @@ bool utri_approx_hess(utri_s const *u, dbl h, dbl33 hess) {
   dbl33_symmetrize(hess);
 
   return true;
+}
+
+/* Check whether two triangle updates have the same indices. The
+ * target index shoudl be the same, but we allow the indices
+ * parametrizing the base of the update to be out of order with
+ * respect to one another. */
+bool utris_have_same_inds(utri_s const *u1, utri_s const *u2) {
+  return u1->l == u2-> l && (
+    (u1->l0 == u2->l0 && u1->l1 == u2->l1) ||
+    (u1->l0 == u2->l1 && u1->l1 == u2->l0));
 }
 
 static dbl get_lambda(utri_s const *u) {

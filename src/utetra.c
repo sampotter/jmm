@@ -144,8 +144,12 @@ void utetra_dealloc(utetra_s **utetra) {
   *utetra = NULL;
 }
 
-bool utetra_init(utetra_s *u, utetra_spec_s const *spec) {
+void utetra_init(utetra_s *u, utetra_spec_s const *spec) {
   /* First, validate the spec */
+
+  // TODO: previously I was returning true or false from this function
+  // to indicate whether the utetra was OK to do. I'm asserting false
+  // now, since I'd like to avoid doing this in this function...
 
   bool passed_lhat = spec->lhat != (size_t)NO_INDEX;
   bool passed_l0 = spec->l[0] != (size_t)NO_INDEX;
@@ -160,7 +164,6 @@ bool utetra_init(utetra_s *u, utetra_spec_s const *spec) {
   if (passed_jet0 || passed_jet1 || passed_jet2)
     assert(passed_jet);
 
-#if JMM_DEBUG
   bool passed_xhat = dbl3_isfinite(spec->xhat);
   assert(passed_lhat ^ passed_xhat); // pass exactly one of these
 
@@ -184,7 +187,6 @@ bool utetra_init(utetra_s *u, utetra_spec_s const *spec) {
     assert(passed_state);
 
   assert(passed_jet ^ passed_l); // exactly one of these
-#endif
 
   /* Initialize f with INFINITY---this needs to be done so that `u`
    * `cmp`s correctly with initialized `utetra` (i.e., if we sort an
@@ -228,83 +230,53 @@ bool utetra_init(utetra_s *u, utetra_spec_s const *spec) {
 
   memcpy(u->state, spec->state, sizeof(state_e[3]));
 
+  /* init jets, depending on how they've been specified */
   jet31t jet[3];
-  for (size_t i = 0; i < 3; ++i)
+  for (size_t i = 0; i < 3; ++i) {
     jet[i] = passed_jet ?
       spec->jet[i] :
       jet31t_from_jet32t(eik3_get_jet32t(spec->eik, spec->l[i]));
-
-  /* Figure out which jets lack gradient information */
-  bool pt_src[3];
-  size_t num_pt_srcs = 0;
-  for (size_t i = 0; i < 3; ++i)
-    num_pt_srcs += pt_src[i] = jet31t_is_point_source(&jet[i]);
-
-  if (num_pt_srcs == 3) {
-    /* If all of the jets lack point source data, just return false
-     * now. */
-    return false;
-  } else if (num_pt_srcs > 0) {
-    /* If some but not all of the jets are point sources, linearly
-     * interpolate the Bezier coefficients from the available gradient
-     * data. This is inaccurate but will unstick the solver in a few
-     * places, especially near the boundary of the physical rays
-     * emitted by diffracting edges. */
-    bb32_init_from_jets(&u->T, jet, u->Xt);
-  } else {
-    /* If we have all the gradient data we need, do regular ol' BB
-     * interpolation. */
-    dbl3 T, DT[3];
-    for (int i = 0; i < 3; ++i) {
-      T[i] = jet[i].f;
-      memcpy(DT[i], jet[i].Df, sizeof(dbl3));
-    }
-    bb32_init_from_3d_data(&u->T, T, DT, u->Xt);
+    /* none of them should be singular! */
+    assert(jet31t_is_finite(&jet[i]));
   }
 
-  // Compute the surface normal for the plane spanned by (x1 - x0, x2
-  // - x0), using DT[i] to determine its orientation. Return whether x
-  // is on the right side of this plane.
+  /* Do BB interpolation to set up the coefficients of T. */
+  dbl3 T, DT[3];
+  for (int i = 0; i < 3; ++i) {
+    T[i] = jet[i].f;
+    memcpy(DT[i], jet[i].Df, sizeof(dbl3));
+  }
+  bb32_init_from_3d_data(&u->T, T, DT, u->Xt);
 
-  dbl n[3];
-  dbl dx[2][3];
-  dbl3_sub(u->Xt[1], u->Xt[0], dx[0]);
-  dbl3_sub(u->Xt[2], u->Xt[0], dx[1]);
-  dbl3_cross(dx[0], dx[1], n);
-  dbl3_normalize(n);
+  /* TODO: old way of doing things: jets could be partly singular and
+   * we'd try to fill in the missing information! don't do this
+   * anymore! */
 
-  int sgn[3];
-  for (size_t i = 0; i < 3; ++i) {
-    sgn[i] = pt_src[i] ? 0 : signum(dbl3_dot(jet[i].Df, n));
-  };
+  // /* Figure out which jets lack gradient information */
+  // bool pt_src[3];
+  // size_t num_pt_srcs = 0;
+  // for (size_t i = 0; i < 3; ++i)
+  //   num_pt_srcs += pt_src[i] = jet31t_is_point_source(&jet[i]);
 
-  /* Verify that the jets don't span the same plane as the base of the
-   * update does... There's no way of handling this when c == 1, but
-   * if c != 1, then we can try. */
-  if (sgn[0] == 0 && sgn[1] == 0 && sgn[2] == 0)
-    return false;
-
-  /* If the jets point on either side of the update, this is a bit of
-   * a weird an unphysical configuration, so let's just return false
-   * now... */
-  int sgnmax = MAX(sgn[0], MAX(sgn[1], sgn[2]));
-  int sgnmin = MIN(sgn[0], MIN(sgn[1], sgn[2]));
-  if (sgnmax == 1 && sgnmin == -1)
-    return false;
-
-  /* We might have some jets that lie in the update base and some that
-   * don't. Use the ones that don't to determine which way to orient
-   * the update base. */
-  assert(!(sgnmax == 1 && sgnmin == -1));
-  if (sgnmin == -1)
-    dbl3_negate(n);
-
-  dbl x0_minus_x[3];
-  dbl3_sub(u->Xt[0], u->x, x0_minus_x);
-
-  dbl dot = -dbl3_dot(x0_minus_x, n);
-
-  return dot > 0;
+  // if (num_pt_srcs == 3) {
+  //   assert(false);
+  // } else if (num_pt_srcs > 0) {
+  //   /* If some but not all of the jets are point sources, linearly
+  //    * interpolate the Bezier coefficients from the available gradient
+  //    * data. This is inaccurate but will unstick the solver in a few
+  //    * places, especially near the boundary of the physical rays
+  //    * emitted by diffracting edges. */
+  //   bb32_init_from_jets(&u->T, jet, u->Xt);
+  // } else {
+  //   /* If we have all the gradient data we need, do regular ol' BB
+  //    * interpolation. */
+  //   dbl3 T, DT[3];
+  //   for (int i = 0; i < 3; ++i) {
+  //     T[i] = jet[i].f;
+  //     memcpy(DT[i], jet[i].Df, sizeof(dbl3));
+  //   }
+  //   bb32_init_from_3d_data(&u->T, T, DT, u->Xt);
+  // }
 }
 
 /* Check if the point being updated lies in the plane spanned by by
@@ -765,273 +737,9 @@ int utetra_get_num_interior_coefs(utetra_s const *utetra) {
   dbl const atol = 1e-14;
   dbl b[3];
   get_b(utetra, b);
-  return (b[0] > atol) + (b[1] > atol) + (b[2] > atol);
-}
-
-static size_t get_shared_inds(utetra_s const *u1, utetra_s const *u2, size_t *l) {
-#if JMM_DEBUG
-  assert(update_inds_are_set(u1));
-  assert(update_inds_are_set(u2));
-#endif
-
-  size_t const *l1 = u1->l, *l2 = u2->l;
-
-  size_t i = 0;
-
-  for (size_t j = 0; j < 3; ++j)
-    if (l1[j] == l2[0] || l1[j] == l2[1] || l1[j] == l2[2])
-      l[i++] = l1[j];
-
-  return i; // == num_shared_inds
-}
-
-static bool get_point_for_index(utetra_s const *utetra, size_t l, dbl x[3]) {
-#if JMM_DEBUG
-  assert(update_inds_are_set(utetra));
-#endif
-
-  for (int i = 0; i < 3; ++i)
-    if (utetra->l[i] == l) {
-      memcpy(x, utetra->Xt[i], sizeof(dbl[3]));
-      return true;
-    }
-
-  return false;
-}
-
-static bool get_op_ind(utetra_s const *utetra, size_t const le[2], size_t *l) {
-  bool found[3] = {false, false, false};
-
-  for (int i = 0; i < 3; ++i)
-    if (utetra->l[i] == le[0] || utetra->l[i] == le[1])
-      found[i] = true;
-
-  if (found[0] + found[1] + found[2] == 2) {
-    for (int i = 0; i < 3; ++i)
-      if (!found[i]) {
-        *l = utetra->l[i];
-        return true;
-      }
-    die();
-  }
-
-  return false;
-}
-
-static size_t get_num_equal(utetra_s const **u, size_t n) {
-  if (n < 2)
-    return n;
-
-  dbl x[3], y[3];
-
-  /* The first thing to check is whether the jet computed by each
-   * update and the start of the update ray parametrized by each
-   * update is the same. This is necessary but not sufficient. */
-
-  jet31t jet[2];
-
-  // Prefetch the first coords and jet
-  utetra_get_x(u[0], x);
-  utetra_get_jet31t(u[0], &jet[0]);
-
-  size_t neq = 1;
-
-  dbl const atol = u[0]->tol;
-
-  /* We can't handle varying tolerances at the moment. */
-  for (size_t i = 1; i < n; ++i)
-    assert(atol == u[i]->tol);
-
-  // First, check that the update data for each utetra is the
-  // same. This is cheaper than the topological check that follows.
-  for (neq = 1; neq < n; ++neq) {
-    // Get the next jet and check that it's finite
-    utetra_get_jet31t(u[neq], &jet[1]);
-    if (!jet31t_is_finite(&jet[1]))
-      break;
-
-    // Get the next coords
-    utetra_get_x(u[neq], y);
-
-    // Check if the base of the update rays coincide...
-    if (dbl3_dist(x, y) > atol)
-      break;
-
-    // Check if the computed jets are the same...
-    if (!jet31t_approx_eq(&jet[0], &jet[1], atol))
-      break;
-
-    // Swap the coords and jet that we just fetched to make way for
-    // the next ones
-    for (int j = 0; j < 3; ++j)
-      SWAP(x[j], y[j]);
-    SWAP(jet[0], jet[1]);
-  }
-
-  return neq;
-}
-
-static size_t count_unique_inds(utetra_s const **u, size_t n) {
-  array_s *l;
-
-  array_alloc(&l);
-  array_init(l, sizeof(size_t), ARRAY_DEFAULT_CAPACITY);
-
-  for (size_t i = 0; i < n; ++i)
-    for (size_t j = 0; j < 3; ++j)
-      if (!array_contains(l, &u[i]->l[j]))
-        array_append(l, &u[i]->l[j]);
-
-  size_t num_unique = array_size(l);
-
-  array_deinit(l);
-  array_dealloc(&l);
-
-  return num_unique;
-}
-
-static void get_shared_and_op_inds_3(utetra_s const **u, size_t *l_shared,
-                                     size_t l_op[3]) {
-  assert(count_unique_inds(u, 3) == 4);
-
-  /* Get the indices shared by two pairs of the `utetra`s. */
-  size_t shared[3][2];
-  get_shared_inds(u[0], u[1], shared[0]);
-  get_shared_inds(u[0], u[2], shared[1]);
-  get_shared_inds(u[1], u[2], shared[2]);
-
-  /* Find the index common to `shared[0]` and `shared[1]`. This is the
-   * index shared by all three `utetra`... */
-  for (size_t i = 0; i < 2; ++i)
-    for (size_t j = 0; j < 2; ++j)
-      if (shared[0][i] == shared[1][j]) {
-        *l_shared = shared[0][i];
-        break;
-      }
-
-  /* (double-check that `*l_shared` is in `shared[2]`) */
-  assert(*l_shared == shared[2][0] || *l_shared == shared[2][1]);
-
-  /* ... the indices *not* common to `shared1` and `shared2` should
-   * therefore go to `l_op`. */
-  for (size_t i = 0; i < 3; ++i)
-    l_op[i] = shared[i][0] == *l_shared ? shared[i][1] : shared[i][0];
-
-  /* (make sure that each entry of `l_op` is distinct!) */
-  assert(l_op[0] != l_op[1] && l_op[1] != l_op[2]);
-}
-
-/* Checks whether `n` tetrahedron updates stored in `utetra[i]` yield
- * the same update. This is a pretty complicated check... Need to
- * explain the cases this handles a bit better. */
-bool utetras_yield_same_update(utetra_s const **u, size_t n) {
-  assert(n > 1);
-
-  size_t neq = get_num_equal(u, n);
-
-  if (neq == 1)
-    return false;
-
-  /* We want to check whether the mesh comprised of the `n` update
-   * bases (triangles) are "thick" from the perspective of the update
-   * ray. Basically, what we're trying to check is whether, after
-   * projecting the union of the update bases into the plane normal to
-   * the update ray, the ray hits an interior point or not. E.g., we
-   * want to rule out rays that only *graze* the update triangles, or
-   * weird sets of updates that aren't manifold at the intersection
-   * point. As a reminder, this function should only be called when we
-   * were unable to find a single update with an interior point
-   * solution. */
-
-  jet31t jet;
-  utetra_get_jet31t(u[0], &jet);
-
-  if (neq == 2) {
-    // Get the indices of the shared edge, and validate that this edge
-    // is incident on the base of each tetrahedron update
-    size_t l_shared[2];
-    size_t num_shared = get_shared_inds(u[0], u[1], l_shared);
-    assert(num_shared < 3);
-
-    if (num_shared == 1)
-      return false;
-
-    dbl x[3], dx[3], y[3], dy[3], normal[3];
-
-    // Get the vectors defining the line spanned by the shared edge
-    get_point_for_index(u[0], l_shared[0], y);
-    get_point_for_index(u[0], l_shared[1], dy);
-    dbl3_sub_inplace(dy, y);
-
-    // Get the normal for the plane spanned by the edge and update ray,
-    // taking advantage of the fact that all the update rays can be
-    // assumed to be equal at this point
-    dbl3_cross(dy, jet.Df, normal);
-    dbl3_normalize(normal); // (probably overkill)
-
-    // For each tetrahedron update, pull out the points corresponding to
-    // index that isn't incident on the shared edge, and translate them
-    // so that the edge passes through the origin. Then, compute the dot
-    // product between this point and the normal vector `n`, keeping
-    // track of the minimum and maximum dot products.
-    dbl amin = INFINITY, amax = -INFINITY;
-    for (size_t i = 0, l_op; i < neq; ++i) {
-      get_op_ind(u[i], l_shared, &l_op);
-      get_point_for_index(u[i], l_op, x);
-      dbl3_sub(x, y, dx);
-      dbl a = dbl3_dot(normal, dx);
-      amin = fmin(amin, a);
-      amax = fmax(amax, a);
-    }
-
-    // We want to check that at least two of the "opposite update
-    // indices" lie on either side of the plane spanned by the edge and
-    // the update ray. The dot products `amin` and `amax` are the
-    // extreme dot products values, so we just check this here.
-    return amin < 0 && 0 < amax;
-  }
-
-  if (neq == 3) {
-    size_t num_unique = count_unique_inds(u, neq);
-    assert(num_unique >= 4);
-    if (num_unique > 4)
-      return false;
-
-    size_t l_shared, l_op[3];
-    get_shared_and_op_inds_3(u, &l_shared, l_op);
-
-    /* Get the `tri3` indexed by `l_op`. This is a little circuitous
-     * since we don't know the provenance of each index in `l_op` at
-     * this point, so we need to do a quick search...  */
-    tri3 tri;
-    for (size_t i = 0; i < 3; ++i)
-      for (size_t j = 0; j < 3; ++j)
-        if (get_point_for_index(u[j], l_op[i], tri.v[i]))
-          continue;
-
-    /* Get the update ray with which we'll try to intersect `tri`. */
-    ray3 ray = get_ray(u[0]);
-
-    dbl unused;
-
-    /* First check the default orientation of the update ray... */
-    if (ray3_intersects_tri3(&ray, &tri, &unused))
-      return true;
-
-    /* ... and if that doesn't intersect `tri`, flip it around and try
-     * the other orientation, as well. We do this because what we
-     * *really* want to do is intersect the line spanned by `ray` with
-     * `tri`. */
-    // TODO: implement a `line_intersects_tri3` function to simplify
-    // this code...
-    dbl3_negate(ray.dir);
-    return ray3_intersects_tri3(&ray, &tri, &unused);
-  }
-
-#if JMM_DEBUG
-  die();
-#endif
-  return false;
+  return (atol < b[0] && b[0] < 1 - atol)
+       + (atol < b[1] && b[1] < 1 - atol)
+       + (atol < b[2] && b[2] < 1 - atol);
 }
 
 size_t utetra_get_l(utetra_s const *utetra) {
@@ -1039,7 +747,11 @@ size_t utetra_get_l(utetra_s const *utetra) {
   return utetra->lhat;
 }
 
-void utetra_set_update_inds(utetra_s *utetra, size_t l[3]) {
+void utetra_get_update_inds(utetra_s const *utetra, size_t l[3]) {
+  memcpy(l, utetra->l, sizeof(size_t[3]));
+}
+
+void utetra_set_update_inds(utetra_s *utetra, size_t const l[3]) {
   memcpy(utetra->l, l, sizeof(size_t[3]));
 }
 
@@ -1135,6 +847,60 @@ bool utetra_approx_hess(utetra_s const *u, dbl h, dbl33 hess) {
   dbl33_symmetrize(hess);
 
   return true;
+}
+
+void utetra_get_other_inds(utetra_s const *utetra, size_t li, size_t l[2]) {
+  assert(utetra->l[0] == li || utetra->l[1] == li || utetra->l[2]);
+
+  for (size_t i = 0, j = 0; i < 3; ++i)
+    if (utetra->l[i] != li)
+      l[j++] = utetra->l[i];
+}
+
+bool utetra_index_is_active(utetra_s const *utetra, size_t l) {
+  assert(l == utetra->l[0] || l == utetra->l[1] || l == utetra->l[2]);
+
+  dbl lam0 = 1 - utetra->lam[0] - utetra->lam[1];
+
+  if (l == utetra->l[0])
+    return lam0 != 0;
+  else if (l == utetra->l[1])
+    return utetra->lam[0] != 0;
+  else if (l == utetra->l[2])
+    return utetra->lam[1] != 0;
+  else
+    assert(false);
+}
+
+bool utetras_have_same_minimizer(utetra_s const *u1, utetra_s const *u2) {
+  size_t l1[3], l2[3];
+  (void)utetra_get_active_inds(u1, l1);
+  (void)utetra_get_active_inds(u2, l2);
+
+  SORT3(l1[0], l1[1], l1[2]);
+  SORT3(l2[0], l2[1], l2[2]);
+  if (l1[0] != l2[0] || l1[1] != l2[1] || l1[2] != l2[2])
+    return false;
+
+  dbl x1[3], x2[3];
+  utetra_get_x(u1, x1);
+  utetra_get_x(u2, x2);
+  return dbl3_dist(x1, x2) <= 1e-13;
+}
+
+bool utetras_have_same_inds(utetra_s const *u1, utetra_s const *u2) {
+  if (u1->lhat != u2->lhat)
+    return false;
+
+  size_t l1[3];
+  memcpy(l1, u1->l, sizeof(size_t[3]));
+  SORT3(l1[0], l1[1], l1[2]);
+
+  size_t l2[3];
+  memcpy(l2, u2->l, sizeof(size_t[3]));
+  SORT3(l2[0], l2[1], l1[2]);
+
+  return l1[0] == l2[0] && l1[1] == l2[1] && l1[2] == l2[2];
 }
 
 #if JMM_TEST

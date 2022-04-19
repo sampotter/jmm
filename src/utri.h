@@ -54,6 +54,7 @@ void utri_get_xb(utri_s const *u, dbl xb[3]);
 bool utri_is_degenerate(utri_s const *u);
 bool utri_approx_hess(utri_s const *u, dbl h, dbl33 hess);
 
+bool utris_have_same_inds(utri_s const *u1, utri_s const *u2);
 bool utris_yield_same_update(utri_s const *utri1, utri_s const *utri2);
 
 #if JMM_TEST
