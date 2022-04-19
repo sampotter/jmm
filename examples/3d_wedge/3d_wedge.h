@@ -48,6 +48,13 @@ typedef struct jmm_3d_wedge_problem {
 
   /* Groundtruth data: */
   jet32t *jet_direct_gt;
+  jet32t *jet_o_refl_gt;
+  jet32t *jet_n_refl_gt;
+
+  /* Approximate origin: */
+  dbl *origin_direct;
+  dbl *origin_o_refl;
+  dbl *origin_n_refl;
 } jmm_3d_wedge_problem_s;
 
 void jmm_3d_wedge_problem_alloc(jmm_3d_wedge_problem_s **wedge);
