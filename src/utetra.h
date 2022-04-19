@@ -42,7 +42,6 @@ typedef struct utetra utetra_s;
 void utetra_alloc(utetra_s **cf);
 void utetra_dealloc(utetra_s **cf);
 bool utetra_init(utetra_s *u, utetra_spec_s const *spec);
-void utetra_deinit(utetra_s *u);
 bool utetra_is_degenerate(utetra_s const *u);
 void utetra_solve(utetra_s *cf, dbl const *lam);
 dbl utetra_get_value(utetra_s const *cf);

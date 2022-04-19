@@ -307,10 +307,6 @@ bool utetra_init(utetra_s *u, utetra_spec_s const *spec) {
   return dot > 0;
 }
 
-void utetra_deinit(utetra_s *u) {
-  (void)u;
-}
-
 /* Check if the point being updated lies in the plane spanned by by
  * x0, x1, and x2. If it does, the update is degenerate. */
 bool utetra_is_degenerate(utetra_s const *u) {

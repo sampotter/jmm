@@ -863,7 +863,6 @@ static void purge_old_updates(eik3_s *eik, size_t l0) {
   for (size_t i = array_size(eik->old_updates); i > 0; --i) {
     array_get(eik->old_updates, i - 1, &old_utetra);
     if (utetra_get_l(old_utetra) == l0) {
-      utetra_deinit(old_utetra);
       utetra_dealloc(&old_utetra);
       array_delete(eik->old_updates, i - 1);
     }
