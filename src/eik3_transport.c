@@ -1,7 +1,12 @@
 #include "eik3_transport.h"
 
+#include <assert.h>
+#include <math.h>
+
+#include "mesh3.h"
+
 static void transport_dbl(eik3_s const *eik, size_t l0, dbl *values) {
-  par3_s par = eik->par[l0];
+  par3_s par = eik3_get_par(eik, l0);
 
   if (par3_is_empty(&par))
     return;
@@ -21,9 +26,14 @@ static void transport_dbl(eik3_s const *eik, size_t l0, dbl *values) {
 void eik3_transport_dbl(eik3_s const *eik, dbl *values, bool skip_filled) {
   assert(eik3_is_solved(eik));
 
-  size_t nverts = mesh3_nverts(eik->mesh);
+  mesh3_s const *mesh = eik3_get_mesh(eik);
+
+  size_t nverts = mesh3_nverts(mesh);
+
+  size_t const *accepted = eik3_get_accepted_ptr(eik);
+
   for (size_t i = 0; i < nverts; ++i) {
-    size_t l0 = eik->accepted[i];
+    size_t l0 = accepted[i];
     if (skip_filled && !isnan(values[l0]))
       continue;
     transport_dbl(eik, l0, values);
@@ -31,7 +41,7 @@ void eik3_transport_dbl(eik3_s const *eik, dbl *values, bool skip_filled) {
 }
 
 static void transport_dblz(eik3_s const *eik, size_t l0, dblz *values) {
-  par3_s par = eik->par[l0];
+  par3_s par = eik3_get_par(eik, l0);
 
   if (par3_is_empty(&par))
     return;
@@ -52,9 +62,13 @@ static void transport_dblz(eik3_s const *eik, size_t l0, dblz *values) {
 void eik3_transport_dblz(eik3_s const *eik, dblz *values, bool skip_filled) {
   assert(eik3_is_solved(eik));
 
-  size_t nverts = mesh3_nverts(eik->mesh);
+  mesh3_s const *mesh = eik3_get_mesh(eik);
+
+  size_t const *accepted = eik3_get_accepted_ptr(eik);
+
+  size_t nverts = mesh3_nverts(mesh);
   for (size_t i = 0; i < nverts; ++i) {
-    size_t l0 = eik->accepted[i];
+    size_t l0 = accepted[i];
     dblz z = values[l0];
     if (skip_filled && !isnan(creal(z)) && !isnan(cimag(z)))
       continue;
@@ -66,7 +80,7 @@ static void transport_curvature(eik3_s const *eik, size_t l0, dbl *kappa) {
   if (isfinite(kappa[l0]))
     return;
 
-  par3_s par = eik->par[l0];
+  par3_s par = eik3_get_par(eik, l0);
 
   if (par3_is_empty(&par))
     return;
@@ -107,9 +121,13 @@ static void transport_curvature(eik3_s const *eik, size_t l0, dbl *kappa) {
 void eik3_transport_curvature(eik3_s const *eik, dbl *kappa, bool skip_filled) {
   assert(eik3_is_solved(eik));
 
-  size_t nverts = mesh3_nverts(eik->mesh);
+  mesh3_s const *mesh = eik3_get_mesh(eik);
+  size_t nverts = mesh3_nverts(mesh);
+
+  size_t const *accepted = eik3_get_accepted_ptr(eik);
+
   for (size_t i = 0; i < nverts; ++i) {
-    size_t l0 = eik->accepted[i];
+    size_t l0 = accepted[i];
     if (skip_filled && !isnan(kappa[l0]))
       continue;
     transport_curvature(eik, l0, kappa);

@@ -98,6 +98,7 @@ set (JMM_SRCS
   src/eik_S4.c
   src/eik3.c
   src/eik3_branch.c
+  src/eik3_transport.c
   src/error.c
   src/field.c
   src/geom.c
