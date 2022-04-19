@@ -1,136 +1,468 @@
 import colorcet as cc
 import numpy as np
+import os
 import pyvista as pv
 import pyvistaqt as pvqt
+import sys
 import vtk
+
+os.environ["QT_API"] = "pyqt5"
+
+from enum import Enum
+from qtpy import QtWidgets
 
 FAR, TRIAL, VALID = 0, 1, 2
 
-verts = np.fromfile('verts.bin', dtype=np.float64).reshape(-1, 3)
-cells = np.fromfile('cells.bin', dtype=np.uintp).reshape(-1, 4)
-mesh = pv.UnstructuredGrid({vtk.VTK_TETRA: cells}, verts)
+class PlotMode(Enum):
+    NumericalSolution = 0
+    TrueSolution = 1
+    PointwiseError = 2
 
-with open('spec.txt', 'r') as f:
-    spec = {k: v.strip() for k, v in map(lambda s: s.split(':'), f)}
+class EikonalSelection(Enum):
+    DirectArrival = 0
+    OFaceReflection = 1
+    NFaceReflection = 2
 
-for k, Type in {
-        'verbose': bool,
-        'visualize': bool,
-        'maxvol': float,
-        'n': float,
-        'w': float,
-        'h': float,
-        'R': float}.items():
-    spec[k] = Type(spec[k])
+class FieldSelection(Enum):
+    T = 0
+    Tx = 1
+    Ty = 2
+    Tz = 3
+    Origin = 4
 
-print('problem specification (3d wedge):')
-for k, v in spec.items():
-    print(f'- {k}: {v}')
+class MainWindow(pvqt.MainWindow):
+    def __init__(self, parent=None, show=True):
+        QtWidgets.QMainWindow.__init__(self, parent)
 
-#
-# load data for direct eikonal
-#
+        self.loadData()
 
-direct_jet = np.fromfile('direct_jet.bin', dtype=np.float64).reshape(-1, 13)
-direct_T = direct_jet[:, 0]
-direct_grad_T = direct_jet[:, 1:4]
-direct_hess_T = direct_jet[:, 4:].reshape(-1, 3, 3)
-direct_lap_T = direct_hess_T[:, 0, 0] + direct_hess_T[:, 1, 1] \
-    + direct_hess_T[:, 2, 2]
+        # start setting up main frame and layout
 
-direct_state = np.fromfile('direct_state.bin', dtype=np.intc)
-# verts_direct_far = pv.PolyData(verts[direct_state == FAR])
-# verts_direct_trial = pv.PolyData(verts[direct_state == TRIAL])
-# verts_direct_valid = pv.PolyData(verts[direct_state == VALID])
+        self.frame = QtWidgets.QFrame()
+        hlayout = QtWidgets.QHBoxLayout()
 
-direct_jet_gt = np.fromfile('direct_jet_gt.bin', dtype=np.float64).reshape(-1, 13)
-direct_T_gt = direct_jet_gt[:, 0]
-direct_grad_T_gt = direct_jet_gt[:, 1:4]
-direct_hess_T_gt = direct_jet_gt[:, 4:].reshape(-1, 3, 3)
-direct_lap_T_gt = direct_hess_T_gt[:, 0, 0] + direct_hess_T_gt[:, 1, 1] \
-    + direct_hess_T_gt[:, 2, 2]
+        # set up first panel
 
-direct_error_jet = direct_jet - direct_jet_gt
-direct_error_T = direct_error_jet[:, 0]
-direct_error_grad_T = direct_error_jet[:, 1:4]
-direct_error_hess_T = direct_error_jet[:, 4:].reshape(-1, 3, 3)
+        frame1 = QtWidgets.QFrame()
+        vlayout1 = QtWidgets.QVBoxLayout()
 
-#
-# load data for o-face reflection
-#
+        self.reloadDataPushButton = QtWidgets.QPushButton('Reload data')
+        self.makeParameterFrame()
 
-o_refl_jet = np.fromfile('o_refl_jet.bin', dtype=np.float64).reshape(-1, 13)
-o_refl_T = o_refl_jet[:, 0]
-o_refl_grad_T = o_refl_jet[:, 1:4]
-o_refl_hess_T = o_refl_jet[:, 4:].reshape(-1, 3, 3)
-o_refl_lap_T = o_refl_hess_T[:, 0, 0] + o_refl_hess_T[:, 1, 1] \
-    + o_refl_hess_T[:, 2, 2]
+        self.reloadDataPushButton.clicked.connect(self.loadData)
 
-# o_refl_jet_gt = np.fromfile('o_refl_jet_gt.bin', dtype=np.float64).reshape(-1, 13)
-# o_refl_T_gt = o_refl_jet_gt[:, 0]
-# o_refl_grad_T_gt = o_refl_jet_gt[:, 1:4]
-# o_refl_hess_T_gt = o_refl_jet_gt[:, 4:].reshape(-1, 3, 3)
-# o_refl_lap_T_gt = o_refl_hess_T_gt[:, 0, 0] + o_refl_hess_T_gt[:, 1, 1] \
-#     + o_refl_hess_T_gt[:, 2, 2]
+        vlayout1.addWidget(self.reloadDataPushButton)
+        vlayout1.addWidget(self.parameterFrame)
+        vlayout1.addStretch(1)
 
-# o_refl_error_jet = o_refl_jet - o_refl_jet_gt
-# o_refl_error_T = o_refl_error_jet[:, 0]
-# o_refl_error_grad_T = o_refl_error_jet[:, 1:4]
-# o_refl_error_hess_T = o_refl_error_jet[:, 4:].reshape(-1, 3, 3)
+        frame1.setLayout(vlayout1)
+        hlayout.addWidget(frame1)
 
-#
-# load data for n-face reflection
-#
+        # set up second panel
 
-# n_refl_jet = np.fromfile('n_refl_jet.bin', dtype=np.float64).reshape(-1, 13)
-# n_refl_T = n_refl_jet[:, 0]
-# n_refl_grad_T = n_refl_jet[:, 1:4]
-# n_refl_hess_T = n_refl_jet[:, 4:].reshape(-1, 3, 3)
-# n_refl_lap_T = n_refl_hess_T[:, 0, 0] + n_refl_hess_T[:, 1, 1] \
-#     + n_refl_hess_T[:, 2, 2]
+        frame2 = QtWidgets.QFrame()
+        vlayout2 = QtWidgets.QVBoxLayout()
 
-# n_refl_jet_gt = np.fromfile('n_refl_jet_gt.bin', dtype=np.float64).reshape(-1, 13)
-# n_refl_T_gt = n_refl_jet_gt[:, 0]
-# n_refl_grad_T_gt = n_refl_jet_gt[:, 1:4]
-# n_refl_hess_T_gt = n_refl_jet_gt[:, 4:].reshape(-1, 3, 3)
-# n_refl_lap_T_gt = n_refl_hess_T_gt[:, 0, 0] + n_refl_hess_T_gt[:, 1, 1] \
-#     + n_refl_hess_T_gt[:, 2, 2]
+        self.makePlotModeGroupBox()
+        self.makeEikonalSelectGroupBox()
+        self.makeFieldSelectGroupBox()
 
-# n_refl_error_jet = n_refl_jet - n_refl_jet_gt
-# n_refl_error_T = n_refl_error_jet[:, 0]
-# n_refl_error_grad_T = n_refl_error_jet[:, 1:4]
-# n_refl_error_hess_T = n_refl_error_jet[:, 4:].reshape(-1, 3, 3)
+        vlayout2.addWidget(self.plotModeGroupBox)
+        vlayout2.addWidget(self.eikonalSelectGroupBox)
+        vlayout2.addWidget(self.fieldSelectGroupBox)
+        vlayout2.addStretch(1)
 
-#
-# do plotting
-#
+        frame2.setLayout(vlayout2)
+        hlayout.addWidget(frame2)
 
-# # use this to plot errors
-# values = direct_error_hess_T[:, 2, 2]
-# vmax = abs(values).max()
-# vmin = -vmax
-# clim = (vmin, vmax)
-# # clim = (-1e-1, 1e-1)
-# cmap = cc.cm.coolwarm
+        # up plotter
 
-# use this to plot values
-values = o_refl_T.copy()
-values[np.isinf(values)] = np.nan
-clim = (np.nanmin(values), np.nanmax(values))
-cmap = cc.cm.bmy
+        self.plotter = pvqt.QtInteractor(self.frame)
+        hlayout.addWidget(self.plotter.interactor)
+        self.signal_close.connect(self.plotter.close)
 
-pts = pv.PolyData(verts)
-pts['values'] = values
+        # finish setting up main layout
 
-h = 0.025
+        self.frame.setLayout(hlayout)
+        self.setCentralWidget(self.frame)
 
-l = 2313
-l0 = 245
-l1 = 25
+        # start plotting
 
-plotter = pvqt.BackgroundPlotter()
-plotter.add_mesh(mesh, show_edges=True, opacity=0.25)
-plotter.add_mesh(pts, scalars='values', clim=clim, cmap=cmap)
-plotter.add_mesh(pv.Sphere(h, verts[l]), 'chartreuse')
-plotter.add_mesh(pv.Sphere(h, verts[l0]), 'blue')
-plotter.add_mesh(pv.Sphere(h, verts[l1]), 'cyan')
+        self.first_plot = True
+        self.updatePlot()
+        if show:
+            self.show()
+
+    def makeParameterFrame(self):
+        self.parameterFrame = QtWidgets.QFrame()
+
+        nLineEdit = QtWidgets.QLineEdit()
+        maxvolLineEdit = QtWidgets.QLineEdit()
+        rfacLineEdit = QtWidgets.QLineEdit()
+        phipLineEdit = QtWidgets.QLineEdit()
+        spLineEdit = QtWidgets.QLineEdit()
+        widthLineEdit = QtWidgets.QLineEdit()
+        heightLineEdit = QtWidgets.QLineEdit()
+
+        formLayout = QtWidgets.QFormLayout()
+
+        formLayout.addRow("-n", nLineEdit)
+        formLayout.addRow("--maxvol", maxvolLineEdit)
+        formLayout.addRow("--rfac", rfacLineEdit)
+        formLayout.addRow("--phip", phipLineEdit)
+        formLayout.addRow("--sp", spLineEdit)
+        formLayout.addRow("--width", widthLineEdit)
+        formLayout.addRow("--height", heightLineEdit)
+
+        self.parameterFrame.setLayout(formLayout)
+
+
+    def makePlotModeGroupBox(self):
+        self.plotModeGroupBox = QtWidgets.QGroupBox("Plot mode:")
+
+        plotNumerical = QtWidgets.QRadioButton("Numerical solution")
+        plotGroundtruth = QtWidgets.QRadioButton("True solution")
+        plotError = QtWidgets.QRadioButton("Pointwise error")
+        plotNumerical.setChecked(True)
+
+        plotNumerical.toggled.connect(self.updatePlotOnSelect)
+        plotGroundtruth.toggled.connect(self.updatePlotOnSelect)
+        plotError.toggled.connect(self.updatePlotOnSelect)
+
+        layout = QtWidgets.QVBoxLayout()
+        layout.addWidget(plotNumerical)
+        layout.addWidget(plotGroundtruth)
+        layout.addWidget(plotError)
+        layout.addStretch(1)
+
+        self.plotModeGroupBox.setLayout(layout)
+
+    def makeEikonalSelectGroupBox(self):
+        self.eikonalSelectGroupBox = QtWidgets.QGroupBox("Eikonal to plot:")
+
+        plotDirect = QtWidgets.QRadioButton("Direct arrival")
+        plotOReflection = QtWidgets.QRadioButton("Reflection (o-face)")
+        plotNReflection = QtWidgets.QRadioButton("Reflection (n-face)")
+        plotDirect.setChecked(True)
+
+        plotDirect.toggled.connect(self.updatePlotOnSelect)
+        plotOReflection.toggled.connect(self.updatePlotOnSelect)
+        plotNReflection.toggled.connect(self.updatePlotOnSelect)
+
+        layout = QtWidgets.QVBoxLayout()
+        layout.addWidget(plotDirect)
+        layout.addWidget(plotOReflection)
+        layout.addWidget(plotNReflection)
+        layout.addStretch(1)
+
+        self.eikonalSelectGroupBox.setLayout(layout)
+
+    def makeFieldSelectGroupBox(self):
+        self.fieldSelectGroupBox = QtWidgets.QGroupBox("Field to plot:")
+
+        plotT = QtWidgets.QRadioButton("T")
+        plotTx = QtWidgets.QRadioButton("∂T/∂x")
+        plotTy = QtWidgets.QRadioButton("∂T/∂y")
+        plotTz = QtWidgets.QRadioButton("∂T/∂z")
+        plotOrigin = QtWidgets.QRadioButton("Origin")
+        plotT.setChecked(True)
+
+        plotT.toggled.connect(self.updatePlotOnSelect)
+        plotTx.toggled.connect(self.updatePlotOnSelect)
+        plotTy.toggled.connect(self.updatePlotOnSelect)
+        plotTz.toggled.connect(self.updatePlotOnSelect)
+        plotOrigin.toggled.connect(self.updatePlotOnSelect)
+
+        layout = QtWidgets.QVBoxLayout()
+        layout.addWidget(plotT)
+        layout.addWidget(plotTx)
+        layout.addWidget(plotTy)
+        layout.addWidget(plotTz)
+        layout.addWidget(plotOrigin)
+        layout.addStretch(1)
+
+        self.fieldSelectGroupBox.setLayout(layout)
+
+    def reloadData(self):
+        self.loadData()
+        self.updatePlot()
+        self.show()
+
+    def loadData(self):
+        # load vertices and cells of the tetrahedron mesh discretizing
+        # the domain
+        self.verts = np.fromfile('verts.bin', dtype=np.float64).reshape(-1, 3)
+        self.cells = np.fromfile('cells.bin', dtype=np.uintp).reshape(-1, 4)
+
+        # make a version of it in PyVista
+        self.mesh = pv.UnstructuredGrid({vtk.VTK_TETRA: self.cells}, self.verts)
+
+        # load the problem specification
+        with open('spec.txt', 'r') as f:
+            self.spec = {k: v.strip() for k, v in map(lambda s: s.split(':'), f)}
+        for k, Type in {
+                'verbose': bool,
+                'visualize': bool,
+                'maxvol': float,
+                'n': float,
+                'w': float,
+                'h': float,
+                'R': float}.items():
+            self.spec[k] = Type(self.spec[k])
+
+        # print it out
+        #
+        # TODO: validate it and make sure the values agree with the
+        # requested parameters
+        print('problem specification (3d wedge):')
+        for k, v in self.spec.items():
+            print(f'- {k}: {v}')
+
+        ## LOAD DATA FOR DIRECT EIKONAL
+
+        # numerical solution
+        self.direct_jet = np.fromfile('direct_jet.bin', dtype=np.float64).reshape(-1, 13)
+        self.direct_T = self.direct_jet[:, 0]
+        self.direct_grad_T = self.direct_jet[:, 1:4]
+        self.direct_hess_T = self.direct_jet[:, 4:].reshape(-1, 3, 3)
+        self.direct_lap_T = self.direct_hess_T[:, 0, 0] + self.direct_hess_T[:, 1, 1] + self.direct_hess_T[:, 2, 2]
+
+        # final states
+        self.direct_state = np.fromfile('direct_state.bin', dtype=np.intc)
+
+        # approximate origins
+        self.direct_origin = np.fromfile('direct_origin.bin', dtype=np.float64)
+
+        # true solution ("gt")
+        self.direct_jet_gt = np.fromfile('direct_jet_gt.bin', dtype=np.float64).reshape(-1, 13)
+        self.direct_T_gt = self.direct_jet_gt[:, 0]
+        self.direct_grad_T_gt = self.direct_jet_gt[:, 1:4]
+        self.direct_hess_T_gt = self.direct_jet_gt[:, 4:].reshape(-1, 3, 3)
+        self.direct_lap_T_gt = self.direct_hess_T_gt[:, 0, 0] + self.direct_hess_T_gt[:, 1, 1] + self.direct_hess_T_gt[:, 2, 2]
+
+        # errors
+        self.direct_error_jet = self.direct_jet - self.direct_jet_gt
+        self.direct_error_T = self.direct_error_jet[:, 0]
+        self.direct_error_grad_T = self.direct_error_jet[:, 1:4]
+        self.direct_error_hess_T = self.direct_error_jet[:, 4:].reshape(-1, 3, 3)
+
+        ## LOAD DATA FOR o-FACE REFLECTION
+
+        # numerical solution
+        self.o_refl_jet = np.fromfile('o_refl_jet.bin', dtype=np.float64).reshape(-1, 13)
+        self.o_refl_T = self.o_refl_jet[:, 0]
+        self.o_refl_grad_T = self.o_refl_jet[:, 1:4]
+        self.o_refl_hess_T = self.o_refl_jet[:, 4:].reshape(-1, 3, 3)
+        self.o_refl_lap_T = self.o_refl_hess_T[:, 0, 0] + self.o_refl_hess_T[:, 1, 1] + self.o_refl_hess_T[:, 2, 2]
+
+        # final states
+        self.o_refl_state = np.fromfile('o_refl_state.bin', dtype=np.intc)
+
+        # approximate origins
+        self.o_refl_origin = np.fromfile('o_refl_origin.bin', dtype=np.float64)
+
+        # true solution
+        self.o_refl_jet_gt = np.fromfile('o_refl_jet_gt.bin', dtype=np.float64).reshape(-1, 13)
+        self.o_refl_T_gt = self.o_refl_jet_gt[:, 0]
+        self.o_refl_grad_T_gt = self.o_refl_jet_gt[:, 1:4]
+        self.o_refl_hess_T_gt = self.o_refl_jet_gt[:, 4:].reshape(-1, 3, 3)
+        self.o_refl_lap_T_gt = self.o_refl_hess_T_gt[:, 0, 0] + self.o_refl_hess_T_gt[:, 1, 1] + self.o_refl_hess_T_gt[:, 2, 2]
+
+        # errors
+        self.o_refl_error_jet = self.o_refl_jet - self.o_refl_jet_gt
+        self.o_refl_error_T = self.o_refl_error_jet[:, 0]
+        self.o_refl_error_grad_T = self.o_refl_error_jet[:, 1:4]
+        self.o_refl_error_hess_T = self.o_refl_error_jet[:, 4:].reshape(-1, 3, 3)
+
+        ## LOAD DATA FOR n-FACE REFLECTION
+
+        # numerical solution
+        self.n_refl_jet = np.fromfile('n_refl_jet.bin', dtype=np.float64).reshape(-1, 13)
+        self.n_refl_T = self.n_refl_jet[:, 0]
+        self.n_refl_grad_T = self.n_refl_jet[:, 1:4]
+        self.n_refl_hess_T = self.n_refl_jet[:, 4:].reshape(-1, 3, 3)
+        self.n_refl_lap_T = self.n_refl_hess_T[:, 0, 0] + self.n_refl_hess_T[:, 1, 1] + self.n_refl_hess_T[:, 2, 2]
+
+        # final states
+        self.n_refl_state = np.fromfile('n_refl_state.bin', dtype=np.intc)
+
+        # approximate origins
+        self.n_refl_origin = np.fromfile('n_refl_origin.bin', dtype=np.float64)
+
+        # true solution
+        self.n_refl_jet_gt = np.fromfile('n_refl_jet_gt.bin', dtype=np.float64).reshape(-1, 13)
+        self.n_refl_T_gt = self.n_refl_jet_gt[:, 0]
+        self.n_refl_grad_T_gt = self.n_refl_jet_gt[:, 1:4]
+        self.n_refl_hess_T_gt = self.n_refl_jet_gt[:, 4:].reshape(-1, 3, 3)
+        self.n_refl_lap_T_gt = self.n_refl_hess_T_gt[:, 0, 0] + self.n_refl_hess_T_gt[:, 1, 1] + self.n_refl_hess_T_gt[:, 2, 2]
+
+        # errors
+        self.n_refl_error_jet = self.n_refl_jet - self.n_refl_jet_gt
+        self.n_refl_error_T = self.n_refl_error_jet[:, 0]
+        self.n_refl_error_grad_T = self.n_refl_error_jet[:, 1:4]
+        self.n_refl_error_hess_T = self.n_refl_error_jet[:, 4:].reshape(-1, 3, 3)
+
+    def getPlotMode(self):
+        children = self.plotModeGroupBox.findChildren(QtWidgets.QRadioButton)
+        index = next(i for i, _ in enumerate(children) if _.isChecked())
+        return PlotMode(index)
+
+    def getSelectedEikonal(self):
+        children = self.eikonalSelectGroupBox.findChildren(QtWidgets.QRadioButton)
+        index = next(i for i, _ in enumerate(children) if _.isChecked())
+        return EikonalSelection(index)
+
+    def getSelectedField(self):
+        children = self.fieldSelectGroupBox.findChildren(QtWidgets.QRadioButton)
+        index = next(i for i, _ in enumerate(children) if _.isChecked())
+        return FieldSelection(index)
+
+    def updatePlotOnSelect(self, checked):
+        if checked:
+            self.updatePlot()
+
+    def getCurrentValues(self):
+        plotMode = self.getPlotMode()
+        eikonalSel = self.getSelectedEikonal()
+        fieldSel = self.getSelectedField()
+        if plotMode is PlotMode.NumericalSolution:
+            if eikonalSel is EikonalSelection.DirectArrival:
+                if fieldSel is FieldSelection.T:
+                    return self.direct_T
+                elif fieldSel is FieldSelection.Tx:
+                    return self.direct_grad_T[:, 0]
+                elif fieldSel is FieldSelection.Ty:
+                    return self.direct_grad_T[:, 1]
+                elif fieldSel is FieldSelection.Tz:
+                    return self.direct_grad_T[:, 2]
+                elif fieldSel is FieldSelection.Origin:
+                    return self.direct_origin
+            elif eikonalSel is EikonalSelection.OFaceReflection:
+                if fieldSel is FieldSelection.T:
+                    return self.o_refl_T
+                elif fieldSel is FieldSelection.Tx:
+                    return self.o_refl_grad_T[:, 0]
+                elif fieldSel is FieldSelection.Ty:
+                    return self.o_refl_grad_T[:, 1]
+                elif fieldSel is FieldSelection.Tz:
+                    return self.o_refl_grad_T[:, 2]
+                elif fieldSel is FieldSelection.Origin:
+                    return self.o_refl_origin
+            elif eikonalSel is EikonalSelection.NFaceReflection:
+                if fieldSel is FieldSelection.T:
+                    return self.n_refl_T
+                elif fieldSel is FieldSelection.Tx:
+                    return self.n_refl_grad_T[:, 0]
+                elif fieldSel is FieldSelection.Ty:
+                    return self.n_refl_grad_T[:, 1]
+                elif fieldSel is FieldSelection.Tz:
+                    return self.n_refl_grad_T[:, 2]
+                elif fieldSel is FieldSelection.Origin:
+                    return self.n_refl_origin
+        elif plotMode is PlotMode.TrueSolution:
+            if eikonalSel is EikonalSelection.DirectArrival:
+                if fieldSel is FieldSelection.T:
+                    return self.direct_T_gt
+                elif fieldSel is FieldSelection.Tx:
+                    return self.direct_grad_T_gt[:, 0]
+                elif fieldSel is FieldSelection.Ty:
+                    return self.direct_grad_T_gt[:, 1]
+                elif fieldSel is FieldSelection.Tz:
+                    return self.direct_grad_T_gt[:, 2]
+            elif eikonalSel is EikonalSelection.OFaceReflection:
+                if fieldSel is FieldSelection.T:
+                    return self.o_refl_T_gt
+                elif fieldSel is FieldSelection.Tx:
+                    return self.o_refl_grad_T_gt[:, 0]
+                elif fieldSel is FieldSelection.Ty:
+                    return self.o_refl_grad_T_gt[:, 1]
+                elif fieldSel is FieldSelection.Tz:
+                    return self.o_refl_grad_T_gt[:, 2]
+            elif eikonalSel is EikonalSelection.NFaceReflection:
+                if fieldSel is FieldSelection.T:
+                    return self.n_refl_T_gt
+                elif fieldSel is FieldSelection.Tx:
+                    return self.n_refl_grad_T_gt[:, 0]
+                elif fieldSel is FieldSelection.Ty:
+                    return self.n_refl_grad_T_gt[:, 1]
+                elif fieldSel is FieldSelection.Tz:
+                    return self.n_refl_grad_T_gt[:, 2]
+        elif plotMode is PlotMode.PointwiseError:
+            if eikonalSel is EikonalSelection.DirectArrival:
+                if fieldSel is FieldSelection.T:
+                    return self.direct_error_T
+                elif fieldSel is FieldSelection.Tx:
+                    return self.direct_error_grad_T[:, 0]
+                elif fieldSel is FieldSelection.Ty:
+                    return self.direct_error_grad_T[:, 1]
+                elif fieldSel is FieldSelection.Tz:
+                    return self.direct_error_grad_T[:, 2]
+            elif eikonalSel is EikonalSelection.OFaceReflection:
+                if fieldSel is FieldSelection.T:
+                    return self.o_refl_error_T
+                elif fieldSel is FieldSelection.Tx:
+                    return self.o_refl_error_grad_T[:, 0]
+                elif fieldSel is FieldSelection.Ty:
+                    return self.o_refl_error_grad_T[:, 1]
+                elif fieldSel is FieldSelection.Tz:
+                    return self.o_refl_error_grad_T[:, 2]
+            elif eikonalSel is EikonalSelection.NFaceReflection:
+                if fieldSel is FieldSelection.T:
+                    return self.n_refl_error_T
+                elif fieldSel is FieldSelection.Tx:
+                    return self.n_refl_error_grad_T[:, 0]
+                elif fieldSel is FieldSelection.Ty:
+                    return self.n_refl_error_grad_T[:, 1]
+                elif fieldSel is FieldSelection.Tz:
+                    return self.n_refl_error_grad_T[:, 2]
+        raise RuntimeError(f"couldn't get values for combination: {plotMode}, {eikonalSel}, {fieldSel}")
+
+    def getCMap(self):
+        if self.getSelectedField() is FieldSelection.T and \
+           self.getPlotMode() is not PlotMode.PointwiseError:
+            return cc.cm.rainbow
+        else:
+            return cc.cm.coolwarm
+
+    def updatePlot(self):
+        values = self.getCurrentValues()
+
+        if self.getSelectedField() is FieldSelection.T and \
+            self.getPlotMode() is not PlotMode.PointwiseError:
+            if self.getSelectedEikonal() is EikonalSelection.DirectArrival:
+                clim = (0, values.max())
+            else:
+                clim = (values.min(), values.max())
+        else:
+            clim = (-abs(values).max(), abs(values).max())
+
+        self.poly_data = pv.PolyData(self.verts)
+        self.poly_data['values'] = values
+
+        if not self.first_plot:
+            old_camera = self.plotter.camera.copy()
+
+        self.plotter.clear()
+
+        self.plotter.add_mesh(
+            self.mesh,
+            show_edges=True,
+            opacity=0.25
+        )
+
+        self.plotter.add_mesh(
+            self.poly_data,
+            scalars='values',
+            cmap=self.getCMap(),
+            clim=clim
+        )
+
+        if self.first_plot:
+            self.first_plot = False
+        else:
+            self.plotter.camera = old_camera
+
+if __name__ == '__main__':
+    app = QtWidgets.QApplication(sys.argv)
+    window = MainWindow()
+    sys.exit(app.exec_())
