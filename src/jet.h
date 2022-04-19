@@ -46,6 +46,7 @@ jet32t jet32t_make_empty();
 jet32t jet32t_make_point_source(dbl tau);
 bool jet32t_is_finite(jet32t const *jet);
 bool jet32t_is_point_source(jet32t const *jet);
+bool jet32t_is_singular(jet32t const *jet);
 
 // Conversions:
 

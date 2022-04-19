@@ -83,6 +83,11 @@ bool jet32t_is_point_source(jet32t const *jet) {
     && dbl33_isnan(jet->D2f);
 }
 
+bool jet32t_is_singular(jet32t const *jet) {
+  return !isfinite(jet->f) || !dbl3_isfinite(jet->Df)
+    || !dbl33_isfinite(jet->D2f);
+}
+
 jet31t jet31t_from_jet32t(jet32t jet) {
   return (jet31t) {.f = jet.f, .Df = {jet.Df[0], jet.Df[1], jet.Df[2]}};
 }
