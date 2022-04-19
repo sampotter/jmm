@@ -100,8 +100,6 @@ struct utri {
   state_e state[2];
   bb31 T;
 
-  size_t num_shadow;
-
   size_t orig_index; // original index
 };
 
@@ -340,12 +338,6 @@ static ray3 get_ray(utri_s const *utri) {
 
 static dbl get_L(utri_s const *u) {
   return u->L;
-}
-
-bool utri_emits_terminal_ray(utri_s const *utri, eik3_s const *eik) {
-  (void)utri;
-  (void)eik;
-  assert(false);
 }
 
 bool utri_update_ray_is_physical(utri_s const *utri, eik3_s const *eik) {

@@ -53,8 +53,6 @@ bool utri_inc_on_diff_edge(utri_s const *u, mesh3_s const *mesh);
 void utri_get_xb(utri_s const *u, dbl xb[3]);
 bool utri_is_degenerate(utri_s const *u);
 bool utri_approx_hess(utri_s const *u, dbl h, dbl33 hess);
-bool utri_inc_on_refl_BCs(utri_s const *u, eik3_s const *eik);
-bool utri_accept_refl_BCs_update(utri_s const *u, eik3_s const *eik);
 
 bool utris_yield_same_update(utri_s const *utri1, utri_s const *utri2);
 
