@@ -93,6 +93,13 @@ void array_delete(array_s *arr, size_t i) {
   --arr->size;
 }
 
+void array_delete_all(array_s *arr, array_s const *i_arr) {
+  for (size_t j = array_size(i_arr), i; j > 0; --j) {
+    array_get(i_arr, j - 1, &i);
+    array_delete(arr, i);
+  }
+}
+
 void array_pop_front(array_s *arr, void *elt) {
   array_get(arr, 0, elt);
   array_delete(arr, 0);
