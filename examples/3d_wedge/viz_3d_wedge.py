@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 import colorcet as cc
 import numpy as np
 import os
@@ -34,6 +36,8 @@ class MainWindow(pvqt.MainWindow):
     def __init__(self, parent=None, show=True):
         QtWidgets.QMainWindow.__init__(self, parent)
 
+        self.pointIndex = [None, None, None, None]
+
         self.loadData()
 
         # start setting up main frame and layout
@@ -56,7 +60,7 @@ class MainWindow(pvqt.MainWindow):
         vlayout1.addStretch(1)
 
         frame1.setLayout(vlayout1)
-        hlayout.addWidget(frame1)
+        hlayout.addWidget(frame1, stretch=1)
 
         # set up second panel
 
@@ -66,20 +70,24 @@ class MainWindow(pvqt.MainWindow):
         self.makePlotModeGroupBox()
         self.makeEikonalSelectGroupBox()
         self.makeFieldSelectGroupBox()
+        self.makePointSelectionFrame()
 
         vlayout2.addWidget(self.plotModeGroupBox)
         vlayout2.addWidget(self.eikonalSelectGroupBox)
         vlayout2.addWidget(self.fieldSelectGroupBox)
+        vlayout2.addWidget(self.pointSelectionFrame)
         vlayout2.addStretch(1)
 
         frame2.setLayout(vlayout2)
-        hlayout.addWidget(frame2)
+        hlayout.addWidget(frame2, stretch=1)
 
         # up plotter
 
         self.plotter = pvqt.QtInteractor(self.frame)
-        hlayout.addWidget(self.plotter.interactor)
+
         self.signal_close.connect(self.plotter.close)
+
+        hlayout.addWidget(self.plotter.interactor, stretch=10)
 
         # finish setting up main layout
 
@@ -115,7 +123,6 @@ class MainWindow(pvqt.MainWindow):
         formLayout.addRow("--height", heightLineEdit)
 
         self.parameterFrame.setLayout(formLayout)
-
 
     def makePlotModeGroupBox(self):
         self.plotModeGroupBox = QtWidgets.QGroupBox("Plot mode:")
@@ -182,6 +189,47 @@ class MainWindow(pvqt.MainWindow):
         layout.addStretch(1)
 
         self.fieldSelectGroupBox.setLayout(layout)
+
+    def makePointSelectionFrame(self):
+        self.pointSelectionFrame = QtWidgets.QGroupBox("Points to highlight:")
+
+        index1LineEdit = QtWidgets.QLineEdit()
+        index2LineEdit = QtWidgets.QLineEdit()
+        index3LineEdit = QtWidgets.QLineEdit()
+        index4LineEdit = QtWidgets.QLineEdit()
+
+        def pointIndexUpdated(i, lineEdit):
+            s = lineEdit.text()
+            try:
+                self.pointIndex[i] = int(s)
+                if 0 <= self.pointIndex[i] < self.verts.shape[0]:
+                    self.updatePlot()
+                else:
+                    print(f'index {self.pointIndex[i]} out of range [0, {self.verts.shape[0]})')
+                    self.pointIndex[i] = None
+            except:
+                print(f'string "{s}" is not a valid index')
+                self.pointIndex[i] = None
+
+        index1LineEdit.editingFinished.connect(
+            lambda: pointIndexUpdated(0, index1LineEdit))
+
+        index2LineEdit.editingFinished.connect(
+            lambda: pointIndexUpdated(1, index2LineEdit))
+
+        index3LineEdit.editingFinished.connect(
+            lambda: pointIndexUpdated(2, index3LineEdit))
+
+        index4LineEdit.editingFinished.connect(
+            lambda: pointIndexUpdated(3, index4LineEdit))
+
+        formLayout = QtWidgets.QFormLayout()
+        formLayout.addRow(f'Point #1 index:', index1LineEdit)
+        formLayout.addRow(f'Point #2 index:', index2LineEdit)
+        formLayout.addRow(f'Point #3 index:', index3LineEdit)
+        formLayout.addRow(f'Point #4 index:', index4LineEdit)
+
+        self.pointSelectionFrame.setLayout(formLayout)
 
     def reloadData(self):
         self.loadData()
@@ -457,10 +505,27 @@ class MainWindow(pvqt.MainWindow):
             clim=clim
         )
 
+        for i in range(4):
+            l = self.pointIndex[i]
+            if l is not None:
+                x = self.verts[l]
+                r = 0.025
+                c = cc.cm.rainbow(float(i)/float(3))
+                self.plotter.add_mesh(pv.Sphere(r, x), color=c)
+
         if self.first_plot:
             self.first_plot = False
         else:
             self.plotter.camera = old_camera
+
+        def set_picked_point_index(grid):
+            x = self.plotter.picked_point
+            dists = np.sqrt(np.sum((x - self.verts)**2, axis=1))
+            i = np.argmin(dists)
+            self.picked_point_index = i
+            print(f'selected vertex {self.picked_point_index}')
+
+        self.plotter.enable_point_picking(callback=set_picked_point_index, font_size=12)
 
 if __name__ == '__main__':
     app = QtWidgets.QApplication(sys.argv)
