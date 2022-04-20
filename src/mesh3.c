@@ -231,9 +231,9 @@ static dbl get_dihedral_angle(mesh3_s const *mesh, size_t lc, size_t const le[2]
  * the corresponding dihedral angles.
  */
 static bool edge_is_diff(mesh3_s const *mesh, size_t const le[2]) {
-  int nec = mesh3_nec(mesh, le[0], le[1]);
+  int nec = mesh3_nec(mesh, le);
   size_t *ec = malloc(nec*sizeof(size_t));
-  mesh3_ec(mesh, le[0], le[1], ec);
+  mesh3_ec(mesh, le, ec);
 
   dbl angle_sum = 0;
   for (int i = 0; i < nec; ++i)
@@ -1089,12 +1089,10 @@ void mesh3_cv(mesh3_s const *mesh, size_t i, size_t *cv) {
   memcpy(cv, mesh->cells[i], 4*sizeof(size_t));
 }
 
-int mesh3_nec(mesh3_s const *mesh, size_t i, size_t j) {
-  // TODO: really horrible implementation! :-(
+int mesh3_nec(mesh3_s const *mesh, size_t const le[2]) {
+  assert(le[0] != le[1]);
 
-  if (i == j) {
-    return 0;
-  }
+  size_t i = le[0], j = le[1];
 
   int nvci = mesh3_nvc(mesh, i);
   size_t *vci = malloc(sizeof(size_t)*nvci);
@@ -1112,7 +1110,7 @@ int mesh3_nec(mesh3_s const *mesh, size_t i, size_t j) {
     for (int b = 0; b < nvcj; ++b) {
       if (c == vcj[b]) {
         ++nec;
-        continue;
+        break;
       }
     }
   }
@@ -1123,12 +1121,10 @@ int mesh3_nec(mesh3_s const *mesh, size_t i, size_t j) {
   return nec;
 }
 
-void mesh3_ec(mesh3_s const *mesh, size_t i, size_t j, size_t *ec) {
-  // TODO: really horrible implementation! :-(
+void mesh3_ec(mesh3_s const *mesh, size_t const le[2], size_t *lc) {
+  assert(le[0] != le[1]);
 
-  if (i == j) {
-    return;
-  }
+  size_t i = le[0], j = le[1];
 
   int nvci = mesh3_nvc(mesh, i);
   size_t *vci = malloc(sizeof(size_t)*nvci);
@@ -1145,8 +1141,8 @@ void mesh3_ec(mesh3_s const *mesh, size_t i, size_t j, size_t *ec) {
     c = vci[a];
     for (int b = 0; b < nvcj; ++b) {
       if (c == vcj[b]) {
-        ec[nec++] = c;
-        continue; // TODO: should be break? test later...
+        lc[nec++] = c;
+        break;
       }
     }
   }
@@ -1193,26 +1189,26 @@ static void orient_chains(size_t (*e)[2], int n) {
   }
 }
 
-int mesh3_nee(mesh3_s const *mesh, size_t const e[2]) {
-  return mesh3_nec(mesh, e[0], e[1]);
+int mesh3_nee(mesh3_s const *mesh, size_t const le[2]) {
+  return mesh3_nec(mesh, le);
 }
 
-void mesh3_ee(mesh3_s const *mesh, size_t const e[2], size_t (*ee)[2]) {
-  int nec = mesh3_nec(mesh, e[0], e[1]);
+void mesh3_ee(mesh3_s const *mesh, size_t const le[2], size_t (*ee)[2]) {
+  int nec = mesh3_nec(mesh, le);
   size_t *ec = malloc(nec*sizeof(size_t));
-  mesh3_ec(mesh, e[0], e[1], ec);
+  mesh3_ec(mesh, le, ec);
 
   for (int i = 0; i < nec; ++i)
-    mesh3_cee(mesh, ec[i], e, ee[i]);
+    mesh3_cee(mesh, ec[i], le, ee[i]);
   orient_chains(ee, nec);
 
   free(ec);
 }
 
-size_t mesh3_nev(mesh3_s const *mesh, size_t const e[2]) {
-  size_t nec = mesh3_nec(mesh, e[0], e[1]);
+size_t mesh3_nev(mesh3_s const *mesh, size_t const le[2]) {
+  size_t nec = mesh3_nec(mesh, le);
   size_t *ec = malloc(nec*sizeof(size_t));
-  mesh3_ec(mesh, e[0], e[1], ec);
+  mesh3_ec(mesh, le, ec);
 
   array_s *ev;
   array_alloc(&ev);
@@ -1224,7 +1220,7 @@ size_t mesh3_nev(mesh3_s const *mesh, size_t const e[2]) {
    * on `e`. We'll count the number of elements in `fev` to calculate
    * `nef`. */
   for (size_t i = 0; i < nec; ++i) {
-    mesh3_cee(mesh, ec[i], e, ee);
+    mesh3_cee(mesh, ec[i], le, ee);
     for (size_t j = 0; j < 2; ++j) {
       if (array_contains(ev, &ee[j]))
         continue;
@@ -1243,9 +1239,9 @@ size_t mesh3_nev(mesh3_s const *mesh, size_t const e[2]) {
 }
 
 void mesh3_ev(mesh3_s const *mesh, size_t const e[2], size_t *v) {
-  size_t nec = mesh3_nec(mesh, e[0], e[1]);
+  size_t nec = mesh3_nec(mesh, e);
   size_t *ec = malloc(nec*sizeof(size_t));
-  mesh3_ec(mesh, e[0], e[1], ec);
+  mesh3_ec(mesh, e, ec);
 
   array_s *ev;
   array_alloc(&ev);
@@ -1726,9 +1722,9 @@ void mesh3_get_diff_edge_tangent(mesh3_s const *mesh, size_t const le[2],
 }
 
 dbl mesh3_get_edge_ext_angle(mesh3_s const *mesh, size_t const le[2]) {
-  int nec = mesh3_nec(mesh, le[0], le[1]);
+  int nec = mesh3_nec(mesh, le);
   size_t *ec = malloc(nec*sizeof(size_t));
-  mesh3_ec(mesh, le[0], le[1], ec);
+  mesh3_ec(mesh, le, ec);
 
   dbl ext_angle = 2*JMM_PI;
   for (int i = 0; i < nec; ++i)

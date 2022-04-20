@@ -247,36 +247,6 @@ void utetra_init(utetra_s *u, utetra_spec_s const *spec) {
     memcpy(DT[i], jet[i].Df, sizeof(dbl3));
   }
   bb32_init_from_3d_data(&u->T, T, DT, u->Xt);
-
-  /* TODO: old way of doing things: jets could be partly singular and
-   * we'd try to fill in the missing information! don't do this
-   * anymore! */
-
-  // /* Figure out which jets lack gradient information */
-  // bool pt_src[3];
-  // size_t num_pt_srcs = 0;
-  // for (size_t i = 0; i < 3; ++i)
-  //   num_pt_srcs += pt_src[i] = jet31t_is_point_source(&jet[i]);
-
-  // if (num_pt_srcs == 3) {
-  //   assert(false);
-  // } else if (num_pt_srcs > 0) {
-  //   /* If some but not all of the jets are point sources, linearly
-  //    * interpolate the Bezier coefficients from the available gradient
-  //    * data. This is inaccurate but will unstick the solver in a few
-  //    * places, especially near the boundary of the physical rays
-  //    * emitted by diffracting edges. */
-  //   bb32_init_from_jets(&u->T, jet, u->Xt);
-  // } else {
-  //   /* If we have all the gradient data we need, do regular ol' BB
-  //    * interpolation. */
-  //   dbl3 T, DT[3];
-  //   for (int i = 0; i < 3; ++i) {
-  //     T[i] = jet[i].f;
-  //     memcpy(DT[i], jet[i].Df, sizeof(dbl3));
-  //   }
-  //   bb32_init_from_3d_data(&u->T, T, DT, u->Xt);
-  // }
 }
 
 /* Check if the point being updated lies in the plane spanned by by
@@ -418,10 +388,6 @@ void utetra_solve(utetra_s *cf, dbl const *lam) {
   else
     set_lambda(cf, lam);
 
-  // I think we're actually supposed to use cf->g here instead of
-  // cf->p, but maybe cf->p is more appropriate for constraint
-  // Newton's method, since it takes into account the constraints
-  // while cf->p doesn't.
   int const max_niter = 100;
   dbl const tol = cf->tol*(1 + dbl2_norm(cf->p));
   for (int _ = 0; _ < max_niter; ++_) {
@@ -554,15 +520,6 @@ bool utetra_adj_are_optimal(utetra_s const *u1, utetra_s const *u2) {
     && fabs(utetra_get_value(u1) - utetra_get_value(u2)) <= atol;
 }
 
-static ray3 get_ray(utetra_s const *utetra) {
-  ray3 ray;
-  dbl b[3];
-  get_b(utetra, b);
-  dbl33_dbl3_mul(utetra->X, b, ray.org);
-  dbl3_normalized(utetra->x_minus_xb, ray.dir);
-  return ray;
-}
-
 #if JMM_DEBUG
 static bool update_inds_are_set(utetra_s const *utetra) {
   return !(
@@ -578,159 +535,190 @@ static bool all_inds_are_set(utetra_s const *utetra) {
 }
 #endif
 
+bool ray_in_tetra_cone(mesh3_s const *mesh, dbl3 p, size_t lc, size_t lv) {
+  dbl3 xhat;
+  mesh3_copy_vert(mesh, lv, xhat);
+
+  size_t l[3];
+  assert(mesh3_cvf(mesh, lc, lv, l));
+
+  dbl3 x[3];
+  for (size_t i = 0; i < 3; ++i)
+    mesh3_copy_vert(mesh, l[i], x[i]);
+
+  dbl33 dX;
+  for (size_t i = 0; i < 3; ++i) {
+    dbl3 dx;
+    dbl3_sub(x[i], xhat, dx);
+    dbl33_set_column(dX, i, dx);
+  }
+
+  dbl3 alpha;
+  dbl33_dbl3_solve(dX, p, alpha);
+
+  return dbl3_nonneg(alpha);
+}
+
+bool ray_in_vertex_cone(mesh3_s const *mesh, dbl3 p, size_t lv) {
+  size_t nvc = mesh3_nvc(mesh, lv);
+  size_t *vc = malloc(nvc*sizeof(size_t));
+  mesh3_vc(mesh, lv, vc);
+
+  bool in_cone = false;
+  for (size_t i = 0; i < nvc; ++i)
+    if ((in_cone = ray_in_tetra_cone(mesh, p, vc[i], lv)))
+      break;
+
+  free(vc);
+
+  return in_cone;
+}
+
 bool utetra_update_ray_is_physical(utetra_s const *utetra, eik3_s const *eik) {
 #if JMM_DEBUG
   assert(all_inds_are_set(utetra));
 #endif
 
-  if (utetra_updated_from_refl_BCs(utetra, eik))
-    return true;
-
-  size_t const *l = utetra->l;
-
   mesh3_s const *mesh = eik3_get_mesh(eik);
 
-  // TODO: the following section where we check to see if the stuff
-  // below gives "an interior ray" can be wrapped up and reused for
-  // both this and the corresponding section in utri.c...
+  dbl3 xhat;
+  mesh3_copy_vert(mesh, utetra->lhat, xhat);
 
-  ray3 ray = get_ray(utetra);
+  dbl3 xlam;
+  utetra_get_x(utetra, xlam);
 
-  /**
-   * First, check if the start of the ray is "in free space". To do
-   * this, we just check if we can a cell containing a point just
-   * ahead of and just behind the origin of the ray.
-   */
+  dbl3 dxlam;
+  dbl3_sub(xlam, xhat, dxlam);
 
-  // Get points just before and just after the start of the ray. We
-  // perturb forward and backward by one half of the minimum triangle
-  // altitude (taken of the entire mesh). This is to ensure that the
-  // perturbations are small enough to stay inside neighboring
-  // tetrahedra, but also large enough to take into consideration the
-  // characteristic length scale of the mesh.
-  dbl xm[3], xp[3], h = mesh3_get_min_edge_length(mesh)/4; // TODO: rename t...
-  ray3_get_point(&ray, -h, xm);
-  ray3_get_point(&ray, h, xp);
-  assert(dbl3_isfinite(xm));
-  assert(dbl3_isfinite(xp));
+  dbl3 dxhat;
+  dbl3_sub(xhat, xlam, dxhat);
 
-  array_s *cells;
-  array_alloc(&cells);
-  array_init(cells, sizeof(size_t), ARRAY_DEFAULT_CAPACITY);
+  /* Check whether the update ray is contained in the cone spanned by
+   * the cells incident on `utetra->lhat`. */
 
-  /* Fill `cells` with all of the cells incident on any of the
-   * neighboring update indices. */
-  for (int i = 0; i < 3; ++i) {
-    int nvc = mesh3_nvc(mesh, l[i]);
-    size_t *vc = malloc(nvc*sizeof(size_t));
-    mesh3_vc(mesh, l[i], vc);
-    for (int j = 0; j < nvc; ++j)
-      if (!array_contains(cells, &vc[j]))
-        array_append(cells, &vc[j]);
-    free(vc);
-  }
+  bool ray_end_is_feasible = ray_in_vertex_cone(mesh, dxlam, utetra->lhat);
 
-  bool xm_in_cell = false, xp_in_cell = false;
-  for (size_t i = 0, lc; i < array_size(cells); ++i) {
-    array_get(cells, i, &lc);
-    xm_in_cell |= mesh3_cell_contains_point(mesh, lc, xm);
-    xp_in_cell |= mesh3_cell_contains_point(mesh, lc, xp);
-    if (xm_in_cell && xp_in_cell)
-      break;
-  }
-  if (!xm_in_cell || !xp_in_cell) {
-    array_deinit(cells);
-    array_dealloc(&cells);
-    return false;
-  }
+  /* Check whether the start of the update ray is contained in the set
+   * of reasible ray directions at xlam */
 
-  /* Next, we'll pull out the boundary faces incident on these cells
-   * and check if the ray intersects any of them. If it does, the ray
-   * is unphysical. */
+  bool ray_start_is_feasible = false;
 
-  array_s *bdf;
-  array_alloc(&bdf);
-  array_init(bdf, sizeof(size_t[3]), ARRAY_DEFAULT_CAPACITY);
+  size_t l_active[3];
+  size_t num_active_constraints = utetra_get_active_inds(utetra, l_active);
+  num_active_constraints = 3 - num_active_constraints; // TODO: fix this...
 
-  // Get the incident boundary faces
-  size_t cf[4][3];
-  for (size_t i = 0, lc; i < array_size(cells); ++i) {
-    array_get(cells, i, &lc);
-    mesh3_cf(mesh, lc, cf);
-    for (size_t j = 0; j < 4; ++j) {
-      if (array_contains(bdf, cf[j]))
-        continue;
-      /* skip faces containing the update point to make the
-       * intersection test simpler */
-      if (point_in_face(utetra->lhat, cf[j]))
-        continue;
+  /* interior minimizer */
+  if (num_active_constraints == 0) {
+    /* get cells incident on base of update */
+    size_t nfc = mesh3_nfc(mesh, l_active);
+    size_t *fc = malloc(nfc*sizeof(size_t));
+    mesh3_fc(mesh, l_active, fc);
 
-      /* Check if `cf[j]` indexes a real boundary face. We don't want
-       * to accidentally intersect a virtual boundary face here. */
-      if (mesh3_is_bdf(mesh, cf[j]))
-        array_append(bdf, cf[j]);
+    /* check whether the `dxhat` points into a tetrahedron incident on
+     * the base of the update */
+    for (size_t i = 0, lv; i < nfc; ++i) {
+      mesh3_cfv(mesh, fc[i], l_active, &lv);
+
+      size_t lf[3];
+      mesh3_cvf(mesh, fc[i], lv, lf);
+
+      dbl3 x[3];
+      for (size_t j = 0; j < 3; ++j)
+        mesh3_copy_vert(mesh, lf[j], x[j]);
+
+      dbl3 dx[3];
+      dbl3_sub(mesh3_get_vert_ptr(mesh, lv), x[0], dx[0]);
+      dbl3_sub(x[1], x[0], dx[1]);
+      dbl3_sub(x[2], x[0], dx[2]);
+
+      /* compute the face normal and orient it so that it points
+       * outside the tetrahedron */
+      dbl3 n;
+      dbl3_cross(dx[1], dx[2], n);
+      if (dbl3_dot(n, dx[0]) < 0)
+        dbl3_negate(n);
+
+      if (dbl3_dot(n, dxhat) > 0) {
+        ray_start_is_feasible = true;
+        break;
+      }
     }
+
+    free(fc);
   }
 
-  // Check for intersections with the nearby boundary faces
-  bool found_bdf_isect = false;
-  size_t lf[3];
-  for (size_t i = 0; i < array_size(bdf); ++i) {
-    array_get(bdf, i, lf);
-    tri3 tri = mesh3_get_tri(mesh, lf);
-    if (ray3_and_tri3_are_parallel(&ray, &tri))
-      continue;
-    dbl t;
-    bool isect = ray3_intersects_tri3(&ray, &tri, &t);
-    if (isect && t <= utetra->L) {
-      found_bdf_isect = true;
-      break;
+  /* edge minimizer */
+  else if (num_active_constraints == 1) {
+    /* gets cells incident on active edge */
+    size_t nec = mesh3_nec(mesh, l_active);
+    size_t *ec = malloc(nec*sizeof(size_t));
+    mesh3_ec(mesh, l_active, ec);
+
+    /* check whether `dxhat` points into a tetrahedron incident on the
+     * base of the active edge */
+    for (size_t i = 0, le[2]; i < nec; ++i) {
+      /* get the opposite edge */
+      mesh3_cee(mesh, ec[i], l_active, le);
+
+      dbl3 x[2];
+      mesh3_copy_vert(mesh, l_active[0], x[0]);
+      mesh3_copy_vert(mesh, l_active[1], x[1]);
+
+      dbl3 y[2];
+      mesh3_copy_vert(mesh, le[0], y[0]);
+      mesh3_copy_vert(mesh, le[1], y[1]);
+
+      // te = (x1 - x0)/|x1 - x0|
+      dbl3 te;
+      dbl3_sub(x[1], x[0], te);
+      dbl3_normalize(te);
+
+      // q1 = y0 - xlam
+      // q1 = q1 - (te@q1)*te
+      // q1 /= |q1|
+      dbl3 q1;
+      dbl3_sub(y[0], xlam, q1);
+      dbl te_q1 = dbl3_dot(te, q1);
+      for (size_t j = 0; j < 3; ++j)
+        q1[j] -= te_q1*te[j];
+      dbl3_normalize(q1);
+
+      // q2 = y1 - xlam
+      // u2 = q2 - (te@q2)*te;
+      // q2 = u2 - (q1@q2)*q1
+      // q2 /= |q2|
+      dbl3 q2, u2;
+      dbl3_sub(y[1], xlam, q2);
+      dbl te_q2 = dbl3_dot(te, q2);
+      for (size_t j = 0; j < 3; ++j)
+        u2[j] = q2[j] - te_q2*te[j];
+      dbl q1_q2 = dbl3_dot(q1, q2);
+      for (size_t j = 0; j < 3; ++j)
+        q2[j] = u2[j] - q1_q2*q1[j];
+      dbl3_normalize(q2);
+
+      // thetamax = atan2(q2*u2, q1*u2);
+      dbl thetamax = atan2(dbl3_dot(q2, u2), dbl3_dot(q1, u2));
+
+      // theta = atan2(q2*dxhat, q1*dxhat);
+      dbl theta = atan2(dbl3_dot(q2, dxhat), dbl3_dot(q1, dxhat));
+
+      if (0 <= theta && theta <= thetamax) {
+        ray_start_is_feasible = true;
+        break;
+      }
     }
+
+    free(ec);
   }
 
-  array_deinit(bdf);
-  array_dealloc(&bdf);
+  /* corner minimizer */
+  else if (num_active_constraints == 2)
+    ray_start_is_feasible = ray_in_vertex_cone(mesh, dxhat, l_active[0]);
 
-  array_deinit(cells);
-  array_dealloc(&cells);
+  else assert(false);
 
-  if (found_bdf_isect)
-    return false;
-
-  /* Next, check and see if the point just before the end of the ray
-   * lies in a cell. */
-
-  dbl xhatm[3];
-  ray3_get_point(&ray, utetra->L - h, xhatm);
-
-  int nvc = mesh3_nvc(mesh, utetra->lhat);
-  size_t *vc = malloc(nvc*sizeof(size_t));
-  mesh3_vc(mesh, utetra->lhat, vc);
-
-  bool xhatm_in_cell = false;
-  for (int i = 0; i < nvc; ++i) {
-    xhatm_in_cell = mesh3_cell_contains_point(mesh, vc[i], xhatm);
-    if (xhatm_in_cell)
-      break;
-  }
-
-  free(vc);
-
-  return xhatm_in_cell;
-}
-
-bool utetra_updated_from_refl_BCs(utetra_s const *utetra, eik3_s const *eik) {
-  par3_s par = utetra_get_parent(utetra);
-  size_t num_active = par3_num_active(&par);
-  size_t l[num_active];
-  dbl b[num_active]; // TODO: unused
-  par3_get_active(&par, l, b);
-
-  for (size_t i = 0; i < num_active; ++i)
-    if (!eik3_has_BCs(eik, l[i]))
-      return false;
-
-  return true;
+  return ray_start_is_feasible && ray_end_is_feasible;
 }
 
 int utetra_get_num_interior_coefs(utetra_s const *utetra) {
