@@ -46,6 +46,7 @@ bool dbl3_equal(dbl3 const x, dbl3 const y);
 bool dbl3_is_zero(dbl3 const u);
 bool dbl3_isfinite(dbl3 const x);
 bool dbl3_all_nan(dbl3 const x);
+bool dbl3_nonneg(dbl3 const x);
 bool dbl3_valid_bary_coord(dbl3 const b);
 dbl dbl3_dist(dbl3 const u, dbl3 const v);
 dbl dbl3_dist_sq(dbl3 const u, dbl3 const v);

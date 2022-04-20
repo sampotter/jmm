@@ -139,6 +139,10 @@ bool dbl3_isfinite(dbl3 const x) {
   return isfinite(x[0]) && isfinite(x[1]) && isfinite(x[2]);
 }
 
+bool dbl3_nonneg(dbl3 const x) {
+  return x[0] >= 0 && x[1] >= 0 && x[2] >= 0;
+}
+
 bool dbl3_all_nan(dbl3 const x) {
   return isnan(x[0]) && isnan(x[1]) && isnan(x[2]);
 }
