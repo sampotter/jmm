@@ -20,6 +20,8 @@ bool eik3_is_initialized(eik3_s const *eik);
 
 void eik3_dump_jet(eik3_s const *eik, char const *path);
 void eik3_dump_state(eik3_s const *eik, char const *path);
+void eik3_dump_par_l(eik3_s const *eik, char const *path);
+void eik3_dump_par_b(eik3_s const *eik, char const *path);
 
 size_t eik3_peek(eik3_s const *eik);
 jmm_error_e eik3_step(eik3_s *eik, size_t *l0);

@@ -263,6 +263,20 @@ void eik3_dump_state(eik3_s const *eik, char const *path) {
   fclose(fp);
 }
 
+void eik3_dump_par_l(eik3_s const *eik, char const *path) {
+  FILE *fp = fopen(path, "wb");
+  for (size_t i = 0; i < mesh3_nverts(eik->mesh); ++i)
+    fwrite(eik->par[i].l, sizeof(eik->par[i].l[0]), 3, fp);
+  fclose(fp);
+}
+
+void eik3_dump_par_b(eik3_s const *eik, char const *path) {
+  FILE *fp = fopen(path, "wb");
+  for (size_t i = 0; i < mesh3_nverts(eik->mesh); ++i)
+    fwrite(eik->par[i].b, sizeof(eik->par[i].b[0]), 3, fp);
+  fclose(fp);
+}
+
 static void adjust(eik3_s *eik, size_t l) {
   assert(eik->state[l] == TRIAL);
   assert(l < mesh3_nverts(eik->mesh));
