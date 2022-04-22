@@ -466,16 +466,18 @@ class MainWindow(pvqt.MainWindow):
         raise RuntimeError(f"couldn't get values for combination: {plotMode}, {eikonalSel}, {fieldSel}")
 
     def getCMap(self):
-        if self.getSelectedField() is FieldSelection.T and \
+        if self.getSelectedField() is FieldSelection.Origin:
+            return cc.cm.fire
+        elif self.getSelectedField() is FieldSelection.T and \
            self.getPlotMode() is not PlotMode.PointwiseError:
             return cc.cm.rainbow
         else:
             return cc.cm.coolwarm
 
-    def updatePlot(self):
-        values = self.getCurrentValues()
-
-        if self.getSelectedField() is FieldSelection.T and \
+    def getCLim(self, values):
+        if self.getSelectedField() is FieldSelection.Origin:
+            clim = (values.min(), values.max())
+        elif self.getSelectedField() is FieldSelection.T and \
             self.getPlotMode() is not PlotMode.PointwiseError:
             if self.getSelectedEikonal() is EikonalSelection.DirectArrival:
                 clim = (0, values.max())
@@ -483,6 +485,11 @@ class MainWindow(pvqt.MainWindow):
                 clim = (values.min(), values.max())
         else:
             clim = (-abs(values).max(), abs(values).max())
+        return clim
+
+    def updatePlot(self):
+        values = self.getCurrentValues()
+        clim = self.getCLim(values)
 
         self.poly_data = pv.PolyData(self.verts)
         self.poly_data['values'] = values
