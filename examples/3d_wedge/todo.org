@@ -2,16 +2,29 @@
 
 ** Things to do
 
+*** misc
    - [X] propagate origins
      - [X] direct
      - [X] reflection
-   - [ ] after propagating origins, fix origin value on diffracting
-     edge (set it to 0.5)
-   - [ ] extract shadow zone boundary
-   - [ ] extract reflection zone boundary
+   - [ ] after propagating, fix diffracting edge origin (set to 0.5)
+   - [X] extract shadow zone boundary
+   - [X] extract reflection zone boundary
    - [X] fix true o-refl solution
    - [ ] try problem with only n-refl
    - [ ] try problem with o- and n-refls
+
+*** amplitude
+    - [ ] numerical
+      - [ ] direct
+      - [ ] reflected
+    - [ ] true
+      - [ ] direct
+      - [ ] o-refl
+      - [ ] n-refl
+
+*** u
+    - [ ] numerical
+    - [ ] true
 
 *** errors
    - [X] get T errors to O(h) in direct & o-refl

@@ -6,12 +6,16 @@ import vtk
 
 from pathlib import Path
 
-path = Path('n0.25_a0.01_rfac0.2_phip0.7853981633974483_sp1.4142135623730951_w4_h2')
+path = Path('n0.25_a0.005_rfac0.2_phip0.7853981633974483_sp1.4142135623730951_w4_h2')
 
 verts = np.fromfile(path/'verts.bin', dtype=np.float64).reshape(-1, 3)
 cells = np.fromfile(path/'cells.bin', dtype=np.uintp).reshape(-1, 4)
 
-origin = np.fromfile(path/'o_refl_origin.bin', dtype=np.float64)
+eik = 'o_refl'
+
+origin = np.fromfile(path/f'{eik}_origin.bin', dtype=np.float64)
+par_l = np.fromfile(path/f'{eik}_par_l.bin', dtype=np.uintp).reshape(-1, 3)
+par_b = np.fromfile(path/f'{eik}_par_b.bin', dtype=np.float64).reshape(-1, 3)
 
 edges = [(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]
 
@@ -67,12 +71,17 @@ def get_level_set(verts, cells, values, level):
 
 grid = pv.UnstructuredGrid({vtk.VTK_TETRA: cells}, verts)
 
+def xfer(x):
+    return x**2*(3 - 2*x)
+
+h = 0.025
+
 points = pv.PolyData(verts)
-points['origin'] = origin
+points['origin'] = origin # xfer(xfer(xfer(origin)))
 
 shadow_boundary = get_level_set(verts, cells, origin, 0.5)
 
 plotter = pvqt.BackgroundPlotter()
 plotter.add_mesh(grid, show_edges=True, opacity=0.25)
-# plotter.add_mesh(points, scalars='origin', cmap=cc.cm.fire)
+plotter.add_mesh(points, scalars='origin', cmap=cc.cm.fire)
 plotter.add_mesh(shadow_boundary, color='purple', opacity=0.95)

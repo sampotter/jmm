@@ -20,17 +20,26 @@ class PlotMode(Enum):
     TrueSolution = 1
     PointwiseError = 2
 
-class EikonalSelection(Enum):
+class Eikonal(Enum):
     DirectArrival = 0
     OFaceReflection = 1
     NFaceReflection = 2
 
-class FieldSelection(Enum):
+class Field(Enum):
     T = 0
     Tx = 1
     Ty = 2
     Tz = 3
-    Origin = 4
+    Txx = 4
+    Txy = 5
+    Txz = 6
+    Tyx = 7
+    Tyy = 8
+    Tyz = 9
+    Tzx = 10
+    Tzy = 11
+    Tzz = 12
+    Origin = 13
 
 class MainWindow(pvqt.MainWindow):
     def __init__(self, parent=None, show=True):
@@ -171,6 +180,15 @@ class MainWindow(pvqt.MainWindow):
         plotTx = QtWidgets.QRadioButton("∂T/∂x")
         plotTy = QtWidgets.QRadioButton("∂T/∂y")
         plotTz = QtWidgets.QRadioButton("∂T/∂z")
+        plotTxx = QtWidgets.QRadioButton("∂²T/∂x²")
+        plotTxy = QtWidgets.QRadioButton("∂²T/∂y∂x")
+        plotTxz = QtWidgets.QRadioButton("∂²T/∂z∂x")
+        plotTyx = QtWidgets.QRadioButton("∂²T/∂x∂y")
+        plotTyy = QtWidgets.QRadioButton("∂²T/∂y²")
+        plotTyz = QtWidgets.QRadioButton("∂²T/∂z∂y")
+        plotTzx = QtWidgets.QRadioButton("∂²T/∂x²")
+        plotTzy = QtWidgets.QRadioButton("∂²T/∂y∂z")
+        plotTzz = QtWidgets.QRadioButton("∂²T/∂z∂z")
         plotOrigin = QtWidgets.QRadioButton("Origin")
         plotT.setChecked(True)
 
@@ -178,6 +196,15 @@ class MainWindow(pvqt.MainWindow):
         plotTx.toggled.connect(self.updatePlotOnSelect)
         plotTy.toggled.connect(self.updatePlotOnSelect)
         plotTz.toggled.connect(self.updatePlotOnSelect)
+        plotTxx.toggled.connect(self.updatePlotOnSelect)
+        plotTxy.toggled.connect(self.updatePlotOnSelect)
+        plotTxz.toggled.connect(self.updatePlotOnSelect)
+        plotTyx.toggled.connect(self.updatePlotOnSelect)
+        plotTyy.toggled.connect(self.updatePlotOnSelect)
+        plotTyz.toggled.connect(self.updatePlotOnSelect)
+        plotTzx.toggled.connect(self.updatePlotOnSelect)
+        plotTzy.toggled.connect(self.updatePlotOnSelect)
+        plotTzz.toggled.connect(self.updatePlotOnSelect)
         plotOrigin.toggled.connect(self.updatePlotOnSelect)
 
         layout = QtWidgets.QVBoxLayout()
@@ -185,6 +212,15 @@ class MainWindow(pvqt.MainWindow):
         layout.addWidget(plotTx)
         layout.addWidget(plotTy)
         layout.addWidget(plotTz)
+        layout.addWidget(plotTxx)
+        layout.addWidget(plotTxy)
+        layout.addWidget(plotTxz)
+        layout.addWidget(plotTyx)
+        layout.addWidget(plotTyy)
+        layout.addWidget(plotTyz)
+        layout.addWidget(plotTzx)
+        layout.addWidget(plotTzy)
+        layout.addWidget(plotTzz)
         layout.addWidget(plotOrigin)
         layout.addStretch(1)
 
@@ -358,12 +394,12 @@ class MainWindow(pvqt.MainWindow):
     def getSelectedEikonal(self):
         children = self.eikonalSelectGroupBox.findChildren(QtWidgets.QRadioButton)
         index = next(i for i, _ in enumerate(children) if _.isChecked())
-        return EikonalSelection(index)
+        return Eikonal(index)
 
     def getSelectedField(self):
         children = self.fieldSelectGroupBox.findChildren(QtWidgets.QRadioButton)
         index = next(i for i, _ in enumerate(children) if _.isChecked())
-        return FieldSelection(index)
+        return Field(index)
 
     def updatePlotOnSelect(self, checked):
         if checked:
@@ -374,112 +410,160 @@ class MainWindow(pvqt.MainWindow):
         eikonalSel = self.getSelectedEikonal()
         fieldSel = self.getSelectedField()
         if plotMode is PlotMode.NumericalSolution:
-            if eikonalSel is EikonalSelection.DirectArrival:
-                if fieldSel is FieldSelection.T:
-                    return self.direct_T
-                elif fieldSel is FieldSelection.Tx:
-                    return self.direct_grad_T[:, 0]
-                elif fieldSel is FieldSelection.Ty:
-                    return self.direct_grad_T[:, 1]
-                elif fieldSel is FieldSelection.Tz:
-                    return self.direct_grad_T[:, 2]
-                elif fieldSel is FieldSelection.Origin:
-                    return self.direct_origin
-            elif eikonalSel is EikonalSelection.OFaceReflection:
-                if fieldSel is FieldSelection.T:
-                    return self.o_refl_T
-                elif fieldSel is FieldSelection.Tx:
-                    return self.o_refl_grad_T[:, 0]
-                elif fieldSel is FieldSelection.Ty:
-                    return self.o_refl_grad_T[:, 1]
-                elif fieldSel is FieldSelection.Tz:
-                    return self.o_refl_grad_T[:, 2]
-                elif fieldSel is FieldSelection.Origin:
-                    return self.o_refl_origin
-            elif eikonalSel is EikonalSelection.NFaceReflection:
-                if fieldSel is FieldSelection.T:
-                    return self.n_refl_T
-                elif fieldSel is FieldSelection.Tx:
-                    return self.n_refl_grad_T[:, 0]
-                elif fieldSel is FieldSelection.Ty:
-                    return self.n_refl_grad_T[:, 1]
-                elif fieldSel is FieldSelection.Tz:
-                    return self.n_refl_grad_T[:, 2]
-                elif fieldSel is FieldSelection.Origin:
-                    return self.n_refl_origin
+            if eikonalSel is Eikonal.DirectArrival:
+                if fieldSel is Field.T:        return self.direct_T
+                elif fieldSel is Field.Tx:     return self.direct_grad_T[:, 0]
+                elif fieldSel is Field.Ty:     return self.direct_grad_T[:, 1]
+                elif fieldSel is Field.Tz:     return self.direct_grad_T[:, 2]
+                elif fieldSel is Field.Txx:    return self.direct_hess_T[:, 0, 0]
+                elif fieldSel is Field.Txy:    return self.direct_hess_T[:, 0, 1]
+                elif fieldSel is Field.Txz:    return self.direct_hess_T[:, 0, 2]
+                elif fieldSel is Field.Tyx:    return self.direct_hess_T[:, 1, 0]
+                elif fieldSel is Field.Tyy:    return self.direct_hess_T[:, 1, 1]
+                elif fieldSel is Field.Tyz:    return self.direct_hess_T[:, 1, 2]
+                elif fieldSel is Field.Tzx:    return self.direct_hess_T[:, 2, 0]
+                elif fieldSel is Field.Tzy:    return self.direct_hess_T[:, 2, 1]
+                elif fieldSel is Field.Tzz:    return self.direct_hess_T[:, 2, 2]
+                elif fieldSel is Field.Origin: return self.direct_origin
+            elif eikonalSel is Eikonal.OFaceReflection:
+                if fieldSel is Field.T:        return self.o_refl_T
+                elif fieldSel is Field.Tx:     return self.o_refl_grad_T[:, 0]
+                elif fieldSel is Field.Ty:     return self.o_refl_grad_T[:, 1]
+                elif fieldSel is Field.Tz:     return self.o_refl_grad_T[:, 2]
+                elif fieldSel is Field.Txx:    return self.o_refl_hess_T[:, 0, 0]
+                elif fieldSel is Field.Txy:    return self.o_refl_hess_T[:, 0, 1]
+                elif fieldSel is Field.Txz:    return self.o_refl_hess_T[:, 0, 2]
+                elif fieldSel is Field.Tyx:    return self.o_refl_hess_T[:, 1, 0]
+                elif fieldSel is Field.Tyy:    return self.o_refl_hess_T[:, 1, 1]
+                elif fieldSel is Field.Tyz:    return self.o_refl_hess_T[:, 1, 2]
+                elif fieldSel is Field.Tzx:    return self.o_refl_hess_T[:, 2, 0]
+                elif fieldSel is Field.Tzy:    return self.o_refl_hess_T[:, 2, 1]
+                elif fieldSel is Field.Tzz:    return self.o_refl_hess_T[:, 2, 2]
+                elif fieldSel is Field.Origin: return self.o_refl_origin
+            elif eikonalSel is Eikonal.NFaceReflection:
+                if fieldSel is Field.T:        return self.n_refl_T
+                elif fieldSel is Field.Tx:     return self.n_refl_grad_T[:, 0]
+                elif fieldSel is Field.Ty:     return self.n_refl_grad_T[:, 1]
+                elif fieldSel is Field.Tz:     return self.n_refl_grad_T[:, 2]
+                elif fieldSel is Field.Txx:    return self.n_refl_hess_T[:, 0, 0]
+                elif fieldSel is Field.Txy:    return self.n_refl_hess_T[:, 0, 1]
+                elif fieldSel is Field.Txz:    return self.n_refl_hess_T[:, 0, 2]
+                elif fieldSel is Field.Tyx:    return self.n_refl_hess_T[:, 1, 0]
+                elif fieldSel is Field.Tyy:    return self.n_refl_hess_T[:, 1, 1]
+                elif fieldSel is Field.Tyz:    return self.n_refl_hess_T[:, 1, 2]
+                elif fieldSel is Field.Tzx:    return self.n_refl_hess_T[:, 2, 0]
+                elif fieldSel is Field.Tzy:    return self.n_refl_hess_T[:, 2, 1]
+                elif fieldSel is Field.Tzz:    return self.n_refl_hess_T[:, 2, 2]
+                elif fieldSel is Field.Origin: return self.n_refl_origin
         elif plotMode is PlotMode.TrueSolution:
-            if eikonalSel is EikonalSelection.DirectArrival:
-                if fieldSel is FieldSelection.T:
-                    return self.direct_T_gt
-                elif fieldSel is FieldSelection.Tx:
-                    return self.direct_grad_T_gt[:, 0]
-                elif fieldSel is FieldSelection.Ty:
-                    return self.direct_grad_T_gt[:, 1]
-                elif fieldSel is FieldSelection.Tz:
-                    return self.direct_grad_T_gt[:, 2]
-            elif eikonalSel is EikonalSelection.OFaceReflection:
-                if fieldSel is FieldSelection.T:
-                    return self.o_refl_T_gt
-                elif fieldSel is FieldSelection.Tx:
-                    return self.o_refl_grad_T_gt[:, 0]
-                elif fieldSel is FieldSelection.Ty:
-                    return self.o_refl_grad_T_gt[:, 1]
-                elif fieldSel is FieldSelection.Tz:
-                    return self.o_refl_grad_T_gt[:, 2]
-            elif eikonalSel is EikonalSelection.NFaceReflection:
-                if fieldSel is FieldSelection.T:
-                    return self.n_refl_T_gt
-                elif fieldSel is FieldSelection.Tx:
-                    return self.n_refl_grad_T_gt[:, 0]
-                elif fieldSel is FieldSelection.Ty:
-                    return self.n_refl_grad_T_gt[:, 1]
-                elif fieldSel is FieldSelection.Tz:
-                    return self.n_refl_grad_T_gt[:, 2]
+            if eikonalSel is Eikonal.DirectArrival:
+                if fieldSel is Field.T:        return self.direct_T_gt
+                elif fieldSel is Field.Tx:     return self.direct_grad_T_gt[:, 0]
+                elif fieldSel is Field.Ty:     return self.direct_grad_T_gt[:, 1]
+                elif fieldSel is Field.Tz:     return self.direct_grad_T_gt[:, 2]
+                elif fieldSel is Field.Txx:    return self.direct_hess_T_gt[:, 0, 0]
+                elif fieldSel is Field.Txy:    return self.direct_hess_T_gt[:, 0, 1]
+                elif fieldSel is Field.Txz:    return self.direct_hess_T_gt[:, 0, 2]
+                elif fieldSel is Field.Tyx:    return self.direct_hess_T_gt[:, 1, 0]
+                elif fieldSel is Field.Tyy:    return self.direct_hess_T_gt[:, 1, 1]
+                elif fieldSel is Field.Tyz:    return self.direct_hess_T_gt[:, 1, 2]
+                elif fieldSel is Field.Tzx:    return self.direct_hess_T_gt[:, 2, 0]
+                elif fieldSel is Field.Tzy:    return self.direct_hess_T_gt[:, 2, 1]
+                elif fieldSel is Field.Tzz:    return self.direct_hess_T_gt[:, 2, 2]
+                elif fieldSel is Field.Origin: return self.direct_origin
+            elif eikonalSel is Eikonal.OFaceReflection:
+                if fieldSel is Field.T:        return self.o_refl_T_gt
+                elif fieldSel is Field.Tx:     return self.o_refl_grad_T_gt[:, 0]
+                elif fieldSel is Field.Ty:     return self.o_refl_grad_T_gt[:, 1]
+                elif fieldSel is Field.Tz:     return self.o_refl_grad_T_gt[:, 2]
+                elif fieldSel is Field.Txx:    return self.o_refl_hess_T_gt[:, 0, 0]
+                elif fieldSel is Field.Txy:    return self.o_refl_hess_T_gt[:, 0, 1]
+                elif fieldSel is Field.Txz:    return self.o_refl_hess_T_gt[:, 0, 2]
+                elif fieldSel is Field.Tyx:    return self.o_refl_hess_T_gt[:, 1, 0]
+                elif fieldSel is Field.Tyy:    return self.o_refl_hess_T_gt[:, 1, 1]
+                elif fieldSel is Field.Tyz:    return self.o_refl_hess_T_gt[:, 1, 2]
+                elif fieldSel is Field.Tzx:    return self.o_refl_hess_T_gt[:, 2, 0]
+                elif fieldSel is Field.Tzy:    return self.o_refl_hess_T_gt[:, 2, 1]
+                elif fieldSel is Field.Tzz:    return self.o_refl_hess_T_gt[:, 2, 2]
+                elif fieldSel is Field.Origin: return self.o_refl_origin
+            elif eikonalSel is Eikonal.NFaceReflection:
+                if fieldSel is Field.T:        return self.n_refl_T_gt
+                elif fieldSel is Field.Tx:     return self.n_refl_grad_T_gt[:, 0]
+                elif fieldSel is Field.Ty:     return self.n_refl_grad_T_gt[:, 1]
+                elif fieldSel is Field.Tz:     return self.n_refl_grad_T_gt[:, 2]
+                elif fieldSel is Field.Txx:    return self.n_refl_hess_T_gt[:, 0, 0]
+                elif fieldSel is Field.Txy:    return self.n_refl_hess_T_gt[:, 0, 1]
+                elif fieldSel is Field.Txz:    return self.n_refl_hess_T_gt[:, 0, 2]
+                elif fieldSel is Field.Tyx:    return self.n_refl_hess_T_gt[:, 1, 0]
+                elif fieldSel is Field.Tyy:    return self.n_refl_hess_T_gt[:, 1, 1]
+                elif fieldSel is Field.Tyz:    return self.n_refl_hess_T_gt[:, 1, 2]
+                elif fieldSel is Field.Tzx:    return self.n_refl_hess_T_gt[:, 2, 0]
+                elif fieldSel is Field.Tzy:    return self.n_refl_hess_T_gt[:, 2, 1]
+                elif fieldSel is Field.Tzz:    return self.n_refl_hess_T_gt[:, 2, 2]
+                elif fieldSel is Field.Origin: return self.n_refl_origin
         elif plotMode is PlotMode.PointwiseError:
-            if eikonalSel is EikonalSelection.DirectArrival:
-                if fieldSel is FieldSelection.T:
-                    return self.direct_error_T
-                elif fieldSel is FieldSelection.Tx:
-                    return self.direct_error_grad_T[:, 0]
-                elif fieldSel is FieldSelection.Ty:
-                    return self.direct_error_grad_T[:, 1]
-                elif fieldSel is FieldSelection.Tz:
-                    return self.direct_error_grad_T[:, 2]
-            elif eikonalSel is EikonalSelection.OFaceReflection:
-                if fieldSel is FieldSelection.T:
-                    return self.o_refl_error_T
-                elif fieldSel is FieldSelection.Tx:
-                    return self.o_refl_error_grad_T[:, 0]
-                elif fieldSel is FieldSelection.Ty:
-                    return self.o_refl_error_grad_T[:, 1]
-                elif fieldSel is FieldSelection.Tz:
-                    return self.o_refl_error_grad_T[:, 2]
-            elif eikonalSel is EikonalSelection.NFaceReflection:
-                if fieldSel is FieldSelection.T:
-                    return self.n_refl_error_T
-                elif fieldSel is FieldSelection.Tx:
-                    return self.n_refl_error_grad_T[:, 0]
-                elif fieldSel is FieldSelection.Ty:
-                    return self.n_refl_error_grad_T[:, 1]
-                elif fieldSel is FieldSelection.Tz:
-                    return self.n_refl_error_grad_T[:, 2]
+            if eikonalSel is Eikonal.DirectArrival:
+                if fieldSel is Field.T:        return self.direct_error_T
+                elif fieldSel is Field.Tx:     return self.direct_error_grad_T[:, 0]
+                elif fieldSel is Field.Ty:     return self.direct_error_grad_T[:, 1]
+                elif fieldSel is Field.Tz:     return self.direct_error_grad_T[:, 2]
+                elif fieldSel is Field.Txx:    return self.direct_error_hess_T[:, 0, 0]
+                elif fieldSel is Field.Txy:    return self.direct_error_hess_T[:, 0, 1]
+                elif fieldSel is Field.Txz:    return self.direct_error_hess_T[:, 0, 2]
+                elif fieldSel is Field.Tyx:    return self.direct_error_hess_T[:, 1, 0]
+                elif fieldSel is Field.Tyy:    return self.direct_error_hess_T[:, 1, 1]
+                elif fieldSel is Field.Tyz:    return self.direct_error_hess_T[:, 1, 2]
+                elif fieldSel is Field.Tzx:    return self.direct_error_hess_T[:, 2, 0]
+                elif fieldSel is Field.Tzy:    return self.direct_error_hess_T[:, 2, 1]
+                elif fieldSel is Field.Tzz:    return self.direct_error_hess_T[:, 2, 2]
+                elif fieldSel is Field.Origin: return self.direct_origin
+            elif eikonalSel is Eikonal.OFaceReflection:
+                if fieldSel is Field.T:        return self.o_refl_error_T
+                elif fieldSel is Field.Tx:     return self.o_refl_error_grad_T[:, 0]
+                elif fieldSel is Field.Ty:     return self.o_refl_error_grad_T[:, 1]
+                elif fieldSel is Field.Tz:     return self.o_refl_error_grad_T[:, 2]
+                elif fieldSel is Field.Txx:    return self.o_refl_error_hess_T[:, 0, 0]
+                elif fieldSel is Field.Txy:    return self.o_refl_error_hess_T[:, 0, 1]
+                elif fieldSel is Field.Txz:    return self.o_refl_error_hess_T[:, 0, 2]
+                elif fieldSel is Field.Tyx:    return self.o_refl_error_hess_T[:, 1, 0]
+                elif fieldSel is Field.Tyy:    return self.o_refl_error_hess_T[:, 1, 1]
+                elif fieldSel is Field.Tyz:    return self.o_refl_error_hess_T[:, 1, 2]
+                elif fieldSel is Field.Tzx:    return self.o_refl_error_hess_T[:, 2, 0]
+                elif fieldSel is Field.Tzy:    return self.o_refl_error_hess_T[:, 2, 1]
+                elif fieldSel is Field.Tzz:    return self.o_refl_error_hess_T[:, 2, 2]
+                elif fieldSel is Field.Origin: return self.o_refl_origin
+            elif eikonalSel is Eikonal.NFaceReflection:
+                if fieldSel is Field.T:        return self.n_refl_error_T
+                elif fieldSel is Field.Tx:     return self.n_refl_error_grad_T[:, 0]
+                elif fieldSel is Field.Ty:     return self.n_refl_error_grad_T[:, 1]
+                elif fieldSel is Field.Tz:     return self.n_refl_error_grad_T[:, 2]
+                elif fieldSel is Field.Txx:    return self.n_refl_error_hess_T[:, 0, 0]
+                elif fieldSel is Field.Txy:    return self.n_refl_error_hess_T[:, 0, 1]
+                elif fieldSel is Field.Txz:    return self.n_refl_error_hess_T[:, 0, 2]
+                elif fieldSel is Field.Tyx:    return self.n_refl_error_hess_T[:, 1, 0]
+                elif fieldSel is Field.Tyy:    return self.n_refl_error_hess_T[:, 1, 1]
+                elif fieldSel is Field.Tyz:    return self.n_refl_error_hess_T[:, 1, 2]
+                elif fieldSel is Field.Tzx:    return self.n_refl_error_hess_T[:, 2, 0]
+                elif fieldSel is Field.Tzy:    return self.n_refl_error_hess_T[:, 2, 1]
+                elif fieldSel is Field.Tzz:    return self.n_refl_error_hess_T[:, 2, 2]
+                elif fieldSel is Field.Origin: return self.n_refl_origin
         raise RuntimeError(f"couldn't get values for combination: {plotMode}, {eikonalSel}, {fieldSel}")
 
     def getCMap(self):
-        if self.getSelectedField() is FieldSelection.Origin:
+        if self.getSelectedField() is Field.Origin:
             return cc.cm.fire
-        elif self.getSelectedField() is FieldSelection.T and \
+        elif self.getSelectedField() is Field.T and \
            self.getPlotMode() is not PlotMode.PointwiseError:
             return cc.cm.rainbow
         else:
             return cc.cm.coolwarm
 
     def getCLim(self, values):
-        if self.getSelectedField() is FieldSelection.Origin:
+        if self.getSelectedField() is Field.Origin:
             clim = (values.min(), values.max())
-        elif self.getSelectedField() is FieldSelection.T and \
+        elif self.getSelectedField() is Field.T and \
             self.getPlotMode() is not PlotMode.PointwiseError:
-            if self.getSelectedEikonal() is EikonalSelection.DirectArrival:
+            if self.getSelectedEikonal() is Eikonal.DirectArrival:
                 clim = (0, values.max())
             else:
                 clim = (values.min(), values.max())
