@@ -152,10 +152,9 @@ bool in_valid_zone_direct(dbl phi, dbl phip, dbl n) {
 
 F_context get_context_o_refl(dbl sp, dbl phip, dbl n) {
   (void)n;
-  dbl dphi = JMM_PI - phip;
-  dbl phi_img = phip - 2*dphi;
+  dbl phi_img = phip;
   return (F_context) {
-    .xsrc = {sp*cos(-phi_img), sp*sin(-phi_img), 0},
+    .xsrc = {sp*cos(phi_img), sp*sin(phi_img), 0},
     .v1 = {0, 0, 1},
     .x = {NAN, NAN, NAN}
   };
