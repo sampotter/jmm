@@ -2,9 +2,21 @@
 
 ** Things to do
 
-   - [-] propagate parents
+   - [X] propagate origins
      - [X] direct
-     - [ ] reflection
+     - [X] reflection
+   - [ ] after propagating origins, fix origin value on diffracting
+     edge (set it to 0.5)
+   - [ ] extract shadow zone boundary
+   - [ ] extract reflection zone boundary
+   - [X] fix true o-refl solution
+   - [ ] try problem with only n-refl
+   - [ ] try problem with o- and n-refls
+
+*** errors
+   - [X] get T errors to O(h) in direct & o-refl
+   - [X] get DT errors to O(h) in direct & o-refl
+   - [ ] get D2T errors to O(h)
 
 ** Plots to make
    - [ ] slice plots
@@ -29,9 +41,3 @@
        - [ ] n-refl field
        for a couple different parameters
      + [ ] plot combined field
-
-* Possible sources of error
-
-** Big error in Hessian just past edge
-  - [ ] Check that we're rejecting triangle updates with nonzero
-    Lagrange multipliers
