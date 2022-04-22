@@ -16,26 +16,10 @@
 #include "macros.h"
 #include "mat.h"
 #include "mesh3.h"
-#include "slerp.h"
 #include "utetra.h"
 #include "util.h"
 #include "utri.h"
 #include "vec.h"
-
-typedef struct bde_bc {
-  size_t le[2];
-  bb31 bb;
-} bde_bc_s;
-
-bde_bc_s make_bde_bc(size_t const le[2], bb31 const *bb) {
-  assert(le[0] != le[1]);
-  bde_bc_s bc = {.le = {le[0], le[1]}, .bb = *bb};
-  if (le[0] > le[1]) {
-    SWAP(bc.le[0], bc.le[1]);
-    bb31_reverse(&bc.bb);
-  }
-  return bc;
-}
 
 // TODO:
 //
@@ -77,19 +61,6 @@ struct eik3 {
   /* If `has_bc[l] == true`, then node `l` had boundary conditions
    * specified. */
   bool *has_bc;
-
-  /* Boundary conditions for a (diffracting) boundary edge, which are
-   * just cubic polynomials defined over the edge. These are used to
-   * perform two-point updates from diffracting edges initially when
-   * solving edge diffraction problems. */
-  array_s *bde_bc;
-
-  /* Convergence tolerances. The parameter `h` is an estimate of the
-   * fineness of the mesh. The variables `h2` and `h3` are convenience
-   * variables containing `h^2` and `h^3`. */
-  dbl h, h2, h3;
-
-  dbl slerp_tol;
 
   /* Useful statistics for debugging */
   size_t num_accepted; /* number of nodes fixed by `eik3_step` */
@@ -180,15 +151,6 @@ void eik3_init(eik3_s *eik, mesh3_s *mesh) {
 
   eik->has_bc = calloc(nverts, sizeof(bool));
 
-  array_alloc(&eik->bde_bc);
-  array_init(eik->bde_bc, sizeof(bde_bc_s), ARRAY_DEFAULT_CAPACITY);
-
-  eik->h = mesh3_get_min_edge_length(mesh);
-  eik->h2 = eik->h*eik->h;
-  eik->h3 = eik->h*eik->h*eik->h;
-
-  eik->slerp_tol = eik->h3;
-
   eik->is_initialized = true;
 }
 
@@ -240,9 +202,6 @@ void eik3_deinit(eik3_s *eik) {
 
   free(eik->has_bc);
   eik->has_bc = NULL;
-
-  array_deinit(eik->bde_bc);
-  array_dealloc(&eik->bde_bc);
 
   eik->is_initialized = false;
 }
@@ -884,50 +843,8 @@ bool eik3_has_par(eik3_s const *eik, size_t l) {
   return !par3_is_empty(&eik->par[l]);
 }
 
-dbl eik3_get_slerp_tol(eik3_s const *eik) {
-  return eik->slerp_tol;
-}
-
 bool eik3_has_BCs(eik3_s const *eik, size_t l) {
   return eik->has_bc[l];
-}
-
-dbl eik3_get_h(eik3_s const *eik) {
-  return eik->h;
-}
-
-bool eik3_get_refl_bdf_inc_on_diff_edge(eik3_s const *eik, size_t const le[2],
-                                        size_t lf[3]) {
-  size_t nbdf = mesh3_get_num_bdf_inc_on_edge(eik->mesh, le);
-  size_t (*bdf)[3] = malloc(nbdf*sizeof(size_t[3]));
-  mesh3_get_bdf_inc_on_edge(eik->mesh, le, bdf);
-
-  size_t i;
-
-  for (i = 0; i < nbdf; ++i) {
-    if (eik3_has_BCs(eik, bdf[i][0]) &&
-        eik3_has_BCs(eik, bdf[i][1]) &&
-        eik3_has_BCs(eik, bdf[i][2])) {
-      memcpy(lf, bdf[i], sizeof(size_t[3]));
-      break;
-    }
-  }
-
-  bool found = i < nbdf;
-
-#if JMM_DEBUG
-  for (i = i + 1; i < nbdf; ++i) {
-    if (eik3_has_BCs(eik, bdf[i][0]) &&
-        eik3_has_BCs(eik, bdf[i][1]) &&
-        eik3_has_BCs(eik, bdf[i][2])) {
-      assert(false);
-    }
-  }
-#endif
-
-  free(bdf);
-
-  return found;
 }
 
 size_t const *eik3_get_accepted_ptr(eik3_s const *eik) {
