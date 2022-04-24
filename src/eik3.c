@@ -664,19 +664,23 @@ static void do_freespace_utetra(eik3_s *eik, size_t l, size_t l0) {
 }
 
 static void update(eik3_s *eik, size_t l, size_t l0) {
+  bool l0_is_bdv = mesh3_bdv(eik->mesh, l0);
+  bool l0_is_on_diff_edge = mesh3_vert_incident_on_diff_edge(eik->mesh, l0);
+
   /* If `l` is a boundary point, do two-point updates that are
    * immersed in the boundary. These are updates that can yield
    * "creeping rays". */
-  if (mesh3_bdv(eik->mesh, l) && mesh3_bdv(eik->mesh, l0))
+  if (l0_is_bdv && mesh3_bdv(eik->mesh, l))
     do_utri(eik, l, l0, eik->old_bd_utri, is_valid_front_bde);
 
   /* If `l0` is incident on a diffracting edge, look for corresponding
    * two-point updates to do. */
-  if (mesh3_vert_incident_on_diff_edge(eik->mesh, l0))
+  if (l0_is_on_diff_edge)
     do_utri(eik, l, l0, eik->old_diff_utri, is_diff_edge);
 
-  /* Finally, do the fan of free-space tetrahedron updates. */
-  do_freespace_utetra(eik, l, l0);
+  /* Other, do the fan of free-space tetrahedron updates. */
+  else
+    do_freespace_utetra(eik, l, l0);
 }
 
 size_t eik3_peek(eik3_s const *eik) {
