@@ -421,22 +421,19 @@ void utetra_get_jet31t(utetra_s const *cf, jet31t *jet) {
 void utetra_get_jet32t(utetra_s const *cf, eik3_s const *eik, jet32t *jet) {
   utetra_get_jet31t(cf, (jet31t *)jet);
 
+  /* get the jets at the base of the tetrahedron update */
+  jet32t jet_[3] = {
+    eik3_get_jet32t(eik, cf->l[0]),
+    eik3_get_jet32t(eik, cf->l[1]),
+    eik3_get_jet32t(eik, cf->l[2])
+  };
+
   /* Get convex combination of Hessians at start of update ray: */
   dbl33 D2f_lam;
-  {
-    /* get the jets at the base of the tetrahedron update */
-    jet32t jet_[3] = {
-      eik3_get_jet32t(eik, cf->l[0]),
-      eik3_get_jet32t(eik, cf->l[1]),
-      eik3_get_jet32t(eik, cf->l[2])
-    };
-
-    /* compute the convex combination */
-    for (size_t i = 0; i < 3; ++i)
-      for (size_t j = 0; j < 3; ++j)
-        D2f_lam[i][j] = (1 - cf->lam[0] - cf->lam[1])*jet_[0].D2f[i][j]
-          + cf->lam[0]*jet_[1].D2f[i][j] + cf->lam[1]*jet_[2].D2f[i][j];
-  }
+  for (size_t i = 0; i < 3; ++i)
+    for (size_t j = 0; j < 3; ++j)
+      D2f_lam[i][j] = (1 - cf->lam[0] - cf->lam[1])*jet_[0].D2f[i][j]
+        + cf->lam[0]*jet_[1].D2f[i][j] + cf->lam[1]*jet_[2].D2f[i][j];
 
   /* Propagate the Hessian along the update ray: */
   dbl33 eye, tmp;
