@@ -1,6 +1,39 @@
 * Todo
 
+** Thoughts
+
+   I'm not sure if I actually need the "origins" stuff or not
+
+   Can I use the t_in and t_out fields instead?
+
 ** Things to do
+
+   the order:
+   1. [X] fix bad updates near diff edge
+      + decided to skip utetra incident on diff utri
+   2. [X] moving forward:
+      - [X] jet32t -> jet31t
+      - [X] dump "DP plan"
+      - [X] propagate Hessian in Python (faster prototyping)
+      - a bust!
+   3. [-] compute D2T using cell averaging
+      - [X] proof of concept (*seems to work better than anything else I've tried so far...*)
+      - [ ] fix corner cases
+        - [ ] point sources
+        - [ ] diffraction
+   4. [ ] add postprocessing pass to compute geometric amplitude
+   5. [ ] add UTD (may need t_in, t_out)
+   6. [ ] compute u by patching fields
+   7. [-] 3D slice plots
+      - [X] initial implementation in python
+      - [ ] fix visual artifacts in triangulation
+      - easiest way to do this will be by using bmesh from C
+      - bmesh(tau) - bmesh(T) = bmesh(E) (I think...)
+   8. [ ] measure time and output it
+   9. [ ] start making error and timing plots
+   10. [ ] simplify paper to c = 1 w/o extra c varying stuff
+   11. [ ] build VTK with mathtex support (see [[https://github.com/pyvista/pyvista/issues/83][this issue]])
+   12. [ ] make nice 3D figures using inkscape
 
 *** misc
    - [X] propagate origins
