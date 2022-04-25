@@ -302,19 +302,13 @@ jmm_3d_wedge_problem_solve(jmm_3d_wedge_problem_s *wedge, dbl sp, dbl phip,
       if (eik3_is_trial(wedge->eik_direct, cv[j]))
         continue;
 
-      jet32t jet;
+      jet31t jet;
 
       mesh3_copy_vert(wedge->mesh, cv[j], x);
       jet.f = dbl3_dist(x, xsrc);
 
       dbl3_sub(x, xsrc, jet.Df);
       dbl3_dbl_div_inplace(jet.Df, jet.f);
-
-      dbl33 eye, Df_otimes_Df;
-      dbl33_eye(eye);
-      dbl3_outer(jet.Df, jet.Df, Df_otimes_Df);
-      dbl33_sub(eye, Df_otimes_Df, jet.D2f);
-      dbl33_dbl_div_inplace(jet.D2f, jet.f);
 
       eik3_add_trial(wedge->eik_direct, cv[j], jet);
 
@@ -355,18 +349,10 @@ jmm_3d_wedge_problem_solve(jmm_3d_wedge_problem_s *wedge, dbl sp, dbl phip,
       if (x[0] < 0 || x[1] != 0)
         continue;
 
-      jet32t jet = eik3_get_jet32t(wedge->eik_direct, i);
+      jet31t jet = eik3_get_jet(wedge->eik_direct, i);
 
       /* Reflect gradient over the o-face */
       jet.Df[1] *= -1;
-
-      /* Reflect the Hessian over the o-face (multiply the incoming
-       * Hessian on both sides by the reflector [[1 0 0]; [0 -1 0]; [0
-       * 0 1]]). */
-      jet.D2f[0][1] *= -1;
-      jet.D2f[1][0] *= -1;
-      jet.D2f[1][2] *= -1;
-      jet.D2f[2][1] *= -1;
 
       eik3_add_trial(wedge->eik_o_refl, i, jet);
 
@@ -417,15 +403,10 @@ jmm_3d_wedge_problem_solve(jmm_3d_wedge_problem_s *wedge, dbl sp, dbl phip,
       if (fabs(atan2(x[1], x[0]) - n_radians) > 1e-7)
         continue;
 
-      jet32t jet = eik3_get_jet32t(wedge->eik_direct, i);
+      jet31t jet = eik3_get_jet(wedge->eik_direct, i);
 
       /* Reflected gradient over n-face */
       dbl33_dbl3_mul_inplace(n_refl, jet.Df);
-
-      /* Reflect Hessian over n-face */
-      dbl33 tmp;
-      dbl33_mul(jet.D2f, n_refl, tmp);
-      dbl33_mul(n_refl, tmp, jet.D2f);
 
       eik3_add_trial(wedge->eik_n_refl, i, jet);
 

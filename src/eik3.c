@@ -46,7 +46,7 @@
  * handle s != later. */
 struct eik3 {
   mesh3_s *mesh;
-  jet32t *jet;
+  jet31t *jet;
   state_e *state;
   int *pos;
   par3_s *par;
@@ -102,9 +102,9 @@ void eik3_init(eik3_s *eik, mesh3_s *mesh) {
 
   size_t nverts = mesh3_nverts(mesh);
 
-  eik->jet = malloc(nverts*sizeof(jet32t));
+  eik->jet = malloc(nverts*sizeof(jet31t));
   for (size_t l = 0; l < nverts; ++l)
-    eik->jet[l] = jet32t_make_empty();
+    eik->jet[l] = jet31t_make_empty();
 
   eik->state = malloc(nverts*sizeof(state_e));
   for (size_t l = 0; l < nverts; ++l) {
@@ -247,7 +247,7 @@ static void commit_utri(eik3_s *eik, size_t lhat, utri_s const *utri) {
   /* TODO: see comment about caustics in `commit_utetra` */
   assert(utri_get_value(utri) < eik->jet[lhat].f);
 
-  utri_get_jet32t(utri, &eik->jet[lhat]);
+  utri_get_jet31t(utri, &eik->jet[lhat]);
 
   eik3_set_par(eik, lhat, utri_get_par(utri));
 }
@@ -473,7 +473,7 @@ static void commit_utetra(eik3_s *eik, size_t l, utetra_s const *utetra) {
    * value. This is a sign that a caustic has formed. */
   assert(utetra_get_value(utetra) < eik->jet[l].f);
 
-  utetra_get_jet32t(utetra, eik, &eik->jet[l]);
+  utetra_get_jet31t(utetra, &eik->jet[l]);
 
   eik3_set_par(eik, l, utetra_get_parent(utetra));
 }
@@ -777,7 +777,7 @@ bool eik3_is_solved(eik3_s const *eik) {
   return eik->num_accepted == mesh3_nverts(eik->mesh);
 }
 
-void eik3_add_trial(eik3_s *eik, size_t l, jet32t jet) {
+void eik3_add_trial(eik3_s *eik, size_t l, jet31t jet) {
   if (eik->has_bc[l]) {
     log_warn("tried to add BCs for node %lu more than once\n", l);
     return;
@@ -819,15 +819,15 @@ mesh3_s *eik3_get_mesh(eik3_s const *eik) {
   return eik->mesh;
 }
 
-jet32t eik3_get_jet32t(eik3_s const *eik, size_t l) {
+jet31t eik3_get_jet(eik3_s const *eik, size_t l) {
   return eik->jet[l];
 }
 
-void eik3_set_jet(eik3_s *eik, size_t l, jet32t jet) {
+void eik3_set_jet(eik3_s *eik, size_t l, jet31t jet) {
   eik->jet[l] = jet;
 }
 
-jet32t *eik3_get_jet_ptr(eik3_s const *eik) {
+jet31t *eik3_get_jet_ptr(eik3_s const *eik) {
   return eik->jet;
 }
 

@@ -36,16 +36,16 @@ mesh3_s *eik3_get_mesh(eik3_s const *eik);
 dbl eik3_get_slerp_tol(eik3_s const *eik);
 dbl eik3_get_h(eik3_s const *eik);
 
-jet32t eik3_get_jet32t(eik3_s const *eik, size_t l);
-jet32t *eik3_get_jet_ptr(eik3_s const *eik);
+jet31t eik3_get_jet(eik3_s const *eik, size_t l);
+jet31t *eik3_get_jet_ptr(eik3_s const *eik);
 state_e *eik3_get_state_ptr(eik3_s const *eik);
 par3_s eik3_get_par(eik3_s const *eik, size_t l);
 bool eik3_has_par(eik3_s const *eik, size_t l);
 bool eik3_has_BCs(eik3_s const *eik, size_t l);
 size_t const *eik3_get_accepted_ptr(eik3_s const *eik);
 
-void eik3_add_trial(eik3_s *eik, size_t l, jet32t jet);
-void eik3_set_jet(eik3_s *eik, size_t l, jet32t jet);
+void eik3_add_trial(eik3_s *eik, size_t l, jet31t jet);
+void eik3_set_jet(eik3_s *eik, size_t l, jet31t jet);
 void eik3_set_par(eik3_s *eik, size_t l, par3_s par);
 
 #ifdef __cplusplus

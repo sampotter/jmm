@@ -217,9 +217,7 @@ void utri_init(utri_s *u, utri_spec_s const *spec) {
    * passed them. */
   jet31t jet[2];
   for (size_t i = 0; i < 2; ++i)
-    jet[i] = passed_jet ?
-      spec->jet[i] :
-      jet31t_from_jet32t(eik3_get_jet32t(spec->eik, spec->l[i]));
+    jet[i] = passed_jet ? spec->jet[i] : eik3_get_jet(spec->eik, spec->l[i]);
 
   dbl Xt[2][3];
   dbl3_copy(u->x0, Xt[0]);
@@ -273,51 +271,6 @@ dbl utri_get_value(utri_s const *u) {
 void utri_get_jet31t(utri_s const *utri, jet31t *jet) {
   jet->f = utri->f;
   dbl3_dbl_div(utri->x_minus_xb, utri->L, jet->Df);
-}
-
-void utri_get_jet32t(utri_s const *utri, jet32t *jet) {
-  utri_get_jet31t(utri, (jet31t *)jet);
-
-  /* After using `utri_get_jet31t` to compute the eikonal and its
-   * gradient, we compute the Hessian. This assumes that edge
-   * diffraction has occurred, with the edge being defined by the
-   * affine hull of [x0, x1] (the base of the triangle update).
-   *
-   * This should work even if edge difraction has not occurred,
-   * although our goal is to avoid doing this as much as is
-   * practical. */
-
-  // TODO: make sure this is OK to use for boundary updates...
-
-  dbl3 v1;
-  dbl3_normalized(utri->x1_minus_x0, v1);
-
-  dbl3 x_minus_x0;
-  dbl3_sub(utri->x, utri->x0, x_minus_x0);
-
-  dbl s = dbl3_dot(v1, x_minus_x0);
-  dbl3 xproj;
-  dbl3_saxpy(s, v1, utri->x0, xproj);
-
-  dbl3 v2;
-  dbl3_sub(utri->x, xproj, v2);
-  dbl x_minus_xproj_norm = dbl3_normalize(v2);
-
-  dbl3 q1;
-  dbl3_cross(v1, v2, q1);
-
-  dbl3 q2;
-  dbl3_cross(jet->Df, q1, q2);
-
-  dbl33 outer1;
-  dbl3_outer(q1, q1, outer1);
-  dbl33_dbl_div_inplace(outer1, x_minus_xproj_norm);
-
-  dbl33 outer2;
-  dbl3_outer(q2, q2, outer2);
-  dbl33_dbl_div_inplace(outer2, jet->f);
-
-  dbl33_add(outer1, outer2, jet->D2f);
 }
 
 static dbl get_lag_mult(utri_s const *utri) {
