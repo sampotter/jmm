@@ -79,18 +79,31 @@ class MainWindow(pvqt.MainWindow):
         self.makePlotModeGroupBox()
         self.makeEikonalSelectGroupBox()
         self.makeFieldSelectGroupBox()
-        self.makePointSelectionFrame()
 
         vlayout2.addWidget(self.plotModeGroupBox)
         vlayout2.addWidget(self.eikonalSelectGroupBox)
         vlayout2.addWidget(self.fieldSelectGroupBox)
-        vlayout2.addWidget(self.pointSelectionFrame)
         vlayout2.addStretch(1)
 
         frame2.setLayout(vlayout2)
         hlayout.addWidget(frame2, stretch=1)
 
-        # up plotter
+        # set up third panel
+
+        frame3 = QtWidgets.QFrame()
+        vlayout3 = QtWidgets.QVBoxLayout()
+
+        self.makePointSelectionFrame()
+        self.togglePointsFrame()
+
+        vlayout3.addWidget(self.pointSelectionFrame)
+        vlayout3.addWidget(self.togglePointsFrame)
+        vlayout3.addStretch(1)
+
+        frame3.setLayout(vlayout3)
+        hlayout.addWidget(frame3, stretch=1)
+
+        # set up plotter
 
         self.plotter = pvqt.QtInteractor(self.frame)
 
@@ -266,6 +279,27 @@ class MainWindow(pvqt.MainWindow):
         formLayout.addRow(f'Point #4 index:', index4LineEdit)
 
         self.pointSelectionFrame.setLayout(formLayout)
+
+    def togglePointsFrame(self):
+        self.togglePointsFrame = QtWidgets.QFrame()
+
+        showDirectPointsCheckBox = QtWidgets.QCheckBox()
+        showDiffPointsCheckBox = QtWidgets.QCheckBox()
+
+        showDirectPointsCheckBox.setCheckState(2)
+        showDiffPointsCheckBox.setCheckState(2)
+
+        formLayout = QtWidgets.QFormLayout()
+        formLayout.addRow('Show direct zone:', showDirectPointsCheckBox)
+        formLayout.addRow('Show diff. zone:', showDiffPointsCheckBox)
+
+        showDirectPointsCheckBox.stateChanged.connect(self.updatePlot)
+        showDiffPointsCheckBox.stateChanged.connect(self.updatePlot)
+
+        self.showDirectZone = lambda: showDirectPointsCheckBox.checkState() == 2
+        self.showDiffZone = lambda: showDiffPointsCheckBox.checkState() == 2
+
+        self.togglePointsFrame.setLayout(formLayout)
 
     def reloadData(self):
         self.loadData()
@@ -549,6 +583,27 @@ class MainWindow(pvqt.MainWindow):
                 elif fieldSel is Field.Origin: return self.n_refl_origin
         raise RuntimeError(f"couldn't get values for combination: {plotMode}, {eikonalSel}, {fieldSel}")
 
+    def getMask(self):
+        showDirect = self.showDirectZone()
+        showDiff = self.showDiffZone()
+        eikonalSel = self.getSelectedEikonal()
+        if eikonalSel is Eikonal.DirectArrival:
+            origin = self.direct_origin
+        elif eikonalSel is Eikonal.OFaceReflection:
+            origin = self.o_refl_origin
+        elif eikonalSel is Eikonal.NFaceReflection:
+            origin = self.n_refl_origin
+        else:
+            assert False
+        if showDirect and showDiff:
+            return np.ones(origin.shape, dtype=np.bool_)
+        elif showDirect:
+            return origin >= 0.5
+        elif showDiff:
+            return origin <= 0.5
+        else:
+            return np.zeros(origin.shape, dtype=np.bool_)
+
     def getCMap(self):
         if self.getSelectedField() is Field.Origin:
             return cc.cm.fire
@@ -558,25 +613,14 @@ class MainWindow(pvqt.MainWindow):
         else:
             return cc.cm.coolwarm
 
-    def getCLim(self, values):
-        if self.getSelectedField() is Field.Origin:
-            clim = (values.min(), values.max())
-        elif self.getSelectedField() is Field.T and \
-            self.getPlotMode() is not PlotMode.PointwiseError:
-            if self.getSelectedEikonal() is Eikonal.DirectArrival:
-                clim = (0, values.max())
-            else:
-                clim = (values.min(), values.max())
-        else:
-            clim = (-abs(values).max(), abs(values).max())
-        return clim
-
     def updatePlot(self):
         values = self.getCurrentValues()
-        clim = self.getCLim(values)
 
-        self.poly_data = pv.PolyData(self.verts)
-        self.poly_data['values'] = values
+        mask = self.getMask()
+
+        if mask.size > 0:
+            self.poly_data = pv.PolyData(self.verts[mask])
+            self.poly_data['values'] = values[mask]
 
         if not self.first_plot:
             old_camera = self.plotter.camera.copy()
@@ -589,12 +633,12 @@ class MainWindow(pvqt.MainWindow):
             opacity=0.25
         )
 
-        self.plotter.add_mesh(
-            self.poly_data,
-            scalars='values',
-            cmap=self.getCMap(),
-            clim=clim
-        )
+        if mask.size > 0:
+            self.plotter.add_mesh(
+                self.poly_data,
+                scalars='values',
+                cmap=self.getCMap(),
+            )
 
         for i in range(4):
             l = self.pointIndex[i]
