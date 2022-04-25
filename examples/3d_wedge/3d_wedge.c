@@ -499,6 +499,75 @@ jmm_3d_wedge_problem_solve(jmm_3d_wedge_problem_s *wedge, dbl sp, dbl phip,
     eik3_transport_dbl(wedge->eik_n_refl, wedge->origin_n_refl, true);
   }
 
+  // TODO: trying to approximate Hessians...
+
+  {
+    FILE *fp = fopen("direct_hess_bb.bin", "wb");
+
+    for (size_t lc = 0, lv[4]; lc < mesh3_ncells(wedge->mesh); ++lc) {
+      mesh3_cv(wedge->mesh, lc, lv);
+
+      /* get T and DT */
+      jet31t jet[4];
+      for (size_t i = 0; i < 4; ++i)
+        jet[i] = eik3_get_jet(wedge->eik_direct, lv[i]);
+
+      /* set up A */
+      dbl4 A[3];
+      for (size_t i = 0; i < 3; ++i) {
+        dbl4_zero(A[i]);
+        A[i][i] = 1;
+        A[i][3] = -1;
+      }
+
+      /* get cell verts */
+      dbl43 X;
+      for (size_t i = 0; i < 4; ++i)
+        mesh3_copy_vert(wedge->mesh, lv[i], X[i]);
+
+      /* set up dX */
+      dbl33 dX;
+      for (size_t i = 0; i < 3; ++i)
+        dbl3_sub(X[i], X[3], dX[i]);
+
+      dbl33 dXinv, dXinvT;
+      dbl33_copy(dX, dXinv);
+      dbl33_invert(dXinv);
+      dbl33_transposed(dXinv, dXinvT);
+
+      /* set up bb33 */
+      bb33 bb;
+      bb33_init_from_jets(&bb, jet, X);
+
+      /* compute Hessian at each vertex */
+      for (size_t i = 0; i < 4; ++i) {
+        dbl4 b;
+        dbl4_e(b, i);
+
+        /* compute Hessian in affine coordinates */
+        dbl33 D2T;
+        for (size_t p = 0; p < 3; ++p) {
+          for (size_t q = 0; q < 3; ++q) {
+            dbl4 a[2];
+            dbl4_copy(A[p], a[0]); // blech
+            dbl4_copy(A[q], a[1]); // blech
+            D2T[p][q] = bb33_d2f(&bb, b, a);
+          }
+        }
+
+        /* transform back to Cartesian */
+        dbl33 tmp;
+        dbl33_mul(dXinv, D2T, tmp);
+        dbl33_mul(tmp, dXinvT, D2T);
+
+        /* write to disk */
+        fwrite(D2T, sizeof(dbl33), 1, fp);
+      }
+    }
+
+    fclose(fp);
+  }
+
   /** Clean up: */
 
   array_deinit(direct_trial_inds);

@@ -40,7 +40,7 @@ void bb33_init_from_cell_and_jets(bb33 *bb, mesh3_s const *mesh, jet31t const *j
 void bb33_init_from_jets(bb33 *bb, jet31t const jet[4], dbl const x[4][3]);
 dbl bb33_f(bb33 const *bb, dbl const b[4]);
 dbl bb33_df(bb33 const *bb, dbl const b[4], dbl const a[4]);
-dbl bb33_d2f(bb33 const *bb, dbl const b[4], dbl const a[2][4]);
+dbl bb33_d2f(bb33 const *bb, dbl const b[4], dbl4 const a[2]);
 bool bb33_convex_hull_brackets_value(bb33 const *bb, dbl value);
 cubic_s bb33_restrict_along_interval(bb33 const *bb, dbl b0[4], dbl b1[4]);
 

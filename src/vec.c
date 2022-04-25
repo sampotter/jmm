@@ -481,6 +481,11 @@ void dbl4_e1(dbl4 e1) {
   e1[3] = 0;
 }
 
+void dbl4_e(dbl4 e, size_t i) {
+  for (size_t j = 0; j < 4; ++j)
+    e[j] = i == j ? 1 : 0;
+}
+
 void dbl4_iota(dbl4 iota) {
   iota[0] = 0;
   iota[1] = 1;

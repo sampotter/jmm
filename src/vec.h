@@ -100,6 +100,7 @@ void dbl4_dbl_div(dbl4 const u, dbl a, dbl4 v);
 void dbl4_dbl_div_inplace(dbl4 u, dbl a);
 void dbl4_dm(dbl x, dbl4 dm);
 void dbl4_e1(dbl4 e1);
+void dbl4_e(dbl4 e, size_t i);
 void dbl4_iota(dbl4 u);
 void dbl4_m(dbl x, dbl4 m);
 void dbl4_normalize1(dbl4 u);
