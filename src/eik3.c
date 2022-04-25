@@ -236,6 +236,18 @@ void eik3_dump_par_b(eik3_s const *eik, char const *path) {
   fclose(fp);
 }
 
+void eik3_dump_accepted(eik3_s const *eik, char const *path) {
+  FILE *fp = fopen(path, "wb");
+  fwrite(eik->accepted, sizeof(eik->accepted[0]), mesh3_nverts(eik->mesh), fp);
+  fclose(fp);
+}
+
+void eik3_dump_has_bc(eik3_s const *eik, char const *path) {
+  FILE *fp = fopen(path, "wb");
+  fwrite(eik->has_bc, sizeof(eik->has_bc[0]), mesh3_nverts(eik->mesh), fp);
+  fclose(fp);
+}
+
 static void adjust(eik3_s *eik, size_t l) {
   assert(eik->state[l] == TRIAL);
   assert(l < mesh3_nverts(eik->mesh));

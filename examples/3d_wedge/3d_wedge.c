@@ -636,6 +636,14 @@ void jmm_3d_wedge_problem_dump(jmm_3d_wedge_problem_s *wedge,
     file_path = strcat(file_path, "/direct_par_b.bin");
     eik3_dump_par_b(wedge->eik_direct, file_path);
 
+    strcpy(file_path, path);
+    file_path = strcat(file_path, "/direct_accepted.bin");
+    eik3_dump_accepted(wedge->eik_direct, file_path);
+
+    strcpy(file_path, path);
+    file_path = strcat(file_path, "/direct_has_bc.bin");
+    eik3_dump_has_bc(wedge->eik_direct, file_path);
+
     /* Dump the direct eikonal's groundtruth data: */
 
     strcpy(file_path, path);
@@ -670,6 +678,14 @@ void jmm_3d_wedge_problem_dump(jmm_3d_wedge_problem_s *wedge,
     file_path = strcat(file_path, "/o_refl_par_b.bin");
     eik3_dump_par_b(wedge->eik_o_refl, file_path);
 
+    strcpy(file_path, path);
+    file_path = strcat(file_path, "/o_refl_accepted.bin");
+    eik3_dump_accepted(wedge->eik_o_refl, file_path);
+
+    strcpy(file_path, path);
+    file_path = strcat(file_path, "/o_refl_has_bc.bin");
+    eik3_dump_has_bc(wedge->eik_o_refl, file_path);
+
     /* Dump the o-face eikonal's groundtruth data: */
 
     strcpy(file_path, path);
@@ -703,6 +719,14 @@ void jmm_3d_wedge_problem_dump(jmm_3d_wedge_problem_s *wedge,
     strcpy(file_path, path);
     file_path = strcat(file_path, "/n_refl_par_b.bin");
     eik3_dump_par_b(wedge->eik_n_refl, file_path);
+
+    strcpy(file_path, path);
+    file_path = strcat(file_path, "/n_refl_accepted.bin");
+    eik3_dump_accepted(wedge->eik_n_refl, file_path);
+
+    strcpy(file_path, path);
+    file_path = strcat(file_path, "/n_refl_has_bc.bin");
+    eik3_dump_has_bc(wedge->eik_n_refl, file_path);
 
     /* Dump the n-face eikonal's groundtruth data: */
 
