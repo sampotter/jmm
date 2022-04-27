@@ -38,6 +38,7 @@ bool dbl33_isnan(dbl33 const A);
 dbl dbl33_det(dbl33 const A);
 dbl dbl3_dbl33_dbl3_dot(dbl3 const x, dbl33 const A, dbl3 const y);
 void dbl33_add(dbl33 const A, dbl33 const B, dbl33 C);
+void dbl33_add_inplace(dbl33 A, dbl33 const B);
 void dbl33_copy(dbl33 const in, dbl33 out);
 void dbl33_dbl3_mul(dbl33 const A, dbl3 const x, dbl3 b);
 void dbl33_dbl3_mul_inplace(dbl33 const A, dbl3 x);

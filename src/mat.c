@@ -192,6 +192,12 @@ void dbl33_add(dbl33 const A, dbl33 const B, dbl33 C) {
   }
 }
 
+void dbl33_add_inplace(dbl33 A, dbl33 const B) {
+  for (size_t i = 0; i < 3; ++i)
+    for (size_t j = 0; j < 3; ++j)
+      A[i][j] += B[i][j];
+}
+
 void dbl33_copy(dbl33 const in, dbl33 out) {
   memcpy(out, in, sizeof(dbl33));
 }
