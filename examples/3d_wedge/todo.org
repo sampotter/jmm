@@ -18,22 +18,35 @@
       - a bust!
    3. [-] compute D2T using cell averaging
       - [X] proof of concept (*seems to work better than anything else I've tried so far...*)
-      - [ ] fix corner cases
-        - [ ] point sources
+      - [X] move code into C
+      - [-] fix corner cases
+        - [X] point sources
         - [ ] diffraction
-   4. [ ] add postprocessing pass to compute geometric amplitude
-   5. [ ] add UTD (may need t_in, t_out)
-   6. [ ] compute u by patching fields
-   7. [-] 3D slice plots
+      - [ ] try more sophisticated averaging...
+        + possibly issue: swelling effect... not sure if it's happening or not
+        + come back to this later
+   4. [ ] compute ground truth amplitude
+      1. [ ] geometric factor
+      2. [ ] + UTD
+   5. [X] add postprocessing pass to compute geometric amplitude
+      - [X] try doing it in terms of amplitude
+      - [X] try doing it in terms of intensity (*probably better*)
+   6. [ ] add UTD (may need t_in, t_out)
+   7. [ ] compute u by patching fields
+   8. [-] 3D slice plots
       - [X] initial implementation in python
       - [ ] fix visual artifacts in triangulation
       - easiest way to do this will be by using bmesh from C
       - bmesh(tau) - bmesh(T) = bmesh(E) (I think...)
-   8. [ ] measure time and output it
-   9. [ ] start making error and timing plots
-   10. [ ] simplify paper to c = 1 w/o extra c varying stuff
-   11. [ ] build VTK with mathtex support (see [[https://github.com/pyvista/pyvista/issues/83][this issue]])
-   12. [ ] make nice 3D figures using inkscape
+   9. [ ] measure time and output it
+   10. [ ] make error plots
+   11. [ ] make timing plots
+   12. [ ] fix O(N^2) runtime (data structure problem)
+   13. [ ] simplify paper to c = 1 w/o extra c varying stuff
+   14. [ ] build VTK with mathtex support (see [[https://github.com/pyvista/pyvista/issues/83][this issue]])
+   15. [ ] finish writing
+   16. [ ] send to ramani & masha
+   17. [ ] make nice 3D figures using inkscape
 
 *** misc
    - [X] propagate origins

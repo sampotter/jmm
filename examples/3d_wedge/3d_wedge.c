@@ -57,6 +57,10 @@ jmm_error_e jmm_3d_wedge_problem_init(jmm_3d_wedge_problem_s *wedge,
   eik3_alloc(&wedge->eik_n_refl);
   eik3_init(wedge->eik_n_refl, wedge->mesh);
 
+  wedge->D2T_direct = malloc(nverts*sizeof(dbl33));
+  wedge->D2T_o_refl = malloc(nverts*sizeof(dbl33));
+  wedge->D2T_n_refl = malloc(nverts*sizeof(dbl33));
+
   wedge->jet_direct_gt = malloc(nverts*sizeof(jet32t));
   wedge->jet_o_refl_gt = malloc(nverts*sizeof(jet32t));
   wedge->jet_n_refl_gt = malloc(nverts*sizeof(jet32t));
@@ -93,6 +97,15 @@ void jmm_3d_wedge_problem_deinit(jmm_3d_wedge_problem_s *wedge) {
 
   free(wedge->jet_n_refl_gt);
   wedge->jet_n_refl_gt = NULL;
+
+  free(wedge->D2T_direct);
+  wedge->D2T_direct = NULL;
+
+  free(wedge->D2T_o_refl);
+  wedge->D2T_o_refl = NULL;
+
+  free(wedge->D2T_n_refl);
+  wedge->D2T_n_refl = NULL;
 
   free(wedge->origin_direct);
   wedge->origin_direct = NULL;
@@ -254,6 +267,117 @@ static void set_jet_gt(jmm_3d_wedge_problem_s *wedge, dbl sp, dbl phip,
   }
 }
 
+/* Approximate the Hessian at each vertex, storing the result for
+ * vertex `l` at `D2T[l]`. The user should have already allocated and
+ * initialized `D2T`. Entries which are `NAN` which will be filled,
+ * and those which are finite will be left alone and used to compute
+ * other values. */
+static void approx_D2T(eik3_s const *eik, dbl33 *D2T) {
+  mesh3_s const *mesh = eik3_get_mesh(eik);
+  jet31t const *jet = eik3_get_jet_ptr(eik);
+
+  dbl33 *D2T_cell = malloc(4*mesh3_ncells(mesh)*sizeof(dbl33));
+
+  /* first, compute the Hessian at each cell vertex */
+  for (size_t lc = 0, lv[4]; lc < mesh3_ncells(mesh); ++lc) {
+    mesh3_cv(mesh, lc, lv);
+
+    bool has_init_D2T[4];
+
+    /* copy in initial values of D2T */
+    for (size_t i = 0; i < 4; ++i)
+      if ((has_init_D2T[i] = dbl33_isfinite(D2T[lv[i]])))
+        dbl33_copy(D2T[lv[i]], D2T_cell[4*lc + i]);
+
+    /* get T and DT */
+    jet31t J[4];
+    for (size_t i = 0; i < 4; ++i) {
+      J[i] = jet[lv[i]];
+    }
+
+    /* set up A */
+    dbl4 A[3];
+    for (size_t i = 0; i < 3; ++i) {
+      dbl4_zero(A[i]);
+      A[i][i] = 1;
+      A[i][3] = -1;
+    }
+
+    /* get cell verts */
+    dbl43 X;
+    for (size_t i = 0; i < 4; ++i)
+      mesh3_copy_vert(mesh, lv[i], X[i]);
+
+    /* set up dX */
+    dbl33 dX;
+    for (size_t i = 0; i < 3; ++i)
+      dbl3_sub(X[i], X[3], dX[i]);
+
+    dbl33 dXinv, dXinvT;
+    dbl33_copy(dX, dXinv);
+    dbl33_invert(dXinv);
+    dbl33_transposed(dXinv, dXinvT);
+
+    /* set up bb33 */
+    bb33 bb;
+    bb33_init_from_jets(&bb, J, X);
+
+    /* compute Hessian at each vertex */
+    for (size_t i = 0; i < 4; ++i) {
+      if (has_init_D2T[i])
+        continue;
+
+      dbl4 b;
+      dbl4_e(b, i);
+
+      /* compute Hessian in affine coordinates */
+      dbl33 D2T_affine;
+      for (size_t p = 0; p < 3; ++p) {
+        for (size_t q = 0; q < 3; ++q) {
+          dbl4 a[2];
+          dbl4_copy(A[p], a[0]); // blech
+          dbl4_copy(A[q], a[1]); // blech
+          D2T_affine[p][q] = bb33_d2f(&bb, b, a);
+        }
+      }
+
+      /* transform back to Cartesian and store with cell vertex */
+      dbl33 tmp;
+      dbl33_mul(dXinv, D2T_affine, tmp);
+      dbl33_mul(tmp, dXinvT, D2T_cell[4*lc + i]);
+    }
+  }
+
+  /* zero out D2T */
+  memset(D2T, 0x0, sizeof(dbl33)*mesh3_nverts(mesh));
+
+  /* number of terms in weighted average */
+  size_t *N = calloc(mesh3_nverts(mesh), sizeof(size_t));
+
+  /* accumulate each D2T_cell entry into D2T */
+  for (size_t lc = 0, cv[4]; lc < mesh3_ncells(mesh); ++lc) {
+    mesh3_cv(mesh, lc, cv);
+
+    /* skip this cell if its data is invalid */
+    if (dbl33_isnan(D2T_cell[4*lc]))
+      continue;
+
+    for (size_t i = 0; i < 4; ++i) {
+      dbl33_add_inplace(D2T[cv[i]], D2T_cell[4*lc + i]);
+      ++N[cv[i]]; /* increment number of terms in average */
+    }
+  }
+
+  /* normalize each entry by the number of incident cells */
+  for (size_t lv = 0; lv < mesh3_nverts(mesh); ++lv) {
+    size_t nvc = mesh3_nvc(mesh, lv);
+    dbl33_dbl_div_inplace(D2T[lv], nvc);
+  }
+
+  free(N);
+  free(D2T_cell);
+}
+
 jmm_error_e
 jmm_3d_wedge_problem_solve(jmm_3d_wedge_problem_s *wedge, dbl sp, dbl phip,
                            dbl rfac, double omega) {
@@ -267,6 +391,8 @@ jmm_3d_wedge_problem_solve(jmm_3d_wedge_problem_s *wedge, dbl sp, dbl phip,
   xsrc[0] = sp*cos(phip);
   xsrc[1] = -sp*sin(phip);
   xsrc[2] = 0;
+
+  /** direct */
 
   /* Set up and solve the direct eikonal problem */
 
@@ -321,20 +447,44 @@ jmm_3d_wedge_problem_solve(jmm_3d_wedge_problem_s *wedge, dbl sp, dbl phip,
     return JMM_ERROR_BAD_ARGUMENTS;
   }
 
+  /* Solve direct eikonal */
   if (wedge->spec.verbose) {
     printf("Number of vertices in the initialization ball: %lu\n",
            array_size(direct_trial_inds));
     printf("Solving point source problem... ");
+    fflush(stdout);
   }
-
   eik3_solve(wedge->eik_direct);
-
   if (wedge->spec.verbose)
     puts("done");
 
   /* Compute groundtruth data for point source problem: */
   set_jet_gt(wedge, sp, phip, wedge->jet_direct_gt,
              get_context_direct, in_valid_zone_direct);
+
+  /* Cell-averaged D2T for direct eikonal */
+
+  if (wedge->spec.verbose) {
+    printf("Computing D2T using cell averaging... ");
+    fflush(stdout);
+  }
+
+  /* specially initialize D2T near the point source for the direct
+   * eikonal */
+  for (size_t l = 0; l < mesh3_nverts(wedge->mesh); ++l) {
+    mesh3_copy_vert(wedge->mesh, l, x);
+    if (dbl3_dist(x, xsrc) <= rfac)
+      dbl33_copy(wedge->jet_direct_gt[l].D2f, wedge->D2T_direct[l]);
+    else
+      dbl33_nan(wedge->D2T_direct[l]);
+  }
+
+  approx_D2T(wedge->eik_direct, wedge->D2T_direct);
+
+  if (wedge->spec.verbose)
+    puts("done");
+
+  /** o-refl */
 
   array_s *o_refl_trial_inds;
   array_alloc(&o_refl_trial_inds);
@@ -360,11 +510,20 @@ jmm_3d_wedge_problem_solve(jmm_3d_wedge_problem_s *wedge, dbl sp, dbl phip,
       array_append(o_refl_trial_inds, &i);
     }
 
-    if (wedge->spec.verbose)
+    if (wedge->spec.verbose) {
       printf("Computing o-face reflection... ");
-
+      fflush(stdout);
+    }
     eik3_solve(wedge->eik_o_refl);
+    if (wedge->spec.verbose)
+      puts("done");
 
+    /* Cell-averaged D2T for o-refl eikonal */
+    if (wedge->spec.verbose) {
+      printf("Computing D2T using cell averaging... ");
+      fflush(stdout);
+    }
+    approx_D2T(wedge->eik_direct, wedge->D2T_direct);
     if (wedge->spec.verbose)
       puts("done");
 
@@ -374,6 +533,8 @@ jmm_3d_wedge_problem_solve(jmm_3d_wedge_problem_s *wedge, dbl sp, dbl phip,
     if (wedge->spec.verbose)
       puts("Computed groundtruth data for o-face reflection");
   }
+
+  /** n-refl */
 
   array_s *n_refl_trial_inds;
   array_alloc(&n_refl_trial_inds);
@@ -414,11 +575,20 @@ jmm_3d_wedge_problem_solve(jmm_3d_wedge_problem_s *wedge, dbl sp, dbl phip,
       array_append(n_refl_trial_inds, &i);
     }
 
-    if (wedge->spec.verbose)
+    if (wedge->spec.verbose) {
       printf("Computing n-face reflection... ");
-
+      fflush(stdout);
+    }
     eik3_solve(wedge->eik_n_refl);
+    if (wedge->spec.verbose)
+      puts("done");
 
+    /* Cell-averaged D2T for direct eikonal */
+    if (wedge->spec.verbose) {
+      printf("Computing D2T using cell averaging... ");
+      fflush(stdout);
+    }
+    approx_D2T(wedge->eik_direct, wedge->D2T_direct);
     if (wedge->spec.verbose)
       puts("done");
 
@@ -499,75 +669,6 @@ jmm_3d_wedge_problem_solve(jmm_3d_wedge_problem_s *wedge, dbl sp, dbl phip,
     eik3_transport_dbl(wedge->eik_n_refl, wedge->origin_n_refl, true);
   }
 
-  // TODO: trying to approximate Hessians...
-
-  {
-    FILE *fp = fopen("direct_hess_bb.bin", "wb");
-
-    for (size_t lc = 0, lv[4]; lc < mesh3_ncells(wedge->mesh); ++lc) {
-      mesh3_cv(wedge->mesh, lc, lv);
-
-      /* get T and DT */
-      jet31t jet[4];
-      for (size_t i = 0; i < 4; ++i)
-        jet[i] = eik3_get_jet(wedge->eik_direct, lv[i]);
-
-      /* set up A */
-      dbl4 A[3];
-      for (size_t i = 0; i < 3; ++i) {
-        dbl4_zero(A[i]);
-        A[i][i] = 1;
-        A[i][3] = -1;
-      }
-
-      /* get cell verts */
-      dbl43 X;
-      for (size_t i = 0; i < 4; ++i)
-        mesh3_copy_vert(wedge->mesh, lv[i], X[i]);
-
-      /* set up dX */
-      dbl33 dX;
-      for (size_t i = 0; i < 3; ++i)
-        dbl3_sub(X[i], X[3], dX[i]);
-
-      dbl33 dXinv, dXinvT;
-      dbl33_copy(dX, dXinv);
-      dbl33_invert(dXinv);
-      dbl33_transposed(dXinv, dXinvT);
-
-      /* set up bb33 */
-      bb33 bb;
-      bb33_init_from_jets(&bb, jet, X);
-
-      /* compute Hessian at each vertex */
-      for (size_t i = 0; i < 4; ++i) {
-        dbl4 b;
-        dbl4_e(b, i);
-
-        /* compute Hessian in affine coordinates */
-        dbl33 D2T;
-        for (size_t p = 0; p < 3; ++p) {
-          for (size_t q = 0; q < 3; ++q) {
-            dbl4 a[2];
-            dbl4_copy(A[p], a[0]); // blech
-            dbl4_copy(A[q], a[1]); // blech
-            D2T[p][q] = bb33_d2f(&bb, b, a);
-          }
-        }
-
-        /* transform back to Cartesian */
-        dbl33 tmp;
-        dbl33_mul(dXinv, D2T, tmp);
-        dbl33_mul(tmp, dXinvT, D2T);
-
-        /* write to disk */
-        fwrite(D2T, sizeof(dbl33), 1, fp);
-      }
-    }
-
-    fclose(fp);
-  }
-
   /** Clean up: */
 
   array_deinit(direct_trial_inds);
@@ -580,6 +681,36 @@ jmm_3d_wedge_problem_solve(jmm_3d_wedge_problem_s *wedge, dbl sp, dbl phip,
   array_dealloc(&n_refl_trial_inds);
 
   return JMM_ERROR_NONE;
+}
+
+static void jmm_3d_wedge_problem_dump_direct_hess(
+  jmm_3d_wedge_problem_s const *wedge,
+  char const *path)
+{
+  FILE *fp = fopen(path, "wb");
+  fwrite(wedge->D2T_direct, sizeof(wedge->D2T_direct[0]),
+         mesh3_nverts(wedge->mesh), fp);
+  fclose(fp);
+}
+
+static void jmm_3d_wedge_problem_dump_o_refl_hess(
+  jmm_3d_wedge_problem_s const *wedge,
+  char const *path)
+{
+  FILE *fp = fopen(path, "wb");
+  fwrite(wedge->D2T_o_refl, sizeof(wedge->D2T_o_refl[0]),
+         mesh3_nverts(wedge->mesh), fp);
+  fclose(fp);
+}
+
+static void jmm_3d_wedge_problem_dump_n_refl_hess(
+  jmm_3d_wedge_problem_s const *wedge,
+  char const *path)
+{
+  FILE *fp = fopen(path, "wb");
+  fwrite(wedge->D2T_n_refl, sizeof(wedge->D2T_n_refl[0]),
+         mesh3_nverts(wedge->mesh), fp);
+  fclose(fp);
 }
 
 static void
@@ -694,6 +825,10 @@ void jmm_3d_wedge_problem_dump(jmm_3d_wedge_problem_s *wedge,
     eik3_dump_jet(wedge->eik_direct, file_path);
 
     strcpy(file_path, path);
+    file_path = strcat(file_path, "/direct_hess.bin");
+    jmm_3d_wedge_problem_dump_direct_hess(wedge, file_path);
+
+    strcpy(file_path, path);
     file_path = strcat(file_path, "/direct_state.bin");
     eik3_dump_state(wedge->eik_direct, file_path);
 
@@ -736,6 +871,10 @@ void jmm_3d_wedge_problem_dump(jmm_3d_wedge_problem_s *wedge,
     eik3_dump_jet(wedge->eik_o_refl, file_path);
 
     strcpy(file_path, path);
+    file_path = strcat(file_path, "/o_refl_hess.bin");
+    jmm_3d_wedge_problem_dump_o_refl_hess(wedge, file_path);
+
+    strcpy(file_path, path);
     file_path = strcat(file_path, "/o_refl_state.bin");
     eik3_dump_state(wedge->eik_o_refl, file_path);
 
@@ -776,6 +915,10 @@ void jmm_3d_wedge_problem_dump(jmm_3d_wedge_problem_s *wedge,
     strcpy(file_path, path);
     file_path = strcat(file_path, "/n_refl_jet.bin");
     eik3_dump_jet(wedge->eik_n_refl, file_path);
+
+    strcpy(file_path, path);
+    file_path = strcat(file_path, "/n_refl_hess.bin");
+    jmm_3d_wedge_problem_dump_n_refl_hess(wedge, file_path);
 
     strcpy(file_path, path);
     file_path = strcat(file_path, "/n_refl_state.bin");

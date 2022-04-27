@@ -46,6 +46,11 @@ typedef struct jmm_3d_wedge_problem {
   /* The eikonal problem for the "n-face" reflection. */
   eik3_s *eik_n_refl;
 
+  /* Cell-averaged Hessians: */
+  dbl33 *D2T_direct;
+  dbl33 *D2T_o_refl;
+  dbl33 *D2T_n_refl;
+
   /* Groundtruth data: */
   jet32t *jet_direct_gt;
   jet32t *jet_o_refl_gt;

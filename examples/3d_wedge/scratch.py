@@ -10,7 +10,7 @@ from scipy.spatial.transform import Rotation
 
 from pathlib import Path
 
-path = Path('n0.25_a0.01_rfac0.2_phip0.7853981633974483_sp1.4142135623730951_w4_h2')
+path = Path('n0.25_a0.001_rfac0.2_phip0.7853981633974483_sp1.4142135623730951_w4_h2')
 
 verts = np.fromfile(path/'verts.bin', dtype=np.float64).reshape(-1, 3)
 cells = np.fromfile(path/'cells.bin', dtype=np.uintp).reshape(-1, 4)
@@ -19,37 +19,20 @@ num_verts, num_cells = verts.shape[0], cells.shape[0]
 eik = 'direct'
 
 jet = np.fromfile(path/f'{eik}_jet.bin', dtype=np.float64).reshape(-1, 4)
+T = jet[:, 0]
+grad_T = jet[:, 1:4]
+hess_T = np.fromfile(path/f'{eik}_hess.bin', dtype=np.float64).reshape(-1, 3, 3)
+
+jet_gt = np.fromfile(path/f'{eik}_jet_gt.bin', dtype=np.float64).reshape(-1, 13)
+T_gt = jet_gt[:, 0]
+grad_T_gt = jet_gt[:, 1:4]
+hess_T_gt = jet_gt[:, 4:].reshape(-1, 3, 3)
 
 origin = np.fromfile(path/f'{eik}_origin.bin', dtype=np.float64)
 par_l = np.fromfile(path/f'{eik}_par_l.bin', dtype=np.uintp).reshape(-1, 3)
 par_b = np.fromfile(path/f'{eik}_par_b.bin', dtype=np.float64).reshape(-1, 3)
 accepted = np.fromfile(path/f'{eik}_accepted.bin', dtype=np.uintp)
 has_bc = np.fromfile(path/f'{eik}_has_bc.bin', dtype=np.bool8)
-
-T = jet[:, 0]
-grad_T = jet[:, 1:4]
-# hess_T = jet[:, 4:].reshape(-1, 3, 3)
-
-hess_T_bb_cell = np.fromfile(path/f'{eik}_hess_bb.bin', dtype=np.float64)
-hess_T_bb_cell = hess_T_bb.reshape(-1, 4, 3, 3)
-
-def hess_T_bb_for_vert(l):
-    H = []
-    for i, L in enumerate(cells):
-        if l in L:
-            j = np.where(L == l)[0][0]
-            H.append(hess_T_bb_cell[i][j])
-    return H
-
-hess_T_bb = np.array([
-    np.array(hess_T_bb_for_vert(l)).mean(0)
-    for l in range(num_verts)
-])
-
-jet_gt = np.fromfile(path/f'{eik}_jet_gt.bin', dtype=np.float64).reshape(-1, 13)
-T_gt = jet_gt[:, 0]
-grad_T_gt = jet_gt[:, 1:4]
-hess_T_gt = jet_gt[:, 4:].reshape(-1, 3, 3)
 
 edges = [(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]
 
@@ -128,40 +111,52 @@ def get_level_set(verts, cells, values, level, f=None):
         return level_set_grid
 
 ############################################################################
-# PROPAGATING D2T
+# estimate h
 
-xsrc = np.array([1, -1, 0])
+dX = verts[cells][:, 1:, :] - verts[cells][:, 0, :].reshape(-1, 1, 3)
+H = np.sqrt(np.sum(dX**2, axis=1))
+h = H.mean()
 
-hess_T = np.empty((num_verts, 3, 3), dtype=np.float64)
-hess_T[...] = np.nan
+############################################################################
+# compute Hessian determinants
 
-for l in accepted:
-    if has_bc[l]:
-        x = verts[l]
-        r = x - xsrc
-        tau = np.linalg.norm(r)
-        hess_T[l] = (np.eye(r.size) - np.outer(r, r)/np.dot(r, r))/tau
-    else:
-        npar = np.isfinite(par_b[l]).sum()
-        Ds, Qs, qs, ws = [], [], [], []
-        for i in range(npar):
-            Q, D = np.linalg.svd(hess_T[par_l[l][i]])[:2]
-            if Q[:, -1]@grad_T[par_l[l][i]] < 0:
-                Q[:, -1] *= -1
-            Qs.append(Q)
-            Ds.append(D)
-            q = Rotation.from_matrix(Q).as_quat()
-            qs.append(q)
-            ws.append(par_b[l][i])
-        qlam = sum(w*q for w, q in zip(ws, qs))
-        qlam /= np.linalg.norm(qlam)
-        # Qlam = Rotation.from_quat(qlam).as_matrix()
-        Qlam = sum(w*Q for w, Q in zip(ws, Qs))
-        Qlam = np.linalg.qr(Qlam)[0]
-        Dlam = sum(w*D for w, D in zip(ws, Ds))
-        xlam = sum(w*x for w, x in zip(ws, verts[par_l[l]]))
-        Llam = np.linalg.norm(verts[l] - xlam)
-        hess_T[l] = Qlam@np.diag(Dlam/(1 + Llam*Dlam))@Qlam.T
+hess_det = np.array([np.linalg.det(_) for _ in hess_T])
+hess_det_gt = np.array([np.linalg.det(_) for _ in hess_T_gt])
+
+############################################################################
+# computing the geometric part of the amplitude
+
+om = 5
+
+xsrc = np.array([-1, 1, 0])
+
+# initialize the amplitude
+
+def get_amp(g, H):
+    amp = np.empty(num_verts, np.complex128)
+    amp[...] = np.nan
+    for l in range(num_verts):
+        if np.isnan(par_b[l]).all():
+            xhat = verts[l]
+            r = np.linalg.norm(xhat - xsrc)
+            amp[l] = 1
+    for lhat in accepted:
+        if np.isnan(amp[lhat]):
+            b, l = par_b[lhat], par_l[lhat]
+            npar = np.isfinite(b).sum()
+            b, l = b[:npar], l[:npar]
+            assert np.isfinite(amp[l]).all()
+            amplam = np.product(amp[l]**b)
+            xlam, xhat = b@verts[l], verts[lhat]
+            L = np.linalg.norm(xhat - xlam)
+            DT, D2T = g[lhat], H[lhat]
+            q1, q2 = np.linalg.svd(np.eye(3) - np.outer(DT, DT))[0][:, :2].T
+            k1, k2 = -q1@D2T@q1, -q2@D2T@q2
+            amp[lhat] = amplam*np.exp(L*(k1 + k2)/2)
+    return amp
+
+amp = get_amp(grad_T, hess_T)
+amp_gt = get_amp(grad_T_gt, hess_T_gt) # not actually the "true" amplitude!
 
 ############################################################################
 # PLOTTING
@@ -171,25 +166,39 @@ grid = pv.UnstructuredGrid({vtk.VTK_TETRA: cells}, verts)
 def xfer(x):
     return x**2*(3 - 2*x)
 
-h = 0.025
-
 points = pv.PolyData(verts)
 points['origin'] = origin # xfer(xfer(xfer(origin)))
 
 shadow_boundary = get_level_set(verts, cells, origin, 0.5)
 
-# Fhat = T
-# F = T_gt
-# f = abs(F - Fhat) # /abs(F)
-f = hess_T_bb[:, 2, 2]
-# f = hess_T_gt[:, 2, 2]
+i, j = 1, 0
+# Fhat, F, emax = T, T_gt, h**2
+Fhat, F, emax = grad_T[:, i], grad_T_gt[:, i], h**2
+# Fhat, F, emax = hess_T[:, i, j], hess_T_gt[:, i, j], h
+
+f, clim, cmap = origin, (0, 1), cc.cm.CET_D1A
+# f, clim, cmap = abs(F - Fhat)/np.maximum(1, abs(F)), (0, emax), cc.cm.gouldian
+# f, clim, cmap = F, (-abs(F).max(), abs(F).max()), cc.cm.CET_D13
+# f, clim, cmap = Fhat, (-abs(Fhat).max(), abs(Fhat).max()), cc.cm.CET_D13
+# f, clim, cmap = 20*np.log10(np.real(amp)), (-60, 0), cc.cm.gouldian
+# f, clim, cmap = 20*np.log10(np.real(amp_gt)), (-60, 0), cc.cm.gouldian
+# f, clim, cmap = abs(20*np.log10(np.real(amp_gt)) - 20*np.log10(np.real(amp))), None, cc.cm.gouldian
+# f, clim, cmap = np.real(amp*np.exp(1j*om*T)), (-1, 1), cc.cm.CET_D13
+# f, clim, cmap = np.real(amp_gt*np.exp(1j*om*T)), (-1, 1), cc.cm.CET_D13
+# f, clim, cmap = np.log(np.maximum(1e-16, abs(hess_det_gt))), None, cc.cm.gouldian
+
 hplane, f_interp = get_level_set(verts, cells, verts[:, 2], 0, f)
 hplane['f'] = f_interp
 
 plotter = pvqt.BackgroundPlotter()
-# plotter.background_color = 'white'
+plotter.background_color = 'white'
 plotter.add_mesh(grid, show_edges=False, opacity=0.25)
 # plotter.add_mesh(points, scalars='origin', cmap=cc.cm.fire)
 # plotter.add_mesh(shadow_boundary, color='purple', opacity=0.95)
-plotter.add_mesh(hplane, scalars='f', cmap=cc.cm.bmy,
-                 show_edges=False, interpolate_before_map=True, clim=(0, 4.5))
+plotter.add_mesh(hplane, scalars='f', cmap=cmap, clim=clim,
+                 show_edges=False, interpolate_before_map=True)
+#                 clim=(0, emax))
+
+# plt.figure()
+# plt.hist(f[f < emax], bins=129)
+# plt.show()
