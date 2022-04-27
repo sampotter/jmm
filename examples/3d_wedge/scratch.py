@@ -56,7 +56,7 @@ def get_level_set(verts, cells, values, level, f=None):
         for e in edges:
             i0, i1 = i[e[0]], i[e[1]]
             v0, v1 = values[i0], values[i1]
-            if min(v0, v1) <= level <= max(v0, v1):
+            if v0 != v1 and min(v0, v1) <= level <= max(v0, v1):
                 t = (level - v0)/(v1 - v0)
                 x0, x1 = verts[i0], verts[i1]
                 xt = x0 + t*(x1 - x0)
