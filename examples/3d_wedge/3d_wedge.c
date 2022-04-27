@@ -378,6 +378,23 @@ static void approx_D2T(eik3_s const *eik, dbl33 *D2T) {
   free(D2T_cell);
 }
 
+static bool updated_from_diff_edge(eik3_s const *eik, size_t l) {
+  mesh3_s const *mesh = eik3_get_mesh(eik);
+
+  par3_s par = eik3_get_par(eik, l);
+
+  size_t npar = 0;
+  for (size_t i = 0; i < 3; ++i)
+    npar += par.l[i] != NO_PARENT;
+
+  if (npar == 0 || npar == 3)
+    return false;
+  else if (npar == 1)
+    return mesh3_vert_incident_on_diff_edge(mesh, par.l[0]);
+  else /* npar == 2 */
+    return mesh3_is_diff_edge(mesh, par.l);
+}
+
 jmm_error_e
 jmm_3d_wedge_problem_solve(jmm_3d_wedge_problem_s *wedge, dbl sp, dbl phip,
                            dbl rfac, double omega) {
