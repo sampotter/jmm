@@ -60,6 +60,16 @@ typedef struct jmm_3d_wedge_problem {
   dbl *origin_direct;
   dbl *origin_o_refl;
   dbl *origin_n_refl;
+
+  /* t_in vectors: */
+  dbl3 *t_in_direct;
+  dbl3 *t_in_o_refl;
+  dbl3 *t_in_n_refl;
+
+  /* t_out vectors: */
+  dbl3 *t_out_direct;
+  dbl3 *t_out_o_refl;
+  dbl3 *t_out_n_refl;
 } jmm_3d_wedge_problem_s;
 
 void jmm_3d_wedge_problem_alloc(jmm_3d_wedge_problem_s **wedge);

@@ -69,6 +69,14 @@ jmm_error_e jmm_3d_wedge_problem_init(jmm_3d_wedge_problem_s *wedge,
   wedge->origin_o_refl = malloc(nverts*sizeof(dbl));
   wedge->origin_n_refl = malloc(nverts*sizeof(dbl));
 
+  wedge->t_in_direct = malloc(nverts*sizeof(dbl3));
+  wedge->t_in_o_refl = malloc(nverts*sizeof(dbl3));
+  wedge->t_in_n_refl = malloc(nverts*sizeof(dbl3));
+
+  wedge->t_out_direct = malloc(nverts*sizeof(dbl3));
+  wedge->t_out_o_refl = malloc(nverts*sizeof(dbl3));
+  wedge->t_out_n_refl = malloc(nverts*sizeof(dbl3));
+
   return error;
 }
 
@@ -115,6 +123,24 @@ void jmm_3d_wedge_problem_deinit(jmm_3d_wedge_problem_s *wedge) {
 
   free(wedge->origin_n_refl);
   wedge->origin_n_refl = NULL;
+
+  free(wedge->t_in_direct);
+  wedge->t_in_direct = NULL;
+
+  free(wedge->t_in_o_refl);
+  wedge->t_in_o_refl = NULL;
+
+  free(wedge->t_in_n_refl);
+  wedge->t_in_n_refl = NULL;
+
+  free(wedge->t_out_direct);
+  wedge->t_out_direct = NULL;
+
+  free(wedge->t_out_o_refl);
+  wedge->t_out_o_refl = NULL;
+
+  free(wedge->t_out_n_refl);
+  wedge->t_out_n_refl = NULL;
 }
 
 void jmm_3d_wedge_problem_dealloc(jmm_3d_wedge_problem_s **wedge) {
@@ -267,6 +293,38 @@ static void set_jet_gt(jmm_3d_wedge_problem_s *wedge, dbl sp, dbl phip,
   }
 }
 
+static bool updated_from_diff_edge(eik3_s const *eik, size_t l) {
+  mesh3_s const *mesh = eik3_get_mesh(eik);
+
+  par3_s par = eik3_get_par(eik, l);
+
+  size_t npar = 0;
+  for (size_t i = 0; i < 3; ++i)
+    npar += par.l[i] != NO_PARENT;
+
+  if (npar == 0 || npar == 3)
+    return false;
+  else if (npar == 1)
+    return mesh3_vert_incident_on_diff_edge(mesh, par.l[0]);
+  else /* npar == 2 */
+    return mesh3_is_diff_edge(mesh, par.l);
+}
+
+static bool
+any_cell_vert_updated_from_diff_edge(eik3_s const *eik, size_t cv[4]) {
+  for (size_t i = 0; i < 4; ++i)
+    if (updated_from_diff_edge(eik, cv[i]))
+      return true;
+  return false;
+}
+
+static bool cell_incident_on_diff_edge(mesh3_s const *mesh, size_t cv[4]) {
+  for (size_t i = 0; i < 4; ++i)
+    if (mesh3_vert_incident_on_diff_edge(mesh, cv[i]))
+      return true;
+  return false;
+}
+
 /* Approximate the Hessian at each vertex, storing the result for
  * vertex `l` at `D2T[l]`. The user should have already allocated and
  * initialized `D2T`. Entries which are `NAN` which will be filled,
@@ -363,6 +421,18 @@ static void approx_D2T(eik3_s const *eik, dbl33 *D2T) {
       continue;
 
     for (size_t i = 0; i < 4; ++i) {
+      /* If this vertex was updated from a diff edge, don't use data
+       * from a cell which is incident on a diff edge... */
+      if (updated_from_diff_edge(eik, cv[i]) &&
+          cell_incident_on_diff_edge(mesh, cv))
+        continue;
+
+      /* If this vertex is incident on a diff edge, don't use data
+       * from a cell which was updated from a diff edge */
+      if (mesh3_vert_incident_on_diff_edge(mesh, cv[i]) &&
+          any_cell_vert_updated_from_diff_edge(eik, cv))
+        continue;
+
       dbl33_add_inplace(D2T[cv[i]], D2T_cell[4*lc + i]);
       ++N[cv[i]]; /* increment number of terms in average */
     }
@@ -376,23 +446,6 @@ static void approx_D2T(eik3_s const *eik, dbl33 *D2T) {
 
   free(N);
   free(D2T_cell);
-}
-
-static bool updated_from_diff_edge(eik3_s const *eik, size_t l) {
-  mesh3_s const *mesh = eik3_get_mesh(eik);
-
-  par3_s par = eik3_get_par(eik, l);
-
-  size_t npar = 0;
-  for (size_t i = 0; i < 3; ++i)
-    npar += par.l[i] != NO_PARENT;
-
-  if (npar == 0 || npar == 3)
-    return false;
-  else if (npar == 1)
-    return mesh3_vert_incident_on_diff_edge(mesh, par.l[0]);
-  else /* npar == 2 */
-    return mesh3_is_diff_edge(mesh, par.l);
 }
 
 jmm_error_e
@@ -642,6 +695,12 @@ jmm_3d_wedge_problem_solve(jmm_3d_wedge_problem_s *wedge, dbl sp, dbl phip,
 
   eik3_transport_dbl(wedge->eik_direct, wedge->origin_direct, true);
 
+  for (size_t l = 0; l < mesh3_nverts(wedge->mesh); ++l) {
+    mesh3_copy_vert(wedge->mesh, l, x);
+    if (hypot(x[0], x[1]) < 1e-13)
+      wedge->origin_direct[l] = 0.5; /* label nodes on the diff. edge */
+  }
+
   /* o-refl */
 
   for (size_t l = 0; l < mesh3_nverts(wedge->mesh); ++l)
@@ -684,6 +743,79 @@ jmm_3d_wedge_problem_solve(jmm_3d_wedge_problem_s *wedge, dbl sp, dbl phip,
     }
 
     eik3_transport_dbl(wedge->eik_n_refl, wedge->origin_n_refl, true);
+  }
+
+  /** Transport t_in and t_out vectors: */
+
+  jet31t const *jet = NULL;
+
+  /* direct arrival */
+
+  jet = eik3_get_jet_ptr(wedge->eik_direct);
+
+  for (size_t l = 0; l < mesh3_nverts(wedge->mesh); ++l)
+    dbl3_nan(wedge->t_in_direct[l]);
+
+  for (size_t l = 0; l < mesh3_nverts(wedge->mesh); ++l)
+    dbl3_nan(wedge->t_out_direct[l]);
+
+  for (size_t i = 0, l; i < array_size(direct_trial_inds); ++i) {
+    array_get(direct_trial_inds, i, &l);
+    dbl3_copy(jet[l].Df, wedge->t_in_direct[l]);
+    dbl3_copy(jet[l].Df, wedge->t_out_direct[l]);
+  }
+
+  for (size_t l = 0; l < mesh3_nverts(wedge->mesh); ++l)
+    if (updated_from_diff_edge(wedge->eik_direct, l))
+      dbl3_copy(jet[l].Df, wedge->t_out_direct[l]);
+
+  eik3_transport_unit_vector(wedge->eik_direct, wedge->t_in_direct, true);
+  eik3_transport_unit_vector(wedge->eik_direct, wedge->t_out_direct, true);
+
+  /* o-refl */
+
+  for (size_t l = 0; l < mesh3_nverts(wedge->mesh); ++l)
+    dbl3_nan(wedge->t_in_o_refl[l]);
+
+  for (size_t l = 0; l < mesh3_nverts(wedge->mesh); ++l)
+    dbl3_nan(wedge->t_out_o_refl[l]);
+
+  if (array_size(o_refl_trial_inds) > 0) {
+    for (size_t i = 0, l; i < array_size(o_refl_trial_inds); ++i) {
+      array_get(o_refl_trial_inds, i, &l);
+      dbl3_copy(jet[l].Df, wedge->t_in_o_refl[l]);
+      dbl3_copy(jet[l].Df, wedge->t_out_o_refl[l]);
+    }
+
+    for (size_t l = 0; l < mesh3_nverts(wedge->mesh); ++l)
+      if (updated_from_diff_edge(wedge->eik_o_refl, l))
+        dbl3_copy(jet[l].Df, wedge->t_out_o_refl[l]);
+
+    eik3_transport_unit_vector(wedge->eik_o_refl, wedge->t_in_o_refl, true);
+    eik3_transport_unit_vector(wedge->eik_o_refl, wedge->t_out_o_refl, true);
+  }
+
+  /* n-refl */
+
+  for (size_t l = 0; l < mesh3_nverts(wedge->mesh); ++l)
+    dbl3_nan(wedge->t_in_n_refl[l]);
+
+  for (size_t l = 0; l < mesh3_nverts(wedge->mesh); ++l)
+    dbl3_nan(wedge->t_out_n_refl[l]);
+
+  if (array_size(n_refl_trial_inds) > 0) {
+    for (size_t i = 0, l; i < array_size(n_refl_trial_inds); ++i) {
+      array_get(n_refl_trial_inds, i, &l);
+      dbl3_copy(jet[l].Df, wedge->t_in_n_refl[l]);
+      dbl3_copy(jet[l].Df, wedge->t_out_n_refl[l]);
+    }
+
+    for (size_t l = 0; l < mesh3_nverts(wedge->mesh); ++l)
+      if (updated_from_diff_edge(wedge->eik_n_refl, l))
+        dbl3_copy(jet[l].Df, wedge->t_out_n_refl[l]);
+
+    eik3_transport_unit_vector(wedge->eik_n_refl, wedge->t_in_n_refl, true);
+    eik3_transport_unit_vector(wedge->eik_n_refl, wedge->t_out_n_refl, true);
   }
 
   /** Clean up: */
@@ -793,6 +925,66 @@ jmm_3d_wedge_problem_dump_n_refl_origin(
          mesh3_nverts(wedge->mesh), fp);
 }
 
+static void
+jmm_3d_wedge_problem_dump_direct_t_in(
+  jmm_3d_wedge_problem_s const *wedge,
+  char const *path)
+{
+  FILE *fp = fopen(path, "wb");
+  fwrite(wedge->t_in_direct, sizeof(wedge->t_in_direct[0]),
+         mesh3_nverts(wedge->mesh), fp);
+}
+
+static void
+jmm_3d_wedge_problem_dump_direct_t_out(
+  jmm_3d_wedge_problem_s const *wedge,
+  char const *path)
+{
+  FILE *fp = fopen(path, "wb");
+  fwrite(wedge->t_out_direct, sizeof(wedge->t_out_direct[0]),
+         mesh3_nverts(wedge->mesh), fp);
+}
+
+static void
+jmm_3d_wedge_problem_dump_o_refl_t_in(
+  jmm_3d_wedge_problem_s const *wedge,
+  char const *path)
+{
+  FILE *fp = fopen(path, "wb");
+  fwrite(wedge->t_in_o_refl, sizeof(wedge->t_in_o_refl[0]),
+         mesh3_nverts(wedge->mesh), fp);
+}
+
+static void
+jmm_3d_wedge_problem_dump_o_refl_t_out(
+  jmm_3d_wedge_problem_s const *wedge,
+  char const *path)
+{
+  FILE *fp = fopen(path, "wb");
+  fwrite(wedge->t_out_o_refl, sizeof(wedge->t_out_o_refl[0]),
+         mesh3_nverts(wedge->mesh), fp);
+}
+
+static void
+jmm_3d_wedge_problem_dump_n_refl_t_in(
+  jmm_3d_wedge_problem_s const *wedge,
+  char const *path)
+{
+  FILE *fp = fopen(path, "wb");
+  fwrite(wedge->t_in_n_refl, sizeof(wedge->t_in_n_refl[0]),
+         mesh3_nverts(wedge->mesh), fp);
+}
+
+static void
+jmm_3d_wedge_problem_dump_n_refl_t_out(
+  jmm_3d_wedge_problem_s const *wedge,
+  char const *path)
+{
+  FILE *fp = fopen(path, "wb");
+  fwrite(wedge->t_out_n_refl, sizeof(wedge->t_out_n_refl[0]),
+         mesh3_nverts(wedge->mesh), fp);
+}
+
 void jmm_3d_wedge_problem_dump(jmm_3d_wedge_problem_s *wedge,
                                char const *path,
                                bool dump_direct,
@@ -877,6 +1069,16 @@ void jmm_3d_wedge_problem_dump(jmm_3d_wedge_problem_s *wedge,
     file_path = strcat(file_path, "/direct_origin.bin");
     jmm_3d_wedge_problem_dump_direct_origin(wedge, file_path);
 
+    /* Dump the t_in and t_out vectors */
+
+    strcpy(file_path, path);
+    file_path = strcat(file_path, "/direct_t_in.bin");
+    jmm_3d_wedge_problem_dump_direct_t_in(wedge, file_path);
+
+    strcpy(file_path, path);
+    file_path = strcat(file_path, "/direct_t_out.bin");
+    jmm_3d_wedge_problem_dump_direct_t_out(wedge, file_path);
+
   }
 
   if (dump_o_face) {
@@ -923,6 +1125,16 @@ void jmm_3d_wedge_problem_dump(jmm_3d_wedge_problem_s *wedge,
     file_path = strcat(file_path, "/o_refl_origin.bin");
     jmm_3d_wedge_problem_dump_o_refl_origin(wedge, file_path);
 
+    /* Dump the t_in and t_out vectors */
+
+    strcpy(file_path, path);
+    file_path = strcat(file_path, "/o_refl_t_in.bin");
+    jmm_3d_wedge_problem_dump_o_refl_t_in(wedge, file_path);
+
+    strcpy(file_path, path);
+    file_path = strcat(file_path, "/o_refl_t_out.bin");
+    jmm_3d_wedge_problem_dump_o_refl_t_out(wedge, file_path);
+
   }
 
   if (dump_n_face) {
@@ -968,6 +1180,16 @@ void jmm_3d_wedge_problem_dump(jmm_3d_wedge_problem_s *wedge,
     strcpy(file_path, path);
     file_path = strcat(file_path, "/n_refl_origin.bin");
     jmm_3d_wedge_problem_dump_n_refl_origin(wedge, file_path);
+
+    /* Dump the t_in and t_out vectors */
+
+    strcpy(file_path, path);
+    file_path = strcat(file_path, "/n_refl_t_in.bin");
+    jmm_3d_wedge_problem_dump_n_refl_t_in(wedge, file_path);
+
+    strcpy(file_path, path);
+    file_path = strcat(file_path, "/n_refl_t_out.bin");
+    jmm_3d_wedge_problem_dump_n_refl_t_out(wedge, file_path);
 
   }
 
