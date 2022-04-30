@@ -29,6 +29,8 @@ grad_T_gt = jet_gt[:, 1:4]
 hess_T_gt = jet_gt[:, 4:].reshape(-1, 3, 3)
 
 origin = np.fromfile(path/f'{eik}_origin.bin', dtype=np.float64)
+t_in = np.fromfile(path/f'{eik}_t_in.bin', dtype=np.float64).reshape(-1, 3)
+t_out = np.fromfile(path/f'{eik}_t_out.bin', dtype=np.float64).reshape(-1, 3)
 par_l = np.fromfile(path/f'{eik}_par_l.bin', dtype=np.uintp).reshape(-1, 3)
 par_b = np.fromfile(path/f'{eik}_par_b.bin', dtype=np.float64).reshape(-1, 3)
 accepted = np.fromfile(path/f'{eik}_accepted.bin', dtype=np.uintp)
@@ -126,8 +128,6 @@ hess_det_gt = np.array([np.linalg.det(_) for _ in hess_T_gt])
 ############################################################################
 # computing the geometric part of the amplitude
 
-om = 5
-
 xsrc = np.array([-1, 1, 0])
 
 # initialize the amplitude
@@ -171,12 +171,14 @@ points['origin'] = origin # xfer(xfer(xfer(origin)))
 
 shadow_boundary = get_level_set(verts, cells, origin, 0.5)
 
+om = 10
+
 i, j = 1, 0
 # Fhat, F, emax = T, T_gt, h**2
-Fhat, F, emax = grad_T[:, i], grad_T_gt[:, i], h**2
-# Fhat, F, emax = hess_T[:, i, j], hess_T_gt[:, i, j], h
+# Fhat, F, emax = grad_T[:, i], grad_T_gt[:, i], h**2
+Fhat, F, emax = hess_T[:, i, j], hess_T_gt[:, i, j], h
 
-f, clim, cmap = origin, (0, 1), cc.cm.CET_D1A
+# f, clim, cmap = origin, (0, 1), cc.cm.CET_D1A
 # f, clim, cmap = abs(F - Fhat)/np.maximum(1, abs(F)), (0, emax), cc.cm.gouldian
 # f, clim, cmap = F, (-abs(F).max(), abs(F).max()), cc.cm.CET_D13
 # f, clim, cmap = Fhat, (-abs(Fhat).max(), abs(Fhat).max()), cc.cm.CET_D13
@@ -185,19 +187,36 @@ f, clim, cmap = origin, (0, 1), cc.cm.CET_D1A
 # f, clim, cmap = abs(20*np.log10(np.real(amp_gt)) - 20*np.log10(np.real(amp))), None, cc.cm.gouldian
 # f, clim, cmap = np.real(amp*np.exp(1j*om*T)), (-1, 1), cc.cm.CET_D13
 # f, clim, cmap = np.real(amp_gt*np.exp(1j*om*T)), (-1, 1), cc.cm.CET_D13
+f, clim, cmap = np.log10(np.maximum(1e-16, abs(amp*np.exp(1j*om*T) - amp_gt*np.exp(1j*om*T_gt)))), (-4, 0), cc.cm.gouldian
 # f, clim, cmap = np.log(np.maximum(1e-16, abs(hess_det_gt))), None, cc.cm.gouldian
+# f, clim, cmap = hess_det_gt, None, cc.cm.gouldian
 
-hplane, f_interp = get_level_set(verts, cells, verts[:, 2], 0, f)
-hplane['f'] = f_interp
+Z = [0.0]
+hplanes = []
+for z in Z:
+    hplane, f_interp = get_level_set(verts, cells, verts[:, 2], z, f)
+    hplane['f'] = f_interp
+    hplanes.append(hplane)
+
+points = pv.PolyData(verts)
+
+points['t_in'] = t_in
+glyph_t_in = points.glyph(orient='t_in', factor=0.1, geom=pv.Arrow())
+
+points['t_out'] = t_out
+glyph_t_out = points.glyph(orient='t_out', factor=0.1, geom=pv.Arrow())
 
 plotter = pvqt.BackgroundPlotter()
-plotter.background_color = 'white'
+# plotter.background_color = 'white'
 plotter.add_mesh(grid, show_edges=False, opacity=0.25)
+# plotter.add_mesh(glyph_t_in, color='blue')
+plotter.add_mesh(glyph_t_out, color='red')
 # plotter.add_mesh(points, scalars='origin', cmap=cc.cm.fire)
-# plotter.add_mesh(shadow_boundary, color='purple', opacity=0.95)
-plotter.add_mesh(hplane, scalars='f', cmap=cmap, clim=clim,
-                 show_edges=False, interpolate_before_map=True)
-#                 clim=(0, emax))
+# plotter.add_mesh(shadow_boundary, color='white', opacity=0.95)
+# for hplane in hplanes:
+#     plotter.add_mesh(hplane, scalars='f', cmap=cmap, clim=clim,
+#                      show_edges=False, interpolate_before_map=True)
+#     #                 clim=(0, emax))
 
 # plt.figure()
 # plt.hist(f[f < emax], bins=129)
