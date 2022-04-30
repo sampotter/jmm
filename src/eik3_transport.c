@@ -133,3 +133,82 @@ void eik3_transport_curvature(eik3_s const *eik, dbl *kappa, bool skip_filled) {
     transport_curvature(eik, l0, kappa);
   }
 }
+
+static void slerp2(dbl const b[2], dbl3 const p[2], dbl3 q) {
+  dbl theta = acos(dbl3_dot(p[0], p[1]));
+  dbl sin_theta = sin(theta);
+  dbl c[2] = {sin(b[0]*theta)/sin_theta, sin(b[1]*theta)/sin_theta};
+  for (size_t i = 0; i < 3; ++i)
+    q[i] = c[0]*p[0][i] + c[1]*p[1][i];
+}
+
+static void slerp3(dbl const b[3], dbl3 const p[3], dbl3 q) {
+  /* initialize q to nlerp */
+  for (size_t i = 0; i < 3; ++i)
+    q[i] = b[0]*p[0][i] + b[1]*p[1][i] + b[2]*p[2][i];
+  dbl3_normalize(q);
+
+  dbl3 q0;
+  dbl3_copy(q, q0);
+
+  /* projected gradient descent for slerp */
+  while (true) {
+    /* take projected gradient step */
+    dbl c[3];
+    for (size_t i = 0; i < 3; ++i) {
+      dbl dot = dbl3_dot(p[i], q);
+      c[i] = acos(dot)*b[i]/sqrt(1 - dot*dot);
+    }
+    for (size_t i = 0; i < 3; ++i)
+      for (size_t j = 0; j < 3; ++j)
+        q[j] += c[i]*p[i][j];
+    dbl3_normalize(q);
+
+    /* check for convergence */
+    if (acos(dbl3_dot(q, q0)) < 1e-10)
+      break;
+
+    /* prepare for the next iteration */
+    dbl3_copy(q, q0);
+  }
+}
+
+static void transport_unit_vector(eik3_s const *eik, size_t l0, dbl3 *t) {
+  par3_s par = eik3_get_par(eik, l0);
+  if (par3_is_empty(&par))
+    return;
+
+  size_t num_active = par3_num_active(&par);
+  size_t l[num_active];
+  dbl b[num_active];
+  par3_get_active(&par, l, b);
+
+  dbl3 t_[3];
+  for (size_t i = 0; i < num_active; ++i)
+    dbl3_copy(t[l[i]], t_[i]);
+
+  if (num_active == 1)
+    dbl3_copy(t_[0], t[l0]);
+  else if (num_active == 2)
+    slerp2(b, t_, t[l0]);
+  else if (num_active == 3)
+    slerp3(b, t_, t[l0]);
+  else
+    assert(false);
+}
+
+void eik3_transport_unit_vector(eik3_s const *eik, dbl3 *t, bool skip_filled) {
+  assert(eik3_is_solved(eik));
+
+  mesh3_s const *mesh = eik3_get_mesh(eik);
+  size_t nverts = mesh3_nverts(mesh);
+
+  size_t const *accepted = eik3_get_accepted_ptr(eik);
+
+  for (size_t i = 0; i < nverts; ++i) {
+    size_t l0 = accepted[i];
+    if (skip_filled && dbl3_isfinite(t[l0]))
+      continue;
+    transport_unit_vector(eik, l0, t);
+  }
+}
