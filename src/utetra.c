@@ -460,6 +460,31 @@ bool utetra_has_interior_point_solution(utetra_s const *cf) {
   return dbl3_maxnorm(alpha) <= 1e-15;
 }
 
+bool utetra_ray_start_in_update_cone(utetra_s const *utetra, eik3_s const *eik){
+  mesh3_s const *mesh = eik3_get_mesh(eik);
+
+  dbl3 xhat;
+  mesh3_copy_vert(mesh, utetra->lhat, xhat);
+
+  dbl3 xlam;
+  utetra_get_x(utetra, xlam);
+
+  dbl3 tlam;
+  dbl3_sub(xhat, xlam, tlam);
+  dbl3_normalize(tlam);
+
+  jet31t const *jet = eik3_get_jet_ptr(eik);
+
+  dbl33 T;
+  for (size_t i = 0; i < 3; ++i)
+    dbl33_set_column(T, i, jet[utetra->l[i]].Df);
+
+  dbl3 alpha;
+  dbl33_dbl3_solve(T, tlam, alpha);
+
+  return dbl3_minimum(alpha) > -1e-15;
+}
+
 int utetra_cmp(utetra_s const **h1, utetra_s const **h2) {
   utetra_s const *u1 = *h1;
   utetra_s const *u2 = *h2;
@@ -544,7 +569,7 @@ bool ray_in_vertex_cone(mesh3_s const *mesh, dbl3 p, size_t lv) {
   return in_cone;
 }
 
-bool utetra_update_ray_is_physical(utetra_s const *utetra, eik3_s const *eik) {
+bool utetra_ray_is_occluded(utetra_s const *utetra, eik3_s const *eik) {
 #if JMM_DEBUG
   assert(all_inds_are_set(utetra));
 #endif
@@ -557,19 +582,19 @@ bool utetra_update_ray_is_physical(utetra_s const *utetra, eik3_s const *eik) {
   dbl3 xlam;
   utetra_get_x(utetra, xlam);
 
-  dbl3 dxlam;
-  dbl3_sub(xlam, xhat, dxlam);
-
-  dbl3 dxhat;
+  dbl3 dxhat; /* xlam -> xhat */
   dbl3_sub(xhat, xlam, dxhat);
 
   /* Check whether the update ray is contained in the cone spanned by
    * the cells incident on `utetra->lhat`. */
 
-  bool ray_end_is_feasible = ray_in_vertex_cone(mesh, dxlam, utetra->lhat);
+  dbl3 dxlam; /* xhat -> xlam */
+  dbl3_sub(xlam, xhat, dxlam);
 
-  /* Check whether the start of the update ray is contained in the set
-   * of reasible ray directions at xlam */
+  if (!ray_in_vertex_cone(mesh, dxlam, utetra->lhat))
+    return true;
+
+  /* Make sure the start of the update ray doesn't exit the domain */
 
   bool ray_start_is_feasible = false;
 
@@ -638,14 +663,10 @@ bool utetra_update_ray_is_physical(utetra_s const *utetra, eik3_s const *eik) {
       mesh3_copy_vert(mesh, le[0], y[0]);
       mesh3_copy_vert(mesh, le[1], y[1]);
 
-      // te = (x1 - x0)/|x1 - x0|
       dbl3 te;
       dbl3_sub(x[1], x[0], te);
       dbl3_normalize(te);
 
-      // q1 = y0 - xlam
-      // q1 = q1 - (te@q1)*te
-      // q1 /= |q1|
       dbl3 q1;
       dbl3_sub(y[0], xlam, q1);
       dbl te_q1 = dbl3_dot(te, q1);
@@ -653,10 +674,6 @@ bool utetra_update_ray_is_physical(utetra_s const *utetra, eik3_s const *eik) {
         q1[j] -= te_q1*te[j];
       dbl3_normalize(q1);
 
-      // q2 = y1 - xlam
-      // u2 = q2 - (te@q2)*te;
-      // q2 = u2 - (q1@q2)*q1
-      // q2 /= |q2|
       dbl3 q2, u2;
       dbl3_sub(y[1], xlam, q2);
       dbl te_q2 = dbl3_dot(te, q2);
@@ -667,10 +684,8 @@ bool utetra_update_ray_is_physical(utetra_s const *utetra, eik3_s const *eik) {
         q2[j] = u2[j] - q1_q2*q1[j];
       dbl3_normalize(q2);
 
-      // thetamax = atan2(q2*u2, q1*u2);
       dbl thetamax = atan2(dbl3_dot(q2, u2), dbl3_dot(q1, u2));
 
-      // theta = atan2(q2*dxhat, q1*dxhat);
       dbl theta = atan2(dbl3_dot(q2, dxhat), dbl3_dot(q1, dxhat));
 
       if (0 <= theta && theta <= thetamax) {
@@ -688,7 +703,7 @@ bool utetra_update_ray_is_physical(utetra_s const *utetra, eik3_s const *eik) {
 
   else assert(false);
 
-  return ray_start_is_feasible && ray_end_is_feasible;
+  return !ray_start_is_feasible;
 }
 
 int utetra_get_num_interior_coefs(utetra_s const *utetra) {

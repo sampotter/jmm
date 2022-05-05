@@ -193,6 +193,15 @@ class MainWindow(pvqt.MainWindow):
         plotTx = QtWidgets.QRadioButton("∂T/∂x")
         plotTy = QtWidgets.QRadioButton("∂T/∂y")
         plotTz = QtWidgets.QRadioButton("∂T/∂z")
+        plotTxx = QtWidgets.QRadioButton("∂²T/∂x²")
+        plotTxy = QtWidgets.QRadioButton("∂²T/∂y∂x")
+        plotTxz = QtWidgets.QRadioButton("∂²T/∂z∂x")
+        plotTyx = QtWidgets.QRadioButton("∂²T/∂x∂y")
+        plotTyy = QtWidgets.QRadioButton("∂²T/∂y²")
+        plotTyz = QtWidgets.QRadioButton("∂²T/∂z∂y")
+        plotTzx = QtWidgets.QRadioButton("∂²T/∂x∂z")
+        plotTzy = QtWidgets.QRadioButton("∂²T/∂y∂z")
+        plotTzz = QtWidgets.QRadioButton("∂²T/∂z²")
         plotOrigin = QtWidgets.QRadioButton("Origin")
         plotT.setChecked(True)
 
@@ -200,6 +209,15 @@ class MainWindow(pvqt.MainWindow):
         plotTx.toggled.connect(self.updatePlotOnSelect)
         plotTy.toggled.connect(self.updatePlotOnSelect)
         plotTz.toggled.connect(self.updatePlotOnSelect)
+        plotTxx.toggled.connect(self.updatePlotOnSelect)
+        plotTxy.toggled.connect(self.updatePlotOnSelect)
+        plotTxz.toggled.connect(self.updatePlotOnSelect)
+        plotTyx.toggled.connect(self.updatePlotOnSelect)
+        plotTyy.toggled.connect(self.updatePlotOnSelect)
+        plotTyz.toggled.connect(self.updatePlotOnSelect)
+        plotTzx.toggled.connect(self.updatePlotOnSelect)
+        plotTzy.toggled.connect(self.updatePlotOnSelect)
+        plotTzz.toggled.connect(self.updatePlotOnSelect)
         plotOrigin.toggled.connect(self.updatePlotOnSelect)
 
         layout = QtWidgets.QVBoxLayout()
@@ -207,6 +225,15 @@ class MainWindow(pvqt.MainWindow):
         layout.addWidget(plotTx)
         layout.addWidget(plotTy)
         layout.addWidget(plotTz)
+        layout.addWidget(plotTxx)
+        layout.addWidget(plotTxy)
+        layout.addWidget(plotTxz)
+        layout.addWidget(plotTyx)
+        layout.addWidget(plotTyy)
+        layout.addWidget(plotTyz)
+        layout.addWidget(plotTzx)
+        layout.addWidget(plotTzy)
+        layout.addWidget(plotTzz)
         layout.addWidget(plotOrigin)
         layout.addStretch(1)
 
@@ -315,23 +342,27 @@ class MainWindow(pvqt.MainWindow):
         self.direct_jet = np.fromfile('direct_jet.bin', dtype=np.float64).reshape(-1, 4)
         self.direct_T = self.direct_jet[:, 0]
         self.direct_grad_T = self.direct_jet[:, 1:]
+        self.direct_hess_T = np.fromfile('direct_hess.bin', dtype=np.float64).reshape(-1, 3, 3)
 
         # final states
         self.direct_state = np.fromfile('direct_state.bin', dtype=np.intc)
+
+        self.direct_par_l = np.fromfile('direct_par_l.bin', dtype=np.uintp).reshape(-1, 3)
 
         # approximate origins
         self.direct_origin = np.fromfile('direct_origin.bin', dtype=np.float64)
 
         # true solution ("gt")
         self.direct_jet_gt = np.fromfile('direct_jet_gt.bin', dtype=np.float64).reshape(-1, 13)
-        self.direct_jet_gt = self.direct_jet_gt[:, :4]
         self.direct_T_gt = self.direct_jet_gt[:, 0]
-        self.direct_grad_T_gt = self.direct_jet_gt[:, 1:]
+        self.direct_grad_T_gt = self.direct_jet_gt[:, 1:4]
+        self.direct_hess_T_gt = self.direct_jet_gt[:, 4:].reshape(-1, 3, 3)
 
         # errors
-        self.direct_error_jet = self.direct_jet - self.direct_jet_gt
+        self.direct_error_jet = self.direct_jet - self.direct_jet_gt[:, :4]
         self.direct_error_T = self.direct_error_jet[:, 0]
         self.direct_error_grad_T = self.direct_error_jet[:, 1:]
+        self.direct_error_hess_T = self.direct_hess_T - self.direct_hess_T_gt
 
         ## LOAD DATA FOR o-FACE REFLECTION
 
@@ -339,23 +370,27 @@ class MainWindow(pvqt.MainWindow):
         self.o_refl_jet = np.fromfile('o_refl_jet.bin', dtype=np.float64).reshape(-1, 4)
         self.o_refl_T = self.o_refl_jet[:, 0]
         self.o_refl_grad_T = self.o_refl_jet[:, 1:]
+        self.o_refl_hess_T = np.fromfile('o_refl_hess.bin', dtype=np.float64).reshape(-1, 3, 3)
 
         # final states
         self.o_refl_state = np.fromfile('o_refl_state.bin', dtype=np.intc)
+
+        self.o_refl_par_l = np.fromfile('o_refl_par_l.bin', dtype=np.uintp).reshape(-1, 3)
 
         # approximate origins
         self.o_refl_origin = np.fromfile('o_refl_origin.bin', dtype=np.float64)
 
         # true solution
         self.o_refl_jet_gt = np.fromfile('o_refl_jet_gt.bin', dtype=np.float64).reshape(-1, 13)
-        self.o_refl_jet_gt = self.o_refl_jet_gt[:, :4]
         self.o_refl_T_gt = self.o_refl_jet_gt[:, 0]
-        self.o_refl_grad_T_gt = self.o_refl_jet_gt[:, 1:]
+        self.o_refl_grad_T_gt = self.o_refl_jet_gt[:, 1:4]
+        self.o_refl_hess_T_gt = self.o_refl_jet_gt[:, 4:].reshape(-1, 3, 3)
 
         # errors
-        self.o_refl_error_jet = self.o_refl_jet - self.o_refl_jet_gt
+        self.o_refl_error_jet = self.o_refl_jet - self.o_refl_jet_gt[:, :4]
         self.o_refl_error_T = self.o_refl_error_jet[:, 0]
         self.o_refl_error_grad_T = self.o_refl_error_jet[:, 1:]
+        self.o_refl_error_hess_T = self.o_refl_hess_T - self.o_refl_hess_T_gt
 
         ## LOAD DATA FOR n-FACE REFLECTION
 
@@ -363,24 +398,27 @@ class MainWindow(pvqt.MainWindow):
         self.n_refl_jet = np.fromfile('n_refl_jet.bin', dtype=np.float64).reshape(-1, 4)
         self.n_refl_T = self.n_refl_jet[:, 0]
         self.n_refl_grad_T = self.n_refl_jet[:, 1:]
+        self.n_refl_hess_T = np.fromfile('n_refl_hess.bin', dtype=np.float64).reshape(-1, 3, 3)
 
         # final states
         self.n_refl_state = np.fromfile('n_refl_state.bin', dtype=np.intc)
+
+        self.n_refl_par_l = np.fromfile('n_refl_par_l.bin', dtype=np.uintp).reshape(-1, 3)
 
         # approximate origins
         self.n_refl_origin = np.fromfile('n_refl_origin.bin', dtype=np.float64)
 
         # true solution
         self.n_refl_jet_gt = np.fromfile('n_refl_jet_gt.bin', dtype=np.float64).reshape(-1, 13)
-        self.n_refl_jet_gt = self.n_refl_jet_gt[:, :4]
         self.n_refl_T_gt = self.n_refl_jet_gt[:, 0]
-        self.n_refl_grad_T_gt = self.n_refl_jet_gt[:, 1:]
+        self.n_refl_grad_T_gt = self.n_refl_jet_gt[:, 1:4]
+        self.n_refl_hess_T_gt = self.n_refl_jet_gt[:, 4:].reshape(-1, 3, 3)
 
         # errors
-        self.n_refl_error_jet = self.n_refl_jet - self.n_refl_jet_gt
+        self.n_refl_error_jet = self.n_refl_jet - self.n_refl_jet_gt[:, :4]
         self.n_refl_error_T = self.n_refl_error_jet[:, 0]
         self.n_refl_error_grad_T = self.n_refl_error_jet[:, 1:4]
-        self.n_refl_error_hess_T = self.n_refl_error_jet[:, 4:].reshape(-1, 3, 3)
+        self.n_refl_error_hess_T = self.n_refl_hess_T - self.n_refl_hess_T_gt
 
     def getPlotMode(self):
         children = self.plotModeGroupBox.findChildren(QtWidgets.QRadioButton)
@@ -558,13 +596,15 @@ class MainWindow(pvqt.MainWindow):
         else:
             assert False
         if showDirect and showDiff:
-            return np.ones(origin.shape, dtype=np.bool_)
+            mask = np.ones(origin.shape, dtype=np.bool_)
         elif showDirect:
-            return origin >= 0.5
+            mask = origin >= 0.5
         elif showDiff:
-            return origin <= 0.5
+            mask = origin <= 0.5
         else:
-            return np.zeros(origin.shape, dtype=np.bool_)
+            mask = np.zeros(origin.shape, dtype=np.bool_)
+        assert mask.size == self.verts.shape[0]
+        return mask
 
     def getCMap(self):
         if self.getSelectedField() is Field.Origin:
@@ -575,8 +615,18 @@ class MainWindow(pvqt.MainWindow):
         else:
             return cc.cm.coolwarm
 
+    def getCLim(self, values):
+        plotMode = self.getPlotMode()
+        if plotMode == PlotMode.PointwiseError:
+            print((values == 0).sum())
+            vmax = np.nanmax(abs(values))
+            return (-vmax, vmax)
+        else:
+            return (np.nanmin(values), np.nanmax(values))
+
     def updatePlot(self):
         values = self.getCurrentValues()
+        values[~np.isfinite(values)] = np.nan
 
         mask = self.getMask()
 
@@ -592,7 +642,7 @@ class MainWindow(pvqt.MainWindow):
         self.plotter.add_mesh(
             self.mesh,
             show_edges=True,
-            opacity=0.25
+            opacity=0.25,
         )
 
         if mask.size > 0:
@@ -600,6 +650,9 @@ class MainWindow(pvqt.MainWindow):
                 self.poly_data,
                 scalars='values',
                 cmap=self.getCMap(),
+                clim=self.getCLim(values),
+                # nan_color='magenta',
+                nan_opacity=0.0,
             )
 
         for i in range(4):
@@ -621,6 +674,13 @@ class MainWindow(pvqt.MainWindow):
             i = np.argmin(dists)
             self.picked_point_index = i
             print(f'selected vertex {self.picked_point_index}')
+            print(f'- parents:', end='')
+            if self.getSelectedEikonal() == Eikonal.DirectArrival:
+                print(self.direct_par_l[i])
+            elif self.getSelected() == Eikonal.OFaceReflection:
+                print(self.o_refl_par_l[i])
+            else:
+                print(self.n_refl_par_l[i])
 
         self.plotter.enable_point_picking(callback=set_picked_point_index, font_size=12)
 

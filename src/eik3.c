@@ -638,7 +638,7 @@ static void do_freespace_utetra(eik3_s *eik, size_t l, size_t l0) {
     if (utetra_get_value(utetra) >= eik->jet[l].f)
       goto next;
 
-    if (!utetra_update_ray_is_physical(utetra, eik))
+    if (utetra_ray_is_occluded(utetra, eik))
       goto next;
 
     if (utetra_has_interior_point_solution(utetra)) {

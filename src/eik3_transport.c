@@ -4,6 +4,7 @@
 #include <math.h>
 
 #include "mesh3.h"
+#include "util.h"
 
 static void transport_dbl(eik3_s const *eik, size_t l0, dbl *values) {
   par3_s par = eik3_get_par(eik, l0);
@@ -165,7 +166,8 @@ static void slerp3(dbl const b[3], dbl3 const p[3], dbl3 q) {
     dbl3_normalize(q);
 
     /* check for convergence */
-    if (acos(dbl3_dot(q, q0)) < 1e-10)
+    dbl dot = clamp(dbl3_dot(q, q0), -1, 1);
+    if (fabs(1 - dot) < 1e-10)
       break;
 
     /* prepare for the next iteration */

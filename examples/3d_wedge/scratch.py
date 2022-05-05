@@ -11,10 +11,16 @@ from scipy.spatial.transform import Rotation
 from pathlib import Path
 
 path = Path('n0.25_a0.001_rfac0.2_phip0.7853981633974483_sp1.4142135623730951_w4_h2')
+# path = Path('../../build/examples/3d_wedge')
 
 verts = np.fromfile(path/'verts.bin', dtype=np.float64).reshape(-1, 3)
 cells = np.fromfile(path/'cells.bin', dtype=np.uintp).reshape(-1, 4)
 num_verts, num_cells = verts.shape[0], cells.shape[0]
+
+# estimate h
+dX = verts[cells][:, 1:, :] - verts[cells][:, 0, :].reshape(-1, 1, 3)
+H = np.sqrt(np.sum(dX**2, axis=1))
+h = H.mean()
 
 eik = 'direct'
 
@@ -113,13 +119,6 @@ def get_level_set(verts, cells, values, level, f=None):
         return level_set_grid
 
 ############################################################################
-# estimate h
-
-dX = verts[cells][:, 1:, :] - verts[cells][:, 0, :].reshape(-1, 1, 3)
-H = np.sqrt(np.sum(dX**2, axis=1))
-h = H.mean()
-
-############################################################################
 # compute Hessian determinants
 
 hess_det = np.array([np.linalg.det(_) for _ in hess_T])
@@ -159,6 +158,106 @@ amp = get_amp(grad_T, hess_T)
 amp_gt = get_amp(grad_T_gt, hess_T_gt) # not actually the "true" amplitude!
 
 ############################################################################
+# UTD coefs
+
+# physical & geometric parameters
+
+om = 10
+c = 1
+k = om/c
+n = 7/8
+
+n_o = np.array([0, -1, 0])
+t_o = np.array([-1, 0, 0])
+t_e = np.array([0, 0, 1])
+
+############################################################################
+# generic propagate function
+
+def prop(BCs, init):
+    value = np.empty(num_verts)
+    value[...] = np.nan
+
+    for l in BCs:
+        init(value, l)
+
+    queue = set()
+    for l in np.where(np.isfinite(value))[0]:
+        queue.add(l)
+    while queue:
+        l = queue.pop()
+        init(value, l)
+        b, L = par_b[l], par_l[l]
+        npar = np.isfinite(b).sum()
+        for i in range(npar):
+            if np.isnan(value[L[i]]):
+                queue.add(L[i])
+
+    for l in accepted:
+        if np.isfinite(value[l]):
+            continue
+        b, L = par_b[l], par_l[l]
+        npar = np.isfinite(b).sum()
+        if npar == 0:
+            continue
+        if np.isfinite(value[L[:npar]]).all():
+            value[l] = b[:npar]@value[L[:npar]]
+
+    return value
+
+L_diff_edge = np.where(np.sqrt(np.sum(verts[:, :2]**2, axis=1)) < 1e-10)[0]
+
+# compute s (distance along ray from diffracting edge)
+
+def init_s(s, l):
+    s[l] = T[l]
+
+s = prop(L_diff_edge, init_s)
+s = T - s
+
+# compute rho_e
+
+def init_rho_e(rho_e, l):
+    t_in = grad_T[l]
+    q_e = t_e - (t_in@t_e)*t_in
+    q_e /= np.linalg.norm(q_e)
+    rho_e[l] = 1/(q_e@hess_T[l]@q_e)
+
+rho_e = prop(L_diff_edge, init_rho_e)
+
+# compute rho_1
+
+def init_rho_1(rho_1, l):
+    t_in = grad_T[l]
+    q_1 = n_o - (t_in@n_o)*t_in
+    q_1 /= np.linalg.norm(q_1)
+    rho_1[l] = 1/(q_1@hess_T[l]@q_1)
+
+rho_1 = prop(L_diff_edge, init_rho_1)
+
+# compute rho_2
+
+def init_rho_2(rho_2, l):
+    t_in = grad_T[l]
+    q_1 = n_o - (t_in@n_o)*t_in
+    q_1 /= np.linalg.norm(q_1)
+    q_2 = np.cross(t_in, q_1)
+    rho_2[l] = 1/(q_2@hess_T[l]@q_2)
+
+rho_2 = prop(L_diff_edge, init_rho_2)
+
+############################################################################
+# compute groundtruth amplitude parameters
+
+
+
+############################################################################
+# compute D and D_gt for sound-hard boundary
+
+# D = utd.D(1, n_o, t_o, t_e, k, n, t_in, t_out, hess_T, s)
+# D_gt = utd.D(1, n_o, t_o, t_e, k, n, t_in_gt, t_out_gt, hess_T_gt, s_gt)
+
+############################################################################
 # PLOTTING
 
 grid = pv.UnstructuredGrid({vtk.VTK_TETRA: cells}, verts)
@@ -171,14 +270,12 @@ points['origin'] = origin # xfer(xfer(xfer(origin)))
 
 shadow_boundary = get_level_set(verts, cells, origin, 0.5)
 
-om = 10
-
 i, j = 1, 0
 # Fhat, F, emax = T, T_gt, h**2
 # Fhat, F, emax = grad_T[:, i], grad_T_gt[:, i], h**2
 Fhat, F, emax = hess_T[:, i, j], hess_T_gt[:, i, j], h
 
-# f, clim, cmap = origin, (0, 1), cc.cm.CET_D1A
+f, clim, cmap = origin, (0, 1), cc.cm.CET_D1A
 # f, clim, cmap = abs(F - Fhat)/np.maximum(1, abs(F)), (0, emax), cc.cm.gouldian
 # f, clim, cmap = F, (-abs(F).max(), abs(F).max()), cc.cm.CET_D13
 # f, clim, cmap = Fhat, (-abs(Fhat).max(), abs(Fhat).max()), cc.cm.CET_D13
@@ -187,18 +284,18 @@ Fhat, F, emax = hess_T[:, i, j], hess_T_gt[:, i, j], h
 # f, clim, cmap = abs(20*np.log10(np.real(amp_gt)) - 20*np.log10(np.real(amp))), None, cc.cm.gouldian
 # f, clim, cmap = np.real(amp*np.exp(1j*om*T)), (-1, 1), cc.cm.CET_D13
 # f, clim, cmap = np.real(amp_gt*np.exp(1j*om*T)), (-1, 1), cc.cm.CET_D13
-f, clim, cmap = np.log10(np.maximum(1e-16, abs(amp*np.exp(1j*om*T) - amp_gt*np.exp(1j*om*T_gt)))), (-4, 0), cc.cm.gouldian
+# f, clim, cmap = np.log10(np.maximum(1e-16, abs(amp*np.exp(1j*om*T) - amp_gt*np.exp(1j*om*T_gt)))), (-4, 0), cc.cm.gouldian
 # f, clim, cmap = np.log(np.maximum(1e-16, abs(hess_det_gt))), None, cc.cm.gouldian
 # f, clim, cmap = hess_det_gt, None, cc.cm.gouldian
 
-Z = [0.0]
+Z = [0]
 hplanes = []
 for z in Z:
     hplane, f_interp = get_level_set(verts, cells, verts[:, 2], z, f)
     hplane['f'] = f_interp
     hplanes.append(hplane)
 
-points = pv.PolyData(verts)
+points['T'] = T
 
 points['t_in'] = t_in
 glyph_t_in = points.glyph(orient='t_in', factor=0.1, geom=pv.Arrow())
@@ -206,17 +303,19 @@ glyph_t_in = points.glyph(orient='t_in', factor=0.1, geom=pv.Arrow())
 points['t_out'] = t_out
 glyph_t_out = points.glyph(orient='t_out', factor=0.1, geom=pv.Arrow())
 
+points['s'] = rho_2
 plotter = pvqt.BackgroundPlotter()
 # plotter.background_color = 'white'
 plotter.add_mesh(grid, show_edges=False, opacity=0.25)
 # plotter.add_mesh(glyph_t_in, color='blue')
-plotter.add_mesh(glyph_t_out, color='red')
-# plotter.add_mesh(points, scalars='origin', cmap=cc.cm.fire)
+# plotter.add_mesh(glyph_t_out, color='red')
+# plotter.add_mesh(points, scalars='s', clim=(0, 3), cmap=cc.cm.fire, nan_opacity=0)
 # plotter.add_mesh(shadow_boundary, color='white', opacity=0.95)
-# for hplane in hplanes:
-#     plotter.add_mesh(hplane, scalars='f', cmap=cmap, clim=clim,
-#                      show_edges=False, interpolate_before_map=True)
-#     #                 clim=(0, emax))
+
+for hplane in hplanes:
+    plotter.add_mesh(hplane, scalars='f', cmap=cmap, clim=clim,
+                     show_edges=False, interpolate_before_map=True)
+    #                 clim=(0, emax))
 
 # plt.figure()
 # plt.hist(f[f < emax], bins=129)

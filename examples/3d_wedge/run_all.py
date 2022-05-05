@@ -9,9 +9,10 @@ from pathlib import Path
 exe_path = Path('../../build/examples/3d_wedge/3d_wedge')
 
 # problem parameters
-ns = [0.25]
-maxvols = np.logspace(-2, -4, 5)
-rfacs = [0.2]
+ns = [1.75]
+p0, p1 = 2, 5
+maxvols = np.logspace(-p0, -p1, 2*(p1 - p0) + 1)
+rfacs = [0.25]
 phips = [np.pi/4]
 sps = [np.sqrt(2)]
 widths = [4]
@@ -19,6 +20,16 @@ heights = [2]
 
 for n, maxvol, rfac, phip, sp, width, height in it.product(
         ns, maxvols, rfacs, phips, sps, widths, heights):
+
+    # make new directory to store results
+    out_path = Path(
+        f'n{n}_a{maxvol}_rfac{rfac}_phip{phip}_sp{sp}_w{width}_h{height}')
+
+    # if the experiment already exists, skip it and warn
+    if out_path.exists():
+        print(f'experiment already exists!')
+        continue
+    out_path.mkdir()
 
     # run the experiment
     args = [
@@ -34,10 +45,6 @@ for n, maxvol, rfac, phip, sp, width, height in it.product(
     ]
     print(subprocess.list2cmdline(args))
     result = subprocess.run(args, capture_output=True, text=True)
-
-    # make new directory to store results
-    out_path = Path(f'n{n}_a{maxvol}_rfac{rfac}_phip{phip}_sp{sp}_w{width}_h{height}')
-    out_path.mkdir()
 
     # write output to results directory
     with open(out_path/'output.txt', 'w') as f:

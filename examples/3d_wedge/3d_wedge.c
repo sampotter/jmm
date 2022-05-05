@@ -178,30 +178,30 @@ static dbl dFdt(dbl t, F_context *context) {
 F_context get_context_direct(dbl sp, dbl phip, dbl n) {
   (void)n;
   return (F_context) {
-    .xsrc = {sp*cos(-phip), sp*sin(-phip), 0},
+    .xsrc = {sp*cos(phip), sp*sin(phip), 0},
     .v1 = {0, 0, 1},
     .x = {NAN, NAN, NAN}
   };
 }
 
-bool in_valid_zone_direct(dbl phi, dbl phip, dbl n) {
+bool in_valid_zone_direct(dbl rho, dbl phi, dbl phip, dbl n) {
   (void)n;
-  return !(0 < phi && phi < JMM_PI - phip);
+  return fabs(rho) < 1e-13 ||
+    (-(2 - n)*JMM_PI/2 < phi && phi < JMM_PI + phip);
 }
 
 F_context get_context_o_refl(dbl sp, dbl phip, dbl n) {
   (void)n;
-  dbl phi_img = phip;
   return (F_context) {
-    .xsrc = {sp*cos(phi_img), sp*sin(phi_img), 0},
+    .xsrc = {sp*cos(phip), -sp*sin(phip), 0},
     .v1 = {0, 0, 1},
     .x = {NAN, NAN, NAN}
   };
 }
 
-bool in_valid_zone_o_refl(dbl phi, dbl phip, dbl n) {
-  dbl dphi = JMM_PI - phip;
-  return -dphi <= phi && phi < n*JMM_PI/2;
+bool in_valid_zone_o_refl(dbl rho, dbl phi, dbl phip, dbl n) {
+  return fabs(rho) < 1e-13 ||
+    (-(2 - n)*JMM_PI/2 <= phi && phi <= JMM_PI - phip);
 }
 
 F_context get_context_n_refl(dbl sp, dbl phip, dbl n) {
@@ -214,15 +214,20 @@ F_context get_context_n_refl(dbl sp, dbl phip, dbl n) {
   };
 }
 
-bool in_valid_zone_n_refl(dbl phi, dbl phip, dbl n) {
-  dbl dphi = (n - 1)*JMM_PI + phip;
-  return n*JMM_PI/2 < phi && 0 <= n*JMM_PI + dphi;
+bool in_valid_zone_n_refl(dbl rho, dbl phi, dbl phip, dbl n) {
+  return fabs(rho) < 1e-13 ||
+    !(-(2 - n)*JMM_PI/2 < phi && phi < (2*n - 1)*JMM_PI - phip);
+}
+
+dbl get_phi(dbl3 const x) {
+  dbl phi = atan2(x[1], x[0]);
+  return phi < 0 ? phi + 2*JMM_PI : phi;
 }
 
 static void set_jet_gt(jmm_3d_wedge_problem_s *wedge, dbl sp, dbl phip,
                        jet32t *jet,
                        F_context (*get_context)(dbl, dbl, dbl),
-                       bool (*in_valid_zone)(dbl, dbl, dbl)) {
+                       bool (*in_valid_zone)(dbl, dbl, dbl, dbl)) {
   size_t nverts = mesh3_nverts(wedge->mesh);
 
   F_context context = get_context(sp, phip, wedge->spec.n);
@@ -235,13 +240,13 @@ static void set_jet_gt(jmm_3d_wedge_problem_s *wedge, dbl sp, dbl phip,
 
     /* Compute the cylindrical angle of x about the wedge in order to
      * determine visibility. */
-    dbl phi = atan2(context.x[1], context.x[0]);
+    dbl phi = get_phi(context.x);
 
     /* Compute the radius of x in cylindrical coordinates. */
     dbl rho = hypot(context.x[0], context.x[1]);
 
     /* The target point is in the valid zone: */
-    if (rho == 0 || in_valid_zone(phi, phip, wedge->spec.n)) {
+    if (in_valid_zone(rho, phi, phip, wedge->spec.n)) {
       /* Compute the eikonal and its gradient: */
       dbl3_sub(context.x, context.xsrc, jet[i].Df);
       jet[i].f = dbl3_norm(jet[i].Df);
@@ -321,6 +326,17 @@ any_cell_vert_updated_from_diff_edge(eik3_s const *eik, size_t cv[4]) {
 static bool cell_incident_on_diff_edge(mesh3_s const *mesh, size_t cv[4]) {
   for (size_t i = 0; i < 4; ++i)
     if (mesh3_vert_incident_on_diff_edge(mesh, cv[i]))
+      return true;
+  return false;
+}
+
+static bool par_inc_on_diff_edge(eik3_s const *eik, size_t l) {
+  mesh3_s const *mesh = eik3_get_mesh(eik);
+  par3_s par = eik3_get_par(eik, l);
+  for (size_t i = 0; i < 3; ++i)
+    if (par.l[i] != NO_PARENT
+        && par.b[i] > 1e-14
+        && mesh3_vert_incident_on_diff_edge(mesh, par.l[i]))
       return true;
   return false;
 }
@@ -459,7 +475,7 @@ jmm_3d_wedge_problem_solve(jmm_3d_wedge_problem_s *wedge, dbl sp, dbl phip,
   /* Compute the location of the point source */
 
   xsrc[0] = sp*cos(phip);
-  xsrc[1] = -sp*sin(phip);
+  xsrc[1] = sp*sin(phip);
   xsrc[2] = 0;
 
   /** direct */
@@ -528,14 +544,10 @@ jmm_3d_wedge_problem_solve(jmm_3d_wedge_problem_s *wedge, dbl sp, dbl phip,
   if (wedge->spec.verbose)
     puts("done");
 
-  /* Compute groundtruth data for point source problem: */
-  set_jet_gt(wedge, sp, phip, wedge->jet_direct_gt,
-             get_context_direct, in_valid_zone_direct);
-
   /* Cell-averaged D2T for direct eikonal */
 
   if (wedge->spec.verbose) {
-    printf("Computing D2T using cell averaging... ");
+    printf("- computing D2T using cell averaging... ");
     fflush(stdout);
   }
 
@@ -554,55 +566,68 @@ jmm_3d_wedge_problem_solve(jmm_3d_wedge_problem_s *wedge, dbl sp, dbl phip,
   if (wedge->spec.verbose)
     puts("done");
 
+  /* Compute groundtruth data for point source problem: */
+  set_jet_gt(wedge, sp, phip, wedge->jet_direct_gt,
+             get_context_direct, in_valid_zone_direct);
+  if (wedge->spec.verbose)
+    puts("- computed groundtruth data for direct arrival");
+
   /** o-refl */
 
   array_s *o_refl_trial_inds;
   array_alloc(&o_refl_trial_inds);
   array_init(o_refl_trial_inds, sizeof(size_t), ARRAY_DEFAULT_CAPACITY);
 
-  /* If the geometry is right for it, set up and solve the o-face
-   * reflection eikonal problem: */
-  if (-phip > -JMM_PI) {
-    for (size_t i = 0; i < mesh3_nverts(wedge->mesh); ++i) {
-      mesh3_copy_vert(wedge->mesh, i, x);
+  /* Set up and solve the o-face reflection eikonal problem: */
+  for (size_t i = 0; i < mesh3_nverts(wedge->mesh); ++i) {
+    mesh3_copy_vert(wedge->mesh, i, x);
 
-      if (x[0] < 0 || x[1] != 0)
-        continue;
+    if (x[0] < 0 || x[1] != 0)
+      continue;
 
-      jet31t jet = eik3_get_jet(wedge->eik_direct, i);
+    jet31t jet = eik3_get_jet(wedge->eik_direct, i);
 
-      /* Reflect gradient over the o-face */
-      jet.Df[1] *= -1;
+    /* Reflect gradient over the o-face */
+    jet.Df[1] *= -1;
 
-      eik3_add_trial(wedge->eik_o_refl, i, jet);
+    eik3_add_trial(wedge->eik_o_refl, i, jet);
 
-      /* Keep track of the TRIAL index for tracking origins later */
-      array_append(o_refl_trial_inds, &i);
-    }
-
-    if (wedge->spec.verbose) {
-      printf("Computing o-face reflection... ");
-      fflush(stdout);
-    }
-    eik3_solve(wedge->eik_o_refl);
-    if (wedge->spec.verbose)
-      puts("done");
-
-    /* Cell-averaged D2T for o-refl eikonal */
-    if (wedge->spec.verbose) {
-      printf("Computing D2T using cell averaging... ");
-      fflush(stdout);
-    }
-    approx_D2T(wedge->eik_direct, wedge->D2T_direct);
-    if (wedge->spec.verbose)
-      puts("done");
-
-    /* Compute the groundtruth data for the o-face reflection: */
-    set_jet_gt(wedge, sp, phip, wedge->jet_o_refl_gt,
-               get_context_o_refl, in_valid_zone_o_refl);
-    if (wedge->spec.verbose)
-      puts("Computed groundtruth data for o-face reflection");
+    /* Keep track of the TRIAL index for tracking origins later */
+    array_append(o_refl_trial_inds, &i);
   }
+
+  if (wedge->spec.verbose) {
+    printf("Computing o-face reflection... ");
+    fflush(stdout);
+  }
+  eik3_solve(wedge->eik_o_refl);
+  if (wedge->spec.verbose)
+    puts("done");
+
+  /* Cell-averaged D2T for o-refl eikonal */
+  if (wedge->spec.verbose) {
+    printf("- computing D2T using cell averaging... ");
+    fflush(stdout);
+  }
+
+  for (size_t l = 0; l < mesh3_nverts(wedge->mesh); ++l)
+    dbl33_nan(wedge->D2T_o_refl[l]);
+
+  // for (size_t i = 0, l; i < array_size(o_refl_trial_inds); ++i) {
+  //   array_get(o_refl_trial_inds, i, &l);
+  //   dbl33_copy(wedge->D2T_direct[l], wedge->D2T_o_refl[l]);
+  // }
+
+  approx_D2T(wedge->eik_o_refl, wedge->D2T_o_refl);
+
+  if (wedge->spec.verbose)
+    puts("done");
+
+  /* Compute the groundtruth data for the o-face reflection: */
+  set_jet_gt(wedge, sp, phip, wedge->jet_o_refl_gt,
+             get_context_o_refl, in_valid_zone_o_refl);
+  if (wedge->spec.verbose)
+    puts("- computed groundtruth data for o-face reflection");
 
   /** n-refl */
 
@@ -612,62 +637,74 @@ jmm_3d_wedge_problem_solve(jmm_3d_wedge_problem_s *wedge, dbl sp, dbl phip,
 
   /* Ditto for the n-face problem: */
   dbl n_radians = JMM_PI*wedge->spec.n;
-  if (-phip < n_radians - JMM_PI) {
-    /* Get the surface normal for the n-face */
-    dbl3 n_normal = {-sin(n_radians), cos(n_radians), 0};
 
-    /* Compute reflection matrix for the surface normal */
-    dbl33 n_refl;
-    for (size_t i = 0; i < 3; ++i)
-      for (size_t j = 0; j < 3; ++j)
-        n_refl[i][j] = i == j ?
-          1 - 2*n_normal[i]*n_normal[j] : -2*n_normal[i]*n_normal[j];
+  /* Get the surface normal for the n-face */
+  dbl3 n_normal = {-sin(n_radians), cos(n_radians), 0};
 
-    for (size_t i = 0; i < mesh3_nverts(wedge->mesh); ++i) {
-      /* Skip vertices that aren't on the boundary */
-      if (!mesh3_bdv(wedge->mesh, i))
-        continue;
+  /* Compute reflection matrix for the surface normal */
+  dbl33 n_refl;
+  for (size_t i = 0; i < 3; ++i)
+    for (size_t j = 0; j < 3; ++j)
+      n_refl[i][j] = i == j ?
+        1 - 2*n_normal[i]*n_normal[j] : -2*n_normal[i]*n_normal[j];
 
-      /* Check if the angle of the vertex matches the angle of the
-       * n-face of the wedge */
-      mesh3_copy_vert(wedge->mesh, i, x);
-      if (fabs(atan2(x[1], x[0]) - n_radians) > 1e-7)
-        continue;
+  for (size_t i = 0; i < mesh3_nverts(wedge->mesh); ++i) {
+    /* Skip vertices that aren't on the boundary */
+    if (!mesh3_bdv(wedge->mesh, i))
+      continue;
 
-      jet31t jet = eik3_get_jet(wedge->eik_direct, i);
+    /* Check if the angle of the vertex matches the angle of the
+     * n-face of the wedge */
+    mesh3_copy_vert(wedge->mesh, i, x);
+    if (fabs(get_phi(x) - n_radians) > 1e-7)
+      continue;
 
-      /* Reflected gradient over n-face */
-      dbl33_dbl3_mul_inplace(n_refl, jet.Df);
+    jet31t jet = eik3_get_jet(wedge->eik_direct, i);
 
-      eik3_add_trial(wedge->eik_n_refl, i, jet);
+    /* Reflected gradient over n-face */
+    dbl33_dbl3_mul_inplace(n_refl, jet.Df);
 
-      /* Keep track of the TRIAL index for tracking origins later */
-      array_append(n_refl_trial_inds, &i);
-    }
+    eik3_add_trial(wedge->eik_n_refl, i, jet);
 
-    if (wedge->spec.verbose) {
-      printf("Computing n-face reflection... ");
-      fflush(stdout);
-    }
-    eik3_solve(wedge->eik_n_refl);
-    if (wedge->spec.verbose)
-      puts("done");
-
-    /* Cell-averaged D2T for direct eikonal */
-    if (wedge->spec.verbose) {
-      printf("Computing D2T using cell averaging... ");
-      fflush(stdout);
-    }
-    approx_D2T(wedge->eik_direct, wedge->D2T_direct);
-    if (wedge->spec.verbose)
-      puts("done");
-
-    /* Compute the groundtruth data for the n-face reflection: */
-    set_jet_gt(wedge, sp, phip, wedge->jet_n_refl_gt,
-               get_context_n_refl, in_valid_zone_n_refl);
-    if (wedge->spec.verbose)
-      puts("Computed groundtruth data for n-face reflection");
+    /* Keep track of the TRIAL index for tracking origins later */
+    array_append(n_refl_trial_inds, &i);
   }
+
+  if (wedge->spec.verbose) {
+    printf("Computing n-face reflection... ");
+    fflush(stdout);
+  }
+  eik3_solve(wedge->eik_n_refl);
+  if (wedge->spec.verbose)
+    puts("done");
+
+  /* cell-averaged D2T for n-face reflection */
+  if (wedge->spec.verbose) {
+    printf("- computing D2T using cell averaging... ");
+    fflush(stdout);
+  }
+
+  for (size_t l = 0; l < mesh3_nverts(wedge->mesh); ++l)
+    dbl33_nan(wedge->D2T_n_refl[l]);
+
+  // for (size_t i = 0, l; i < array_size(n_refl_trial_inds); ++i) {
+  //   array_get(n_refl_trial_inds, i, &l);
+  //   dbl33_copy(wedge->D2T_direct[l], wedge->D2T_n_refl[l]);
+
+  //   /* reflect Hessian */
+  //   wedge-
+  // }
+
+  approx_D2T(wedge->eik_n_refl, wedge->D2T_n_refl);
+
+  if (wedge->spec.verbose)
+    puts("done");
+
+  /* Compute the groundtruth data for the n-face reflection: */
+  set_jet_gt(wedge, sp, phip, wedge->jet_n_refl_gt,
+             get_context_n_refl, in_valid_zone_n_refl);
+  if (wedge->spec.verbose)
+    puts("- computed groundtruth data for n-face reflection");
 
   puts("Finished solving eikonal equations");
 
@@ -734,14 +771,6 @@ jmm_3d_wedge_problem_solve(jmm_3d_wedge_problem_s *wedge, dbl sp, dbl phip,
       wedge->origin_n_refl[l] = 1;
     }
 
-    for (size_t l = 0; l < mesh3_nverts(wedge->mesh); ++l) {
-      mesh3_copy_vert(wedge->mesh, l, x);
-      if (hypot(x[0], x[1]) < 1e-13) {
-        assert(wedge->origin_n_refl[l] == 1);
-        wedge->origin_n_refl[l] = 0;
-      }
-    }
-
     eik3_transport_dbl(wedge->eik_n_refl, wedge->origin_n_refl, true);
   }
 
@@ -766,7 +795,7 @@ jmm_3d_wedge_problem_solve(jmm_3d_wedge_problem_s *wedge, dbl sp, dbl phip,
   }
 
   for (size_t l = 0; l < mesh3_nverts(wedge->mesh); ++l)
-    if (updated_from_diff_edge(wedge->eik_direct, l))
+    if (par_inc_on_diff_edge(wedge->eik_direct, l))
       dbl3_copy(jet[l].Df, wedge->t_out_direct[l]);
 
   eik3_transport_unit_vector(wedge->eik_direct, wedge->t_in_direct, true);
@@ -881,6 +910,7 @@ jmm_3d_wedge_problem_dump_direct_origin(
   FILE *fp = fopen(path, "wb");
   fwrite(wedge->origin_direct, sizeof(wedge->origin_direct[0]),
          mesh3_nverts(wedge->mesh), fp);
+  fclose(fp);
 }
 
 static void
@@ -933,6 +963,7 @@ jmm_3d_wedge_problem_dump_direct_t_in(
   FILE *fp = fopen(path, "wb");
   fwrite(wedge->t_in_direct, sizeof(wedge->t_in_direct[0]),
          mesh3_nverts(wedge->mesh), fp);
+  fclose(fp);
 }
 
 static void
@@ -953,6 +984,7 @@ jmm_3d_wedge_problem_dump_o_refl_t_in(
   FILE *fp = fopen(path, "wb");
   fwrite(wedge->t_in_o_refl, sizeof(wedge->t_in_o_refl[0]),
          mesh3_nverts(wedge->mesh), fp);
+  fclose(fp);
 }
 
 static void
@@ -963,6 +995,7 @@ jmm_3d_wedge_problem_dump_o_refl_t_out(
   FILE *fp = fopen(path, "wb");
   fwrite(wedge->t_out_o_refl, sizeof(wedge->t_out_o_refl[0]),
          mesh3_nverts(wedge->mesh), fp);
+  fclose(fp);
 }
 
 static void
@@ -973,6 +1006,7 @@ jmm_3d_wedge_problem_dump_n_refl_t_in(
   FILE *fp = fopen(path, "wb");
   fwrite(wedge->t_in_n_refl, sizeof(wedge->t_in_n_refl[0]),
          mesh3_nverts(wedge->mesh), fp);
+  fclose(fp);
 }
 
 static void
@@ -983,6 +1017,7 @@ jmm_3d_wedge_problem_dump_n_refl_t_out(
   FILE *fp = fopen(path, "wb");
   fwrite(wedge->t_out_n_refl, sizeof(wedge->t_out_n_refl[0]),
          mesh3_nverts(wedge->mesh), fp);
+  fclose(fp);
 }
 
 void jmm_3d_wedge_problem_dump(jmm_3d_wedge_problem_s *wedge,

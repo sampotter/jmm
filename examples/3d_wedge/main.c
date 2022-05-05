@@ -15,12 +15,12 @@ static struct argp_option options[] = {
   {"verbose", 'v', 0, 0, "Produce verbose output", 0},
   {"visualize", 'z', 0, 0, "Make 3D visualization of solver running", 0},
   {"maxvol", 'a', "VOLUME", 0, "Maximum tetrahedron volume (default: 0.01)", 0},
-  {0, 'n', "N", 0, "Wedge angle parameter (wedge angle is (2-n)pi, default: 0.25)", 0},
+  {0, 'n', "N", 0, "Wedge angle parameter (wedge angle is (2-n)pi, default: 1.75)", 0},
   {"width", 'w', "WIDTH", 0, "Domain bounding box width (default: 2)", 0},
   {"height", 'h', "HEIGHT", 0, "Domain bounding box height (default: 1)", 0},
   {"rho", 'R', "COEFFICIENT", 0, "Sound-hard reflection coefficient (default: 1)", 0},
   {"sp", 's', "DISTANCE", 0, "Distance of point source to edge (default: 1)", 0},
-  {"phip", 'p', "ANGLE", 0, "Angle between source and n-face (default: -pi/4)", 0},
+  {"phip", 'p', "ANGLE", 0, "Angle between source and o-face (default: pi/4)", 0},
   {"rfac", 'r', "DISTANCE", 0, "Radius of initialization ball around point source (default: 0)", 0},
   {"omega", 'o', "FREQUENCY", 0, "Angular frequency of wave (default: 1000)", 0},
   {0}
@@ -121,7 +121,7 @@ int main(int argc, char *argv[]) {
           .verbose = false,
           .visualize = false,
           .maxvol = 0.01,
-          .n = 0.25,
+          .n = 1.75,
           .w = 2,
           .h = 1,
           .R = 1
@@ -159,6 +159,15 @@ int main(int argc, char *argv[]) {
   }
 
   jmm_3d_wedge_problem_dump(wedge, ".", true, true, true);
+
+  size_t ngrid = 256 + 1;
+  grid2_s img_grid = {
+    .shape = {ngrid, ngrid},
+    .xymin = {-wedge->spec->w/2, -wedge->spec->w/2},
+    .h = wedge->spec->w/(ngrid - 1),
+    .order = ORDER_ROW_MAJOR
+  };
+  jmm_3d_wedge_problem_save_slice_plots(wedge,".",true,true,true,&img_grid);
 
 cleanup:
   exit(error == JMM_ERROR_NONE ? EXIT_SUCCESS : EXIT_FAILURE);
