@@ -53,6 +53,7 @@ dbl dbl3_dist_sq(dbl3 const u, dbl3 const v);
 dbl dbl3_dot(dbl3 const u, dbl3 const v);
 dbl dbl3_maxdist(dbl3 const u, dbl3 const v);
 dbl dbl3_maxnorm(dbl3 const u);
+dbl dbl3_minimum(dbl3 const u);
 dbl dbl3_ndot(dbl3 const u, dbl3 const v);
 dbl dbl3_norm(dbl3 const u);
 dbl dbl3_normalize(dbl3 u);

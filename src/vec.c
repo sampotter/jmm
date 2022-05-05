@@ -179,6 +179,10 @@ dbl dbl3_maxnorm(dbl3 const u) {
                    fabs(u[2])));
 }
 
+dbl dbl3_minimum(dbl3 const u) {
+  return fmin(u[0], fmin(u[1], u[2]));
+}
+
 dbl dbl3_ndot(dbl3 const u, dbl3 const v) {
   dbl uv[3] = {u[0]*v[0], u[1]*v[1], u[2]*v[2]};
   return dbl3_nsum(uv);
