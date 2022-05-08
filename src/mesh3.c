@@ -811,7 +811,13 @@ bool mesh3_cell_contains_point(mesh3_s const *mesh, size_t lc, dbl const x[3]) {
   return tetra3_contains_point(&tetra, x, &mesh->eps);
 }
 
-size_t mesh3_find_cell_containing_point(mesh3_s const *mesh, dbl const x[3]) {
+size_t mesh3_find_cell_containing_point(mesh3_s const *mesh, dbl const x[3],
+                                        size_t lc) {
+  /* First, try the passed guess... */
+  if (lc != (size_t)NO_INDEX && mesh3_cell_contains_point(mesh, lc, x))
+    return lc;
+
+  /* ... otherwise, proceed as usual */
   for (size_t lc = 0; lc < mesh->ncells; ++lc)
     if (mesh3_cell_contains_point(mesh, lc, x))
       return lc;

@@ -62,6 +62,8 @@ dbl dbl3_nsum(dbl3 const u);
 dbl dbl3_sum(dbl3 const u);
 dbl dbl3_wnormsq(dbl33 const A, dbl3 const x);
 size_t dbl3_argmax(dbl3 const u);
+void dbl3_abs(dbl3 const u, dbl3 v);
+void dbl3_argsort(dbl3 const u, size_t perm[3]);
 void dbl3_add(dbl3 const u, dbl3 const v, dbl3 w);
 void dbl3_add_inplace(dbl3 u, dbl3 const v);
 void dbl3_cc(dbl3 const u0, dbl3 const u1, dbl t0, dbl3 ut);

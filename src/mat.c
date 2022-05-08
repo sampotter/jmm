@@ -3,6 +3,9 @@
 #include <assert.h>
 #include <string.h>
 
+#include <gsl/gsl_eigen.h>
+#include <gsl/gsl_matrix.h>
+
 #include "macros.h"
 
 bool dbl22_isfinite(dbl22 const A) {
@@ -290,6 +293,25 @@ void dbl33_dbl_div_inplace(dbl33 A, dbl a) {
   for (int i = 0; i < 3; ++i)
     for (int j = 0; j < 3; ++j)
       A[i][j] /= a;
+}
+
+void dbl33_eigvals_sym(dbl33 const A, dbl3 lam) {
+  gsl_matrix *A_gsl = gsl_matrix_alloc(3, 3);
+  for (size_t i = 0; i < 3; ++i)
+    for (size_t j = 0; j < 3; ++j)
+      gsl_matrix_set(A_gsl, i, j, (A[i][j] + A[j][i])/2);
+
+  gsl_vector *lam_gsl = gsl_vector_alloc(3);
+
+  gsl_eigen_symm_workspace *w = gsl_eigen_symm_alloc(3);
+  gsl_eigen_symm(A_gsl, lam_gsl, w);
+
+  for (size_t i = 0; i < 3; ++i)
+    lam[i] = gsl_vector_get(lam_gsl, i);
+
+  gsl_eigen_symm_free(w);
+  gsl_vector_free(lam_gsl);
+  gsl_matrix_free(A_gsl);
 }
 
 void dbl33_eye(dbl33 A) {

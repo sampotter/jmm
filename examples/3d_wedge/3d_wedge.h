@@ -2,6 +2,7 @@
 
 #include <eik3.h>
 #include <error.h>
+#include <grid2.h>
 #include <mesh3.h>
 
 /* A structure containing parameters which specify a 3D wedge
@@ -51,6 +52,11 @@ typedef struct jmm_3d_wedge_problem {
   dbl33 *D2T_o_refl;
   dbl33 *D2T_n_refl;
 
+  /* Approximate amplitudes: */
+  dbl *A_direct;
+  dbl *A_o_refl;
+  dbl *A_n_refl;
+
   /* Groundtruth data: */
   jet32t *jet_direct_gt;
   jet32t *jet_o_refl_gt;
@@ -83,3 +89,9 @@ jmm_error_e jmm_3d_wedge_problem_solve(jmm_3d_wedge_problem_s *wedge,
 void jmm_3d_wedge_problem_dump(jmm_3d_wedge_problem_s *wedge, char const *path,
                                bool dump_direct, bool dump_o_face,
                                bool dump_n_face);
+void jmm_3d_wedge_problem_save_slice_plots(jmm_3d_wedge_problem_s const *wedge,
+                                           char const *path,
+                                           bool dump_direct,
+                                           bool dump_o_face,
+                                           bool dump_n_face,
+                                           grid2_s const *grid);

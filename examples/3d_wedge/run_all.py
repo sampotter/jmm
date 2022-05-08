@@ -10,7 +10,7 @@ exe_path = Path('../../build/examples/3d_wedge/3d_wedge')
 
 # problem parameters
 ns = [1.75]
-p0, p1 = 2, 5
+p0, p1 = 2, 3
 maxvols = np.logspace(-p0, -p1, 2*(p1 - p0) + 1)
 rfacs = [0.25]
 phips = [np.pi/4]
@@ -68,6 +68,13 @@ for n, maxvol, rfac, phip, sp, width, height in it.product(
                      'n_refl_state.bin', 'n_refl_origin.bin',
                      'n_refl_par_l.bin', 'n_refl_par_b.bin',
                      'n_refl_accepted.bin', 'n_refl_has_bc.bin',
-                     'n_refl_t_in.bin', 'n_refl_t_out.bin']:
+                     'n_refl_t_in.bin', 'n_refl_t_out.bin',
+                     'img_grid.txt',
+                     'slice_direct_A.bin', 'slice_direct_T.bin',
+                     'slice_direct_origin.bin', 'slice_direct_E_T.bin',
+                     'slice_o_refl_A.bin', 'slice_o_refl_T.bin',
+                     'slice_o_refl_origin.bin', 'slice_o_refl_E_T.bin',
+                     'slice_n_refl_A.bin', 'slice_n_refl_T.bin',
+                     'slice_n_refl_origin.bin', 'slice_n_refl_E_T.bin']:
         path = Path(path_str)
         path.replace(out_path/path)

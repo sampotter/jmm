@@ -54,7 +54,7 @@ size_t mesh3_nverts(mesh3_s const *mesh);
 void mesh3_get_bbox(mesh3_s const *mesh, rect3 *bbox);
 void mesh3_get_cell_bbox(mesh3_s const *mesh, size_t i, rect3 *bbox);
 bool mesh3_cell_contains_point(mesh3_s const *mesh, size_t i, dbl const x[3]);
-size_t mesh3_find_cell_containing_point(mesh3_s const *mesh, dbl const x[3]);
+size_t mesh3_find_cell_containing_point(mesh3_s const *mesh, dbl const x[3], size_t lc);
 int mesh3_nvc(mesh3_s const *mesh, size_t i);
 void mesh3_vc(mesh3_s const *mesh, size_t i, size_t *vc);
 int mesh3_nve(mesh3_s const *mesh, size_t lv);

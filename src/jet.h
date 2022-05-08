@@ -35,6 +35,7 @@ bool jet31t_approx_eq(jet31t const *jet1, jet31t const *jet2, dbl atol);
 bool jet31t_eq(jet31t const *jet1, jet31t const *jet2);
 bool jet31t_is_finite(jet31t const *jet);
 bool jet31t_is_point_source(jet31t const *jet);
+void jet31t_sub(jet31t const *in1, jet31t const *in2, jet31t *out);
 
 typedef struct {
   dbl f;

@@ -263,3 +263,7 @@ dbl bmesh33_f(bmesh33_s const *bmesh, dbl3 const x) {
   }
   return NAN;
 }
+
+bb33 *bmesh33_get_bb_ptr(bmesh33_s const *bmesh, size_t lc) {
+  return &bmesh->bb[lc];
+}

@@ -1,9 +1,20 @@
 #include "grid2.h"
 
 #include <assert.h>
+#include <stdio.h>
 #include <string.h>
 
 #include "vec.h"
+
+void grid2_save(grid2_s const *grid, char const *path) {
+  FILE *fp = fopen(path, "w");
+  fprintf(fp, "shape: %d, %d\n", grid->shape[0], grid->shape[1]);
+  fprintf(fp, "xymin: %g, %g\n", grid->xymin[0], grid->xymin[1]);
+  fprintf(fp, "h: %g\n", grid->h);
+  fprintf(fp, "order: %s",
+          grid->order == ORDER_ROW_MAJOR ? "row major" : "column major");
+  fclose(fp);
+}
 
 size_t grid2_nind(grid2_s const *grid) {
   return grid->shape[0]*grid->shape[1];

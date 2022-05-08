@@ -31,7 +31,7 @@ def load_data(path, field, selected_origin=None):
     else:
         return T, T_gt, DT, DT_gt, D2T, D2T_gt
 
-def get_h_for_each_mesh(field):
+def get_h_for_each_mesh():
     h = []
     for path in paths:
         V = np.fromfile(path/'verts.bin', np.float64).reshape(-1, 3)
@@ -71,7 +71,7 @@ for i, (selected_origin, field) in enumerate(
         it.product([None, 0, 1], ['direct', 'o_refl', 'n_refl'])):
     print(f'origin: {selected_origin}, field: {field}')
 
-    h = get_h_for_each_mesh(field)
+    h = get_h_for_each_mesh()
     E_T, E_DT, E_D2T = compute_rel_lp_errors_wrt_a(field, selected_origin)
     if E_T.size == 0 or E_DT.size == 0 or E_D2T.size == 0:
         continue

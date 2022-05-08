@@ -10,7 +10,7 @@ from scipy.spatial.transform import Rotation
 
 from pathlib import Path
 
-path = Path('n0.25_a0.001_rfac0.2_phip0.7853981633974483_sp1.4142135623730951_w4_h2')
+path = Path('n1.75_a0.01_rfac0.25_phip0.7853981633974483_sp1.4142135623730951_w4_h2')
 # path = Path('../../build/examples/3d_wedge')
 
 verts = np.fromfile(path/'verts.bin', dtype=np.float64).reshape(-1, 3)
@@ -125,7 +125,48 @@ hess_det = np.array([np.linalg.det(_) for _ in hess_T])
 hess_det_gt = np.array([np.linalg.det(_) for _ in hess_T_gt])
 
 ############################################################################
-# computing the geometric part of the amplitude
+# checking logarithmic vs linear...
+
+X, Y = np.meshgrid(np.linspace(0, 1), np.linspace(0, 1), indexing='xy')
+x0, y0 = 1, 1
+mask = X + Y > 1
+
+Rinv = 1/np.sqrt((X + x0)**2 + (Y + y0)**2)
+Rinv[mask] = np.nan
+
+r0, r1, r2 = np.sqrt(x0**2 + y0**2), np.sqrt((x0 + 1)**2 + y0**2), np.sqrt(x0**2 + (y0 + 1)**2)
+Rinv_lin = (1 - X - Y)*(1/r0) + X*(1/r1) + Y*(1/r2)
+Rinv_lin[mask] = np.nan
+
+# Rinv_linlog = np.exp((1 - X - Y)*np.log(1/r0) + X*np.log(1/r1) + Y*np.log(1/r2))
+Rinv_linlog = ((1/r0)**(1 - X - Y))*((1/r1)**X)*((1/r2)**Y)
+Rinv_linlog[mask] = np.nan
+
+plt.figure(figsize=(12, 8))
+plt.subplot(2, 3, 1)
+plt.contourf(X, Y, Rinv)
+plt.colorbar()
+plt.gca().set_aspect('equal')
+plt.subplot(2, 3, 2)
+plt.contourf(X, Y, Rinv_lin)
+plt.colorbar()
+plt.gca().set_aspect('equal')
+plt.subplot(2, 3, 3)
+plt.contourf(X, Y, Rinv_linlog)
+plt.colorbar()
+plt.gca().set_aspect('equal')
+plt.subplot(2, 3, 5)
+plt.contourf(X, Y, abs(Rinv_lin - Rinv)/abs(Rinv))
+plt.colorbar()
+plt.gca().set_aspect('equal')
+plt.subplot(2, 3, 6)
+plt.contourf(X, Y, abs(Rinv_linlog - Rinv)/abs(Rinv))
+plt.colorbar()
+plt.gca().set_aspect('equal')
+plt.show()
+
+############################################################################
+# computing the geometric part of the amplitude (spreading factors)
 
 xsrc = np.array([-1, 1, 0])
 
@@ -138,7 +179,7 @@ def get_amp(g, H):
         if np.isnan(par_b[l]).all():
             xhat = verts[l]
             r = np.linalg.norm(xhat - xsrc)
-            amp[l] = 1
+            amp[l] = 1/r
     for lhat in accepted:
         if np.isnan(amp[lhat]):
             b, l = par_b[lhat], par_l[lhat]
@@ -148,9 +189,8 @@ def get_amp(g, H):
             amplam = np.product(amp[l]**b)
             xlam, xhat = b@verts[l], verts[lhat]
             L = np.linalg.norm(xhat - xlam)
-            DT, D2T = g[lhat], H[lhat]
-            q1, q2 = np.linalg.svd(np.eye(3) - np.outer(DT, DT))[0][:, :2].T
-            k1, k2 = -q1@D2T@q1, -q2@D2T@q2
+            D2T = H[lhat]
+            k1, k2 = -np.linalg.svd(D2T, compute_uv=False)[:2]
             amp[lhat] = amplam*np.exp(L*(k1 + k2)/2)
     return amp
 
@@ -270,18 +310,19 @@ points['origin'] = origin # xfer(xfer(xfer(origin)))
 
 shadow_boundary = get_level_set(verts, cells, origin, 0.5)
 
-i, j = 1, 0
+i, j = 0, 0
 # Fhat, F, emax = T, T_gt, h**2
 # Fhat, F, emax = grad_T[:, i], grad_T_gt[:, i], h**2
 Fhat, F, emax = hess_T[:, i, j], hess_T_gt[:, i, j], h
 
-f, clim, cmap = origin, (0, 1), cc.cm.CET_D1A
+# f, clim, cmap = origin, (0, 1), cc.cm.CET_D1A
 # f, clim, cmap = abs(F - Fhat)/np.maximum(1, abs(F)), (0, emax), cc.cm.gouldian
+# f, clim, cmap = F, (-abs(F).max(), abs(F).max()), cc.cm.CET_D13
 # f, clim, cmap = F, (-abs(F).max(), abs(F).max()), cc.cm.CET_D13
 # f, clim, cmap = Fhat, (-abs(Fhat).max(), abs(Fhat).max()), cc.cm.CET_D13
 # f, clim, cmap = 20*np.log10(np.real(amp)), (-60, 0), cc.cm.gouldian
 # f, clim, cmap = 20*np.log10(np.real(amp_gt)), (-60, 0), cc.cm.gouldian
-# f, clim, cmap = abs(20*np.log10(np.real(amp_gt)) - 20*np.log10(np.real(amp))), None, cc.cm.gouldian
+f, clim, cmap = abs(20*np.log10(np.real(amp_gt)) - 20*np.log10(np.real(amp))), None, cc.cm.gouldian
 # f, clim, cmap = np.real(amp*np.exp(1j*om*T)), (-1, 1), cc.cm.CET_D13
 # f, clim, cmap = np.real(amp_gt*np.exp(1j*om*T)), (-1, 1), cc.cm.CET_D13
 # f, clim, cmap = np.log10(np.maximum(1e-16, abs(amp*np.exp(1j*om*T) - amp_gt*np.exp(1j*om*T_gt)))), (-4, 0), cc.cm.gouldian

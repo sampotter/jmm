@@ -46,6 +46,7 @@ void dbl33_dbl3_nmul(dbl33 const A, dbl3 const x, dbl3 b);
 void dbl33_dbl3_solve(dbl33 const A, dbl3 const b, dbl3 x);
 void dbl33_dbl_div(dbl33 const A, dbl a, dbl33 B);
 void dbl33_dbl_div_inplace(dbl33 A, dbl a);
+void dbl33_eigvals_sym(dbl33 const A, dbl3 lam);
 void dbl33_eye(dbl33 A);
 void dbl33_get_column(dbl33 const A, int i, dbl3 a);
 void dbl33_invert(dbl33 A);

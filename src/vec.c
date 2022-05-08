@@ -249,6 +249,31 @@ size_t dbl3_argmax(dbl3 const u) {
   return argmax;
 }
 
+void dbl3_abs(dbl3 const u, dbl3 v) {
+  v[0] = fabs(u[0]);
+  v[1] = fabs(u[1]);
+  v[2] = fabs(u[2]);
+}
+
+void dbl3_argsort(dbl3 const u, size_t perm[3]) {
+  if (u[0] < u[1] && u[0] < u[2]) {
+    perm[0] = 0;
+    perm[1] = 1;
+    perm[2] = 2;
+    if (u[1] > u[2]) SWAP(perm[1], perm[2]);
+  } else if (u[1] < u[0] && u[1] < u[2]) {
+    perm[0] = 1;
+    perm[1] = 0;
+    perm[2] = 2;
+    if (u[0] > u[2]) SWAP(perm[0], perm[2]);
+  } else {
+    perm[0] = 1;
+    perm[1] = 2;
+    perm[2] = 0;
+    if (u[0] > u[1]) SWAP(perm[0], perm[1]);
+  }
+}
+
 void dbl3_add(dbl3 const u, dbl3 const v, dbl3 w) {
   w[0] = u[0] + v[0];
   w[1] = u[1] + v[1];

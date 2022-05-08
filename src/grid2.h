@@ -36,6 +36,7 @@ typedef struct grid2 {
 
 typedef struct grid2info grid2info_s;
 
+void grid2_save(grid2_s const *grid, char const *path);
 size_t grid2_nind(grid2_s const *grid);
 size_t grid2_nindc(grid2_s const *grid);
 int grid2_ind2l(grid2_s const *grid, int2 const ind);

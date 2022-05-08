@@ -31,30 +31,42 @@
    6. [X] add postprocessing pass to compute geometric amplitude
       - [X] try doing it in terms of amplitude
       - [X] try doing it in terms of intensity (*probably better*)
-   7. [-] 3D slice plots
+   7. [-] slice plots
       - [X] initial implementation in python
-      - [ ] bmesh33
-        | field  | T | DT | D2T | E (T) | E (DT) | E (D2T) | origin |
-        |--------+---+----+-----+-------+--------+---------+--------|
-        | direct |   |    |     |       |        |         |        |
-        | o-refl |   |    |     |       |        |         |        |
-        | n-refl |   |    |     |       |        |         |        |
-   8. [ ] error wavefront plot for building
-   9. [ ] add UTD (need t_in, t_out)
-   10. [ ] compute u by patching fields
-   11. [ ] make error plots
-       | field  | T | DT | D2T |
-       |--------+---+----+-----|
-       | direct | X | X  | X   |
-       | o-refl | X | X  | X   |
-       | n-refl | X | X  | X   |
-   12. [ ] measure time and output it
-   13. [ ] finish writing
-   14. [ ] simplify paper to c = 1 w/o extra c varying stuff
-   15. [ ] make nice 3D figures using inkscape
-   16. [ ] send to ramani & masha
-   17. [ ] make timing plots
-   18. [ ] fix O(N^2) runtime (data structure problem)
+      - [X] bmesh33 for T error
+      - [-] u
+        - [X] compute amplitude field
+        - [X] fix amplitude computation
+          - [X] *i'm initializing D2T to 0 near the point source!!!*
+          - [X] *make sure to actually compute the principal curvatures!!!*
+        - [ ] add UTD (need t_in, t_out)
+        - [ ] patching fields using origins
+   8. [ ] building
+      - [ ] set up and run direct
+   9. [X] make error plots
+      | field  | T | DT | D2T |
+      |--------+---+----+-----|
+      | direct | X | X  | X   |
+      | o-refl | X | X  | X   |
+      | n-refl | X | X  | X   |
+   10. [ ] measure time and output it
+   11. [ ] finish writing
+   12. [ ] simplify paper to c = 1 w/o extra c varying stuff
+   13. [ ] make nice 3D figures using inkscape
+   14. [ ] send to ramani & masha
+   15. [ ] make timing plots
+   16. [ ] fix O(N^2) runtime (data structure problem)
+
+   idea:
+   - [ ] instead of local factoring... solve the eikonal equation
+     once, determine the origins, then use the origins to provide a
+     good initial guess past the diffracting edge... re-solve the
+     eikonal equation?
+
+   things to look in to:
+   - [ ] print number of edge updates and vertex updates that i'm accepting
+   - [ ] look at some of these and make sure i'm only accepting good ones
+   - [ ] how am I actually initializing near the diffracting edge?
 
    final bug fixes:
    - [ ] bd tris:

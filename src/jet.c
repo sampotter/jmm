@@ -51,6 +51,11 @@ bool jet31t_is_point_source(jet31t const *jet) {
   return isfinite(jet->f) && dbl3_all_nan(jet->Df);
 }
 
+void jet31t_sub(jet31t const *in1, jet31t const *in2, jet31t *out) {
+  out->f = in1->f - in2->f;
+  dbl3_sub(in1->Df, in2->Df, out->Df);
+}
+
 jet32t jet32t_make_empty() {
   return (jet32t) {
     .f = INFINITY,

@@ -163,8 +163,8 @@ int main(int argc, char *argv[]) {
   size_t ngrid = 256 + 1;
   grid2_s img_grid = {
     .shape = {ngrid, ngrid},
-    .xymin = {-wedge->spec->w/2, -wedge->spec->w/2},
-    .h = wedge->spec->w/(ngrid - 1),
+    .xymin = {-wedge->spec.w/2, -wedge->spec.w/2},
+    .h = wedge->spec.w/(ngrid - 1),
     .order = ORDER_ROW_MAJOR
   };
   jmm_3d_wedge_problem_save_slice_plots(wedge,".",true,true,true,&img_grid);
