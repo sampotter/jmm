@@ -677,7 +677,7 @@ class MainWindow(pvqt.MainWindow):
             print(f'- parents:', end='')
             if self.getSelectedEikonal() == Eikonal.DirectArrival:
                 print(self.direct_par_l[i])
-            elif self.getSelected() == Eikonal.OFaceReflection:
+            elif self.getSelectedEikonal() == Eikonal.OFaceReflection:
                 print(self.o_refl_par_l[i])
             else:
                 print(self.n_refl_par_l[i])
