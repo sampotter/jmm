@@ -112,7 +112,7 @@ void utri_dealloc(utri_s **utri) {
   *utri = NULL;
 }
 
-void utri_set_lambda(utri_s *utri, dbl lam) {
+static void set_lambda(utri_s *utri, dbl lam) {
   utri->lam = lam;
 
   dbl xb[3];
@@ -133,8 +133,8 @@ void utri_set_lambda(utri_s *utri, dbl lam) {
   utri->Df = dT_dlam + dL_dlam;
 }
 
-static dbl utri_hybrid_f(dbl lam, utri_s *utri) {
-  utri_set_lambda(utri, lam);
+static dbl hybrid_f(dbl lam, utri_s *utri) {
+  set_lambda(utri, lam);
   return utri->Df;
 }
 
@@ -230,21 +230,21 @@ void utri_init(utri_s *u, utri_spec_s const *spec) {
 void utri_solve(utri_s *utri) {
   dbl lam, f[2];
 
-  if (hybrid((hybrid_cost_func_t)utri_hybrid_f, 0, 1, utri, &lam))
+  if (hybrid((hybrid_cost_func_t)hybrid_f, 0, 1, utri, &lam))
     return;
 
-  utri_set_lambda(utri, 0);
+  set_lambda(utri, 0);
   f[0] = utri->f;
 
-  utri_set_lambda(utri, 1);
+  set_lambda(utri, 1);
   f[1] = utri->f;
 
   assert(f[0] != f[1]);
 
   if (f[0] < f[1])
-    utri_set_lambda(utri, 0);
+    set_lambda(utri, 0);
   else
-    utri_set_lambda(utri, 1);
+    set_lambda(utri, 1);
 }
 
 static void get_update_inds(utri_s const *utri, size_t l[2]) {
@@ -400,44 +400,10 @@ bool utri_update_ray_is_physical(utri_s const *utri, eik3_s const *eik) {
   return xhatm_in_cell;
 }
 
-int utri_cmp(utri_s const **h1, utri_s const **h2) {
-  utri_s const *u1 = *h1;
-  utri_s const *u2 = *h2;
-
-  if (u1 == NULL && u2 == NULL) {
-    return 0;
-  } else if (u2 == NULL) {
-    return -1;
-  } else if (u1 == NULL) {
-    return 1;
-  } else {
-    dbl T1 = utri_get_value(u1), T2 = utri_get_value(u2);
-    if (T1 < T2) {
-      return -1;
-    } else if (T1 > T2) {
-      return 1;
-    } else {
-      return 0;
-    }
-  }
-}
-
 bool utri_has_interior_point_solution(utri_s const *utri) {
   dbl const atol = 1e-14;
   return (atol < utri->lam && utri->lam < 1 - atol)
     || fabs(get_lag_mult(utri)) <= atol;
-}
-
-bool utri_has_orig_index(utri_s const *utri) {
-  return utri->orig_index != (size_t)NO_INDEX;
-}
-
-size_t utri_get_orig_index(utri_s const *utri) {
-  return utri->orig_index;
-}
-
-bool utri_is_finite(utri_s const *u) {
-  return isfinite(u->f);
 }
 
 size_t utri_get_active_ind(utri_s const *utri) {
@@ -458,46 +424,8 @@ size_t utri_get_inactive_ind(utri_s const *utri) {
   return (size_t)NO_INDEX;
 }
 
-bool utri_contains_update_ind(utri_s const *u, size_t l) {
-  return l == u->l0 || l == u->l1;
-}
-
 size_t utri_get_l(utri_s const *utri) {
   return utri->l;
-}
-
-bool utri_opt_inc_on_other_utri(utri_s const *u, utri_s const *other_u) {
-  dbl const atol = 1e-14;
-  dbl xlam[3];
-  dbl3_saxpy(u->lam, u->x1_minus_x0, u->x0, xlam);
-  dbl dist0 = dbl3_dist(other_u->x0, xlam);
-  dbl dist1 = dbl3_dist(other_u->x1, xlam);
-  return dist0 < atol || dist1 < atol;
-}
-
-void utri_get_update_inds(utri_s const *u, size_t l[2]) {
-  l[0] = u->l0;
-  l[1] = u->l1;
-}
-
-void utri_get_t(utri_s const *u, dbl t[3]) {
-  dbl3_normalized(u->x_minus_xb, t);
-}
-
-dbl utri_get_L(utri_s const *u) {
-  return u->L;
-}
-
-dbl utri_get_b(utri_s const *u) {
-  return u->lam;
-}
-
-bool utri_inc_on_diff_edge(utri_s const *u, mesh3_s const *mesh) {
-  return mesh3_is_diff_edge(mesh, (size_t[2]) {u->l0, u->l1});
-}
-
-void utri_get_xb(utri_s const *u, dbl xb[3]) {
-  dbl3_saxpy(u->lam, u->x1_minus_x0, u->x0, xb);
 }
 
 /* Check whether `u`'s `l`, `l0`, and `l1` are collinear (i.e.,
@@ -509,52 +437,6 @@ bool utri_is_degenerate(utri_s const *u) {
   dbl3_sub(u->x1, u->x, dx1);
   dbl dot = dbl3_dot(dx0, dx1)/(dbl3_norm(dx0)*dbl3_norm(dx1));
   return fabs(1 - fabs(dot)) < atol;
-}
-
-bool utri_approx_hess(utri_s const *u, dbl h, dbl33 hess) {
-  dbl const atol = 1e-14;
-
-  if (h < atol)
-    return false;
-
-  utri_s u_ = *u;
-
-  dbl dx[3], t[3];
-
-  dbl33_zero(hess);
-
-  /* Approximate the Hessian using central differences. For each i,
-   * compute (t(x + h*e_i) - t(x - h*e_i))/(2*h) and store in the ith
-   * row of hess */
-  for (size_t i = 0; i < 3; ++i) {
-    dbl3_zero(dx);
-
-    /* Compute t(x + h*e_i) */
-    dx[i] = h;
-    dbl3_add(u->x, dx, u_.x);
-    utri_solve(&u_);
-    if (fabs(u->lam - u_.lam) < atol)
-      return false;
-    utri_get_t(&u_, t);
-    dbl3_add_inplace(hess[i], t);
-
-    /* Compute t(x - h*e_i) */
-    dx[i] = -h;
-    dbl3_add(u->x, dx, u_.x);
-    utri_solve(&u_);
-    if (fabs(u->lam - u_.lam) < atol)
-      return false;
-    utri_get_t(&u_, t);
-    dbl3_sub_inplace(hess[i], t);
-
-    /* Set H[i, :] = (t(x + h*e_i) - t(x - h*e_i))/(2*h) */
-    dbl3_dbl_div_inplace(hess[i], 2*h);
-  }
-
-  /* Make sure the Hessian is symmetric */
-  dbl33_symmetrize(hess);
-
-  return true;
 }
 
 /* Check whether two triangle updates have the same indices. The
