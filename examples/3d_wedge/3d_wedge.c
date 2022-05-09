@@ -784,26 +784,26 @@ jmm_3d_wedge_problem_solve(jmm_3d_wedge_problem_s *wedge, dbl sp, dbl phip,
       n_refl[i][j] = i == j ?
         1 - 2*n_normal[i]*n_normal[j] : -2*n_normal[i]*n_normal[j];
 
-  for (size_t i = 0; i < mesh3_nverts(wedge->mesh); ++i) {
+  for (size_t l = 0; l < mesh3_nverts(wedge->mesh); ++l) {
     /* Skip vertices that aren't on the boundary */
-    if (!mesh3_bdv(wedge->mesh, i))
+    if (!mesh3_bdv(wedge->mesh, l))
       continue;
 
     /* Check if the angle of the vertex matches the angle of the
      * n-face of the wedge */
-    mesh3_copy_vert(wedge->mesh, i, x);
-    if (fabs(get_phi(x) - n_radians) > 1e-7)
+    mesh3_copy_vert(wedge->mesh, l, x);
+    if (fabs(get_phi(x) - n_radians) > 1e-7 && hypot(x[0], x[1]) > 1e-7)
       continue;
 
-    jet31t jet = eik3_get_jet(wedge->eik_direct, i);
+    jet31t jet = eik3_get_jet(wedge->eik_direct, l);
 
     /* Reflected gradient over n-face */
     dbl33_dbl3_mul_inplace(n_refl, jet.Df);
 
-    eik3_add_trial(wedge->eik_n_refl, i, jet);
+    eik3_add_trial(wedge->eik_n_refl, l, jet);
 
     /* Keep track of the TRIAL index for tracking origins later */
-    array_append(n_refl_trial_inds, &i);
+    array_append(n_refl_trial_inds, &l);
   }
 
   if (wedge->spec.verbose) {
