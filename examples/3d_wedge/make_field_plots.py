@@ -109,24 +109,27 @@ plt.show()
 ############################################################################
 # plotting total field...
 
-path = paths[0]
+path = paths[-1]
 
 img_grid = read_img_grid(path/'img_grid.txt')
 x, y = get_grid(*img_grid)
 shape = img_grid[0]
 
-k = 100
+k = 25
 
 Td = np.fromfile(path/'slice_direct_T.bin').reshape(shape)
 Ad = np.fromfile(path/'slice_direct_A.bin').reshape(shape)
+Od = np.fromfile(path/'slice_direct_origin.bin').reshape(shape)
 ud = Ad*np.exp(-1j*k*Td)
 
 To = np.fromfile(path/'slice_o_refl_T.bin').reshape(shape)
 Ao = np.fromfile(path/'slice_o_refl_A.bin').reshape(shape)
+Oo = np.fromfile(path/'slice_o_refl_origin.bin').reshape(shape)
 uo = Ao*np.exp(-1j*k*To)
 
 Tn = np.fromfile(path/'slice_n_refl_T.bin').reshape(shape)
 An = np.fromfile(path/'slice_n_refl_A.bin').reshape(shape)
+On = np.fromfile(path/'slice_n_refl_origin.bin').reshape(shape)
 un = An*np.exp(-1j*k*Tn)
 
 def make_plot(field, clim, cmap):
