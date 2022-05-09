@@ -59,15 +59,18 @@ size_t par3_size(par3_s const *par) {
   return size;
 }
 
-void par3_get_xb(par3_s const *par, eik3_s const *eik, dbl xb[3]) {
-  dbl const *x[3];
-  mesh3_get_vert_ptrs(eik3_get_mesh(eik), par->l, 3, x);
+void par3_get_xb(par3_s const *par, mesh3_s const *mesh, dbl xb[3]) {
+  size_t l[3];
+  dbl b[3];
+  size_t num_active = par3_get_active(par, l, b);
 
-  for (int i = 0; i < 3; ++i) {
+  dbl const *x[3];
+  mesh3_get_vert_ptrs(mesh, l, num_active, x);
+
+  for (size_t i = 0; i < 3; ++i) {
     xb[i] = 0;
-    for (int j = 0; j < 3; ++j) {
+    for (size_t j = 0; j < num_active; ++j)
       xb[i] += par->b[j]*x[j][i];
-    }
   }
 }
 
@@ -83,19 +86,30 @@ size_t par3_num_active(par3_s const *par) {
   return num_active;
 }
 
-void par3_get_active(par3_s const *par, size_t *l, dbl *b) {
+size_t par3_get_active_inds(par3_s const *par, size_t l[3]) {
   dbl const atol = 1e-14;
-  size_t j = 0;
+  size_t num_active = 0;
+  for (size_t i = 0; i < 3; ++i)
+    if (par->l[i] != NO_PARENT && par->b[i] > atol)
+      l[num_active++] = par->l[i];
+  return num_active;
+}
+
+size_t par3_get_active(par3_s const *par, size_t *l, dbl *b) {
+  dbl const atol = 1e-14;
+  size_t num_active = 0;
   for (size_t i = 0; i < 3; ++i)
     if (par->l[i] != NO_PARENT && par->b[i] > atol) {
-      l[j] = par->l[i];
-      b[j++] = par->b[i];
+      l[num_active] = par->l[i];
+      b[num_active++] = par->b[i];
     }
 
   /* Normalize the active coefficients */
   dbl b_norm1 = 0;
-  for (size_t i = 0; i < j; ++i)
+  for (size_t i = 0; i < num_active; ++i)
     b_norm1 += fabs(b[i]);
-  for (size_t i = 0; i < j; ++i)
+  for (size_t i = 0; i < num_active; ++i)
     b[i] /= b_norm1;
+
+  return num_active;
 }

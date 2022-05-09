@@ -32,7 +32,7 @@ void utri_solve(utri_s *utri);
 par3_s utri_get_par(utri_s const *u);
 dbl utri_get_value(utri_s const *utri);
 void utri_get_jet31t(utri_s const *utri, jet31t *jet);
-bool utri_update_ray_is_physical(utri_s const *utri, eik3_s const *eik);
+bool utri_ray_is_occluded(utri_s const *utri, eik3_s const *eik);
 bool utri_has_interior_point_solution(utri_s const *utri);
 size_t utri_get_active_ind(utri_s const *utri);
 size_t utri_get_inactive_ind(utri_s const *utri);

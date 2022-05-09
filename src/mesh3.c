@@ -1485,6 +1485,175 @@ bool mesh3_vert_incident_on_diff_edge(mesh3_s const *mesh, size_t l) {
   return is_incident;
 }
 
+static bool local_ray_in_tetra_cone(mesh3_s const *mesh, dbl3 p, size_t lc, size_t lv) {
+  dbl3 xhat;
+  mesh3_copy_vert(mesh, lv, xhat);
+
+  size_t l[3];
+  assert(mesh3_cvf(mesh, lc, lv, l));
+
+  dbl3 x[3];
+  for (size_t i = 0; i < 3; ++i)
+    mesh3_copy_vert(mesh, l[i], x[i]);
+
+  dbl33 dX;
+  for (size_t i = 0; i < 3; ++i) {
+    dbl3 dx;
+    dbl3_sub(x[i], xhat, dx);
+    dbl33_set_column(dX, i, dx);
+  }
+
+  dbl3 alpha;
+  dbl33_dbl3_solve(dX, p, alpha);
+
+  dbl const atol = 1e-13;
+  return alpha[0] >= -atol && alpha[1] >= -atol && alpha[2] >= -atol;
+}
+
+static bool local_ray_in_vertex_cone(mesh3_s const *mesh, dbl3 p, size_t lv) {
+  size_t nvc = mesh3_nvc(mesh, lv);
+  size_t *vc = malloc(mesh->nverts*sizeof(size_t));
+  mesh3_vc(mesh, lv, vc);
+
+  bool in_cone = false;
+  for (size_t i = 0; i < nvc; ++i)
+    if ((in_cone = local_ray_in_tetra_cone(mesh, p, vc[i], lv)))
+      break;
+
+  free(vc);
+
+  return in_cone;
+}
+
+bool mesh3_local_ray_is_occluded(mesh3_s const *mesh, size_t lhat, par3_s const *par) {
+  dbl3 xb;
+  par3_get_xb(par, mesh, xb);
+
+  dbl3 dxhat; /* xlam -> xhat */
+  dbl3_sub(mesh->verts[lhat], xb, dxhat);
+
+  /* Check whether the update ray is contained in the cone spanned by
+   * the cells incident on `utetra->lhat`. */
+
+  dbl3 dxlam; /* xhat -> xlam */
+  dbl3_sub(xb, mesh->verts[lhat], dxlam);
+
+  if (!local_ray_in_vertex_cone(mesh, dxlam, lhat))
+    return true;
+
+  /* Make sure the start of the update ray doesn't exit the domain */
+
+  bool ray_start_is_feasible = false;
+
+  size_t l_active[3];
+  size_t num_active_constraints = par3_get_active_inds(par, l_active);
+  num_active_constraints = 3 - num_active_constraints; // TODO: fix this...
+
+  /* interior minimizer */
+  if (num_active_constraints == 0) {
+    /* get cells incident on base of update */
+    size_t nfc = mesh3_nfc(mesh, l_active);
+    size_t *fc = malloc(nfc*sizeof(size_t));
+    mesh3_fc(mesh, l_active, fc);
+
+    /* check whether the `dxhat` points into a tetrahedron incident on
+     * the base of the update */
+    for (size_t i = 0, lv; i < nfc; ++i) {
+      mesh3_cfv(mesh, fc[i], l_active, &lv);
+
+      size_t lf[3];
+      mesh3_cvf(mesh, fc[i], lv, lf);
+
+      dbl3 x[3];
+      for (size_t j = 0; j < 3; ++j)
+        mesh3_copy_vert(mesh, lf[j], x[j]);
+
+      dbl3 dx[3];
+      dbl3_sub(mesh3_get_vert_ptr(mesh, lv), x[0], dx[0]);
+      dbl3_sub(x[1], x[0], dx[1]);
+      dbl3_sub(x[2], x[0], dx[2]);
+
+      /* compute the face normal and orient it so that it points
+       * outside the tetrahedron */
+      dbl3 n;
+      dbl3_cross(dx[1], dx[2], n);
+      if (dbl3_dot(n, dx[0]) < 0)
+        dbl3_negate(n);
+
+      if (dbl3_dot(n, dxhat) > 0) {
+        ray_start_is_feasible = true;
+        break;
+      }
+    }
+
+    free(fc);
+  }
+
+  /* edge minimizer */
+  else if (num_active_constraints == 1) {
+    /* gets cells incident on active edge */
+    size_t nec = mesh3_nec(mesh, l_active);
+    size_t *ec = malloc(nec*sizeof(size_t));
+    mesh3_ec(mesh, l_active, ec);
+
+    /* check whether `dxhat` points into a tetrahedron incident on the
+     * base of the active edge */
+    for (size_t i = 0, le[2]; i < nec; ++i) {
+      /* get the opposite edge */
+      mesh3_cee(mesh, ec[i], l_active, le);
+
+      dbl3 x[2];
+      mesh3_copy_vert(mesh, l_active[0], x[0]);
+      mesh3_copy_vert(mesh, l_active[1], x[1]);
+
+      dbl3 y[2];
+      mesh3_copy_vert(mesh, le[0], y[0]);
+      mesh3_copy_vert(mesh, le[1], y[1]);
+
+      dbl3 te;
+      dbl3_sub(x[1], x[0], te);
+      dbl3_normalize(te);
+
+      dbl3 q1;
+      dbl3_sub(y[0], xb, q1);
+      dbl te_q1 = dbl3_dot(te, q1);
+      for (size_t j = 0; j < 3; ++j)
+        q1[j] -= te_q1*te[j];
+      dbl3_normalize(q1);
+
+      dbl3 q2, u2;
+      dbl3_sub(y[1], xb, q2);
+      dbl te_q2 = dbl3_dot(te, q2);
+      for (size_t j = 0; j < 3; ++j)
+        u2[j] = q2[j] - te_q2*te[j];
+      dbl q1_q2 = dbl3_dot(q1, q2);
+      for (size_t j = 0; j < 3; ++j)
+        q2[j] = u2[j] - q1_q2*q1[j];
+      dbl3_normalize(q2);
+
+      dbl thetamax = atan2(dbl3_dot(q2, u2), dbl3_dot(q1, u2));
+
+      dbl theta = atan2(dbl3_dot(q2, dxhat), dbl3_dot(q1, dxhat));
+
+      dbl const atol = 1e-13;
+      if (-atol <= theta && theta <= thetamax + atol) {
+        ray_start_is_feasible = true;
+        break;
+      }
+    }
+
+    free(ec);
+  }
+
+  /* corner minimizer */
+  else if (num_active_constraints == 2)
+    ray_start_is_feasible = local_ray_in_vertex_cone(mesh, dxhat, l_active[0]);
+
+  else assert(false);
+
+  return !ray_start_is_feasible;
+}
+
 dbl mesh3_get_min_tetra_alt(mesh3_s const *mesh) {
   return mesh->min_tetra_alt;
 }

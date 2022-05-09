@@ -402,7 +402,7 @@ static void do_utri(eik3_s *eik, size_t l, size_t l0, array_s *utri_cache,
     if (utri_get_value(utri) >= eik->jet[l].f)
       goto next;
 
-    if (!utri_update_ray_is_physical(utri, eik))
+    if (utri_ray_is_occluded(utri, eik))
       goto next;
 
     if (utri_has_interior_point_solution(utri)) {

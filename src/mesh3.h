@@ -7,6 +7,7 @@ extern "C" {
 #include "common.h"
 #include "geom.h"
 #include "index.h"
+#include "par.h"
 #include "vec.h"
 
 bool face_in_cell(size_t const f[3], size_t const c[4]);
@@ -96,6 +97,7 @@ bool mesh3_is_edge(mesh3_s const *mesh, size_t const l[2]);
 bool mesh3_is_diff_edge(mesh3_s const *mesh, size_t const l[2]);
 bool mesh3_is_nondiff_boundary_edge(mesh3_s const *mesh, size_t const l[2]);
 bool mesh3_vert_incident_on_diff_edge(mesh3_s const *mesh, size_t l);
+bool mesh3_local_ray_is_occluded(mesh3_s const *mesh, size_t lhat, par3_s const *par);
 dbl mesh3_get_min_tetra_alt(mesh3_s const *mesh);
 dbl mesh3_get_min_edge_length(mesh3_s const *mesh);
 mesh2_s *mesh3_get_surface_mesh(mesh3_s const *mesh);
