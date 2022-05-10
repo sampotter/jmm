@@ -607,53 +607,53 @@ jmm_3d_wedge_problem_solve(jmm_3d_wedge_problem_s *wedge, dbl sp, dbl phip,
 
   /* Set up and solve the direct eikonal problem */
 
-  array_s *direct_trial_inds;
-  array_alloc(&direct_trial_inds);
-  array_init(direct_trial_inds, sizeof(size_t), ARRAY_DEFAULT_CAPACITY);
-
-  /* Find all vertices which lie inside the factoring radius, and
-   * initialize the vertices of all cells incident on those vertices
-   * with exact data. Note that there may be some cells which
-   * intersect the factoring radius, but which aren't discovered this
-   * way. */
-  for (size_t i = 0; i < mesh3_ncells(wedge->mesh); ++i) {
-    size_t cv[4];
-    mesh3_cv(wedge->mesh, i, cv);
-
-    /* first, check if any of the current cell's vertices intersect
-     * the initialization ball... */
-    bool found_intersection = false;
-    for (size_t j = 0; j < 4; ++j) {
-      mesh3_copy_vert(wedge->mesh, cv[j], x);
-      if (dbl3_dist(x, xsrc) <= rfac) {
-        found_intersection = true;
-        break;
-      }
-    }
-    if (!found_intersection)
-      continue;
-
-    /* ... and if they do, initialize all of the vertices in the cell
-     * with exact data */
-    for (size_t j = 0; j < 4; ++j) {
-      if (eik3_is_trial(wedge->eik_direct, cv[j]))
+  for (size_t l = 0; l < mesh3_nverts(wedge->mesh); ++l) {
+    mesh3_copy_vert(wedge->mesh, l, x);
+    if (dbl3_dist(x, xsrc) <= rfac) {
+      if (eik3_is_valid(wedge->eik_direct, l))
         continue;
 
       jet31t jet;
 
-      mesh3_copy_vert(wedge->mesh, cv[j], x);
       jet.f = dbl3_dist(x, xsrc);
 
       dbl3_sub(x, xsrc, jet.Df);
       dbl3_dbl_div_inplace(jet.Df, jet.f);
 
-      eik3_add_trial(wedge->eik_direct, cv[j], jet);
-
-      array_append(direct_trial_inds, &cv[j]);
+      eik3_add_bc(wedge->eik_direct, l, jet);
     }
   }
 
-  if (array_size(direct_trial_inds) == 0) {
+  for (size_t l = 0; l < mesh3_nverts(wedge->mesh); ++l) {
+    if (eik3_is_valid(wedge->eik_direct, l)) {
+      size_t nvv = mesh3_nvv(wedge->mesh, l);
+      size_t *vv = malloc(nvv*sizeof(size_t));
+      mesh3_vv(wedge->mesh, l, vv);
+
+      for (size_t i = 0; i < nvv; ++i) {
+        if (!eik3_is_far(wedge->eik_direct, vv[i]))
+          continue;
+
+        mesh3_copy_vert(wedge->mesh, vv[i], x);
+
+        jet31t jet;
+
+        jet.f = dbl3_dist(x, xsrc);
+
+        dbl3_sub(x, xsrc, jet.Df);
+        dbl3_dbl_div_inplace(jet.Df, jet.f);
+
+        eik3_add_trial(wedge->eik_direct, vv[i], jet);
+      }
+
+      free(vv);
+    }
+  }
+
+  array_s const *direct_trial_inds = eik3_get_trial_inds(wedge->eik_direct);
+  array_s const *direct_bc_inds = eik3_get_bc_inds(wedge->eik_direct);
+
+  if (array_is_empty(direct_trial_inds)) {
     printf("No TRIAL vertices!\n");
     return JMM_ERROR_BAD_ARGUMENTS;
   }
@@ -661,7 +661,7 @@ jmm_3d_wedge_problem_solve(jmm_3d_wedge_problem_s *wedge, dbl sp, dbl phip,
   /* Solve direct eikonal */
   if (wedge->spec.verbose) {
     printf("Number of vertices in the initialization ball: %lu\n",
-           array_size(direct_trial_inds));
+           array_size(direct_bc_inds));
     printf("Solving point source problem... ");
     fflush(stdout);
   }
@@ -707,10 +707,6 @@ jmm_3d_wedge_problem_solve(jmm_3d_wedge_problem_s *wedge, dbl sp, dbl phip,
 
   /** O-REFL */
 
-  array_s *o_refl_trial_inds;
-  array_alloc(&o_refl_trial_inds);
-  array_init(o_refl_trial_inds, sizeof(size_t), ARRAY_DEFAULT_CAPACITY);
-
   /* Set up and solve the o-face reflection eikonal problem: */
   for (size_t i = 0; i < mesh3_nverts(wedge->mesh); ++i) {
     mesh3_copy_vert(wedge->mesh, i, x);
@@ -723,10 +719,59 @@ jmm_3d_wedge_problem_solve(jmm_3d_wedge_problem_s *wedge, dbl sp, dbl phip,
     /* Reflect gradient over the o-face */
     jet.Df[1] *= -1;
 
-    eik3_add_trial(wedge->eik_o_refl, i, jet);
+    eik3_add_bc(wedge->eik_o_refl, i, jet);
+  }
 
-    /* Keep track of the TRIAL index for tracking origins later */
-    array_append(o_refl_trial_inds, &i);
+  // array_s const *o_refl_trial_inds = eik3_get_trial_inds(wedge->eik_o_refl);
+  array_s const *o_refl_bc_inds = eik3_get_bc_inds(wedge->eik_o_refl);
+
+  /* Iterate over each point with boundary conditions, and update all
+   * of their neighbors manually to ensure a good start near the
+   * reflecting face... */
+  for (size_t l = 0; l < mesh3_nverts(wedge->mesh); ++l) {
+    if (eik3_has_BCs(wedge->eik_o_refl, l)) {
+      size_t nvv = mesh3_nvv(wedge->mesh, l);
+      size_t *vv = malloc(nvv*sizeof(size_t));
+      mesh3_vv(wedge->mesh, l, vv);
+
+      /* get incident BDF */
+      size_t nf = mesh3_get_num_inc_bdf(wedge->mesh, l);
+      size_t (*lf)[3] = malloc(nf*sizeof(size_t[3]));
+      mesh3_get_inc_bdf(wedge->mesh, l, lf);
+
+      /* get incident diff edges */
+      size_t ne = mesh3_get_num_inc_diff_edges(wedge->mesh, l);
+      size_t (*le)[2] = malloc(ne*sizeof(size_t[2]));
+      mesh3_get_inc_diff_edges(wedge->mesh, l, le);
+
+      for (size_t i = 0, lhat; i < nvv; ++i) {
+        lhat = vv[i];
+
+        if (eik3_is_far(wedge->eik_o_refl, lhat))
+          eik3_add_trial(wedge->eik_o_refl, lhat, jet31t_make_empty());
+
+        /* skip if this is one of the original points with BCs */
+        if (array_contains(o_refl_bc_inds, &lhat))
+          continue;
+
+        /* do each of the boundary tetrahedron updates */
+        for (size_t j = 0; j < nf; ++j)
+          if (array_contains(o_refl_bc_inds, &lf[j][0]) &&
+              array_contains(o_refl_bc_inds, &lf[j][1]) &&
+              array_contains(o_refl_bc_inds, &lf[j][2]))
+            eik3_do_utetra(wedge->eik_o_refl,lhat,lf[j][0],lf[j][1],lf[j][2]);
+
+        /* do each of the diffracting triangle updates */
+        for (size_t j = 0; j < ne; ++j)
+          if (array_contains(o_refl_bc_inds, &le[j][0]) &&
+              array_contains(o_refl_bc_inds, &le[j][1]))
+            eik3_do_diff_utri(wedge->eik_o_refl, lhat, le[j][0], le[j][1]);
+      }
+
+      free(le);
+      free(lf);
+      free(vv);
+    }
   }
 
   if (wedge->spec.verbose) {
@@ -767,10 +812,6 @@ jmm_3d_wedge_problem_solve(jmm_3d_wedge_problem_s *wedge, dbl sp, dbl phip,
 
   /** N-REFL */
 
-  array_s *n_refl_trial_inds;
-  array_alloc(&n_refl_trial_inds);
-  array_init(n_refl_trial_inds, sizeof(size_t), ARRAY_DEFAULT_CAPACITY);
-
   /* Ditto for the n-face problem: */
   dbl n_radians = JMM_PI*wedge->spec.n;
 
@@ -801,10 +842,10 @@ jmm_3d_wedge_problem_solve(jmm_3d_wedge_problem_s *wedge, dbl sp, dbl phip,
     dbl33_dbl3_mul_inplace(n_refl, jet.Df);
 
     eik3_add_trial(wedge->eik_n_refl, l, jet);
-
-    /* Keep track of the TRIAL index for tracking origins later */
-    array_append(n_refl_trial_inds, &l);
   }
+
+  // array_s const *n_refl_trial_inds = eik3_get_trial_inds(wedge->eik_n_refl);
+  array_s const *n_refl_bc_inds = eik3_get_bc_inds(wedge->eik_n_refl);
 
   if (wedge->spec.verbose) {
     printf("Computing n-face reflection... ");
@@ -851,10 +892,16 @@ jmm_3d_wedge_problem_solve(jmm_3d_wedge_problem_s *wedge, dbl sp, dbl phip,
   for (size_t l = 0; l < mesh3_nverts(wedge->mesh); ++l)
     wedge->origin_direct[l] = NAN;
 
+  for (size_t i = 0, l; i < array_size(direct_bc_inds); ++i) {
+    array_get(direct_bc_inds, i, &l);
+    wedge->origin_direct[l] = 1; /* initial BC nodes originate from
+                                  * the point source */
+  }
+
   for (size_t i = 0, l; i < array_size(direct_trial_inds); ++i) {
     array_get(direct_trial_inds, i, &l);
-    wedge->origin_direct[l] = 1; /* initially `TRIAL` nodes originate
-                                  * from the point source */
+    wedge->origin_direct[l] = 1; /* `TRIAL` nodes originate from the
+                                  * point source */
   }
 
   for (size_t l = 0; l < mesh3_nverts(wedge->mesh); ++l) {
@@ -879,9 +926,9 @@ jmm_3d_wedge_problem_solve(jmm_3d_wedge_problem_s *wedge, dbl sp, dbl phip,
   for (size_t l = 0; l < mesh3_nverts(wedge->mesh); ++l)
     wedge->origin_o_refl[l] = NAN;
 
-  if (array_size(o_refl_trial_inds) > 0) {
-    for (size_t i = 0, l; i < array_size(o_refl_trial_inds); ++i) {
-      array_get(o_refl_trial_inds, i, &l);
+  if (array_size(o_refl_bc_inds) > 0) {
+    for (size_t i = 0, l; i < array_size(o_refl_bc_inds); ++i) {
+      array_get(o_refl_bc_inds, i, &l);
       wedge->origin_o_refl[l] = 1;
     }
 
@@ -896,14 +943,20 @@ jmm_3d_wedge_problem_solve(jmm_3d_wedge_problem_s *wedge, dbl sp, dbl phip,
     eik3_transport_dbl(wedge->eik_o_refl, wedge->origin_o_refl, true);
   }
 
+  for (size_t l = 0; l < mesh3_nverts(wedge->mesh); ++l) {
+    mesh3_copy_vert(wedge->mesh, l, x);
+    if (hypot(x[0], x[1]) < 1e-13)
+      wedge->origin_o_refl[l] = 0.5; /* label nodes on the diff. edge */
+  }
+
   /* n-refl */
 
   for (size_t l = 0; l < mesh3_nverts(wedge->mesh); ++l)
     wedge->origin_n_refl[l] = NAN;
 
-  if (array_size(n_refl_trial_inds) > 0) {
-    for (size_t i = 0, l; i < array_size(n_refl_trial_inds); ++i) {
-      array_get(n_refl_trial_inds, i, &l);
+  if (array_size(n_refl_bc_inds) > 0) {
+    for (size_t i = 0, l; i < array_size(n_refl_bc_inds); ++i) {
+      array_get(n_refl_bc_inds, i, &l);
       wedge->origin_n_refl[l] = 1;
     }
 
@@ -924,8 +977,8 @@ jmm_3d_wedge_problem_solve(jmm_3d_wedge_problem_s *wedge, dbl sp, dbl phip,
   for (size_t l = 0; l < mesh3_nverts(wedge->mesh); ++l)
     dbl3_nan(wedge->t_out_direct[l]);
 
-  for (size_t i = 0, l; i < array_size(direct_trial_inds); ++i) {
-    array_get(direct_trial_inds, i, &l);
+  for (size_t i = 0, l; i < array_size(direct_bc_inds); ++i) {
+    array_get(direct_bc_inds, i, &l);
     dbl3_copy(jet[l].Df, wedge->t_in_direct[l]);
     dbl3_copy(jet[l].Df, wedge->t_out_direct[l]);
   }
@@ -945,16 +998,23 @@ jmm_3d_wedge_problem_solve(jmm_3d_wedge_problem_s *wedge, dbl sp, dbl phip,
   for (size_t l = 0; l < mesh3_nverts(wedge->mesh); ++l)
     dbl3_nan(wedge->t_out_o_refl[l]);
 
-  if (array_size(o_refl_trial_inds) > 0) {
-    for (size_t i = 0, l; i < array_size(o_refl_trial_inds); ++i) {
-      array_get(o_refl_trial_inds, i, &l);
+  if (array_size(o_refl_bc_inds) > 0) {
+    for (size_t i = 0, l; i < array_size(o_refl_bc_inds); ++i) {
+      array_get(o_refl_bc_inds, i, &l);
       dbl3_copy(jet[l].Df, wedge->t_in_o_refl[l]);
-      dbl3_copy(jet[l].Df, wedge->t_out_o_refl[l]);
+
+      if (!mesh3_vert_incident_on_diff_edge(wedge->mesh, l)) {
+        dbl3_copy(jet[l].Df, wedge->t_out_o_refl[l]);
+        dbl33_dbl3_mul_inplace(n_refl, wedge->t_out_o_refl[l]);
+      }
     }
 
-    for (size_t l = 0; l < mesh3_nverts(wedge->mesh); ++l)
-      if (updated_from_diff_edge(wedge->eik_o_refl, l))
-        dbl3_copy(jet[l].Df, wedge->t_out_o_refl[l]);
+    for (size_t l = 0; l < mesh3_nverts(wedge->mesh); ++l) {
+      if (updated_from_diff_edge(wedge->eik_o_refl, l)) {
+        jet31t J = eik3_get_jet(wedge->eik_o_refl, l);
+        dbl3_copy(J.Df, wedge->t_out_o_refl[l]);
+      }
+    }
 
     eik3_transport_unit_vector(wedge->eik_o_refl, wedge->t_in_o_refl, true);
     eik3_transport_unit_vector(wedge->eik_o_refl, wedge->t_out_o_refl, true);
@@ -968,31 +1028,29 @@ jmm_3d_wedge_problem_solve(jmm_3d_wedge_problem_s *wedge, dbl sp, dbl phip,
   for (size_t l = 0; l < mesh3_nverts(wedge->mesh); ++l)
     dbl3_nan(wedge->t_out_n_refl[l]);
 
-  if (array_size(n_refl_trial_inds) > 0) {
-    for (size_t i = 0, l; i < array_size(n_refl_trial_inds); ++i) {
-      array_get(n_refl_trial_inds, i, &l);
+  if (array_size(n_refl_bc_inds) > 0) {
+    for (size_t i = 0, l; i < array_size(n_refl_bc_inds); ++i) {
+      array_get(n_refl_bc_inds, i, &l);
       dbl3_copy(jet[l].Df, wedge->t_in_n_refl[l]);
-      dbl3_copy(jet[l].Df, wedge->t_out_n_refl[l]);
+
+      if (!mesh3_vert_incident_on_diff_edge(wedge->mesh, l)) {
+        dbl3_copy(jet[l].Df, wedge->t_out_n_refl[l]);
+        dbl33_dbl3_mul_inplace(n_refl, wedge->t_out_n_refl[l]);
+      }
     }
 
-    for (size_t l = 0; l < mesh3_nverts(wedge->mesh); ++l)
-      if (updated_from_diff_edge(wedge->eik_n_refl, l))
-        dbl3_copy(jet[l].Df, wedge->t_out_n_refl[l]);
+    for (size_t l = 0; l < mesh3_nverts(wedge->mesh); ++l) {
+      if (updated_from_diff_edge(wedge->eik_n_refl, l)) {
+        jet31t J = eik3_get_jet(wedge->eik_n_refl, l);
+        dbl3_copy(J.Df, wedge->t_out_n_refl[l]);
+      }
+    }
 
     eik3_transport_unit_vector(wedge->eik_n_refl, wedge->t_in_n_refl, true);
     eik3_transport_unit_vector(wedge->eik_n_refl, wedge->t_out_n_refl, true);
   }
 
   /** Clean up: */
-
-  array_deinit(direct_trial_inds);
-  array_dealloc(&direct_trial_inds);
-
-  array_deinit(o_refl_trial_inds);
-  array_dealloc(&o_refl_trial_inds);
-
-  array_deinit(n_refl_trial_inds);
-  array_dealloc(&n_refl_trial_inds);
 
   return JMM_ERROR_NONE;
 }

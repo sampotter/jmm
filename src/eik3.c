@@ -62,6 +62,8 @@ struct eik3 {
    * specified. */
   bool *has_bc;
 
+  array_s *trial_inds, *bc_inds;
+
   /* Useful statistics for debugging */
   size_t num_accepted; /* number of nodes fixed by `eik3_step` */
 
@@ -149,6 +151,12 @@ void eik3_init(eik3_s *eik, mesh3_s *mesh) {
   array_alloc(&eik->old_diff_utri);
   array_init(eik->old_diff_utri, sizeof(utri_s *), 16);
 
+  array_alloc(&eik->bc_inds);
+  array_init(eik->bc_inds, sizeof(size_t), ARRAY_DEFAULT_CAPACITY);
+
+  array_alloc(&eik->trial_inds);
+  array_init(eik->trial_inds, sizeof(size_t), ARRAY_DEFAULT_CAPACITY);
+
   eik->has_bc = calloc(nverts, sizeof(bool));
 
   eik->is_initialized = true;
@@ -199,6 +207,12 @@ void eik3_deinit(eik3_s *eik) {
     array_deinit(eik->old_diff_utri);
     array_dealloc(&eik->old_diff_utri);
   }
+
+  array_deinit(eik->bc_inds);
+  array_dealloc(&eik->bc_inds);
+
+  array_deinit(eik->trial_inds);
+  array_dealloc(&eik->trial_inds);
 
   free(eik->has_bc);
   eik->has_bc = NULL;
@@ -700,6 +714,8 @@ static void do_utetra_fan(eik3_s *eik, size_t l, size_t l0) {
 }
 
 static void update(eik3_s *eik, size_t l, size_t l0) {
+  assert(!eik->has_bc[l0]);
+
   bool l0_is_on_diff_edge = mesh3_vert_incident_on_diff_edge(eik->mesh, l0);
 
   /* If `l0` is incident on a diffracting edge, look for corresponding
@@ -839,7 +855,16 @@ void eik3_add_trial(eik3_s *eik, size_t l, jet31t jet) {
   eik->state[l] = TRIAL;
   heap_insert(eik->heap, l);
 
+  array_append(eik->trial_inds, &l);
+}
+
+void eik3_add_bc(eik3_s *eik, size_t l, jet31t jet) {
+  eik->jet[l] = jet;
+  eik->state[l] = VALID;
   eik->has_bc[l] = true;
+  eik->accepted[eik->num_accepted++] = l;
+
+  array_append(eik->bc_inds, &l);
 }
 
 bool eik3_is_far(eik3_s const *eik, size_t l) {
@@ -856,6 +881,14 @@ bool eik3_is_valid(eik3_s const *eik, size_t l) {
 
 mesh3_s *eik3_get_mesh(eik3_s const *eik) {
   return eik->mesh;
+}
+
+array_s const *eik3_get_trial_inds(eik3_s const *eik) {
+  return eik->trial_inds;
+}
+
+array_s const *eik3_get_bc_inds(eik3_s const *eik) {
+  return eik->bc_inds;
 }
 
 dbl eik3_get_T(eik3_s const *eik, size_t l) {
