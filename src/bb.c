@@ -222,6 +222,12 @@ void bb31_init_from_jet21t(bb31 *bb, jet21t const jet[2], dbl2 const x[2]) {
     c[2] = is_pt_src[0] ? (2*c[3] + c[0])/3 : (c[3] + c[1])/2;
 }
 
+void bb31_init_from_cubic(bb31 *bb, cubic_s const *cubic, dbl const x[2]) {
+  dbl f[2] = {cubic_f(cubic, x[0]), cubic_f(cubic, x[1])};
+  dbl Df[2] = {cubic_df(cubic, x[0]), cubic_df(cubic, x[1])};
+  bb31_init_from_1d_data(bb, f, Df, x);
+}
+
 dbl bb31_f(bb31 const *bb, dbl const *b) {
   dbl tmp[3];
 

@@ -16,6 +16,7 @@ void bb31_init_from_1d_data(bb31 *bb, dbl const f[2], dbl const Df[2], dbl const
 void bb31_init_from_3d_data(bb31 *bb, dbl const f[2], dbl const Df[2][3], dbl const x[2][3]);
 void bb31_init_from_jets(bb31 *bb, jet31t const jet[2], dbl const x[2][3]);
 void bb31_init_from_jet21t(bb31 *bb, jet21t const jet[2], dbl2 const x[2]);
+void bb31_init_from_cubic(bb31 *bb, cubic_s const *cubic, dbl const x[2]);
 dbl bb31_f(bb31 const *bb, dbl const *b);
 dbl bb31_df(bb31 const *bb, dbl const *b, dbl const *a);
 dbl bb31_d2f(bb31 const *bb, dbl const *b, dbl const *a);

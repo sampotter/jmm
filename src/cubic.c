@@ -14,6 +14,19 @@ static dbl44 V_inv = {
   { 2, -2,  1,  1}
 };
 
+cubic_s cubic_from_lagrange_data(dbl4 f) {
+  static dbl44 Vinv = {
+    { 1. ,   0. ,   0. ,   0. },
+    {-5.5,   9. ,  -4.5,   1. },
+    { 9. , -22.5,  18. ,  -4.5},
+    {-4.5,  13.5, -13.5,   4.5}
+  };
+
+  cubic_s cubic;
+  dbl44_dbl4_mul(Vinv, f, cubic.a);
+  return cubic;
+}
+
 /**
  * This function is a bit of a stop gap until we move the dvec* and
  * dbl* types.
