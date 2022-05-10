@@ -617,8 +617,13 @@ class MainWindow(pvqt.MainWindow):
 
     def getCLim(self, values):
         plotMode = self.getPlotMode()
-        if plotMode == PlotMode.PointwiseError:
-            print((values == 0).sum())
+        selectedField = self.getSelectedField()
+        if plotMode == PlotMode.PointwiseError or \
+           selectedField in {
+               Field.Tx, Field.Ty, Field.Tz,
+               Field.Txx, Field.Txy, Field.Txz,
+               Field.Tyx, Field.Tyy, Field.Tyz,
+               Field.Tzx, Field.Tzy, Field.Tzz}:
             vmax = np.nanmax(abs(values))
             return (-vmax, vmax)
         else:
