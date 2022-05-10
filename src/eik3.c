@@ -374,8 +374,67 @@ static bool utri_is_cached(array_s const *utri_cache, utri_s const *utri) {
   return false;
 }
 
-static void do_utri(eik3_s *eik, size_t l, size_t l0, array_s *utri_cache,
-                    bool (*pred)(eik3_s const *, size_t const[2])) {
+static void
+do_utri(eik3_s *eik, size_t l, size_t l0, size_t l1, array_s *utri_cache) {
+  utri_spec_s spec = utri_spec_from_eik(eik, l, l0, l1);
+
+  utri_s *utri;
+  utri_alloc(&utri);
+  utri_init(utri, &spec);
+
+  for (size_t j = 0; j < array_size(utri_cache); ++j) {
+    utri_s *utri_other;
+    array_get(utri_cache, j, &utri_other);
+    if (utris_have_same_inds(utri, utri_other))
+      goto cleanup;
+  }
+
+  if (utri_is_degenerate(utri))
+    goto cleanup;
+
+  utri_solve(utri);
+
+  if (utri_get_value(utri) >= eik->jet[l].f)
+    goto cleanup;
+
+  if (utri_ray_is_occluded(utri, eik))
+    goto cleanup;
+
+  if (utri_has_interior_point_solution(utri)) {
+    commit_utri(eik, l, utri);
+    adjust(eik, l);
+    goto cleanup;
+  }
+
+  /* see if we can find an old triangle update which matches the
+   * current one, and commit the update if we can
+   *
+   * (if successful, delete the old one!) */
+  utri_s *utri_other = find_and_delete_cached_utri(utri_cache, utri);
+  if (utri_other) {
+    commit_utri(eik, l, utri);
+    adjust(eik, l);
+    utri_dealloc(&utri_other);
+    goto cleanup;
+  }
+
+  /* if we failed, we cache this update for later (... if we
+   * haven't already) */
+  if (!utri_is_cached(utri_cache, utri)) {
+    array_append(utri_cache, &utri);
+    return; /* don't dealloc in this case! */
+  }
+
+cleanup:
+  utri_dealloc(&utri);
+}
+
+void eik3_do_diff_utri(eik3_s *eik, size_t l, size_t l0, size_t l1) {
+  do_utri(eik, l, l0, l1, eik->old_diff_utri);
+}
+
+static void do_utris_if(eik3_s *eik, size_t l, size_t l0, array_s *utri_cache,
+                        bool (*pred)(eik3_s const *, size_t const[2])) {
   assert(l != l0);
 
   /* find the diffracting edges incident on l0 with VALID indices */
@@ -386,52 +445,8 @@ static void do_utri(eik3_s *eik, size_t l, size_t l0, array_s *utri_cache,
 
   for (size_t i = 0, l1; i < array_size(l1_arr); ++i) {
     array_get(l1_arr, i, &l1);
-    if (l == l1)
-      continue;
-
-    utri_spec_s spec = utri_spec_from_eik(eik, l, l0, l1);
-    utri_s *utri;
-    utri_alloc(&utri);
-    utri_init(utri, &spec);
-
-    if (utri_is_degenerate(utri))
-      goto next;
-
-    utri_solve(utri);
-
-    if (utri_get_value(utri) >= eik->jet[l].f)
-      goto next;
-
-    if (utri_ray_is_occluded(utri, eik))
-      goto next;
-
-    if (utri_has_interior_point_solution(utri)) {
-      commit_utri(eik, l, utri);
-      adjust(eik, l);
-      goto next;
-    }
-
-    /* see if we can find an old triangle update which matches the
-     * current one, and commit the update if we can
-     *
-     * (if successful, delete the old one!) */
-    utri_s *utri_other = find_and_delete_cached_utri(utri_cache, utri);
-    if (utri_other) {
-      commit_utri(eik, l, utri);
-      adjust(eik, l);
-      utri_dealloc(&utri_other);
-      goto next;
-    }
-
-    /* if we failed, we cache this update for later (... if we
-     * haven't already) */
-    if (!utri_is_cached(utri_cache, utri)) {
-      array_append(utri_cache, &utri);
-      continue; /* don't dealloc in this case! */
-    }
-
-  next:
-    utri_dealloc(&utri);
+    if (l == l1) continue;
+    do_utri(eik, l, l0, l1, utri_cache);
   }
 
   /* release array of VALID diff edges */
@@ -608,69 +623,75 @@ static bool utetra_cached_already(eik3_s const *eik, utetra_s const *utetra) {
   return false;
 }
 
-static void do_freespace_utetra(eik3_s *eik, size_t l, size_t l0) {
+void eik3_do_utetra(eik3_s *eik, size_t l, size_t l0, size_t l1, size_t l2) {
+  utetra_spec_s spec = utetra_spec_from_eik_and_inds(eik, l, l0, l1, l2);
+
+  utetra_s *utetra;
+  utetra_alloc(&utetra);
+  utetra_init(utetra, &spec);
+
+  for (size_t j = 0; j < array_size(eik->old_utetra); ++j) {
+    utetra_s *utetra_other;
+    array_get(eik->old_utetra, j, &utetra_other);
+    if (utetras_have_same_inds(utetra, utetra_other))
+      goto cleanup;
+  }
+
+  if (utetra_is_degenerate(utetra))
+    goto cleanup;
+
+  utetra_solve(utetra, /* warm start: */ NULL);
+
+  if (utetra_get_value(utetra) >= eik->jet[l].f)
+    goto cleanup;
+
+  if (utetra_ray_is_occluded(utetra, eik))
+    goto cleanup;
+
+  if (utetra_has_interior_point_solution(utetra)) {
+    commit_utetra(eik, l, utetra);
+    adjust(eik, l);
+    goto cleanup;
+  }
+
+  size_t num_interior = utetra_get_num_interior_coefs(utetra);
+  assert(num_interior == 0 || num_interior == 2);
+
+  size_t num_utetra_other;
+  utetra_s **utetra_other =
+    find_and_delete_cached_utetra(eik, l0, utetra, &num_utetra_other);
+  if (utetra_other) {
+    commit_utetra(eik, l, utetra);
+    adjust(eik, l);
+    for (size_t j = 0; j < num_utetra_other; ++j)
+      utetra_dealloc(&utetra_other[j]);
+    free(utetra_other);
+    goto cleanup;
+  }
+
+  if (!utetra_cached_already(eik, utetra)) {
+    array_append(eik->old_utetra, &utetra);
+    return; /* don't dealloc! */
+  }
+
+cleanup:
+  utetra_dealloc(&utetra);
+}
+
+static void do_utetra_fan(eik3_s *eik, size_t l, size_t l0) {
   /* Get the fan of `VALID` triangles incident on `l0`. */
   array_s *le_arr;
   array_alloc(&le_arr);
   array_init(le_arr, sizeof(size_t[2]), ARRAY_DEFAULT_CAPACITY);
   get_update_fan(eik, l0, le_arr);
 
+  /* Do them all */
   for (size_t i = 0, le[2]; i < array_size(le_arr); ++i) {
     array_get(le_arr, i, &le);
-
-    utetra_spec_s spec = utetra_spec_from_eik_and_inds(eik,l,l0,le[0],le[1]);
-    utetra_s *utetra;
-    utetra_alloc(&utetra);
-    utetra_init(utetra, &spec);
-
-    // TODO: sanity check...
-    for (size_t j = 0; j < array_size(eik->old_utetra); ++j) {
-      utetra_s *utetra_other;
-      array_get(eik->old_utetra, j, &utetra_other);
-      assert(!utetras_have_same_inds(utetra, utetra_other));
-    }
-
-    if (utetra_is_degenerate(utetra))
-      goto next;
-
-    utetra_solve(utetra, /* warm start: */ NULL);
-
-    if (utetra_get_value(utetra) >= eik->jet[l].f)
-      goto next;
-
-    if (utetra_ray_is_occluded(utetra, eik))
-      goto next;
-
-    if (utetra_has_interior_point_solution(utetra)) {
-      commit_utetra(eik, l, utetra);
-      adjust(eik, l);
-      goto next;
-    }
-
-    size_t num_interior = utetra_get_num_interior_coefs(utetra);
-    assert(num_interior == 0 || num_interior == 2);
-
-    size_t num_utetra_other;
-    utetra_s **utetra_other =
-      find_and_delete_cached_utetra(eik, l0, utetra, &num_utetra_other);
-    if (utetra_other) {
-      commit_utetra(eik, l, utetra);
-      adjust(eik, l);
-      for (size_t j = 0; j < num_utetra_other; ++j)
-        utetra_dealloc(&utetra_other[j]);
-      free(utetra_other);
-      goto next;
-    }
-
-    if (!utetra_cached_already(eik, utetra)) {
-      array_append(eik->old_utetra, &utetra);
-      continue; /* don't dealloc */
-    }
-
-  next:
-    utetra_dealloc(&utetra);
+    eik3_do_utetra(eik, l, l0, le[0], le[1]);
   }
 
+  /* Clean up */
   array_deinit(le_arr);
   array_dealloc(&le_arr);
 }
@@ -681,7 +702,7 @@ static void update(eik3_s *eik, size_t l, size_t l0) {
   /* If `l0` is incident on a diffracting edge, look for corresponding
    * two-point updates to do. Do not do any other types of updates! */
   if (l0_is_on_diff_edge) {
-    do_utri(eik, l, l0, eik->old_diff_utri, is_diff_edge);
+    do_utris_if(eik, l, l0, eik->old_diff_utri, is_diff_edge);
     return;
   }
 
@@ -692,10 +713,10 @@ static void update(eik3_s *eik, size_t l, size_t l0) {
    * immersed in the boundary. These are updates that can yield
    * "creeping rays". */
   if (l0_is_bdv && mesh3_bdv(eik->mesh, l))
-    do_utri(eik, l, l0, eik->old_bd_utri, is_valid_front_bde);
+    do_utris_if(eik, l, l0, eik->old_bd_utri, is_valid_front_bde);
 
-  /* Finally, do the fan of free-space tetrahedron updates. */
-  do_freespace_utetra(eik, l, l0);
+  /* Finally, do the fan of tetrahedron updates. */
+  do_utetra_fan(eik, l, l0);
 }
 
 size_t eik3_peek(eik3_s const *eik) {
