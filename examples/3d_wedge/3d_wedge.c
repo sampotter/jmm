@@ -1068,6 +1068,7 @@ jmm_3d_wedge_problem_dump_o_refl_origin(
   FILE *fp = fopen(path, "wb");
   fwrite(wedge->origin_o_refl, sizeof(wedge->origin_o_refl[0]),
          mesh3_nverts(wedge->mesh), fp);
+  fclose(fp);
 }
 
 static void
@@ -1089,6 +1090,7 @@ jmm_3d_wedge_problem_dump_n_refl_origin(
   FILE *fp = fopen(path, "wb");
   fwrite(wedge->origin_n_refl, sizeof(wedge->origin_n_refl[0]),
          mesh3_nverts(wedge->mesh), fp);
+  fclose(fp);
 }
 
 static void
@@ -1110,6 +1112,7 @@ jmm_3d_wedge_problem_dump_direct_t_out(
   FILE *fp = fopen(path, "wb");
   fwrite(wedge->t_out_direct, sizeof(wedge->t_out_direct[0]),
          mesh3_nverts(wedge->mesh), fp);
+  fclose(fp);
 }
 
 static void
