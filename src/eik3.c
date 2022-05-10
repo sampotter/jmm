@@ -831,6 +831,10 @@ mesh3_s *eik3_get_mesh(eik3_s const *eik) {
   return eik->mesh;
 }
 
+dbl eik3_get_T(eik3_s const *eik, size_t l) {
+  return eik->jet[l].f;
+}
+
 jet31t eik3_get_jet(eik3_s const *eik, size_t l) {
   return eik->jet[l];
 }
