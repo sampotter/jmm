@@ -138,6 +138,56 @@ static dbl hybrid_f(dbl lam, utri_s *utri) {
   return utri->Df;
 }
 
+static void
+rotate_jet_for_diffraction(mesh3_s const *mesh,
+                           size_t l_diff, size_t l_bdv,
+                           jet31t *jet)
+{
+  assert(mesh3_vert_incident_on_diff_edge(mesh, l_diff));
+  assert(!mesh3_vert_incident_on_diff_edge(mesh, l_bdv));
+  assert(mesh3_bdv(mesh, l_bdv));
+
+  /* Get the diffracting edges incident on `l_diff` */
+  size_t num_inc_diff_edges = mesh3_get_num_inc_diff_edges(mesh, l_diff);
+  assert(num_inc_diff_edges > 0);
+  size_t (*le)[2] = malloc(num_inc_diff_edges*sizeof(size_t[2]));
+  mesh3_get_inc_diff_edges(mesh, l_diff, le);
+
+  /* Get an incident diffracting tangent edge */
+  dbl3 te;
+  mesh3_get_diff_edge_tangent(mesh, le[0], te);
+
+  /* Get the diffraction vertex */
+  dbl3 xe;
+  mesh3_copy_vert(mesh, l_diff, xe);
+
+  /* Get the boundary vertex */
+  dbl3 xf;
+  mesh3_copy_vert(mesh, l_bdv, xf);
+
+  /* Project the boundary vertex onto the diffracting edge */
+  dbl lam = (dbl3_dot(te, xf) - dbl3_dot(te, xe))/dbl3_dot(te, te);
+  dbl3 xproj;
+  dbl3_saxpy(lam, te, xe, xproj);
+
+  /* Compute the face tangent vector */
+  dbl3 tf;
+  dbl3_sub(xf, xproj, tf);
+  dbl3_normalize(tf);
+
+  /* Compute the cosine of the angle between the jet and the
+   * diffracting edge */
+  dbl cos_beta = dbl3_dot(te, jet->Df);
+  dbl sin_beta = sqrt(1 - cos_beta*cos_beta);
+
+  /* Compute the diffracted tangent vector */
+  for (size_t i = 0; i < 3; ++i)
+    jet->Df[i] = cos_beta*te[i] + sin_beta*tf[i];
+
+  /* Clean up */
+  free(le);
+}
+
 void utri_init(utri_s *u, utri_spec_s const *spec) {
   bool passed_lhat = spec->lhat != (size_t)NO_INDEX;
   bool passed_l0 = spec->l[0] != (size_t)NO_INDEX;
@@ -218,6 +268,22 @@ void utri_init(utri_s *u, utri_spec_s const *spec) {
   jet31t jet[2];
   for (size_t i = 0; i < 2; ++i)
     jet[i] = passed_jet ? spec->jet[i] : eik3_get_jet(spec->eik, spec->l[i]);
+
+  bool l0_on_diff_edge = mesh3_vert_incident_on_diff_edge(mesh, u->l0);
+  bool l1_on_diff_edge = mesh3_vert_incident_on_diff_edge(mesh, u->l1);
+
+  /* If exactly one of x0 and x1 is incident on a diffracting edge,
+   * this is a boundary triangle update, and we need to rotate the
+   * tangent vector incident on the diffracting edge to account for
+   * diffraction. */
+  size_t which = (size_t)NO_INDEX;
+  if (l0_on_diff_edge ^ l1_on_diff_edge)
+    which = l0_on_diff_edge ? 0 : 1;
+  if (which != (size_t)NO_INDEX) {
+    size_t l_diff = which == 0 ? u->l0 : u->l1;
+    size_t l_bdv = which == 0 ? u->l1 : u->l0;
+    rotate_jet_for_diffraction(mesh, l_diff, l_bdv, &jet[which]);
+  }
 
   dbl Xt[2][3];
   dbl3_copy(u->x0, Xt[0]);
