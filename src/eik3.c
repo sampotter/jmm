@@ -630,6 +630,9 @@ void eik3_do_utetra(eik3_s *eik, size_t l, size_t l0, size_t l1, size_t l2) {
   utetra_alloc(&utetra);
   utetra_init(utetra, &spec);
 
+  if (utetra_is_backwards(utetra, eik))
+    goto cleanup;
+
   for (size_t j = 0; j < array_size(eik->old_utetra); ++j) {
     utetra_s *utetra_other;
     array_get(eik->old_utetra, j, &utetra_other);
