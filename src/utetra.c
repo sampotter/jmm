@@ -454,9 +454,10 @@ static void get_lag_mults(utetra_s const *cf, dbl alpha[3]) {
   }
 }
 
-bool utetra_has_interior_point_solution(utetra_s const *cf) {
+bool utetra_has_interior_point_solution(utetra_s const *u) {
+  /* check whether minimizer is an interior point minimizer */
   dbl alpha[3];
-  get_lag_mults(cf, alpha);
+  get_lag_mults(u, alpha);
   return dbl3_maxnorm(alpha) <= 1e-15;
 }
 
