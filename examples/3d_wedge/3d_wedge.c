@@ -603,7 +603,7 @@ jmm_3d_wedge_problem_solve(jmm_3d_wedge_problem_s *wedge, dbl sp, dbl phip,
   xsrc[1] = sp*sin(phip);
   xsrc[2] = 0;
 
-  /** direct */
+  /** DIRECT */
 
   /* Set up and solve the direct eikonal problem */
 
@@ -705,7 +705,7 @@ jmm_3d_wedge_problem_solve(jmm_3d_wedge_problem_s *wedge, dbl sp, dbl phip,
   if (wedge->spec.verbose)
     puts("done");
 
-  /** o-refl */
+  /** O-REFL */
 
   array_s *o_refl_trial_inds;
   array_alloc(&o_refl_trial_inds);
@@ -765,7 +765,7 @@ jmm_3d_wedge_problem_solve(jmm_3d_wedge_problem_s *wedge, dbl sp, dbl phip,
   if (wedge->spec.verbose)
     puts("done");
 
-  /** n-refl */
+  /** N-REFL */
 
   array_s *n_refl_trial_inds;
   array_alloc(&n_refl_trial_inds);
