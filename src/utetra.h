@@ -47,6 +47,7 @@ void utetra_solve(utetra_s *cf, dbl const *lam);
 dbl utetra_get_value(utetra_s const *cf);
 void utetra_get_jet31t(utetra_s const *cf, jet31t *jet);
 bool utetra_has_interior_point_solution(utetra_s const *cf);
+bool utetra_is_backwards(utetra_s const *utetra, eik3_s const *eik);
 bool utetra_ray_start_in_update_cone(utetra_s const *utetra, eik3_s const *eik);
 int utetra_cmp(utetra_s const **h1, utetra_s const **h2);
 bool utetra_adj_are_optimal(utetra_s const *u1, utetra_s const *u2);

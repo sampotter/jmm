@@ -461,6 +461,32 @@ bool utetra_has_interior_point_solution(utetra_s const *u) {
   return dbl3_maxnorm(alpha) <= 1e-15;
 }
 
+bool utetra_is_backwards(utetra_s const *utetra, eik3_s const *eik) {
+  mesh3_s const *mesh = eik3_get_mesh(eik);
+
+  dbl3 x0, dx[2];
+  mesh3_copy_vert(mesh, utetra->l[0], x0);
+  dbl3_sub(mesh3_get_vert_ptr(mesh, utetra->l[1]), x0, dx[0]);
+  dbl3_sub(mesh3_get_vert_ptr(mesh, utetra->l[2]), x0, dx[1]);
+
+  dbl3 t;
+  dbl3_cross(dx[0], dx[1], t);
+
+  dbl3 dxhat0;
+  dbl3_sub(mesh3_get_vert_ptr(mesh, utetra->lhat), x0, dxhat0);
+
+  if (dbl3_dot(dxhat0, t) < 0)
+    dbl3_negate(t);
+
+  jet31t const *jet = eik3_get_jet_ptr(eik);
+
+  for (size_t i = 0; i < 3; ++i)
+    if (dbl3_dot(t, jet[utetra->l[i]].Df) <= 0)
+      return true;
+
+  return false;
+}
+
 bool utetra_ray_start_in_update_cone(utetra_s const *utetra, eik3_s const *eik){
   mesh3_s const *mesh = eik3_get_mesh(eik);
 
