@@ -388,6 +388,16 @@ static bool utri_is_cached(array_s const *utri_cache, utri_s const *utri) {
   return false;
 }
 
+static bool did_utri_already(array_s const *utri_cache, utri_s const *utri) {
+  for (size_t j = 0; j < array_size(utri_cache); ++j) {
+    utri_s *utri_other;
+    array_get(utri_cache, j, &utri_other);
+    if (utris_have_same_inds(utri, utri_other))
+      return true;
+  }
+  return false;
+}
+
 static void
 do_utri(eik3_s *eik, size_t l, size_t l0, size_t l1, array_s *utri_cache) {
   utri_spec_s spec = utri_spec_from_eik(eik, l, l0, l1);
@@ -396,12 +406,9 @@ do_utri(eik3_s *eik, size_t l, size_t l0, size_t l1, array_s *utri_cache) {
   utri_alloc(&utri);
   utri_init(utri, &spec);
 
-  for (size_t j = 0; j < array_size(utri_cache); ++j) {
-    utri_s *utri_other;
-    array_get(utri_cache, j, &utri_other);
-    if (utris_have_same_inds(utri, utri_other))
-      goto cleanup;
-  }
+  /* TODO: don't need to init utri to check this! */
+  if (did_utri_already(utri_cache, utri))
+    goto cleanup;
 
   if (utri_is_degenerate(utri))
     goto cleanup;
@@ -637,6 +644,16 @@ static bool utetra_cached_already(eik3_s const *eik, utetra_s const *utetra) {
   return false;
 }
 
+static bool did_utetra_already(eik3_s const *eik, utetra_s const *utetra) {
+  for (size_t j = 0; j < array_size(eik->old_utetra); ++j) {
+    utetra_s *utetra_other;
+    array_get(eik->old_utetra, j, &utetra_other);
+    if (utetras_have_same_inds(utetra, utetra_other))
+      return true;
+  }
+  return false;
+}
+
 void eik3_do_utetra(eik3_s *eik, size_t l, size_t l0, size_t l1, size_t l2) {
   utetra_spec_s spec = utetra_spec_from_eik_and_inds(eik, l, l0, l1, l2);
 
@@ -644,15 +661,12 @@ void eik3_do_utetra(eik3_s *eik, size_t l, size_t l0, size_t l1, size_t l2) {
   utetra_alloc(&utetra);
   utetra_init(utetra, &spec);
 
-  if (utetra_is_backwards(utetra, eik))
+  /* TODO: we don't need to init the utetra in order to check this! */
+  if (did_utetra_already(eik, utetra))
     goto cleanup;
 
-  for (size_t j = 0; j < array_size(eik->old_utetra); ++j) {
-    utetra_s *utetra_other;
-    array_get(eik->old_utetra, j, &utetra_other);
-    if (utetras_have_same_inds(utetra, utetra_other))
-      goto cleanup;
-  }
+  if (utetra_is_backwards(utetra, eik))
+    goto cleanup;
 
   if (utetra_is_degenerate(utetra))
     goto cleanup;
