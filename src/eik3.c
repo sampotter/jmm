@@ -717,10 +717,11 @@ static void update(eik3_s *eik, size_t l, size_t l0) {
   assert(!eik->has_bc[l0]);
 
   bool l0_is_on_diff_edge = mesh3_vert_incident_on_diff_edge(eik->mesh, l0);
+  bool l_is_on_diff_edge = mesh3_vert_incident_on_diff_edge(eik->mesh, l);
 
   /* If `l0` is incident on a diffracting edge, look for corresponding
    * two-point updates to do. Do not do any other types of updates! */
-  if (l0_is_on_diff_edge) {
+  if (l0_is_on_diff_edge && !l_is_on_diff_edge) {
     do_utris_if(eik, l, l0, eik->old_diff_utri, is_diff_edge);
     return;
   }
