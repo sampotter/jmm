@@ -1529,14 +1529,16 @@ bool mesh3_local_ray_is_occluded(mesh3_s const *mesh, size_t lhat, par3_s const 
   dbl3 xb;
   par3_get_xb(par, mesh, xb);
 
+  dbl const *xhat = mesh->verts[lhat];
+
   dbl3 dxhat; /* xlam -> xhat */
-  dbl3_sub(mesh->verts[lhat], xb, dxhat);
+  dbl3_sub(xhat, xb, dxhat);
 
   /* Check whether the update ray is contained in the cone spanned by
    * the cells incident on `utetra->lhat`. */
 
   dbl3 dxlam; /* xhat -> xlam */
-  dbl3_sub(xb, mesh->verts[lhat], dxlam);
+  dbl3_sub(xb, xhat, dxlam);
 
   if (!local_ray_in_vertex_cone(mesh, dxlam, lhat))
     return true;
@@ -1614,27 +1616,41 @@ bool mesh3_local_ray_is_occluded(mesh3_s const *mesh, size_t lhat, par3_s const 
       dbl3_sub(x[1], x[0], te);
       dbl3_normalize(te);
 
+      dbl3 xproj;
+      dbl3_saxpy(dbl3_dot(te, xhat) - dbl3_dot(te, x[0]), te, x[0], xproj);
+
+      dbl3 t;
+      dbl3_sub(xhat, xproj, t);
+      dbl3_normalize(t);
+
+      dbl3 yproj[2];
+      dbl3_saxpy(dbl3_dot(te, y[0]) - dbl3_dot(te, x[0]), te, x[0], yproj[0]);
+      dbl3_saxpy(dbl3_dot(te, y[1]) - dbl3_dot(te, x[0]), te, x[0], yproj[1]);
+
+      /* Compute the x-axis for the arctan2 computation */
       dbl3 q1;
-      dbl3_sub(y[0], xb, q1);
-      dbl te_q1 = dbl3_dot(te, q1);
-      for (size_t j = 0; j < 3; ++j)
-        q1[j] -= te_q1*te[j];
+      dbl3_sub(y[0], yproj[0], q1);
       dbl3_normalize(q1);
 
-      dbl3 q2, u2;
-      dbl3_sub(y[1], xb, q2);
-      dbl te_q2 = dbl3_dot(te, q2);
-      for (size_t j = 0; j < 3; ++j)
-        u2[j] = q2[j] - te_q2*te[j];
-      dbl q1_q2 = dbl3_dot(q1, q2);
-      for (size_t j = 0; j < 3; ++j)
-        q2[j] = u2[j] - q1_q2*q1[j];
-      dbl3_normalize(q2);
+      /* Compute the y-axis for the arctan2 computation */
+      dbl3 q2;
+      dbl3_cross(te, q1, q2);
 
-      dbl thetamax = atan2(dbl3_dot(q2, u2), dbl3_dot(q1, u2));
+      /* Check that q2 has the correct orientation (to ensure that we
+       * measure the angle using arctan2 consistently) */
+      dbl3 u;
+      dbl3_sub(y[1], yproj[1], u);
+      dbl3_normalize(u);
+      if (dbl3_dot(u, q2) < 0)
+        dbl3_negate(q2);
 
-      dbl theta = atan2(dbl3_dot(q2, dxhat), dbl3_dot(q1, dxhat));
+      /* Compute the maximum angle */
+      dbl thetamax = atan2(dbl3_dot(q2, u), dbl3_dot(q1, u));
 
+      /* ... and compute the angle of interest */
+      dbl theta = atan2(dbl3_dot(q2, t), dbl3_dot(q1, t));
+
+      /* Check whether it's in the feasible range */
       dbl const atol = 1e-13;
       if (-atol <= theta && theta <= thetamax + atol) {
         ray_start_is_feasible = true;
