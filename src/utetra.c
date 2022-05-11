@@ -718,7 +718,7 @@ bool utetras_have_same_minimizer(utetra_s const *u1, utetra_s const *u2) {
   dbl x1[3], x2[3];
   utetra_get_x(u1, x1);
   utetra_get_x(u2, x2);
-  return dbl3_dist(x1, x2) <= 1e-13;
+  return dbl3_dist(x1, x2) <= u1->tol;
 }
 
 bool utetras_have_same_inds(utetra_s const *u1, utetra_s const *u2) {
