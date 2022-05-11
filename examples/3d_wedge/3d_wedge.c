@@ -379,15 +379,17 @@ static void approx_D2T(eik3_s const *eik, dbl33 *D2T) {
 
   dbl33 *D2T_cell = malloc(4*mesh3_ncells(mesh)*sizeof(dbl33));
 
+  bool *has_init = malloc(mesh3_nverts(mesh)*sizeof(bool));
+  for (size_t l = 0; l < mesh3_nverts(mesh); ++l)
+    has_init[l] = dbl33_isfinite(D2T[l]);
+
   /* first, compute the Hessian at each cell vertex */
   for (size_t lc = 0, lv[4]; lc < mesh3_ncells(mesh); ++lc) {
     mesh3_cv(mesh, lc, lv);
 
-    bool has_init_D2T[4];
-
     /* copy in initial values of D2T */
     for (size_t i = 0; i < 4; ++i)
-      if ((has_init_D2T[i] = dbl33_isfinite(D2T[lv[i]])))
+      if (has_init[lv[i]])
         dbl33_copy(D2T[lv[i]], D2T_cell[4*lc + i]);
 
     /* get T and DT */
@@ -425,7 +427,7 @@ static void approx_D2T(eik3_s const *eik, dbl33 *D2T) {
 
     /* compute Hessian at each vertex */
     for (size_t i = 0; i < 4; ++i) {
-      if (has_init_D2T[i])
+      if (has_init[lv[i]])
         continue;
 
       dbl4 b;
@@ -450,7 +452,9 @@ static void approx_D2T(eik3_s const *eik, dbl33 *D2T) {
   }
 
   /* zero out D2T */
-  memset(D2T, 0x0, sizeof(dbl33)*mesh3_nverts(mesh));
+  for (size_t l = 0; l < mesh3_nverts(mesh); ++l)
+    if (!has_init[l])
+      dbl33_zero(D2T[l]);
 
   /* number of terms in weighted average */
   size_t *N = calloc(mesh3_nverts(mesh), sizeof(size_t));
@@ -464,6 +468,9 @@ static void approx_D2T(eik3_s const *eik, dbl33 *D2T) {
       continue;
 
     for (size_t i = 0; i < 4; ++i) {
+      if (has_init[cv[i]])
+        continue;
+
       /* If this vertex was updated from a diff edge, don't use data
        * from a cell which is incident on a diff edge... */
       if (updated_from_diff_edge(eik, cv[i]) &&
@@ -483,11 +490,14 @@ static void approx_D2T(eik3_s const *eik, dbl33 *D2T) {
 
   /* normalize each entry by the number of incident cells */
   for (size_t lv = 0; lv < mesh3_nverts(mesh); ++lv) {
+    if (has_init[lv])
+      continue;
     size_t nvc = mesh3_nvc(mesh, lv);
     dbl33_dbl_div_inplace(D2T[lv], nvc);
   }
 
   free(N);
+  free(has_init);
   free(D2T_cell);
 }
 
@@ -690,6 +700,58 @@ jmm_3d_wedge_problem_solve(jmm_3d_wedge_problem_s *wedge, dbl sp, dbl phip,
       dbl33_copy(wedge->jet_direct_gt[l].D2f, wedge->D2T_direct[l]);
     else
       dbl33_nan(wedge->D2T_direct[l]);
+  }
+
+  /* we also want to initialize D2T for points which are immediately
+   * downwind of the diffracting edge */
+  for (size_t l = 0; l < mesh3_nverts(wedge->mesh); ++l) {
+    par3_s par = eik3_get_par(wedge->eik_direct, l);
+    size_t la[3];
+    size_t na = par3_get_active_inds(&par, la);
+    if (na == 2 && mesh3_is_diff_edge(wedge->mesh, la)) {
+      /* Get the update point */
+      dbl3 xhat;
+      mesh3_copy_vert(wedge->mesh, l, xhat);
+
+      /* Find the point of diffraction */
+      dbl3 xe = {0, 0, xhat[2]}; // manually project...
+
+      /* Unit tangent vector for diffracting edge */
+      dbl3 te = {0, 0, 1};
+
+      /* Compute unit vector pointing from `xe` to `xhat` */
+      dbl3 tf;
+      dbl3_sub(xhat, xe, tf);
+      dbl rho = dbl3_normalize(tf); // cylindrical radius for `xhat`
+
+      /* Get eikonal jet at `xhat` */
+      jet31t J = eik3_get_jet(wedge->eik_direct, l);
+
+      /* Get the ray direction */
+      /* Compute unit vector orthogonal to `te` and `tf` (this vector
+       * will be orthogonal to the ray direction) */
+      dbl3 q1;
+      dbl3_cross(te, tf, q1);
+      assert(fabs(dbl3_dot(q1, J.Df)) < 1e-13);
+
+      /* Compute unit vector orthogonal to `q1` and the ray
+       * direction */
+      dbl3 q2;
+      dbl3_cross(J.Df, q1, q2);
+
+      /* Compute first curvature outer product */
+      dbl33 outer1;
+      dbl3_outer(q1, q1, outer1);
+      dbl33_dbl_div_inplace(outer1, rho);
+
+      /* Compute second curvature outer product */
+      dbl33 outer2;
+      dbl3_outer(q2, q2, outer2);
+      dbl33_dbl_div_inplace(outer2, J.f);
+
+      /* Sum them up to get the Hessian */
+      dbl33_add(outer1, outer2, wedge->D2T_direct[l]);
+    }
   }
 
   approx_D2T(wedge->eik_direct, wedge->D2T_direct);

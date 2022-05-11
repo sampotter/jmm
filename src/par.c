@@ -67,11 +67,10 @@ void par3_get_xb(par3_s const *par, mesh3_s const *mesh, dbl xb[3]) {
   dbl const *x[3];
   mesh3_get_vert_ptrs(mesh, l, num_active, x);
 
-  for (size_t i = 0; i < 3; ++i) {
-    xb[i] = 0;
+  dbl3_zero(xb);
+  for (size_t i = 0; i < 3; ++i)
     for (size_t j = 0; j < num_active; ++j)
-      xb[i] += par->b[j]*x[j][i];
-  }
+      xb[i] += b[j]*x[j][i];
 }
 
 bool par3_is_empty(par3_s const *par) {
