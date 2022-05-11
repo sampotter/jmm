@@ -599,6 +599,61 @@ static void prop_amp(jmm_3d_wedge_problem_s *wedge, wedge_eik_e wedge_eik,
   }
 }
 
+static void
+add_BCs_for_scattered_problem(eik3_s *eik) {
+  mesh3_s const *mesh = eik3_get_mesh(eik);
+  array_s const *bc_inds = eik3_get_bc_inds(eik);
+
+  /* Iterate over each point with boundary conditions, and update all
+   * of their neighbors manually to ensure a good start near the
+   * reflecting face... */
+  for (size_t l = 0; l < mesh3_nverts(mesh); ++l) {
+    if (eik3_has_BCs(eik, l)) {
+      size_t nvv = mesh3_nvv(mesh, l);
+      size_t *vv = malloc(nvv*sizeof(size_t));
+      mesh3_vv(mesh, l, vv);
+
+      /* get incident BDF */
+      size_t nf = mesh3_get_num_inc_bdf(mesh, l);
+      size_t (*lf)[3] = malloc(nf*sizeof(size_t[3]));
+      mesh3_get_inc_bdf(mesh, l, lf);
+
+      /* get incident diff edges */
+      size_t ne = mesh3_get_num_inc_diff_edges(mesh, l);
+      size_t (*le)[2] = malloc(ne*sizeof(size_t[2]));
+      mesh3_get_inc_diff_edges(mesh, l, le);
+
+      for (size_t i = 0, lhat; i < nvv; ++i) {
+        lhat = vv[i];
+
+        if (eik3_is_far(eik, lhat))
+          eik3_add_trial(eik, lhat, jet31t_make_empty());
+
+        /* skip if this is one of the original points with BCs */
+        if (array_contains(bc_inds, &lhat))
+          continue;
+
+        /* do each of the boundary tetrahedron updates */
+        for (size_t j = 0; j < nf; ++j)
+          if (array_contains(bc_inds, &lf[j][0]) &&
+              array_contains(bc_inds, &lf[j][1]) &&
+              array_contains(bc_inds, &lf[j][2]))
+            eik3_do_utetra(eik, lhat, lf[j][0], lf[j][1], lf[j][2]);
+
+        /* do each of the diffracting triangle updates */
+        for (size_t j = 0; j < ne; ++j)
+          if (array_contains(bc_inds, &le[j][0]) &&
+              array_contains(bc_inds, &le[j][1]))
+            eik3_do_diff_utri(eik, lhat, le[j][0], le[j][1]);
+      }
+
+      free(le);
+      free(lf);
+      free(vv);
+    }
+  }
+}
+
 jmm_error_e
 jmm_3d_wedge_problem_solve(jmm_3d_wedge_problem_s *wedge, dbl sp, dbl phip,
                            dbl rfac, double omega) {
@@ -787,54 +842,7 @@ jmm_3d_wedge_problem_solve(jmm_3d_wedge_problem_s *wedge, dbl sp, dbl phip,
   // array_s const *o_refl_trial_inds = eik3_get_trial_inds(wedge->eik_o_refl);
   array_s const *o_refl_bc_inds = eik3_get_bc_inds(wedge->eik_o_refl);
 
-  /* Iterate over each point with boundary conditions, and update all
-   * of their neighbors manually to ensure a good start near the
-   * reflecting face... */
-  for (size_t l = 0; l < mesh3_nverts(wedge->mesh); ++l) {
-    if (eik3_has_BCs(wedge->eik_o_refl, l)) {
-      size_t nvv = mesh3_nvv(wedge->mesh, l);
-      size_t *vv = malloc(nvv*sizeof(size_t));
-      mesh3_vv(wedge->mesh, l, vv);
-
-      /* get incident BDF */
-      size_t nf = mesh3_get_num_inc_bdf(wedge->mesh, l);
-      size_t (*lf)[3] = malloc(nf*sizeof(size_t[3]));
-      mesh3_get_inc_bdf(wedge->mesh, l, lf);
-
-      /* get incident diff edges */
-      size_t ne = mesh3_get_num_inc_diff_edges(wedge->mesh, l);
-      size_t (*le)[2] = malloc(ne*sizeof(size_t[2]));
-      mesh3_get_inc_diff_edges(wedge->mesh, l, le);
-
-      for (size_t i = 0, lhat; i < nvv; ++i) {
-        lhat = vv[i];
-
-        if (eik3_is_far(wedge->eik_o_refl, lhat))
-          eik3_add_trial(wedge->eik_o_refl, lhat, jet31t_make_empty());
-
-        /* skip if this is one of the original points with BCs */
-        if (array_contains(o_refl_bc_inds, &lhat))
-          continue;
-
-        /* do each of the boundary tetrahedron updates */
-        for (size_t j = 0; j < nf; ++j)
-          if (array_contains(o_refl_bc_inds, &lf[j][0]) &&
-              array_contains(o_refl_bc_inds, &lf[j][1]) &&
-              array_contains(o_refl_bc_inds, &lf[j][2]))
-            eik3_do_utetra(wedge->eik_o_refl,lhat,lf[j][0],lf[j][1],lf[j][2]);
-
-        /* do each of the diffracting triangle updates */
-        for (size_t j = 0; j < ne; ++j)
-          if (array_contains(o_refl_bc_inds, &le[j][0]) &&
-              array_contains(o_refl_bc_inds, &le[j][1]))
-            eik3_do_diff_utri(wedge->eik_o_refl, lhat, le[j][0], le[j][1]);
-      }
-
-      free(le);
-      free(lf);
-      free(vv);
-    }
-  }
+  add_BCs_for_scattered_problem(wedge->eik_o_refl);
 
   if (wedge->spec.verbose) {
     printf("Computing o-face reflection... ");
@@ -903,11 +911,13 @@ jmm_3d_wedge_problem_solve(jmm_3d_wedge_problem_s *wedge, dbl sp, dbl phip,
     /* Reflected gradient over n-face */
     dbl33_dbl3_mul_inplace(n_refl, jet.Df);
 
-    eik3_add_trial(wedge->eik_n_refl, l, jet);
+    eik3_add_bc(wedge->eik_n_refl, l, jet);
   }
 
   // array_s const *n_refl_trial_inds = eik3_get_trial_inds(wedge->eik_n_refl);
   array_s const *n_refl_bc_inds = eik3_get_bc_inds(wedge->eik_n_refl);
+
+  add_BCs_for_scattered_problem(wedge->eik_n_refl);
 
   if (wedge->spec.verbose) {
     printf("Computing n-face reflection... ");
