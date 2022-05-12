@@ -53,6 +53,9 @@ size_t const *eik3_get_accepted_ptr(eik3_s const *eik);
 
 void eik3_add_trial(eik3_s *eik, size_t l, jet31t jet);
 void eik3_add_bc(eik3_s *eik, size_t l, jet31t jet);
+void eik3_add_diff_bc(eik3_s *eik, size_t const le[2], bb31 const *T);
+bool eik3_has_diff_bc(eik3_s const *eik, size_t const le[2]);
+void eik3_get_diff_bc(eik3_s const *eik, size_t const le[2], bb31 *T);
 void eik3_set_jet(eik3_s *eik, size_t l, jet31t jet);
 void eik3_set_par(eik3_s *eik, size_t l, par3_s par);
 

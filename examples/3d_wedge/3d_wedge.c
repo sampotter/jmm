@@ -600,7 +600,7 @@ static void prop_amp(jmm_3d_wedge_problem_s *wedge, wedge_eik_e wedge_eik,
 }
 
 static void
-add_BCs_for_scattered_problem(eik3_s *eik) {
+add_refl_BCs(eik3_s *eik) {
   mesh3_s const *mesh = eik3_get_mesh(eik);
   array_s const *bc_inds = eik3_get_bc_inds(eik);
 
@@ -652,6 +652,68 @@ add_BCs_for_scattered_problem(eik3_s *eik) {
       free(vv);
     }
   }
+}
+
+static void add_diff_BCs(eik3_s *eik, eik3_s *eik_parent) {
+  mesh3_s const *mesh = eik3_get_mesh(eik);
+  array_s const *bc_inds = eik3_get_bc_inds(eik);
+
+  assert(mesh3_get_num_diffractors(mesh) == 1);
+
+  size_t num_diff_edges = mesh3_get_diffractor_size(mesh, 0);
+  size_t (*le)[2] = malloc(num_diff_edges*sizeof(size_t[2]));
+  mesh3_get_diffractor(mesh, 0, le);
+
+  for (size_t i = 0; i < num_diff_edges; ++i) {
+    jet31t jet[2] = {
+      eik3_get_jet(eik_parent, le[i][0]),
+      eik3_get_jet(eik_parent, le[i][1])
+    };
+
+    dbl3 x[2];
+    mesh3_copy_vert(mesh, le[i][0], x[0]);
+    mesh3_copy_vert(mesh, le[i][1], x[1]);
+
+    bb31 T;
+    bb31_init_from_jets(&T, jet, x);
+
+    eik3_add_diff_bc(eik, le[i], &T);
+  }
+
+  for (size_t i = 0, l; i < array_size(bc_inds); ++i) {
+    array_get(bc_inds, i, &l);
+
+    size_t nvv = mesh3_nvv(mesh, l);
+    size_t *vv = malloc(nvv*sizeof(size_t));
+    mesh3_vv(mesh, l, vv);
+
+    /* get incident diff edges */
+    size_t ne = mesh3_get_num_inc_diff_edges(mesh, l);
+    size_t (*le)[2] = malloc(ne*sizeof(size_t[2]));
+    mesh3_get_inc_diff_edges(mesh, l, le);
+
+    for (size_t i = 0, lhat; i < nvv; ++i) {
+      lhat = vv[i];
+
+      if (eik3_is_far(eik, lhat))
+        eik3_add_trial(eik, lhat, jet31t_make_empty());
+
+      /* skip if this is one of the original points with BCs */
+      if (array_contains(bc_inds, &lhat))
+        continue;
+
+      /* do each of the diffracting triangle updates */
+      for (size_t j = 0; j < ne; ++j)
+        if (array_contains(bc_inds, &le[j][0]) &&
+            array_contains(bc_inds, &le[j][1]))
+          eik3_do_diff_utri(eik, lhat, le[j][0], le[j][1]);
+    }
+
+    free(le);
+    free(vv);
+  }
+
+  free(le);
 }
 
 jmm_error_e
@@ -824,6 +886,8 @@ jmm_3d_wedge_problem_solve(jmm_3d_wedge_problem_s *wedge, dbl sp, dbl phip,
 
   /** O-REFL */
 
+  // TODO: move this into add_refl_BCs...
+
   /* Set up and solve the o-face reflection eikonal problem: */
   for (size_t i = 0; i < mesh3_nverts(wedge->mesh); ++i) {
     mesh3_copy_vert(wedge->mesh, i, x);
@@ -842,7 +906,8 @@ jmm_3d_wedge_problem_solve(jmm_3d_wedge_problem_s *wedge, dbl sp, dbl phip,
   // array_s const *o_refl_trial_inds = eik3_get_trial_inds(wedge->eik_o_refl);
   array_s const *o_refl_bc_inds = eik3_get_bc_inds(wedge->eik_o_refl);
 
-  add_BCs_for_scattered_problem(wedge->eik_o_refl);
+  // TODO: set refl or diff BCs depending on angle...
+  add_refl_BCs(wedge->eik_o_refl);
 
   if (wedge->spec.verbose) {
     printf("Computing o-face reflection... ");
@@ -895,29 +960,14 @@ jmm_3d_wedge_problem_solve(jmm_3d_wedge_problem_s *wedge, dbl sp, dbl phip,
       n_refl[i][j] = i == j ?
         1 - 2*n_normal[i]*n_normal[j] : -2*n_normal[i]*n_normal[j];
 
-  for (size_t l = 0; l < mesh3_nverts(wedge->mesh); ++l) {
-    /* Skip vertices that aren't on the boundary */
-    if (!mesh3_bdv(wedge->mesh, l))
-      continue;
-
-    /* Check if the angle of the vertex matches the angle of the
-     * n-face of the wedge */
-    mesh3_copy_vert(wedge->mesh, l, x);
-    if (fabs(get_phi(x) - n_radians) > 1e-7 && hypot(x[0], x[1]) > 1e-7)
-      continue;
-
-    jet31t jet = eik3_get_jet(wedge->eik_direct, l);
-
-    /* Reflected gradient over n-face */
-    dbl33_dbl3_mul_inplace(n_refl, jet.Df);
-
-    eik3_add_bc(wedge->eik_n_refl, l, jet);
-  }
+  // TODO: add diff or refl BCs depending on problem setup...
+  // TODO: move this into add_*_BCs...
 
   // array_s const *n_refl_trial_inds = eik3_get_trial_inds(wedge->eik_n_refl);
   array_s const *n_refl_bc_inds = eik3_get_bc_inds(wedge->eik_n_refl);
 
-  add_BCs_for_scattered_problem(wedge->eik_n_refl);
+  // TODO: set refl or diff BCs depending on angle...
+  add_diff_BCs(wedge->eik_n_refl, wedge->eik_direct);
 
   if (wedge->spec.verbose) {
     printf("Computing n-face reflection... ");

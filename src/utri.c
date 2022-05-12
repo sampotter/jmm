@@ -272,23 +272,31 @@ void utri_init(utri_s *u, utri_spec_s const *spec) {
   bool l0_on_diff_edge = mesh3_vert_incident_on_diff_edge(mesh, u->l0);
   bool l1_on_diff_edge = mesh3_vert_incident_on_diff_edge(mesh, u->l1);
 
-  /* If exactly one of x0 and x1 is incident on a diffracting edge,
-   * this is a boundary triangle update, and we need to rotate the
-   * tangent vector incident on the diffracting edge to account for
-   * diffraction. */
-  size_t which = (size_t)NO_INDEX;
-  if (l0_on_diff_edge ^ l1_on_diff_edge)
-    which = l0_on_diff_edge ? 0 : 1;
-  if (which != (size_t)NO_INDEX) {
-    size_t l_diff = which == 0 ? u->l0 : u->l1;
-    size_t l_bdv = which == 0 ? u->l1 : u->l0;
-    rotate_jet_for_diffraction(mesh, l_diff, l_bdv, &jet[which]);
-  }
+  if (l0_on_diff_edge &&
+      l1_on_diff_edge &&
+      eik3_has_diff_bc(spec->eik, spec->l)) {
+    /* If we're updating from a diffracting edge with BCs, then we
+     * grab the cubic polynomial giving the BCs now */
+    eik3_get_diff_bc(spec->eik, spec->l, &u->T);
+  } else {
+    /* If exactly one of x0 and x1 is incident on a diffracting edge,
+     * this is a boundary triangle update, and we need to rotate the
+     * tangent vector incident on the diffracting edge to account for
+     * diffraction. */
+    size_t which = (size_t)NO_INDEX;
+    if (l0_on_diff_edge ^ l1_on_diff_edge)
+      which = l0_on_diff_edge ? 0 : 1;
+    if (which != (size_t)NO_INDEX) {
+      size_t l_diff = which == 0 ? u->l0 : u->l1;
+      size_t l_bdv = which == 0 ? u->l1 : u->l0;
+      rotate_jet_for_diffraction(mesh, l_diff, l_bdv, &jet[which]);
+    }
 
-  dbl Xt[2][3];
-  dbl3_copy(u->x0, Xt[0]);
-  dbl3_copy(u->x1, Xt[1]);
-  bb31_init_from_jets(&u->T, jet, Xt);
+    dbl Xt[2][3];
+    dbl3_copy(u->x0, Xt[0]);
+    dbl3_copy(u->x1, Xt[1]);
+    bb31_init_from_jets(&u->T, jet, Xt);
+  }
 
   u->orig_index = spec->orig_index;
 }

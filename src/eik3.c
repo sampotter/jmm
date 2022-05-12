@@ -62,6 +62,8 @@ struct eik3 {
    * specified. */
   bool *has_bc;
 
+  alist_s *T_diff;
+
   array_s *trial_inds, *bc_inds;
 
   /* Useful statistics for debugging */
@@ -159,6 +161,9 @@ void eik3_init(eik3_s *eik, mesh3_s *mesh) {
 
   eik->has_bc = calloc(nverts, sizeof(bool));
 
+  alist_alloc(&eik->T_diff);
+  alist_init(eik->T_diff, sizeof(size_t[2]), sizeof(bb31), ARRAY_DEFAULT_CAPACITY);
+
   eik->is_initialized = true;
 }
 
@@ -216,6 +221,9 @@ void eik3_deinit(eik3_s *eik) {
 
   free(eik->has_bc);
   eik->has_bc = NULL;
+
+  alist_deinit(eik->T_diff);
+  alist_dealloc(&eik->T_diff);
 
   eik->is_initialized = false;
 }
@@ -880,6 +888,39 @@ void eik3_add_bc(eik3_s *eik, size_t l, jet31t jet) {
   eik->accepted[eik->num_accepted++] = l;
 
   array_append(eik->bc_inds, &l);
+}
+
+void eik3_add_diff_bc(eik3_s *eik, size_t const le[2], bb31 const *T) {
+  /* Add BCs for each node with values taken from T... but with
+   * a singular gradient! */
+
+  jet31t jet[2] = {
+    jet31t_make_point_source(T->c[0]),
+    jet31t_make_point_source(T->c[3])
+  };
+
+  for (size_t i = 0; i < 2; ++i)
+    if (!eik3_has_BCs(eik, le[i]))
+      eik3_add_bc(eik, le[i], jet[i]);
+
+  /* We also store the cubic polynomial `T` approximating the eikonal
+   * over this diffracting edge for later use... */
+
+  size_t key[2] = {le[0], le[1]};
+  SORT2(key[0], key[1]);
+  alist_append(eik->T_diff, key, T);
+}
+
+bool eik3_has_diff_bc(eik3_s const *eik, size_t const le[2]) {
+  size_t key[2] = {le[0], le[1]};
+  SORT2(key[0], key[1]);
+  return alist_contains(eik->T_diff, key);
+}
+
+void eik3_get_diff_bc(eik3_s const *eik, size_t const le[2], bb31 *T) {
+  size_t key[2] = {le[0], le[1]};
+  SORT2(key[0], key[1]);
+  alist_get_by_key(eik->T_diff, key, T);
 }
 
 bool eik3_is_far(eik3_s const *eik, size_t l) {
