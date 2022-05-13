@@ -453,6 +453,9 @@ do_utri(eik3_s *eik, size_t l, size_t l0, size_t l1, array_s *utri_cache) {
   if (did_utri_already(utri_cache, utri))
     goto cleanup;
 
+  if (utri_is_backwards(utri, eik))
+    goto cleanup;
+
   if (utri_is_degenerate(utri))
     goto cleanup;
 

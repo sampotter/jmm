@@ -370,6 +370,36 @@ bool utri_has_interior_point_solution(utri_s const *utri) {
     || fabs(get_lag_mult(utri)) <= atol;
 }
 
+bool utri_is_backwards(utri_s const *utri, eik3_s const *eik) {
+  mesh3_s const *mesh = eik3_get_mesh(eik);
+
+  /* We need to allow diffracted triangle updates... */
+  if (mesh3_is_diff_edge(mesh, (size_t[2]) {utri->l0, utri->l1}))
+    return false;
+
+  dbl3 xhat, x0, dx;
+  mesh3_copy_vert(mesh, utri->l, xhat);
+  mesh3_copy_vert(mesh, utri->l0, x0);
+  dbl3_sub(mesh3_get_vert_ptr(mesh, utri->l1), x0, dx);
+
+  dbl lam = (dbl3_dot(dx, xhat) - dbl3_dot(dx, x0))/dbl3_dot(dx, dx);
+  dbl3 xproj;
+  dbl3_saxpy(lam, dx, x0, xproj);
+
+  dbl3 dxhat;
+  dbl3_sub(xhat, xproj, dxhat);
+
+  jet31t const *jet = eik3_get_jet_ptr(eik);
+
+  if (dbl3_dot(dxhat, jet[utri->l0].Df) <= 0)
+    return true;
+
+  if (dbl3_dot(dxhat, jet[utri->l1].Df) <= 0)
+    return true;
+
+  return false;
+}
+
 size_t utri_get_active_ind(utri_s const *utri) {
   dbl const atol = 1e-14;
   if (utri->lam < atol)
