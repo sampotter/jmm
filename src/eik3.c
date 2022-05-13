@@ -277,6 +277,43 @@ static void adjust(eik3_s *eik, size_t l) {
   heap_swim(eik->heap, eik->pos[l]);
 }
 
+static void do_bc_updates(eik3_s *eik, size_t l, size_t l0) {
+  assert(eik->has_bc[l0]);
+  assert(eik->state[l] == TRIAL);
+  assert(eik->state[l0] == VALID);
+
+  mesh3_s const *mesh = eik->mesh;
+  array_s const *bc_inds = eik->bc_inds;
+
+  /* Do boundary face BC updates... */
+
+  size_t nf = mesh3_get_num_inc_bdf(mesh, l0);
+  size_t (*lf)[3] = malloc(nf*sizeof(size_t[3]));
+  mesh3_get_inc_bdf(mesh, l0, lf);
+
+  for (size_t i = 0; i < nf; ++i)
+    if (array_contains(bc_inds, &lf[i][0]) &&
+        array_contains(bc_inds, &lf[i][1]) &&
+        array_contains(bc_inds, &lf[i][2]))
+      eik3_do_utetra(eik, l0, lf[i][0], lf[i][1], lf[i][2]);
+
+  /* Do diffracting edge BC updates... */
+
+  size_t ne = mesh3_get_num_inc_diff_edges(mesh, l0);
+  size_t (*le)[2] = malloc(ne*sizeof(size_t[2]));
+  mesh3_get_inc_diff_edges(mesh, l0, le);
+
+  for (size_t i = 0; i < ne; ++i)
+    if (array_contains(bc_inds, &le[i][0]) &&
+        array_contains(bc_inds, &le[i][1]))
+      eik3_do_diff_utri(eik, l0, le[i][0], le[i][1]);
+
+  free(le);
+  free(lf);
+}
+
+/** Functions for `do_bd_utri` and `do_diff_utri`: */
+
 static void commit_utri(eik3_s *eik, size_t lhat, utri_s const *utri) {
   /* TODO: see comment about caustics in `commit_utetra` */
   assert(utri_get_value(utri) < eik->jet[lhat].f);
@@ -285,8 +322,6 @@ static void commit_utri(eik3_s *eik, size_t lhat, utri_s const *utri) {
 
   eik3_set_par(eik, lhat, utri_get_par(utri));
 }
-
-/** Functions for `do_bd_utri` and `do_diff_utri`: */
 
 /* Check whether the edge indexed by `l` is:
  *   1) a boundary edge (a mesh edge that's  immersed in the boundary)
@@ -465,6 +500,7 @@ void eik3_do_diff_utri(eik3_s *eik, size_t l, size_t l0, size_t l1) {
 static void do_utris_if(eik3_s *eik, size_t l, size_t l0, array_s *utri_cache,
                         bool (*pred)(eik3_s const *, size_t const[2])) {
   assert(l != l0);
+  assert(!eik->has_bc[l0]);
 
   /* find the diffracting edges incident on l0 with VALID indices */
   array_s *l1_arr;
@@ -474,7 +510,16 @@ static void do_utris_if(eik3_s *eik, size_t l, size_t l0, array_s *utri_cache,
 
   for (size_t i = 0, l1; i < array_size(l1_arr); ++i) {
     array_get(l1_arr, i, &l1);
-    if (l == l1) continue;
+    if (l == l1)
+      continue;
+
+    /* If `l1` has boundary, we do the incident boundary updates
+     * instead and skip this update. */
+    if (eik->has_bc[l1]) {
+      do_bc_updates(eik, l, l1);
+      continue;
+    }
+
     do_utri(eik, l, l0, l1, utri_cache);
   }
 
@@ -718,6 +763,8 @@ cleanup:
 }
 
 static void do_utetra_fan(eik3_s *eik, size_t l, size_t l0) {
+  assert(!eik->has_bc[l0]);
+
   /* Get the fan of `VALID` triangles incident on `l0`. */
   array_s *le_arr;
   array_alloc(&le_arr);
@@ -727,6 +774,17 @@ static void do_utetra_fan(eik3_s *eik, size_t l, size_t l0) {
   /* Do them all */
   for (size_t i = 0, le[2]; i < array_size(le_arr); ++i) {
     array_get(le_arr, i, &le);
+
+    /* If the other valid node has a boundary data, then we should
+     * update from the associated boundary updates and skip this
+     * update. */
+    if (eik->has_bc[le[0]] || eik->has_bc[le[1]]) {
+      for (size_t j = 0; j < 2; ++j)
+        if (eik->has_bc[le[j]])
+          do_bc_updates(eik, l, le[j]);
+      continue;
+    }
+
     eik3_do_utetra(eik, l, l0, le[0], le[1]);
   }
 
@@ -736,7 +794,10 @@ static void do_utetra_fan(eik3_s *eik, size_t l, size_t l0) {
 }
 
 static void update(eik3_s *eik, size_t l, size_t l0) {
-  assert(!eik->has_bc[l0]);
+  if (eik->has_bc[l0]) {
+    do_bc_updates(eik, l, l0);
+    return;
+  }
 
   bool l0_is_on_diff_edge = mesh3_vert_incident_on_diff_edge(eik->mesh, l0);
   bool l_is_on_diff_edge = mesh3_vert_incident_on_diff_edge(eik->mesh, l);
