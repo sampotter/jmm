@@ -36,6 +36,11 @@ bool edge_in_face(size_t const le[2], size_t const lf[3]) {
       && (le[1] == lf[0] || le[1] == lf[1] || le[1] == lf[2]);
 }
 
+int edge_cmp(size_t const e1[2], size_t const e2[2]) {
+  int cmp = compar_size_t(&e1[0], &e2[0]);
+  return cmp != 0 ? cmp : compar_size_t(&e1[1], &e2[1]);
+}
+
 typedef struct {
   size_t le[2];
   bool diff;
@@ -46,12 +51,7 @@ diff_edge_s make_diff_edge(size_t l0, size_t l1) {
 }
 
 int diff_edge_cmp(diff_edge_s const *e1, diff_edge_s const *e2) {
-  int cmp = compar_size_t(&e1->le[0], &e2->le[0]);
-  if (cmp != 0) {
-    return cmp;
-  } else {
-    return compar_size_t(&e1->le[1], &e2->le[1]);
-  }
+  return edge_cmp(e1->le, e2->le);
 }
 
 typedef struct {
@@ -90,6 +90,9 @@ struct mesh3 {
   size_t *vc;
   size_t *vc_offsets;
 
+  size_t (*edges)[2];
+  size_t nedges;
+
   bool has_bd_info;
   bool *bdc;
   bool *bdv;
@@ -112,6 +115,7 @@ struct mesh3 {
   // Geometric quantities
   dbl min_tetra_alt; // The minimum of all tetrahedron altitudes in the mesh.
   dbl min_edge_length;
+  dbl mean_edge_length;
 };
 
 tri3 mesh3_tetra_get_face(mesh3_tetra_s const *tetra, int f[3]) {
@@ -175,6 +179,57 @@ static void init_vc(mesh3_s *mesh) {
   mesh->vc_offsets = vc_offsets;
 
   free(nvc);
+}
+
+static void init_edges(mesh3_s *mesh) {
+  array_s *edge_arr;
+  array_alloc(&edge_arr);
+  array_init(edge_arr, sizeof(size_t[2]), ARRAY_DEFAULT_CAPACITY);
+
+  /* Initially accumulate all the cell edges into one big array */
+  size_t ie[6][2] = {{0, 1}, {0, 2}, {0, 3}, {1, 2}, {1, 3}, {2, 3}};
+  for (size_t lc = 0; lc < mesh->ncells; ++lc) {
+    size_t const *cell = mesh->cells[lc];
+    for (size_t i = 0; i < 6; ++i) {
+      size_t le[2] = {cell[ie[i][0]], cell[ie[i][1]]};
+      SORT2(le[0], le[1]);
+      array_append(edge_arr, &le);
+    }
+  }
+
+  /* Sort the array */
+  array_sort(edge_arr, (compar_t)edge_cmp);
+
+  array_s *unique_edge_arr;
+  array_alloc(&unique_edge_arr);
+  array_init(unique_edge_arr, sizeof(size_t[2]), ARRAY_DEFAULT_CAPACITY);
+
+  /* Pull out the unique edges into a new array */
+  size_t n = array_size(edge_arr);
+  for (size_t i = 0, le[2]; i < n; ) {
+    array_get(edge_arr, i++, &le);
+    array_append(unique_edge_arr, &le);
+    while (i < n && !edge_cmp(le, array_get_ptr(edge_arr, i)))
+      ++i;
+  }
+
+  /* Copy the edges over */
+  mesh->nedges = array_size(unique_edge_arr);
+  size_t nbytes = mesh->nedges*sizeof(size_t[2]);
+  mesh->edges = malloc(nbytes);
+  memcpy(mesh->edges, array_get_ptr(unique_edge_arr, 0), nbytes);
+
+  /* Sanity check */
+#if JMM_DEBUG
+  for (size_t i = 1; i < mesh->nedges; ++i)
+    assert(edge_cmp(mesh->edges[i - 1], mesh->edges[i]));
+#endif
+
+  array_deinit(unique_edge_arr);
+  array_dealloc(&unique_edge_arr);
+
+  array_deinit(edge_arr);
+  array_dealloc(&edge_arr);
 }
 
 static void get_op_edge(mesh3_s const *mesh, size_t lc, size_t const le[2],
@@ -630,17 +685,22 @@ static void compute_geometric_quantities(mesh3_s *mesh) {
     mesh->min_tetra_alt = fmin(mesh->min_tetra_alt, h);
   }
 
+  /* Compute the minimum edge length */
   mesh->min_edge_length = INFINITY;
-  for (size_t l = 0, nvv, *vv; l < mesh->nverts; ++l) {
-    nvv = mesh3_nvv(mesh, l);
-    vv = malloc(nvv*sizeof(size_t));
-    mesh3_vv(mesh, l, vv);
-    for (size_t i = 0; i < nvv; ++i) {
-      dbl h = dbl3_dist(mesh->verts[l], mesh->verts[vv[i]]);
-      mesh->min_edge_length = fmin(mesh->min_edge_length, h);
-    }
-    free(vv);
+  for (size_t i = 0; i < mesh->nedges; ++i) {
+    size_t const *le = mesh->edges[i];
+    dbl h = dbl3_dist(mesh->verts[le[0]], mesh->verts[le[1]]);
+    mesh->min_edge_length = fmin(h, mesh->min_edge_length);
   }
+
+  /* Compute mean edge length */
+  mesh->mean_edge_length = 0;
+  for (size_t i = 0; i < mesh->nedges; ++i) {
+    size_t const *le = mesh->edges[i];
+    dbl h = dbl3_dist(mesh->verts[le[0]], mesh->verts[le[1]]);
+    mesh->mean_edge_length += h;
+  }
+  mesh->mean_edge_length /= mesh->nedges;
 }
 
 void mesh3_init(mesh3_s *mesh,
@@ -665,6 +725,8 @@ void mesh3_init(mesh3_s *mesh,
 
   init_vc(mesh);
 
+  init_edges(mesh);
+
   compute_geometric_quantities(mesh);
 
   mesh->eps = eps ? *eps : EPS;
@@ -680,11 +742,13 @@ void mesh3_init(mesh3_s *mesh,
 void mesh3_deinit(mesh3_s *mesh) {
   free(mesh->verts);
   free(mesh->cells);
+  free(mesh->edges);
   free(mesh->vc);
   free(mesh->vc_offsets);
 
   mesh->verts = NULL;
   mesh->cells = NULL;
+  mesh->edges = NULL;
   mesh->vc = NULL;
   mesh->vc_offsets = NULL;
 
