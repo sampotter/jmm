@@ -705,20 +705,12 @@ bool utetra_index_is_active(utetra_s const *utetra, size_t l) {
     assert(false);
 }
 
-bool utetras_have_same_minimizer(utetra_s const *u1, utetra_s const *u2) {
-  size_t l1[3], l2[3];
-  (void)utetra_get_active_inds(u1, l1);
-  (void)utetra_get_active_inds(u2, l2);
-
-  SORT3(l1[0], l1[1], l1[2]);
-  SORT3(l2[0], l2[1], l2[2]);
-  if (l1[0] != l2[0] || l1[1] != l2[1] || l1[2] != l2[2])
-    return false;
-
+bool utetras_have_same_minimizer(utetra_s const *u1, utetra_s const *u2, dbl tol) {
   dbl x1[3], x2[3];
   utetra_get_x(u1, x1);
   utetra_get_x(u2, x2);
-  return dbl3_dist(x1, x2) <= u1->tol;
+  dbl r = dbl3_dist(x1, x2);
+  return r <= tol;
 }
 
 bool utetras_have_same_inds(utetra_s const *u1, utetra_s const *u2) {

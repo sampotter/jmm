@@ -1742,6 +1742,10 @@ dbl mesh3_get_min_edge_length(mesh3_s const *mesh) {
   return mesh->min_edge_length;
 }
 
+dbl mesh3_get_mean_edge_length(mesh3_s const *mesh) {
+  return mesh->mean_edge_length;
+}
+
 /**
  * Create and return a new mesh2 consisting of the boundary of the
  * tetrahedron mesh stored in `mesh`. The returned mesh must be

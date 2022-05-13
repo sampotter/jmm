@@ -68,7 +68,7 @@ bool utetra_approx_hess(utetra_s const *u, dbl h, dbl33 hess);
 void utetra_get_other_inds(utetra_s const *utetra, size_t li, size_t l[2]);
 bool utetra_index_is_active(utetra_s const *utetra, size_t l);
 
-bool utetras_have_same_minimizer(utetra_s const *u1, utetra_s const *u2);
+bool utetras_have_same_minimizer(utetra_s const *u1, utetra_s const *u2, dbl tol);
 bool utetras_have_same_inds(utetra_s const *u1, utetra_s const *u2);
 
 #if JMM_TEST

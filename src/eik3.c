@@ -639,6 +639,9 @@ find_and_delete_cached_utetra(eik3_s *eik, size_t l0,
                               utetra_s const *utetra, size_t *num_utetra) {
   size_t l = utetra_get_l(utetra);
 
+  // TODO: not 100% sure what the right way to set this is...
+  dbl const tol = 2*pow(mesh3_get_mean_edge_length(eik->mesh), 3);
+
   /* First, find the indices of the cached utetra which share the same
    * target node and have the same active indices as `utetra`. */
   array_s *i_arr;
@@ -651,7 +654,7 @@ find_and_delete_cached_utetra(eik3_s *eik, size_t l0,
     if (l != utetra_get_l(utetra_other))
       continue;
 
-    if (!utetras_have_same_minimizer(utetra, utetra_other))
+    if (!utetras_have_same_minimizer(utetra, utetra_other, tol))
       continue;
 
     /* Initially just append here so we can check whether we actually
