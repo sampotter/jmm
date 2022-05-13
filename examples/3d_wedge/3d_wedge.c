@@ -663,6 +663,8 @@ static void add_o_face_refl_BCs(eik3_s *eik, eik3_s const *eik_parent) {
   for (size_t i = 0; i < nf; ++i) {
     for (size_t j = 0; j < 3; ++j) {
       size_t le[2] = {lf[i][j], lf[i][(j + 1) % 3]};
+      SORT2(le[0], le[1]);
+
       if (mesh3_is_diff_edge(mesh, le)) {
         assert(!eik3_has_diff_bc(eik, le));
 
@@ -725,6 +727,29 @@ static void add_o_face_refl_BCs(eik3_s *eik, eik3_s const *eik_parent) {
     }
   }
 
+  /* Find all of the vertices which don't have BCs and are adjacent to
+   * the diffracting edge */
+  array_s *diff_edge_nb_arr;
+  array_alloc(&diff_edge_nb_arr);
+  array_init(diff_edge_nb_arr, sizeof(size_t), ARRAY_DEFAULT_CAPACITY);
+
+  for (size_t i = 0, le[2]; i < array_size(le_arr); ++i) {
+    array_get(le_arr, i, &le);
+
+    for (size_t j = 0; j < 2; ++j) {
+      size_t nvv = mesh3_nvv(mesh, le[j]);
+      size_t *vv = malloc(nvv*sizeof(size_t));
+      mesh3_vv(mesh, le[j], vv);
+
+      for (size_t k = 0; k < nvv; ++k)
+        if (!eik3_has_BCs(eik, vv[k]) &&
+            !array_contains(diff_edge_nb_arr, &vv[k]))
+          array_append(diff_edge_nb_arr, &vv[k]);
+
+      free(vv);
+    }
+  }
+
   /* Keep track of which edge updates have been done */
   array_s *utri_inds_arr;
   array_alloc(&utri_inds_arr);
@@ -736,40 +761,29 @@ static void add_o_face_refl_BCs(eik3_s *eik, eik3_s const *eik_parent) {
     SORT2(le[0], le[1]);
     update_inds_s utri_inds = {.l = {le[0], le[1], (size_t)NO_INDEX}};
 
-    for (size_t j = 0; j < 2; ++j) {
+    for (size_t j = 0; j < 2; ++j)
       assert(eik3_has_BCs(eik, utri_inds.l[j]));
 
-      size_t nvv = mesh3_nvv(mesh, utri_inds.l[j]);
-      size_t *vv = malloc(nvv*sizeof(size_t));
-      mesh3_vv(mesh, utri_inds.l[j], vv);
+    for (size_t j = 0; j < array_size(diff_edge_nb_arr); ++j) {
+      array_get(diff_edge_nb_arr, j, &utri_inds.lhat);
 
-      for (size_t k = 0; k < nvv; ++k) {
-        utri_inds.lhat = vv[k];
+      /* Skip this update I've we've done it already */
+      if (array_contains(utri_inds_arr, &utri_inds))
+        continue;
+      array_append(utri_inds_arr, &utri_inds);
 
-        /* Skip this point if it's one of the ones w/ BCs */
-        if (eik3_has_BCs(eik, utri_inds.lhat))
-          continue;
-
-        /* Skip this update if we've done it already */
-        if (array_contains(utri_inds_arr, &utri_inds))
-          continue;
-        array_append(utri_inds_arr, &utri_inds_arr);
-
-        /* Set the node to trial and insert it into the heap */
-        if (eik3_is_far(eik, utri_inds.lhat))
-          eik3_add_trial(eik, utri_inds.lhat, jet31t_make_empty());
-
-        /* Do the update */
-        eik3_do_diff_utri(eik, utri_inds.lhat, utri_inds.l[0], utri_inds.l[1]);
-      }
-
-      free(vv);
+      /* Set the node to trial, insert it into the heap, do the update */
+      if (eik3_is_far(eik, utri_inds.lhat))
+        eik3_add_trial(eik, utri_inds.lhat, jet31t_make_empty());
+      eik3_do_diff_utri(eik, utri_inds.lhat, utri_inds.l[0], utri_inds.l[1]);
     }
   }
 
   /* Clean up */
   array_deinit(utri_inds_arr);
   array_dealloc(&utri_inds_arr);
+  array_deinit(diff_edge_nb_arr);
+  array_dealloc(&diff_edge_nb_arr);
   array_deinit(utetra_inds_arr);
   array_dealloc(&utetra_inds_arr);
   array_deinit(le_arr);
