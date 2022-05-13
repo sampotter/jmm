@@ -295,7 +295,7 @@ static void do_bc_updates(eik3_s *eik, size_t l, size_t l0) {
     if (array_contains(bc_inds, &lf[i][0]) &&
         array_contains(bc_inds, &lf[i][1]) &&
         array_contains(bc_inds, &lf[i][2]))
-      eik3_do_utetra(eik, l0, lf[i][0], lf[i][1], lf[i][2]);
+      eik3_do_utetra(eik, l, lf[i][0], lf[i][1], lf[i][2]);
 
   /* Do diffracting edge BC updates... */
 
@@ -306,7 +306,7 @@ static void do_bc_updates(eik3_s *eik, size_t l, size_t l0) {
   for (size_t i = 0; i < ne; ++i)
     if (array_contains(bc_inds, &le[i][0]) &&
         array_contains(bc_inds, &le[i][1]))
-      eik3_do_diff_utri(eik, l0, le[i][0], le[i][1]);
+      eik3_do_diff_utri(eik, l, le[i][0], le[i][1]);
 
   free(le);
   free(lf);
@@ -954,10 +954,32 @@ void eik3_add_bc(eik3_s *eik, size_t l, jet31t jet) {
   array_append(eik->bc_inds, &l);
 }
 
-void eik3_add_diff_bc(eik3_s *eik, size_t const le[2], bb31 const *T) {
+/* Store the cubic polynomial `T` approximating the eikonal over this
+ * diffracting edge. */
+static void store_diff_bc_T(eik3_s *eik, size_t const le[2], bb31 const *T) {
+  size_t key[2] = {le[0], le[1]};
+  SORT2(key[0], key[1]);
+  alist_append(eik->T_diff, key, T);
+}
+
+void eik3_add_diff_bc(eik3_s *eik, size_t const le[2], jet31t const jet[2]) {
+  for (size_t i = 0; i < 2; ++i)
+    if (!eik3_has_BCs(eik, le[i]))
+      eik3_add_bc(eik, le[i], jet[i]);
+
+  dbl3 x[2];
+  for (size_t i = 0; i < 2; ++i)
+    mesh3_copy_vert(eik->mesh, le[i], x[i]);
+
+  bb31 T;
+  bb31_init_from_jets(&T, jet, x);
+
+  store_diff_bc_T(eik, le, &T);
+}
+
+void eik3_add_diff_bc_from_bb31(eik3_s *eik, size_t const le[2], bb31 const *T){
   /* Add BCs for each node with values taken from T... but with
    * a singular gradient! */
-
   jet31t jet[2] = {
     jet31t_make_point_source(T->c[0]),
     jet31t_make_point_source(T->c[3])
@@ -967,12 +989,7 @@ void eik3_add_diff_bc(eik3_s *eik, size_t const le[2], bb31 const *T) {
     if (!eik3_has_BCs(eik, le[i]))
       eik3_add_bc(eik, le[i], jet[i]);
 
-  /* We also store the cubic polynomial `T` approximating the eikonal
-   * over this diffracting edge for later use... */
-
-  size_t key[2] = {le[0], le[1]};
-  SORT2(key[0], key[1]);
-  alist_append(eik->T_diff, key, T);
+  store_diff_bc_T(eik, le, T);
 }
 
 bool eik3_has_diff_bc(eik3_s const *eik, size_t const le[2]) {
@@ -1049,4 +1066,16 @@ bool eik3_has_BCs(eik3_s const *eik, size_t l) {
 
 size_t const *eik3_get_accepted_ptr(eik3_s const *eik) {
   return eik->accepted;
+}
+
+void eik3_get_edge_T(eik3_s const *eik, size_t const le[2], bb31 *T) {
+  assert(mesh3_is_edge(eik->mesh, le));
+
+  dbl3 x[2];
+  mesh3_copy_vert(eik->mesh, le[0], x[0]);
+  mesh3_copy_vert(eik->mesh, le[1], x[1]);
+
+  jet31t jet[2] = {eik->jet[le[0]], eik->jet[le[1]]};
+
+  bb31_init_from_jets(T, jet, x);
 }
