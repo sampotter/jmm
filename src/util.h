@@ -14,6 +14,7 @@ int compar_size_t(size_t const *i, size_t const *j);
 int signum(dbl x);
 dbl shrink(dbl x, dbl eps);
 bool contains(void const *arr, size_t len, void const *elt, size_t size);
+dbl toc();
 
 #ifdef __cplusplus
 }

@@ -31,14 +31,16 @@ def load_data(path, field, selected_origin=None):
     else:
         return T, T_gt, DT, DT_gt, D2T, D2T_gt
 
-def get_h_for_each_mesh():
+def get_h_and_N_for_each_mesh():
     h = []
+    N = []
     for path in paths:
         V = np.fromfile(path/'verts.bin', np.float64).reshape(-1, 3)
         C = np.fromfile(path/'cells.bin', np.uintp).reshape(-1, 4)
         dV = V[C[:, 1:]] - V[C[:, 0]].reshape(-1, 1, 3)
         h.append(np.mean(np.sqrt(np.sum(dV**2, axis=1))))
-    return np.array(h)
+        N.append(V.shape[0])
+    return np.array(h), np.array(N)
 
 def compute_rel_lp_errors_wrt_a(field, selected_origin=None, p=1):
     norm = lambda x: np.linalg.norm(x, ord=p)
@@ -63,21 +65,34 @@ def compute_rel_lp_errors_wrt_a(field, selected_origin=None, p=1):
             np.mean([norm(H_gt) for H_gt in D2T_gt[mask]]))
     return np.array(E_T), np.array(E_DT), np.array(E_D2T)
 
-plt.figure(figsize=(9, 9))
+plt.figure(figsize=(10, 10))
 
 p = dict()
+
+field_tex_str = {
+    'direct': 'Direct',
+    'o_refl': r'$o$-refl.',
+    'n_refl': r'$n$-refl.'
+}
+
+origin_tex_str = {
+    None: '',
+    0: ' ($\mathtt{origin} < 1/2$)',
+    1: ' ($\mathtt{origin} \geq 1/2$)',
+}
 
 for i, (selected_origin, field) in enumerate(
         it.product([None, 0, 1], ['direct', 'o_refl', 'n_refl'])):
     print(f'origin: {selected_origin}, field: {field}')
 
-    h = get_h_for_each_mesh()
+    h, N = get_h_and_N_for_each_mesh()
     E_T, E_DT, E_D2T = compute_rel_lp_errors_wrt_a(field, selected_origin)
     if E_T.size == 0 or E_DT.size == 0 or E_D2T.size == 0:
         continue
 
     I = np.argsort(h)
     h = h[I]
+    N = N[I]
     E_T = E_T[I]
     E_DT = E_DT[I]
     E_D2T = E_D2T[I]
@@ -94,20 +109,25 @@ for i, (selected_origin, field) in enumerate(
 
     plt.subplot(3, 3, i + 1)
 
-    plt.loglog(h, E_T, c='k')
-    plt.loglog(h, np.exp(fit_T(np.log(h))), c='k', linestyle='--')
-    plt.loglog(h, E_DT, c='b')
-    plt.loglog(h, np.exp(fit_DT(np.log(h))), c='b', linestyle='--')
-    plt.loglog(h, E_D2T, c='g')
-    plt.loglog(h, np.exp(fit_D2T(np.log(h))), c='g', linestyle='--')
-    plt.title(f'{field} (origin = {selected_origin})')
+    plt.loglog(h, E_T, c='k', marker='.', label=r'$\|\tau - T\|_1/\|\tau\|_1$')
+    plt.loglog(h, np.exp(fit_T(np.log(h))), c='k', marker='.', linestyle='--')
+    plt.loglog(h, E_DT, c='b', marker='.', label=r'$\|\nabla\tau - T\|_1/\|\nabla\tau\|_1$')
+    plt.loglog(h, np.exp(fit_DT(np.log(h))), c='b', marker='.', linestyle='--')
+    plt.loglog(h, E_D2T, c='g', marker='.', label=r'$\|\nabla^2\tau - T\|_1/\|\nabla^2\tau\|_1$')
+    plt.loglog(h, np.exp(fit_D2T(np.log(h))), c='g', marker='.', linestyle='--')
+    plt.title(f'{field_tex_str[field]}{origin_tex_str[selected_origin]}')
+    if i == 0:
+        plt.legend(fontsize=8, loc='upper left')
+    if i == 6:
+        plt.xlabel(r'$h$')
 
 plt.tight_layout()
-plt.savefig('error_plot.pdf')
+plt.savefig('error-plot.pdf')
 plt.show()
 
 # print table of least squares fits coefficients
-f = open('error_table.tex', 'w')
+f = open('error-table.tex', 'w')
+print(r'\centering', file=f)
 print(r'''\begin{tabular}{c|ccc|ccc|ccc}
   & \multicolumn{3}{c|}{All} & \multicolumn{3}{c|}{Direct} & \multicolumn{3}{c}{Diffracted} \\
   & $T$ & $\nabla T$ & $\nabla^2 T$ & $T$ & $\nabla T$ & $\nabla^2 T$ & $T$ & $\nabla T$ & $\nabla^2 T$ \\
@@ -126,4 +146,7 @@ for field in ['direct', 'o_refl', 'n_refl']:
             print(rf' &', file=f, end='')
     print(r' \\', file=f)
 print(r'\end{tabular}', file=f)
+h_tex_str = ', '.join([f'{_:0.03g}' for _ in h])
+N_tex_str = ', '.join([str(_) for _ in N])
+print(r"\caption{Least squares fits for the relative $\ell_1$ norm error for $\Eik$, $\grad\Eik$, and $\hess\Eik$, measured for $h = {" + h_tex_str + r"}$ ($N = {" + N_tex_str + r"}$). First column (``All''): the error measured in all of $\domain_h$. Second column (``Direct''): for $\mx \in \calV_h$ with $\mathtt{origin}(\mx) > 0.5$. Third column (``Diffracted''): for $\mx \in \calV_h$ with $\mathtt{origin}(\mx) \leq 0.5$.}\label{table:errors}", file=f)
 f.close()

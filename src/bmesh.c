@@ -7,6 +7,7 @@
 #include "bb.h"
 #include "geom.h"
 #include "hybrid.h"
+#include "mat.h"
 #include "mesh3.h"
 #include "util.h"
 
@@ -86,7 +87,11 @@ bool bmesh33_cell_intersect(bmesh33_cell_s const *cell, ray3 const *ray, dbl *t)
   // We should handle this case separately---i.e., just check whether
   // the Bezier tetrahedron evaluated at the two coincident interval
   // endpoints equals `level`.
-  assert(dbl4_dist(b0, b1) > atol);
+  if (dbl4_dist(b0, b1) < atol &&
+      fabs(bb33_f(cell->bb, b0) - cell->level) < atol) {
+    *t = t0;
+    return true;
+  }
 
   /**
    * Now we want to use the hybrid rootfinder to check whether f([t0,
@@ -127,6 +132,43 @@ bool bmesh33_cell_intersect(bmesh33_cell_s const *cell, ray3 const *ray, dbl *t)
   *t = t0 + root[0]*dbl3_dist(x0, x1);
 
   return isfinite(*t);
+}
+
+void bmesh33_cell_Df(bmesh33_cell_s const *cell, dbl3 const x, dbl3 Df) {
+  mesh3_tetra_s tetra = {cell->mesh, cell->l};
+
+  /* Compute the gradient at x in barycentric coordinates */
+  dbl4 b;
+  mesh3_tetra_get_bary_coords(&tetra, x, b);
+
+  /* Set up transform matrix. The first three rows of A correspond to
+   * the standard directions in R^3, which we use to compute the
+   * gradient. */
+  static dbl44 A;
+  size_t lv[4];
+  mesh3_cv(cell->mesh, cell->l, lv);
+  for (size_t i = 0; i < 4; ++i) {
+    dbl const *xi = mesh3_get_vert_ptr(cell->mesh, lv[i]);
+    for (size_t j = 0; j < 3; ++j)
+      A[j][i] = xi[j];
+    A[3][i] = 1;
+  }
+  dbl44_invert(A);
+  dbl44_transpose(A);
+
+  dbl const atol = 1e-13;
+  assert(fabs(dbl4_sum(A[0])) < atol);
+  assert(fabs(dbl4_sum(A[1])) < atol);
+  assert(fabs(dbl4_sum(A[2])) < atol);
+  assert(fabs(1 - dbl4_sum(A[3])) < atol);
+
+  /* Convert back to Cartesian coordinates */
+  for (size_t i = 0; i < 3; ++i)
+    Df[i] = bb33_df(cell->bb, b, A[i]);
+}
+
+bool bmesh33_cell_equal(bmesh33_cell_s const *c1, bmesh33_cell_s const *c2) {
+  return c1->mesh == c2-> mesh && c1->l == c2->l;
 }
 
 struct bmesh33 {

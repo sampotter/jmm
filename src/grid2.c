@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "mesh3.h"
 #include "vec.h"
 
 void grid2_save(grid2_s const *grid, char const *path) {
@@ -194,4 +195,75 @@ void grid2info_init(grid2info_s *info, grid2_s const *grid) {
 
   for (int i = 0; i < GRID2_NUM_NB + 1; ++i)
     info->nb_dl[i] = grid2_ind2l(grid, offsets[i]);
+}
+
+/* Initialize a mapping from `grid` to `mesh` by treating `grid` as a
+ * horizontal slice through the space containing `mesh` with the given
+ * z value. */
+void grid2_to_mesh3_mapping_init_xy(grid2_to_mesh3_mapping_s *mapping,
+                                    grid2_s const *grid, mesh3_s const *mesh,
+                                    dbl z) {
+  mapping->grid = grid;
+  mapping->mesh = mesh;
+
+  size_t nind = grid2_nind(grid);
+
+  /* Allocate space for cell indices, incident vertices, and
+   * barycentric coordinates */
+  mapping->lc = malloc(nind*sizeof(size_t));
+  mapping->cv = malloc(nind*sizeof(size_t[4]));
+  mapping->b = malloc(nind*sizeof(dbl4));
+
+  /* Initialize everything to a bad value */
+  for (size_t i = 0; i < nind; ++i) {
+    mapping->lc[i] = (size_t)NO_INDEX;
+    for (size_t j = 0; j < 4; ++j) {
+      mapping->cv[i][j] = (size_t)NO_INDEX;
+      mapping->b[i][j] = NAN;
+    }
+  }
+
+  /* Iterate over each tetrahedron in the mesh, pull out the subgrid
+   * of `grid` which is incident on the tetrahedron, and then find the
+   * barycentric coordinates of each grid point which actually lies
+   * inside the tetrahedral cell. */
+  for (size_t lc = 0; lc < mesh3_ncells(mesh); ++lc) {
+    tetra3 tetra = mesh3_get_tetra(mesh, lc);
+
+    size_t offset[2];
+    grid2_s subgrid = tetra3_get_covering_xy_subgrid(&tetra, grid, offset);
+
+    for (size_t l = 0; l < grid2_nind(&subgrid); ++l) {
+      int ind[2];
+      grid2_l2ind(&subgrid, l, ind);
+
+      int ind_orig[2] = {offset[0] + ind[0], offset[1] + ind[1]};
+      size_t l_orig = grid2_ind2l(grid, ind_orig);
+      if (mapping->lc[l_orig] != (size_t)NO_INDEX)
+        continue;
+
+      dbl3 x = {[2] = z};
+      grid2_l2xy(grid, l_orig, x);
+      if (!mesh3_cell_contains_point(mesh, lc, x))
+        continue;
+
+      mapping->lc[l_orig] = lc;
+      mesh3_cv(mesh, lc, mapping->cv[l_orig]);
+      tetra3_get_bary_coords(&tetra, x, mapping->b[l_orig]);
+    }
+  }
+}
+
+void grid2_to_mesh3_mapping_deinit(grid2_to_mesh3_mapping_s *mapping) {
+  mapping->grid = NULL;
+  mapping->mesh = NULL;
+
+  free(mapping->lc);
+  mapping->lc = NULL;
+
+  free(mapping->cv);
+  mapping->cv = NULL;
+
+  free(mapping->b);
+  mapping->b = NULL;
 }

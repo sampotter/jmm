@@ -141,6 +141,8 @@ bool robj_isects_bbox(robj_s const *obj, rect3 const *bbox) {
   return _robj_isects_bbox[obj->type](obj->data, bbox);
 }
 
+/** robj_intersect: */
+
 static bool mesh2_tri_intersect(mesh2_tri_s const *mesh_tri, ray3 const *ray,
                                 dbl *t) {
   tri3 tri = mesh2_get_tri(mesh_tri->mesh, mesh_tri->l);
@@ -175,6 +177,28 @@ bool robj_intersect(robj_s const *obj, ray3 const *ray, dbl *t) {
   return _robj_intersect[obj->type](obj->data, ray, t);
 }
 
+/** robj_equal: */
+
+typedef bool (*robj_equal_t)(void const *, void const *);
+
+robj_equal_t _robj_equal[] = {
+  (robj_equal_t)bmesh33_cell_equal,
+  (robj_equal_t)mesh2_tri_equal,
+  (robj_equal_t)mesh3_tetra_equal,
+  (robj_equal_t)tri3_equal,
+  (robj_equal_t)tetra3_equal
+};
+
+bool robj_equal(robj_s const *obj1, robj_s const *obj2) {
+  if (obj1 == NULL || obj2 == NULL)
+    return false;
+
+  if (obj1->type != obj2->type)
+    return false;
+
+  return _robj_equal[obj1->type](obj1->data, obj2->data);
+}
+
 // Section: rnode_s
 
 typedef enum rnode_type {
@@ -201,6 +225,7 @@ typedef struct rnode {
 } rnode_s;
 
 void rnode_init(rnode_s *node, rnode_type_e type) {
+  node->bbox = rect3_make_empty();
   node->type = type;
   if (type == RNODE_TYPE_INTERNAL) {
     node->child[0] = NULL;
@@ -302,40 +327,58 @@ static bool rnode_query_bbox(rnode_s const *node, rect3 const *bbox) {
   return false;
 }
 
-// TODO: better to do this using a stack instead of recursively
-static void rnode_intersect(rnode_s const *node, ray3 const *ray, isect *isect) {
-  // If the node is a leaf node, intersect each of the contained
-  // objects.
-  if (node->type == RNODE_TYPE_LEAF) {
-    dbl t;
-    robj_s const *obj;
-    for (size_t i = 0; i < node->leaf_data.size; ++i) {
-      obj = &node->leaf_data.obj[i];
-      if (robj_intersect(obj, ray, &t) && 0 <= t && t < isect->t) {
-        isect->t = t;
-        isect->obj = obj;
-      }
+static void
+rnode_intersect_leaf(rnode_s const *node, ray3 const *ray, isect *isect,
+                     robj_s const *skip_robj) {
+  dbl t;
+  robj_s const *obj;
+  for (size_t i = 0; i < node->leaf_data.size; ++i) {
+    obj = &node->leaf_data.obj[i];
+    if (robj_equal(skip_robj, obj))
+      continue;
+    if (robj_intersect(obj, ray, &t) && 0 <= t && t < isect->t) {
+      isect->t = t;
+      isect->obj = obj;
     }
+  }
+}
+
+static void
+rnode_intersect(rnode_s const *node, ray3 const *ray, isect *isect,
+                robj_s const *skip_robj) {
+  /* First, check whether the ray intersects the current node's
+   * bounding box. If it doesn't, we don't want to update the
+   * intersection's t value or check for intersections below this
+   * node, so we return early. */
+  dbl t = ray3_intersect_rect3(ray, &node->bbox);
+  if (isinf(t))
+    return;
+
+  /* If this is a leaf node, then we've bottomed out in the recursion:
+   * time to check for intersections with each contained object. */
+  if (node->type == RNODE_TYPE_LEAF) {
+    rnode_intersect_leaf(node, ray, isect, skip_robj);
     return;
   }
 
-  // Intersect the bounding boxes of the two child nodes.
-  dbl t[2] = {INFINITY, INFINITY};
-  ray3_intersects_rect3(ray, &node->child[0]->bbox, &t[0]);
-  ray3_intersects_rect3(ray, &node->child[1]->bbox, &t[1]);
+  /* Intersect the bounding boxes of the two child nodes. */
+  dbl t_child[2] = {
+    ray3_intersect_rect3(ray, &node->child[0]->bbox),
+    ray3_intersect_rect3(ray, &node->child[1]->bbox)
+  };
 
-  // Sort the pair of intersection parameters, and grab pointers to
-  // the child nodes that are sorted into the same order.
+  /* Sort the pair of intersection parameters, and grab pointers to
+   * the child nodes in the same order. */
   rnode_s *child[2] = {node->child[0], node->child[1]};
-  if (t[1] < t[0]) {
-    SWAP(t[0], t[1]);
+  if (t_child[1] < t_child[0]) {
+    SWAP(t_child[0], t_child[1]);
     SWAP(child[0], child[1]);
   }
 
-  // Intersect the child nodes in sorted order.
+  /* Intersect the child nodes in sorted order. */
   for (int i = 0; i < 2; ++i)
-    if (isfinite(t[i]) && t[i] < isect->t)
-      rnode_intersect(child[i], ray, isect);
+    if (isfinite(t_child[i]))
+      rnode_intersect(child[i], ray, isect, skip_robj);
 }
 
 /**
@@ -351,64 +394,39 @@ bool rnode_split_surface_area(rnode_s const *node, dbl const (*p)[3], int d,
                               rnode_s *child[2]) {
   size_t leaf_size = rnode_leaf_size(node);
 
-  // Compute the mean and standard deviation of the centroids
-  // components along the split direction.
-  runstd_s runstd;
-  runstd_init(&runstd);
+  dbl *pd = malloc(leaf_size*sizeof(dbl));
   for (size_t i = 0; i < leaf_size; ++i)
-    runstd_update(&runstd, p[i][d]);
-  dbl mu = runstd_get_mean(&runstd);
-  dbl sigma = runstd_get_std(&runstd);
+    pd[i] = p[i][d];
 
-  // Compute a rough approximation of the median by binning (based on
-  // the ideas in R. Tibshirani's "Fast computation of the median by
-  // successive binning").
-  dbl binwidth = 2*sigma/NUM_BINS;
-  size_t bins[NUM_BINS];
-  size_t bincount = 0;
-  memset(bins, 0x0, NUM_BINS*sizeof(size_t));
-  for (size_t i = 0; i < leaf_size; ++i) {
-    dbl c = p[i][d] - mu;
-    if (c < -sigma || c >= sigma)
-      continue;
-    int k = floor((c + sigma)/binwidth);
-    if (k < 0 || k >= NUM_BINS)
-      continue;
-    ++bins[k];
-    ++bincount;
-  }
-  dbl binmedian;
-  size_t cumsum = 0;
-  for (size_t k = 0; k < NUM_BINS; ++k) {
-    cumsum += bins[k];
-    if (cumsum >= bincount/2) {
-      binmedian = mu - sigma + binwidth*(k + 0.5);
-      break;
-    }
-  }
+  dbl med = dblN_median(leaf_size, pd);
 
   // Separate the objects in the leaf node being split into the two
   // children depending on which side of the median the centroid of
   // each objects lies.
   for (size_t i = 0; i < leaf_size; ++i) {
-    int j = binmedian < p[i][d];
-    rnode_append_robj(child[j], node->leaf_data.obj[i]);
+    int which = med < pd[i];
+    rnode_append_robj(child[which], node->leaf_data.obj[i]);
   }
 
   // Check whether either of the children are empty at this point. If
   // they are, return false to signal that we shouldn't use this
   // split.
-  if (rnode_empty(child[0]) || rnode_empty(child[1]))
-    return false;
+  bool success = true;
+  if (rnode_empty(child[0]) || rnode_empty(child[1])) {
+    success = false;
+    goto cleanup;
+  }
 
   // Recompute the bounding boxes of the children. This is fine to do
   // now, because when we split these nodes, their bounding boxes
   // won't change.
-  for (int j = 0; j < 2; ++j)
-    rnode_recompute_bbox(child[j]);
+  for (int which = 0; which < 2; ++which)
+    rnode_recompute_bbox(child[which]);
 
-  // Everything should be aboveboard at this point.
-  return true;
+cleanup:
+  free(pd);
+
+  return success;
 }
 
 // Section: rtree_s
@@ -563,9 +581,10 @@ static void refine_node_surface_area(rtree_s const *rtree, rnode_s *node) {
   }
   free(p); // Free centroids
 
-  // Make the current node an internal node and free the data for
-  // unsplit leaf node that we're now replacing.
+  // Convert the current node to an internal node.
   node->type = RNODE_TYPE_INTERNAL;
+
+  // Free the data for unsplit leaf node that we're now replacing.
   free(node->leaf_data.obj);
 
   // Set children and recursively refine them.
@@ -613,14 +632,15 @@ bool rtree_query_bbox(rtree_s const *rtree, rect3 const *bbox) {
   return rnode_query_bbox(&rtree->root, bbox);
 }
 
-void rtree_intersect(rtree_s const *rtree, ray3 const *ray, isect *isect) {
+void rtree_intersect(rtree_s const *rtree, ray3 const *ray, isect *isect,
+                     robj_s const *skip_robj) {
   isect->t = INFINITY;
   isect->obj = NULL;
-  rnode_intersect(&rtree->root, ray, isect);
+  rnode_intersect(&rtree->root, ray, isect, skip_robj);
 }
 
 void rtree_intersectN(rtree_s const *rtree, ray3 const *ray, size_t n,
                       isect *isect) {
   for (size_t i = 0; i < n; ++i)
-    rtree_intersect(rtree, &ray[i], &isect[i]);
+    rtree_intersect(rtree, &ray[i], &isect[i], NULL);
 }

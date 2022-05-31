@@ -568,6 +568,10 @@ void dbl44_dbl4_solve(dbl44 const A, dbl4 const b, dbl4 x) {
   }
 }
 
+void dbl44_copy(dbl44 const A, dbl44 B) {
+  memcpy(B, A, sizeof(dbl44));
+}
+
 void dbl44_get_column(dbl44 const A, int j, dbl4 a) {
   for (int i = 0; i < 4; ++i) {
     a[i] = A[i][j];
@@ -597,4 +601,24 @@ void dbl4_dbl44_mul(dbl4 const x, dbl44 const A, dbl4 b) {
 
 void dbl44_zero(dbl44 A) {
   memset(A, 0x0, sizeof(dbl44));
+}
+
+void dbl44_invert(dbl44 A) {
+  dbl44 Ainv;
+  dbl4 e, a;
+  for (size_t j = 0; j < 4; ++j) {
+    dbl4_e(e, j);
+    dbl44_dbl4_solve(A, e, a);
+    dbl44_set_column(Ainv, j, a);
+  }
+  dbl44_copy(Ainv, A);
+}
+
+void dbl44_transpose(dbl44 A) {
+  SWAP(A[0][1], A[1][0]);
+  SWAP(A[0][2], A[2][0]);
+  SWAP(A[0][3], A[3][0]);
+  SWAP(A[1][2], A[2][1]);
+  SWAP(A[1][3], A[3][1]);
+  SWAP(A[2][3], A[3][2]);
 }

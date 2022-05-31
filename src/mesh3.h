@@ -33,6 +33,7 @@ struct mesh3_tetra {
 };
 
 tri3 mesh3_tetra_get_face(mesh3_tetra_s const *tetra, int face_inds[3]);
+bool mesh3_tetra_equal(mesh3_tetra_s const *t1, mesh3_tetra_s const *t2);
 
 void mesh3_alloc(mesh3_s **mesh);
 void mesh3_dealloc(mesh3_s **mesh);
@@ -40,8 +41,9 @@ void mesh3_init(mesh3_s *mesh,
                 dbl const *verts, size_t nverts,
                 size_t const *cells, size_t ncells,
                 bool compute_bd_info, dbl const *eps);
+void mesh3_init_from_off_file(mesh3_s *mesh, char const *path, dbl maxvol);
 void mesh3_deinit(mesh3_s *mesh);
-dbl const *mesh3_get_verts_ptr(mesh3_s const *mesh);
+dbl3 const *mesh3_get_verts_ptr(mesh3_s const *mesh);
 size_t const *mesh3_get_cells_ptr(mesh3_s const *mesh);
 dbl const *mesh3_get_vert_ptr(mesh3_s const *mesh, size_t i);
 void mesh3_get_vert_ptrs(mesh3_s const *mesh, size_t const *l, int n, dbl const **x);
@@ -55,7 +57,9 @@ size_t mesh3_nverts(mesh3_s const *mesh);
 void mesh3_get_bbox(mesh3_s const *mesh, rect3 *bbox);
 void mesh3_get_cell_bbox(mesh3_s const *mesh, size_t i, rect3 *bbox);
 bool mesh3_cell_contains_point(mesh3_s const *mesh, size_t i, dbl const x[3]);
+bool mesh3_contains_ball(mesh3_s const *mesh, dbl3 const x, dbl r);
 size_t mesh3_find_cell_containing_point(mesh3_s const *mesh, dbl const x[3], size_t lc);
+bool mesh3_contains_point(mesh3_s const *mesh, dbl3 const x);
 int mesh3_nvc(mesh3_s const *mesh, size_t i);
 void mesh3_vc(mesh3_s const *mesh, size_t i, size_t *vc);
 int mesh3_nve(mesh3_s const *mesh, size_t lv);

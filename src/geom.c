@@ -182,6 +182,14 @@ bool tri3_coplanar(tri3 const *tri, tri3 const *other_tri, dbl const *atol) {
   return dot > 1 - atol_ || dot < atol_ - 1;
 }
 
+bool tri3_equal(tri3 const *tri1, tri3 const *tri2) {
+  for (size_t i = 0; i < 3; ++i)
+    for (size_t j = 0; j < 3; ++j)
+      if (tri1->v[i][j] != tri2->v[i][j])
+        return false;
+  return true;
+}
+
 static bool same_side(dbl const a[3], dbl const b[3], dbl const c[3],
                       dbl const p[3], dbl const q[3],
                       dbl const atol) {
@@ -196,6 +204,22 @@ static bool same_side(dbl const a[3], dbl const b[3], dbl const c[3],
   dbl n_dot_aq = shrink(dbl3_ndot(n, aq), atol);
 
   return !(signum(n_dot_ap) == -signum(n_dot_aq));
+}
+
+rect3 tetra3_get_bounding_box(tetra3 const *tetra) {
+  rect3 rect = {
+    .min = {INFINITY, INFINITY, INFINITY},
+    .max = {-INFINITY, -INFINITY, -INFINITY}
+  };
+
+  for (size_t i = 0; i < 4; ++i) {
+    for (size_t j = 0; j < 3; ++j) {
+      rect.min[j] = fmin(rect.min[j], tetra->v[i][j]);
+      rect.max[j] = fmax(rect.max[j], tetra->v[i][j]);
+    }
+  }
+
+  return rect;
 }
 
 bool tetra3_contains_point(tetra3 const *tetra, dbl const x[3], dbl const *eps) {
@@ -248,10 +272,64 @@ void tetra3_get_point(tetra3 const *tetra, dbl const b[4], dbl x[3]) {
       x[j] += b[i]*tetra->v[i][j];
 }
 
+grid2_s
+tetra3_get_covering_xy_subgrid(tetra3 const *tetra, grid2_s const *grid,
+                               size_t offset[2]) {
+  rect3 bbox = tetra3_get_bounding_box(tetra);
+
+  dbl2 dx0;
+  dbl2_sub(bbox.min, grid->xymin, dx0);
+
+  dbl2 dx1;
+  dbl2_sub(bbox.max, grid->xymin, dx1);
+
+  dbl h = grid->h;
+
+  size_t ijmin[2] = {floor(dx0[0]/h), floor(dx0[1]/h)};
+  size_t ijmax[2] = {floor(dx1[0]/h), floor(dx1[1]/h)};
+
+  offset[0] = ijmin[0];
+  offset[1] = ijmin[1];
+
+  return (grid2_s) {
+    .shape = {
+      [0] = ijmax[0] - ijmin[0] + 1,
+      [1] = ijmax[1] - ijmin[1] + 1
+    },
+    .xymin = {h*ijmin[0], h*ijmin[1]},
+    .h = h,
+    .order = grid->order
+  };
+}
+
+bool tetra3_equal(tetra3 const *tetra1, tetra3 const *tetra2) {
+  for (size_t i = 0; i < 4; ++i)
+    for (size_t j = 0; j < 3; ++j)
+      if (tetra1->v[i][j] != tetra2->v[i][j])
+        return false;
+  return true;
+}
+
 rect3 rect3_make_empty(void) {
   rect3 rect;
   dbl3_inf(rect.min);
   dbl3_neginf(rect.max);
+  return rect;
+}
+
+rect3 rect3_get_bounding_box_for_points(size_t n, dbl3 const *x) {
+  rect3 rect = {
+    .min = {INFINITY, INFINITY, INFINITY},
+    .max = {-INFINITY, -INFINITY, -INFINITY}
+  };
+
+  for (size_t i = 0; i < n; ++i) {
+    for (size_t j = 0; j < 3; ++j) {
+      rect.min[j] = fmin(rect.min[j], x[i][j]);
+      rect.max[j] = fmax(rect.max[j], x[i][j]);
+    }
+  }
+
   return rect;
 }
 
@@ -304,6 +382,11 @@ dbl rect3_surface_area(rect3 const *rect) {
   dbl extent[3];
   rect3_get_extent(rect, extent);
   return 2*dbl3_normsq(extent);
+}
+
+bool rect3_is_empty(rect3 const *rect) {
+  return rect->min[0] >= rect->max[0] || rect->min[1] >= rect->max[1]
+    || rect->min[2] >= rect->max[2];
 }
 
 bool rect3_overlaps(rect3 const *r1, rect3 const *r2) {
@@ -366,51 +449,67 @@ void ray3_get_point(ray3 const *ray, dbl t, dbl x[3]) {
   dbl3_saxpy(t, ray->dir, ray->org, x);
 }
 
-bool ray3_intersects_rect3(ray3 const *ray, rect3 const *rect, dbl *t) {
-  dbl const *p = ray->org, *d = ray->dir;
-  dbl const *m = rect->min, *M = rect->max;
+dbl ray3_intersect_rect3(ray3 const *ray, rect3 const *rect) {
+  dbl x = ray->org[0], y = ray->org[1], z = ray->org[2];
+  dbl u = ray->dir[0], v = ray->dir[1], w = ray->dir[2];
+  dbl x0 = rect->min[0], y0 = rect->min[1], z0 = rect->min[2];
+  dbl x1 = rect->max[0], y1 = rect->max[1], z1 = rect->max[2];
 
-#if JMM_DEBUG
-  // TODO: handle this case
-  dbl const atol = 1e-14;
-  assert(fabs(d[0]) > atol || fabs(d[1]) > atol || fabs(d[2]) > atol);
-#endif
+  /* ray parameters */
+  dbl s, t = INFINITY;
+  dbl xs, ys, zs;
 
-  dbl s, pt[3];
+  dbl const atol = 1e-15;
 
-  *t = INFINITY;
+  if (fabs(u) > atol) {
+    /* Check for intersection with {x0} x [y0, y1] x [z0, z1] */
+    s = (x0 - x)/u;
+    ys = y + s*v;
+    zs = z + s*w;
+    if (s >= 0 && y0 <= ys && ys <= y1 && z0 <= zs && zs <= z1)
+      t = fmin(s, t);
 
-  s = (m[0] - p[0])/d[0];
-  dbl3_saxpy(s, d, p, pt);
-  if (s >= 0 && m[1] <= pt[1] && pt[1] <= M[1] && m[2] <= pt[2] && pt[2] <= M[2])
-    *t = fmin(*t, s);
+    /* Check for intersection with {x1} x [y0, y1] x [z0, z1] */
+    s = (x1 - x)/u;
+    ys = y + s*v;
+    zs = z + s*w;
+    if (s >= 0 && y0 <= ys && ys <= y1 && z0 <= zs && zs <= z1)
+      t = fmin(s, t);
+  }
 
-  s = (M[0] - p[0])/d[0];
-  dbl3_saxpy(s, d, p, pt);
-  if (s >= 0 && m[1] <= pt[1] && pt[1] <= M[1] && m[2] <= pt[2] && pt[2] <= M[2])
-    *t = fmin(*t, s);
+  if (fabs(v) > atol) {
+    /* Check for intersection with [x0, x1] x {y0} x [z0, z1] */
+    s = (y0 - y)/v;
+    xs = x + s*u;
+    zs = z + s*w;
+    if (s >= 0 && x0 <= xs && xs <= x1 && z0 <= zs && zs <= z1)
+      t = fmin(s, t);
 
-  s = (m[1] - p[1])/d[1];
-  dbl3_saxpy(s, d, p, pt);
-  if (s >= 0 && m[0] <= pt[0] && pt[0] <= M[0] && m[2] <= pt[2] && pt[2] <= M[2])
-    *t = fmin(*t, s);
+    /* Check for intersection with [x0, x1] x {y1} x [z0, z1] */
+    s = (y1 - y)/v;
+    xs = x + s*u;
+    zs = z + s*w;
+    if (s >= 0 && x0 <= xs && xs <= x1 && z0 <= zs && zs <= z1)
+      t = fmin(s, t);
+  }
 
-  s = (M[1] - p[1])/d[1];
-  dbl3_saxpy(s, d, p, pt);
-  if (s >= 0 && m[0] <= pt[0] && pt[0] <= M[0] && m[2] <= pt[2] && pt[2] <= M[2])
-    *t = fmin(*t, s);
+  if (fabs(w) > atol) {
+    /* Check for intersection with [x0, x1] x [y0, y1] x {z0} */
+    s = (z0 - z)/w;
+    xs = x + s*u;
+    ys = y + s*v;
+    if (s >= 0 && x0 <= xs && xs <= x1 && y0 <= ys && ys <= y1)
+      t = fmin(s, t);
 
-  s = (m[2] - p[2])/d[2];
-  dbl3_saxpy(s, d, p, pt);
-  if (s >= 0 && m[0] <= pt[0] && pt[0] <= M[0] && m[1] <= pt[1] && pt[1] <= M[1])
-    *t = fmin(*t, s);
+    /* Check for intersection with [x0, x1] x [y0, y1] x {z1} */
+    s = (z1 - z)/w;
+    xs = x + s*u;
+    ys = y + s*v;
+    if (s >= 0 && x0 <= xs && xs <= x1 && y0 <= ys && ys <= y1)
+      t = fmin(s, t);
+  }
 
-  s = (M[2] - p[2])/d[2];
-  dbl3_saxpy(s, d, p, pt);
-  if (s >= 0 && m[0] <= pt[0] && pt[0] <= M[0] && m[1] <= pt[1] && pt[1] <= M[1])
-    *t = fmin(*t, s);
-
-  return *t >= 0;
+  return t;
 }
 
 bool ray3_intersects_mesh3_tetra(ray3 const *ray, mesh3_tetra_s const *tetra, dbl *t) {
@@ -486,6 +585,12 @@ dbl ray3_closest_point_on_line(ray3 const *ray, line3 const *line,
   dbl line_cp[3]; dbl3_saxpy(tmp4[1], dy, line->x, line_cp);
 
   return dbl3_dist(ray_cp, line_cp);
+}
+
+bool rect3_contains_point(rect3 const *rect, dbl3 const x) {
+  return rect->min[0] <= x[0] && x[0] <= rect->max[0]
+    && rect->min[1] <= x[1] && x[1] <= rect->max[1]
+    && rect->min[2] <= x[2] && x[2] <= rect->max[2];
 }
 
 static void tetra3_get_face(tetra3 const *tetra, int p[3], tri3 *tri) {

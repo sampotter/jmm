@@ -8,12 +8,18 @@
 
 #include "def.h"
 #include "log.h"
+#include "vec.h"
+
+bool mesh2_tri_equal(mesh2_tri_s const *t1, mesh2_tri_s const *t2) {
+  return t1->mesh == t2->mesh && t1->l == t2->l;
+}
 
 struct mesh2 {
   dbl *points;
   size_t num_points;
   size_t *faces;
   size_t num_faces;
+  dbl3 *face_normals;
 };
 
 void mesh2_alloc(mesh2_s **mesh) {
@@ -26,7 +32,8 @@ void mesh2_dealloc(mesh2_s **mesh) {
 }
 
 void mesh2_init(mesh2_s *mesh, dbl const *verts, size_t nverts,
-                size_t const *faces, size_t nfaces) {
+                size_t const *faces, size_t nfaces,
+                dbl3 const *face_normals) {
   mesh->points = malloc(3*nverts*sizeof(dbl));
   memcpy(mesh->points, verts, 3*nverts*sizeof(dbl));
   mesh->num_points = nverts;
@@ -34,6 +41,9 @@ void mesh2_init(mesh2_s *mesh, dbl const *verts, size_t nverts,
   mesh->faces = malloc(3*nfaces*sizeof(size_t));
   memcpy(mesh->faces, faces, 3*nfaces*sizeof(size_t));
   mesh->num_faces = nfaces;
+
+  mesh->face_normals = malloc(nfaces*sizeof(dbl3));
+  memcpy(mesh->face_normals, face_normals, nfaces*sizeof(dbl3));
 }
 
 void mesh2_init_from_binary_files(mesh2_s *mesh, char const *verts_path,
@@ -101,6 +111,9 @@ void mesh2_deinit(mesh2_s *mesh) {
   free(mesh->faces);
   mesh->faces = NULL;
   mesh->num_faces = 0;
+
+  free(mesh->face_normals);
+  mesh->face_normals = NULL;
 }
 
 void mesh2_dump_verts(mesh2_s const *mesh, char const *path) {
@@ -203,4 +216,8 @@ tri3 mesh2_get_tri(mesh2_s const *mesh, size_t i) {
   memcpy(tri.v[1], &mesh->points[3*mesh->faces[3*i + 1]], sizeof(dbl[3]));
   memcpy(tri.v[2], &mesh->points[3*mesh->faces[3*i + 2]], sizeof(dbl[3]));
   return tri;
+}
+
+void mesh2_get_unit_surface_normal(mesh2_s const *mesh, size_t lf, dbl3 n) {
+  dbl3_copy(mesh->face_normals[lf], n);
 }

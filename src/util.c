@@ -2,6 +2,7 @@
 
 #include <math.h>
 #include <string.h>
+#include <time.h>
 
 #include "mat.h"
 #include "vec.h"
@@ -72,4 +73,11 @@ bool contains(void const *arr, size_t len, void const *elt, size_t size) {
     }
   }
   return false;
+}
+
+dbl toc() {
+  static clock_t t1 = 0;
+  clock_t t0 = t1;
+  t1 = clock();
+  return ((double)t1 - (double)t0)/CLOCKS_PER_SEC;
 }

@@ -23,6 +23,7 @@ void robj_insert_into_bbox(robj_s const *obj, rect3 *bbox);
 void robj_get_centroid(robj_s const *obj, dbl c[3]);
 bool robj_isects_bbox(robj_s const *obj, rect3 const *bbox);
 bool robj_intersect(robj_s const *obj, ray3 const *ray, dbl *t);
+bool robj_equal(robj_s const *obj1, robj_s const *obj2);
 
 typedef struct {
   /**
@@ -62,7 +63,8 @@ void rtree_build(rtree_s *rtree);
 rect3 rtree_get_bbox(rtree_s const *rtree);
 size_t rtree_get_num_leaf_nodes(rtree_s const *rtree);
 bool rtree_query_bbox(rtree_s const *rtree, rect3 const *bbox);
-void rtree_intersect(rtree_s const *rtree, ray3 const *ray, isect *isect);
+void rtree_intersect(rtree_s const *rtree, ray3 const *ray, isect *isect,
+                     robj_s const *skip_robj);
 void rtree_intersectN(rtree_s const *rtree, ray3 const *ray, size_t n,
                       isect *isects);
 

@@ -15,7 +15,7 @@ extern "C" {
 
 void eik3_alloc(eik3_s **eik);
 void eik3_dealloc(eik3_s **eik);
-void eik3_init(eik3_s *eik, mesh3_s *mesh);
+void eik3_init(eik3_s *eik, mesh3_s const *mesh);
 void eik3_deinit(eik3_s *eik);
 bool eik3_is_initialized(eik3_s const *eik);
 
@@ -38,7 +38,7 @@ bool eik3_is_far(eik3_s const *eik, size_t ind);
 bool eik3_is_trial(eik3_s const *eik, size_t ind);
 bool eik3_is_valid(eik3_s const *eik, size_t ind);
 
-mesh3_s *eik3_get_mesh(eik3_s const *eik);
+mesh3_s const *eik3_get_mesh(eik3_s const *eik);
 array_s const *eik3_get_trial_inds(eik3_s const *eik);
 array_s const *eik3_get_bc_inds(eik3_s const *eik);
 
@@ -50,6 +50,7 @@ par3_s eik3_get_par(eik3_s const *eik, size_t l);
 bool eik3_has_par(eik3_s const *eik, size_t l);
 bool eik3_has_BCs(eik3_s const *eik, size_t l);
 size_t const *eik3_get_accepted_ptr(eik3_s const *eik);
+size_t eik3_num_bc(eik3_s const *eik);
 
 void eik3_add_trial(eik3_s *eik, size_t l, jet31t jet);
 void eik3_add_bc(eik3_s *eik, size_t l, jet31t jet);
@@ -60,6 +61,8 @@ void eik3_get_diff_bc(eik3_s const *eik, size_t const le[2], bb31 *T);
 void eik3_set_jet(eik3_s *eik, size_t l, jet31t jet);
 void eik3_set_par(eik3_s *eik, size_t l, par3_s par);
 void eik3_get_edge_T(eik3_s const *eik, size_t const le[2], bb31 *T);
+
+dbl eik3_get_max_T(eik3_s const *eik);
 
 #ifdef __cplusplus
 }

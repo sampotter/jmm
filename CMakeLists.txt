@@ -3,7 +3,7 @@ cmake_minimum_required (VERSION 3.12)
 include (CheckIPOSupported)
 check_ipo_supported (RESULT IPO_SUPPORTED)
 
-project (jmm LANGUAGES C VERSION 0.1.1)
+project (jmm LANGUAGES C CXX VERSION 0.1.1)
 
 set (CMAKE_C_STANDARD 99)
 set (CMAKE_C_STANDARD_REQUIRED TRUE)
@@ -97,6 +97,7 @@ set (JMM_SRCS
   src/eik_F4.c
   src/eik_S4.c
   src/eik3.c
+  src/eik3hh.c
   src/eik3_branch.c
   src/eik3_transport.c
   src/error.c
@@ -112,6 +113,7 @@ set (JMM_SRCS
   src/mat.c
   src/mesh2.c
   src/mesh3.c
+  src/mesh3.cpp
   src/opt.c
   src/par.c
   src/pool.c

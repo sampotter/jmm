@@ -9,18 +9,12 @@
 #include <eik3_transport.h>
 #include <error.h>
 #include <hybrid.h>
+#include <octree.h>
 #include <macros.h>
 #include <mat.h>
 #include <mesh2.h>
 
 #include "mesh3_extra.h"
-
-typedef enum field {
-  FIELD_A,
-  FIELD_T,
-  FIELD_E_T,
-  FIELD_ORIGIN
-} field_e;
 
 typedef enum wedge_eik {
   WEDGE_EIK_DIRECT,
@@ -1676,38 +1670,47 @@ static void
 find_cells_for_img_grid(mesh3_s const *mesh, grid2_s const *img_grid, dbl z,
                         size_t **lc_grid, size_t (**cv_grid)[4], dbl4 **b_grid)
 {
-  size_t n = grid2_nind(img_grid);
+  size_t num_grid = grid2_nind(img_grid);
 
-  *lc_grid = malloc(n*sizeof(size_t));
-  *cv_grid = malloc(n*sizeof(size_t[4]));
-  *b_grid = malloc(n*sizeof(dbl4));
+  /* Allocate space for cell indices, incident vertices, and
+   * barycentric coordinates */
+  *lc_grid = malloc(num_grid*sizeof(size_t));
+  *cv_grid = malloc(num_grid*sizeof(size_t[4]));
+  *b_grid = malloc(num_grid*sizeof(dbl4));
 
-  dbl3 x = {NAN, NAN, z};
-  tetra3 tetra;
-
-  for (size_t l = 0; l < n; ++l) {
-    grid2_l2xy(img_grid, l, (dbl *)&x[0]);
-
-    /* Use the last found cell as a guess */
-    size_t lc = l > 0 ? (*lc_grid)[l - 1] : (size_t)NO_INDEX;
-    lc = mesh3_find_cell_containing_point(mesh, x, lc);
-    (*lc_grid)[l] = lc;
-
-    /* If there was no containing cell, set these to bad values */
-    if (lc == (size_t)NO_INDEX) {
-      for (size_t i = 0; i < 4; ++i) {
-        (*cv_grid)[l][i] = (size_t)NO_INDEX;
-        (*b_grid)[l][i] = NAN;
-      }
-      continue;
+  /* Initialize everything to a bad value */
+  for (size_t i = 0; i < num_grid; ++i) {
+    (*lc_grid)[i] = (size_t)NO_INDEX;
+    for (size_t j = 0; j < 4; ++j) {
+      (*cv_grid)[i][j] = (size_t)NO_INDEX;
+      (*b_grid)[i][j] = NAN;
     }
+  }
 
-    /* Find cell vertices and store them */
-    mesh3_cv(mesh, lc, (*cv_grid)[l]);
+  for (size_t lc = 0; lc < mesh3_ncells(mesh); ++lc) {
+    tetra3 tetra = mesh3_get_tetra(mesh, lc);
 
-    /* Find bary coords of x and store them */
-    tetra = mesh3_get_tetra(mesh, lc);
-    tetra3_get_bary_coords(&tetra, x, (*b_grid)[l]);
+    size_t offset[2];
+    grid2_s subgrid = tetra3_get_covering_xy_subgrid(&tetra, img_grid, offset);
+
+    for (size_t l = 0; l < grid2_nind(&subgrid); ++l) {
+      int ind[2];
+      grid2_l2ind(&subgrid, l, ind);
+
+      int ind_orig[2] = {offset[0] + ind[0], offset[1] + ind[1]};
+      size_t l_orig = grid2_ind2l(img_grid, ind_orig);
+      if ((*lc_grid)[l_orig] != (size_t)NO_INDEX)
+        continue;
+
+      dbl3 x = {[2] = z};
+      grid2_l2xy(img_grid, l_orig, x);
+      if (!mesh3_cell_contains_point(mesh, lc, x))
+        continue;
+
+      (*lc_grid)[l_orig] = lc;
+      mesh3_cv(mesh, lc, (*cv_grid)[l_orig]);
+      tetra3_get_bary_coords(&tetra, x, (*b_grid)[l_orig]);
+    }
   }
 }
 

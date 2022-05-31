@@ -1,5 +1,6 @@
 #pragma once
 
+#include "common.h"
 #include "def.h"
 
 #define GRID2_NUM_NB 8
@@ -64,3 +65,26 @@ struct grid2info {
 };
 
 void grid2info_init(grid2info_s *info, grid2_s const *grid);
+
+typedef struct grid2_to_mesh3_mapping {
+  /* The source grid for the mapping. */
+  grid2_s const *grid;
+
+  /* The target mesh for the mapping. */
+  mesh3_s const *mesh;
+
+  /* The cell index for each grid point. */
+  size_t *lc;
+
+  /* The cell vertices for each grid point. */
+  size_t (*cv)[4];
+
+  /* The barycentric coordinates of each grid point with respect to
+   * the containing cell. */
+  dbl4 *b;
+} grid2_to_mesh3_mapping_s;
+
+void grid2_to_mesh3_mapping_init_xy(grid2_to_mesh3_mapping_s *mapping,
+                                    grid2_s const *grid, mesh3_s const *mesh,
+                                    dbl z);
+void grid2_to_mesh3_mapping_deinit(grid2_to_mesh3_mapping_s *mapping);

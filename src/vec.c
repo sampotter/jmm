@@ -2,8 +2,10 @@
 
 #include <assert.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "macros.h"
+#include "stats.h"
 
 bool dbl2_bary(dbl2 const u) {
   dbl const atol = 1e-14;
@@ -41,6 +43,10 @@ dbl dbl2_norm(dbl2 const u) {
 
 dbl dbl2_normsq(dbl2 const u) {
   return u[0]*u[0] + u[1]*u[1];
+}
+
+dbl dbl2_prod(dbl2 const u) {
+  return u[0]*u[1];
 }
 
 dbl dbl2_sum(dbl2 const u) {
@@ -129,6 +135,10 @@ void dbl2_lincomb(dbl a, dbl2 const u, dbl b, dbl2 const v, dbl2 w) {
 
 bool dbl3_equal(dbl3 const x, dbl3 const y) {
   return x[0] == y[0] && x[1] == y[1] && x[2] == y[2];
+}
+
+bool dbl3_is_normalized(dbl3 const u) {
+  return fabs(1 - dbl3_norm(u)) < 1e-13;
 }
 
 bool dbl3_is_zero(dbl3 const u) {
@@ -286,6 +296,12 @@ void dbl3_add_inplace(dbl3 u, dbl3 const v) {
   u[2] += v[2];
 }
 
+void dbl3_avg(dbl3 const u, dbl3 const v, dbl3 w) {
+  w[0] = (u[0] + v[0])/2;
+  w[1] = (u[1] + v[1])/2;
+  w[2] = (u[2] + v[2])/2;
+}
+
 void dbl3_cc(dbl3 const u0, dbl3 const u1, dbl t0, dbl3 ut) {
   dbl t1 = 1 - t0;
   ut[0] = t0*u0[0] + t1*u1[0];
@@ -395,6 +411,12 @@ void dbl3_saxpy(dbl a, dbl3 const x, dbl3 const y, dbl3 z) {
   z[2] = a*x[2] + y[2];
 }
 
+void dbl3_saxpy_inplace(dbl a, dbl3 const x, dbl3 y) {
+  y[0] += a*x[0];
+  y[1] += a*x[1];
+  y[2] += a*x[2];
+}
+
 void dbl3_sort(dbl3 u) {
   dbl tmp;
 
@@ -427,6 +449,11 @@ void dbl3_sub_inplace(dbl3 u, dbl3 const v) {
 
 void dbl3_zero(dbl3 u) {
   u[0] = u[1] = u[2] = 0;
+}
+
+bool dbl4_is_rgba(dbl4 const u) {
+  return u[0] >= 0 && u[1] >= 0 && u[2] >= 0 && u[3] >= 0
+    && u[0] <= 1 && u[1] <= 1 && u[2] <= 1 && u[3] <= 1;
 }
 
 bool dbl4_nonneg(dbl4 const u) {
@@ -606,6 +633,68 @@ void dblN_minmax(dbl const *x, size_t n, dbl *min, dbl *max) {
     *min = fmin(*min, x[i]);
     *max = fmax(*max, x[i]);
   }
+}
+
+int dbl_compar(dbl const *a, dbl const *b) {
+  if (*a < *b) {
+    return -1;
+  } else if (*a > *b) {
+    return 1;
+  } else {
+    return 0;
+  }
+}
+
+dbl dblN_median(size_t n, dbl const *x) {
+  dbl *x_sorted = malloc(n*sizeof(dbl));
+  memcpy(x_sorted, x, n*sizeof(dbl));
+  qsort(x_sorted, n, sizeof(dbl), (compar_t)dbl_compar);
+  dbl median = n % 2 == 0 ?
+    (x_sorted[n/2 - 1] + x_sorted[n/2])/2 :
+    x_sorted[n/2];
+  free(x_sorted);
+  return median;
+}
+
+dbl dblN_binmedian(size_t n, dbl const *x, size_t num_bins) {
+  // Compute the mean and standard deviation of the centroids
+  // components along the split direction.
+  runstd_s runstd;
+  runstd_init(&runstd);
+  for (size_t i = 0; i < n; ++i)
+    runstd_update(&runstd, x[i]);
+  dbl mu = runstd_get_mean(&runstd);
+  dbl sigma = runstd_get_std(&runstd);
+
+  // Compute a rough approximation of the median by binning (based on
+  // the ideas in R. Tibshirani's "Fast computation of the median by
+  // successive binning").
+  dbl binwidth = 2*sigma/num_bins;
+  size_t bincount = 0;
+  size_t *bins = malloc(num_bins*sizeof(size_t));
+  memset(bins, 0x0, num_bins*sizeof(size_t));
+  for (size_t i = 0; i < n; ++i) {
+    dbl c = x[i] - mu;
+    if (c < -sigma || c >= sigma)
+      continue;
+    int k = floor((c + sigma)/binwidth);
+    if (k < 0 || k >= (int)num_bins)
+      continue;
+    ++bins[k];
+    ++bincount;
+  }
+  dbl binmedian;
+  size_t cumsum = 0;
+  for (size_t k = 0; k < num_bins; ++k) {
+    cumsum += bins[k];
+    if (cumsum >= bincount/2) {
+      binmedian = mu - sigma + binwidth*(k + 0.5);
+      break;
+    }
+  }
+  free(bins);
+
+  return binmedian;
 }
 
 void int2_add(int2 const p, int2 const q, int2 r) {

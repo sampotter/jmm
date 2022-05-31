@@ -53,6 +53,14 @@ typedef enum stype {
   NUM_STYPE
 } stype_e;
 
+typedef enum field {
+  FIELD_A,
+  FIELD_T,
+  FIELD_E_T,
+  FIELD_ORIGIN,
+  FIELD_SPREADING
+} field_e;
+
 typedef enum order {
   ORDER_ROW_MAJOR,
   ORDER_COLUMN_MAJOR,

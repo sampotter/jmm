@@ -71,11 +71,14 @@ dbl dbl44_det(dbl44 const A);
 dbl dbl4_dbl44_dbl4_dot(dbl4 const x, dbl44 const A, dbl4 const y);
 void dbl44_dbl4_mul(dbl44 const A, dbl4 const x, dbl4 b);
 void dbl44_dbl4_solve(dbl44 const A, dbl4 const b, dbl4 x);
+void dbl44_copy(dbl44 const A, dbl44 B);
 void dbl44_get_column(dbl44 const A, int j, dbl4 a);
 void dbl44_mul(dbl44 const A, dbl44 const B, dbl44 C);
 void dbl44_set_column(dbl44 A, int j, dbl4 const a);
 void dbl4_dbl44_mul(dbl4 const x, dbl44 const A, dbl4 b);
 void dbl44_zero(dbl44 A);
+void dbl44_invert(dbl44 A);
+void dbl44_transpose(dbl44 A);
 
 #ifdef __cplusplus
 }

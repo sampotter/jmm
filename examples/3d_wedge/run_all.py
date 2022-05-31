@@ -10,7 +10,7 @@ exe_path = Path('../../build/examples/3d_wedge/3d_wedge')
 
 # problem parameters
 ns = [1.75]
-p0, p1 = 2, 3
+p0, p1 = 2, 4
 maxvols = np.logspace(-p0, -p1, 2*(p1 - p0) + 1)
 rfacs = [0.25]
 phips = [np.pi/4]

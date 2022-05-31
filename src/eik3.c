@@ -45,7 +45,8 @@
  * NOTE: this is just for s = 1 at the moment. Will extend this to
  * handle s != later. */
 struct eik3 {
-  mesh3_s *mesh;
+  mesh3_s const *mesh;
+
   jet31t *jet;
   state_e *state;
   int *pos;
@@ -101,7 +102,7 @@ static void setpos(void *ptr, int l, int pos) {
   eik->pos[l] = pos;
 }
 
-void eik3_init(eik3_s *eik, mesh3_s *mesh) {
+void eik3_init(eik3_s *eik, mesh3_s const *mesh) {
   eik->mesh = mesh;
 
   size_t nverts = mesh3_nverts(mesh);
@@ -1019,7 +1020,7 @@ bool eik3_is_valid(eik3_s const *eik, size_t l) {
   return eik->state[l] == VALID;
 }
 
-mesh3_s *eik3_get_mesh(eik3_s const *eik) {
+mesh3_s const *eik3_get_mesh(eik3_s const *eik) {
   return eik->mesh;
 }
 
@@ -1071,6 +1072,13 @@ size_t const *eik3_get_accepted_ptr(eik3_s const *eik) {
   return eik->accepted;
 }
 
+size_t eik3_num_bc(eik3_s const *eik) {
+  size_t num_bc = 0;
+  for (size_t l = 0; l < mesh3_nverts(eik->mesh); ++l)
+    num_bc += eik->has_bc[l];
+  return num_bc;
+}
+
 void eik3_get_edge_T(eik3_s const *eik, size_t const le[2], bb31 *T) {
   assert(mesh3_is_edge(eik->mesh, le));
 
@@ -1081,4 +1089,11 @@ void eik3_get_edge_T(eik3_s const *eik, size_t const le[2], bb31 *T) {
   jet31t jet[2] = {eik->jet[le[0]], eik->jet[le[1]]};
 
   bb31_init_from_jets(T, jet, x);
+}
+
+dbl eik3_get_max_T(eik3_s const *eik) {
+  dbl T_max = -INFINITY;
+  for (size_t l = 0; l < mesh3_nverts(eik->mesh); ++l)
+    T_max = fmax(T_max, eik->jet[l].f);
+  return T_max;
 }

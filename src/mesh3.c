@@ -128,6 +128,10 @@ tri3 mesh3_tetra_get_face(mesh3_tetra_s const *tetra, int f[3]) {
   return tri;
 }
 
+bool mesh3_tetra_equal(mesh3_tetra_s const *t1, mesh3_tetra_s const *t2) {
+  return t1->mesh == t2->mesh && t1->l == t2->l;
+}
+
 void mesh3_alloc(mesh3_s **mesh) {
   *mesh = malloc(sizeof(mesh3_s));
 }
@@ -769,8 +773,8 @@ void mesh3_deinit(mesh3_s *mesh) {
   }
 }
 
-dbl const *mesh3_get_verts_ptr(mesh3_s const *mesh) {
-  return mesh->verts[0];
+dbl3 const *mesh3_get_verts_ptr(mesh3_s const *mesh) {
+  return mesh->verts;
 }
 
 size_t const *mesh3_get_cells_ptr(mesh3_s const *mesh) {
@@ -886,6 +890,25 @@ size_t mesh3_find_cell_containing_point(mesh3_s const *mesh, dbl const x[3],
     if (mesh3_cell_contains_point(mesh, lc, x))
       return lc;
   return (size_t)NO_INDEX;
+}
+
+bool mesh3_contains_point(mesh3_s const *mesh, dbl3 const x) {
+  size_t lc = mesh3_find_cell_containing_point(mesh, x, (size_t)NO_INDEX);
+  return lc != (size_t)NO_INDEX;
+}
+
+/* This function is inexact. Instead of checking containment to
+ * machine precision, we check the distance from `x` to each boundary
+ * vertex. If `x` is contained in the mesh and the distance to the
+ * nearest boundary vertex is greater than or equal to `r`, then we
+ * declare victory. */
+bool mesh3_contains_ball(mesh3_s const *mesh, dbl3 const x, dbl r) {
+  if (!mesh3_contains_point(mesh, x))
+    return false;
+  for (size_t l = 0; l < mesh->nverts; ++l)
+    if (mesh3_bdv(mesh, l) && dbl3_dist(x, mesh->verts[l]) < r)
+      return false;
+  return true;
 }
 
 int mesh3_nvc(mesh3_s const *mesh, size_t i) {
@@ -1780,12 +1803,23 @@ mesh2_s *mesh3_get_surface_mesh(mesh3_s const *mesh) {
   for (size_t lf = 0; lf < 3*mesh->nbdf; ++lf)
     faces[lf] = lf;
 
+  /* Precompute the array of face normals. The face normal for the
+   * tetrahedron mesh is assumed to point *into* the interior of the
+   * domain, so to get an outward-facing normal, we need to negate it
+   * here. */
+  dbl3 *face_normals = malloc(mesh->nbdf*sizeof(dbl3));
+  for (size_t lf = 0; lf < mesh->nbdf; ++lf) {
+    mesh3_get_face_normal(mesh, mesh->bdf[lf].lf, face_normals[lf]);
+    dbl3_negate(face_normals[lf]);
+  }
+
   mesh2_s *surface_mesh;
   mesh2_alloc(&surface_mesh);
-  mesh2_init(surface_mesh, verts, 3*mesh->nbdf, faces, mesh->nbdf);
+  mesh2_init(surface_mesh,verts,3*mesh->nbdf,faces,mesh->nbdf,face_normals);
 
   free(faces);
   free(verts);
+  free(face_normals);
 
   return surface_mesh;
 }

@@ -14,7 +14,7 @@ void camera_reset(camera_s *camera) {
   camera->left[0] = camera->left[1] = camera->left[2] = NAN;
   camera->up[0] = camera->up[1] = camera->up[2] = NAN;
   camera->width = camera->height = NAN;
-  camera->near = camera->fovy = camera->aspect = NAN;
+  camera->fovy = camera->aspect = NAN;
   camera->dim[0] = camera->dim[1] = -1;
 }
 
@@ -57,20 +57,33 @@ ray3 camera_get_ray_for_index(camera_s const *camera, int i, int j) {
     ray.org[1] += camera->pos[1];
     ray.org[2] += camera->pos[2];
   } else if (camera->type == CAMERA_TYPE_PERSPECTIVE) {
-    assert(isfinite(camera->near));
     assert(isfinite(camera->fovy));
     assert(isfinite(camera->aspect));
-    dbl height = 2*camera->near*tan(JMM_PI*(camera->fovy/2)/180);
-    dbl width = camera->aspect*height;
-    h[0] = height/(2*camera->dim[0]);
-    h[1] = width/(2*camera->dim[1]);
+
+    dbl phi_max = (JMM_PI/180)*camera->fovy/2;
+    dbl h = 2*tan(phi_max);
+    dbl w = camera->aspect*h;
+    // dbl theta_max = atan(w/2);
+
+    // dbl dphi = 2*phi_max/(camera->dim[0] - 1);
+    // dbl dtheta = 2*theta_max/(camera->dim[1] - 1);
+
+    // TODO: wrong way to do it... gives a fisheye effect
+    dbl y = h/2 - i*h/(camera->dim[0] - 1);
+    dbl x = w/2 - j*w/(camera->dim[1] - 1);
+    dbl phi = atan(y);
+    dbl theta = atan(x);
+
+    // dbl phi = phi_max - i*dphi;
+    // dbl theta = theta_max - j*dtheta;
+
     dbl3_copy(camera->pos, ray.org);
-    ray.dir[0] = camera->near;
-    ray.dir[1] = width/2 - j - h[1];
-    ray.dir[2] = height/2 - i - h[0];
-    dbl3_normalize(ray.dir);
+
+    ray.dir[0] = cos(theta)*cos(phi);
+    ray.dir[1] = sin(theta)*cos(phi);
+    ray.dir[2] = sin(phi);
+
     dbl33_dbl3_mul_inplace(mat, ray.dir);
-    dbl3_copy(camera->pos, ray.org);
   } else {
     die();
   }

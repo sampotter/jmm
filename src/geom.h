@@ -6,6 +6,11 @@ extern "C" {
 
 #include "common.h"
 #include "def.h"
+#include "grid2.h"
+
+typedef struct {
+  dbl r, x[3];
+} ball3;
 
 typedef struct {
   dbl x[3], y[3];
@@ -34,15 +39,20 @@ void tri3_get_bary_coords(tri3 const *tri, dbl const x[3], dbl b[3]);
 void tri3_get_closest_point(tri3 const *tri, dbl const x[3], dbl y[3]);
 dbl tri3_dist(tri3 const *tri, dbl const x[3]);
 bool tri3_coplanar(tri3 const *tri, tri3 const *other_tri, dbl const *atol);
+bool tri3_equal(tri3 const *tri1, tri3 const *tri2);
 
 typedef struct {
   dbl v[4][3];
 } tetra3;
 
+rect3 tetra3_get_bounding_box(tetra3 const *tetra);
 bool tetra3_contains_point(tetra3 const *tetra, dbl const x[3], dbl const *eps);
 void tetra3_get_bary_coords(tetra3 const *tetra, dbl const x[3], dbl b[4]);
 void tetra3_get_centroid(tetra3 const *tetra, dbl centroid[3]);
 void tetra3_get_point(tetra3 const *tetra, dbl const b[4], dbl x[3]);
+grid2_s tetra3_get_covering_xy_subgrid(tetra3 const *tetra, grid2_s const *grid,
+                                       size_t ind[2]);
+bool tetra3_equal(tetra3 const *tetra1, tetra3 const *tetra2);
 
 typedef struct {
   /**
@@ -57,6 +67,7 @@ typedef struct {
 } ray3;
 
 rect3 rect3_make_empty(void);
+rect3 rect3_get_bounding_box_for_points(size_t n, dbl3 const *x);
 void rect3_get_extent(rect3 const *rect, dbl extent[3]);
 void rect3_get_centroid(rect3 const *rect, dbl centroid[3]);
 void rect3_get_half_extent(rect3 const *rect, dbl half_extent[3]);
@@ -66,12 +77,14 @@ void rect3_insert_tetra3(rect3 *rect, tetra3 const *tetra);
 void rect3_insert_mesh2_tri(rect3 *rect, mesh2_tri_s const *tri);
 void rect3_insert_mesh3_tetra(rect3 *rect, mesh3_tetra_s const *tetra);
 dbl rect3_surface_area(rect3 const *rect);
+bool rect3_is_empty(rect3 const *rect);
 bool rect3_overlaps(rect3 const *r1, rect3 const *r2);
 bool rect3_occludes_ray3(rect3 const *rect, ray3 const *ray);
+bool rect3_contains_point(rect3 const *rect, dbl3 const x);
 
 ray3 ray3_make_empty();
 void ray3_get_point(ray3 const *ray, dbl t, dbl x[3]);
-bool ray3_intersects_rect3(ray3 const *ray, rect3 const *rect, dbl *t);
+dbl ray3_intersect_rect3(ray3 const *ray, rect3 const *rect);
 bool ray3_intersects_mesh3_tetra(ray3 const *ray, mesh3_tetra_s const *tetra, dbl *t);
 bool ray3_intersects_tri3(ray3 const *ray, tri3 const *tri, dbl *t);
 bool ray3_intersects_tetra3(ray3 const *ray, tetra3 const *tetra, dbl *t);
