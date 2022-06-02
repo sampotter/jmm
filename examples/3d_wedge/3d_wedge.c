@@ -9,7 +9,6 @@
 #include <eik3_transport.h>
 #include <error.h>
 #include <hybrid.h>
-#include <octree.h>
 #include <macros.h>
 #include <mat.h>
 #include <mesh2.h>
@@ -594,19 +593,13 @@ static void prop_amp(jmm_3d_wedge_problem_s *wedge, wedge_eik_e wedge_eik,
   }
 }
 
-typedef struct update_inds {
-  size_t lhat;
-  size_t l[3];
-} update_inds_s;
-
-static void add_o_face_refl_BCs(eik3_s *eik, eik3_s const *eik_parent) {
-  mesh3_s const *mesh = eik3_get_mesh(eik);
+/* Find the index of the reflector corresponding to the o-face. */
+static size_t get_o_face_index(mesh3_s const *mesh) {
   dbl mesh_eps = mesh3_get_eps(mesh);
   dbl3 x;
-  size_t nf, (*lf)[3] = NULL;
 
-  /* First, find the index of the reflector that's the o-face... */
-  size_t o_face_index;
+  size_t o_face_index, nf, (*lf)[3] = NULL;
+
   for (o_face_index = 0;
        o_face_index < mesh3_get_num_reflectors(mesh);
        ++o_face_index) {
@@ -634,217 +627,9 @@ static void add_o_face_refl_BCs(eik3_s *eik, eik3_s const *eik_parent) {
     lf = NULL;
   }
   assert(lf != NULL);
+  assert(o_face_index < mesh3_get_num_reflectors(mesh));
 
-  /* Add reflection BCs for each vertex on the o-face */
-  for (size_t i = 0; i < nf; ++i) {
-    for (size_t j = 0, l; j < 3; ++j) {
-      l = lf[i][j];
-      if (!eik3_has_BCs(eik, l)) {
-        jet31t jet = eik3_get_jet(eik_parent, l);
-        jet.Df[1] *= -1; /* reflect gradient over o-face */
-        eik3_add_bc(eik, l, jet);
-      }
-    }
-  }
-
-  array_s *le_arr;
-  array_alloc(&le_arr);
-  array_init(le_arr, sizeof(size_t[2]), ARRAY_DEFAULT_CAPACITY);
-
-  /* Next, add the diffracting edge BCs (we do this second to make
-   * sure that the vertices on the diffracting edge have their
-   * gradient set */
-  for (size_t i = 0; i < nf; ++i) {
-    for (size_t j = 0; j < 3; ++j) {
-      size_t le[2] = {lf[i][j], lf[i][(j + 1) % 3]};
-      SORT2(le[0], le[1]);
-
-      if (mesh3_is_diff_edge(mesh, le)) {
-        assert(!eik3_has_diff_bc(eik, le));
-
-        jet31t jet[2] = {eik3_get_jet(eik, le[0]), eik3_get_jet(eik, le[1])};
-        eik3_add_diff_bc(eik, le, jet);
-
-        /* Keep track of this edge for doing updates later */
-        assert(!array_contains(le_arr, &le));
-        array_append(le_arr, &le);
-      }
-    }
-  }
-
-  /* Array for keeping track of which boundary updates we've done already */
-  array_s *utetra_inds_arr;
-  array_alloc(&utetra_inds_arr);
-  array_init(utetra_inds_arr, sizeof(update_inds_s), ARRAY_DEFAULT_CAPACITY);
-
-  /* Do BC tetrahedron updates */
-  for (size_t i = 0; i < nf; ++i) {
-    update_inds_s utetra_inds = {
-      .l = {
-        lf[i][0],
-        lf[i][1],
-        lf[i][2]
-      }
-    };
-    SORT3(utetra_inds.l[0], utetra_inds.l[1], utetra_inds.l[2]);
-
-    for (size_t j = 0; j < 3; ++j) {
-      assert(eik3_has_BCs(eik, lf[i][j]));
-
-      size_t nvv = mesh3_nvv(mesh, lf[i][j]);
-      size_t *vv = malloc(nvv*sizeof(size_t));
-      mesh3_vv(mesh, lf[i][j], vv);
-
-      for (size_t k = 0; k < nvv; ++k) {
-        utetra_inds.lhat = vv[k];
-
-        /* Skip this point if it's one of the ones w/ BCs */
-        if (eik3_has_BCs(eik, utetra_inds.lhat))
-          continue;
-
-        /* Skip this update if we've done it already */
-        if (array_contains(utetra_inds_arr, &utetra_inds))
-          continue;
-        array_append(utetra_inds_arr, &utetra_inds_arr);
-
-        /* Set the node to trial and insert it into the heap */
-        if (eik3_is_far(eik, utetra_inds.lhat))
-          eik3_add_trial(eik, utetra_inds.lhat, jet31t_make_empty());
-
-        /* Do the update */
-        eik3_do_utetra(
-          eik, utetra_inds.lhat,
-          utetra_inds.l[0], utetra_inds.l[1], utetra_inds.l[2]);
-      }
-
-      free(vv);
-    }
-  }
-
-  /* Find all of the vertices which don't have BCs and are adjacent to
-   * the diffracting edge */
-  array_s *diff_edge_nb_arr;
-  array_alloc(&diff_edge_nb_arr);
-  array_init(diff_edge_nb_arr, sizeof(size_t), ARRAY_DEFAULT_CAPACITY);
-
-  for (size_t i = 0, le[2]; i < array_size(le_arr); ++i) {
-    array_get(le_arr, i, &le);
-
-    for (size_t j = 0; j < 2; ++j) {
-      size_t nvv = mesh3_nvv(mesh, le[j]);
-      size_t *vv = malloc(nvv*sizeof(size_t));
-      mesh3_vv(mesh, le[j], vv);
-
-      for (size_t k = 0; k < nvv; ++k)
-        if (!eik3_has_BCs(eik, vv[k]) &&
-            !array_contains(diff_edge_nb_arr, &vv[k]))
-          array_append(diff_edge_nb_arr, &vv[k]);
-
-      free(vv);
-    }
-  }
-
-  /* Keep track of which edge updates have been done */
-  array_s *utri_inds_arr;
-  array_alloc(&utri_inds_arr);
-  array_init(utri_inds_arr, sizeof(update_inds_s), ARRAY_DEFAULT_CAPACITY);
-
-  /* Do boundary diffracting updates */
-  for (size_t i = 0, le[2]; i < array_size(le_arr); ++i) {
-    array_get(le_arr, i, &le);
-    SORT2(le[0], le[1]);
-    update_inds_s utri_inds = {.l = {le[0], le[1], (size_t)NO_INDEX}};
-
-    for (size_t j = 0; j < 2; ++j)
-      assert(eik3_has_BCs(eik, utri_inds.l[j]));
-
-    for (size_t j = 0; j < array_size(diff_edge_nb_arr); ++j) {
-      array_get(diff_edge_nb_arr, j, &utri_inds.lhat);
-
-      /* Skip this update I've we've done it already */
-      if (array_contains(utri_inds_arr, &utri_inds))
-        continue;
-      array_append(utri_inds_arr, &utri_inds);
-
-      /* Set the node to trial, insert it into the heap, do the update */
-      if (eik3_is_far(eik, utri_inds.lhat))
-        eik3_add_trial(eik, utri_inds.lhat, jet31t_make_empty());
-      eik3_do_diff_utri(eik, utri_inds.lhat, utri_inds.l[0], utri_inds.l[1]);
-    }
-  }
-
-  /* Clean up */
-  array_deinit(utri_inds_arr);
-  array_dealloc(&utri_inds_arr);
-  array_deinit(diff_edge_nb_arr);
-  array_dealloc(&diff_edge_nb_arr);
-  array_deinit(utetra_inds_arr);
-  array_dealloc(&utetra_inds_arr);
-  array_deinit(le_arr);
-  array_dealloc(&le_arr);
-  free(lf);
-}
-
-static void add_diff_BCs(eik3_s *eik, eik3_s const *eik_parent) {
-  mesh3_s const *mesh = eik3_get_mesh(eik);
-  array_s const *bc_inds = eik3_get_bc_inds(eik);
-
-  assert(mesh3_get_num_diffractors(mesh) == 1);
-
-  size_t num_diff_edges = mesh3_get_diffractor_size(mesh, 0);
-  size_t (*le)[2] = malloc(num_diff_edges*sizeof(size_t[2]));
-  mesh3_get_diffractor(mesh, 0, le);
-
-  for (size_t i = 0; i < num_diff_edges; ++i) {
-    jet31t jet[2] = {
-      eik3_get_jet(eik_parent, le[i][0]),
-      eik3_get_jet(eik_parent, le[i][1])
-    };
-
-    dbl3 x[2];
-    mesh3_copy_vert(mesh, le[i][0], x[0]);
-    mesh3_copy_vert(mesh, le[i][1], x[1]);
-
-    bb31 T;
-    bb31_init_from_jets(&T, jet, x);
-
-    eik3_add_diff_bc_from_bb31(eik, le[i], &T);
-  }
-
-  for (size_t i = 0, l; i < array_size(bc_inds); ++i) {
-    array_get(bc_inds, i, &l);
-
-    size_t nvv = mesh3_nvv(mesh, l);
-    size_t *vv = malloc(nvv*sizeof(size_t));
-    mesh3_vv(mesh, l, vv);
-
-    /* get incident diff edges */
-    size_t ne = mesh3_get_num_inc_diff_edges(mesh, l);
-    size_t (*le)[2] = malloc(ne*sizeof(size_t[2]));
-    mesh3_get_inc_diff_edges(mesh, l, le);
-
-    for (size_t i = 0, lhat; i < nvv; ++i) {
-      lhat = vv[i];
-
-      /* skip if this is one of the original points with BCs */
-      if (array_contains(bc_inds, &lhat))
-        continue;
-
-      if (eik3_is_far(eik, lhat))
-        eik3_add_trial(eik, lhat, jet31t_make_empty());
-
-      /* do each of the diffracting triangle updates */
-      for (size_t j = 0; j < ne; ++j)
-        if (array_contains(bc_inds, &le[j][0]) &&
-            array_contains(bc_inds, &le[j][1]))
-          eik3_do_diff_utri(eik, lhat, le[j][0], le[j][1]);
-    }
-
-    free(le);
-    free(vv);
-  }
-
-  free(le);
+  return o_face_index;
 }
 
 jmm_error_e
@@ -1019,7 +804,8 @@ jmm_3d_wedge_problem_solve(jmm_3d_wedge_problem_s *wedge, dbl sp, dbl phip,
 
   /* Figure out which reflector is the o-face */
 
-  add_o_face_refl_BCs(wedge->eik_o_refl, wedge->eik_direct);
+  size_t o_face_refl_index = get_o_face_index(wedge->mesh);
+  eik3_add_refl_bc(wedge->eik_o_refl, wedge->eik_direct, o_face_refl_index);
 
   if (wedge->spec.verbose) {
     printf("Computing o-face reflection... ");
@@ -1079,7 +865,7 @@ jmm_3d_wedge_problem_solve(jmm_3d_wedge_problem_s *wedge, dbl sp, dbl phip,
   array_s const *n_refl_bc_inds = eik3_get_bc_inds(wedge->eik_n_refl);
 
   // TODO: set refl or diff BCs depending on angle...
-  add_diff_BCs(wedge->eik_n_refl, wedge->eik_direct);
+  eik3_add_diff_bc(wedge->eik_n_refl, wedge->eik_direct, 0);
 
   if (wedge->spec.verbose) {
     printf("Computing n-face reflection... ");
