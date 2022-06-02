@@ -981,7 +981,8 @@ static void add_diff_bc_for_edge(eik3_s *eik, size_t const le[2], jet31t const j
   store_diff_bc_T(eik, le, &T);
 }
 
-void eik3_add_diff_bc_from_bb31(eik3_s *eik, size_t const le[2], bb31 const *T){
+static void add_diff_bc_for_edge_from_bb31(eik3_s *eik, size_t const le[2],
+                                           bb31 const *T){
   /* Add BCs for each node with values taken from T... but with
    * a singular gradient! */
   jet31t jet[2] = {
@@ -1013,7 +1014,7 @@ typedef struct update_inds {
   size_t l[3];
 } update_inds_s;
 
-void eik3_add_refl_bc(eik3_s *eik, eik3_s const *eik_in, size_t refl_index) {
+void eik3_add_refl_bcs(eik3_s *eik, eik3_s const *eik_in, size_t refl_index) {
   assert(eik->mesh == eik_in->mesh);
 
   mesh3_s const *mesh = eik->mesh;
@@ -1172,7 +1173,7 @@ void eik3_add_refl_bc(eik3_s *eik, eik3_s const *eik_in, size_t refl_index) {
   free(lf);
 }
 
-void eik3_add_diff_bc(eik3_s *eik, eik3_s const *eik_in, size_t diff_index) {
+void eik3_add_diff_bcs(eik3_s *eik, eik3_s const *eik_in, size_t diff_index) {
   mesh3_s const *mesh = eik3_get_mesh(eik);
   array_s const *bc_inds = eik3_get_bc_inds(eik);
 
@@ -1195,7 +1196,7 @@ void eik3_add_diff_bc(eik3_s *eik, eik3_s const *eik_in, size_t diff_index) {
     bb31 T;
     bb31_init_from_jets(&T, jet, x);
 
-    eik3_add_diff_bc_from_bb31(eik, le[i], &T);
+    add_diff_bc_for_edge_from_bb31(eik, le[i], &T);
   }
 
   for (size_t i = 0, l; i < array_size(bc_inds); ++i) {

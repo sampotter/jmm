@@ -805,7 +805,7 @@ jmm_3d_wedge_problem_solve(jmm_3d_wedge_problem_s *wedge, dbl sp, dbl phip,
   /* Figure out which reflector is the o-face */
 
   size_t o_face_refl_index = get_o_face_index(wedge->mesh);
-  eik3_add_refl_bc(wedge->eik_o_refl, wedge->eik_direct, o_face_refl_index);
+  eik3_add_refl_bcs(wedge->eik_o_refl, wedge->eik_direct, o_face_refl_index);
 
   if (wedge->spec.verbose) {
     printf("Computing o-face reflection... ");
@@ -865,7 +865,7 @@ jmm_3d_wedge_problem_solve(jmm_3d_wedge_problem_s *wedge, dbl sp, dbl phip,
   array_s const *n_refl_bc_inds = eik3_get_bc_inds(wedge->eik_n_refl);
 
   // TODO: set refl or diff BCs depending on angle...
-  eik3_add_diff_bc(wedge->eik_n_refl, wedge->eik_direct, 0);
+  eik3_add_diff_bcs(wedge->eik_n_refl, wedge->eik_direct, 0);
 
   if (wedge->spec.verbose) {
     printf("Computing n-face reflection... ");
