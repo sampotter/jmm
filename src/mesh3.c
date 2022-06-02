@@ -1546,14 +1546,6 @@ bool mesh3_is_diff_edge(mesh3_s const *mesh, size_t const le[2]) {
   return e && e->diff;
 }
 
-bool mesh3_is_nondiff_boundary_edge(mesh3_s const *mesh, size_t const le[2]) {
-  assert(mesh->has_bd_info);
-  diff_edge_s q = make_diff_edge(le[0], le[1]);
-  diff_edge_s const *e = bsearch(
-    &q, mesh->bde, mesh->nbde, sizeof(diff_edge_s), (compar_t)diff_edge_cmp);
-  return e && !e->diff;
-}
-
 bool mesh3_vert_incident_on_diff_edge(mesh3_s const *mesh, size_t l) {
   assert(mesh->has_bd_info);
 

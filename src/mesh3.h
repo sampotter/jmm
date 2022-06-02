@@ -99,7 +99,6 @@ void mesh3_set_bdf(mesh3_s *mesh, size_t lf[3]);
 bool mesh3_is_bdf(mesh3_s const *mesh, size_t const lf[3]);
 bool mesh3_is_edge(mesh3_s const *mesh, size_t const l[2]);
 bool mesh3_is_diff_edge(mesh3_s const *mesh, size_t const l[2]);
-bool mesh3_is_nondiff_boundary_edge(mesh3_s const *mesh, size_t const l[2]);
 bool mesh3_vert_incident_on_diff_edge(mesh3_s const *mesh, size_t l);
 bool mesh3_local_ray_is_occluded(mesh3_s const *mesh, size_t lhat, par3_s const *par);
 dbl mesh3_get_min_tetra_alt(mesh3_s const *mesh);
