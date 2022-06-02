@@ -44,13 +44,13 @@ int edge_cmp(size_t const e1[2], size_t const e2[2]) {
 typedef struct {
   size_t le[2];
   bool diff;
-} diff_edge_s;
+} bde_s;
 
-diff_edge_s make_diff_edge(size_t l0, size_t l1) {
-  return (diff_edge_s) {.le = {MIN(l0, l1), MAX(l0, l1)}, .diff = false};
+bde_s make_bde(size_t l0, size_t l1) {
+  return (bde_s) {.le = {MIN(l0, l1), MAX(l0, l1)}, .diff = false};
 }
 
-int diff_edge_cmp(diff_edge_s const *e1, diff_edge_s const *e2) {
+int bde_cmp(bde_s const *e1, bde_s const *e2) {
   return edge_cmp(e1->le, e2->le);
 }
 
@@ -99,7 +99,7 @@ struct mesh3 {
   size_t nbdf;
   bdf_s *bdf;
   size_t nbde;
-  diff_edge_s *bde;
+  bde_s *bde;
 
   size_t num_bdf_labels;
   size_t *bdf_label; // Labels for distinct reflecting surfaces
@@ -424,16 +424,15 @@ static void init_bdf_labels(mesh3_s *mesh) {
     ++mesh->num_bdf_labels;
 }
 
-static size_t find_bde(mesh3_s const *mesh, diff_edge_s const *bde) {
-  diff_edge_s const *found = bsearch(
-    bde, mesh->bde, mesh->nbde, sizeof(diff_edge_s),
-    (compar_t)diff_edge_cmp);
+static size_t find_bde(mesh3_s const *mesh, bde_s const *bde) {
+  bde_s const *found = bsearch(
+    bde, mesh->bde, mesh->nbde, sizeof(bde_s), (compar_t)bde_cmp);
   return (size_t)(found ? found - mesh->bde : NO_INDEX);
 }
 
 static void get_diff_bde_nbs(mesh3_s const *mesh, size_t le, array_s *nb) {
-  diff_edge_s const *bde = &mesh->bde[le];
-  diff_edge_s nb_bde;
+  bde_s const *bde = &mesh->bde[le];
+  bde_s nb_bde;
 
   assert(bde->diff);
 
@@ -445,8 +444,8 @@ static void get_diff_bde_nbs(mesh3_s const *mesh, size_t le, array_s *nb) {
     mesh3_vv(mesh, l, vv);
 
     for (size_t j = 0, le_nb; j < nvv; ++j) {
-      nb_bde = make_diff_edge(l, vv[j]);
-      if (diff_edge_cmp(bde, &nb_bde) == 0)
+      nb_bde = make_bde(l, vv[j]);
+      if (bde_cmp(bde, &nb_bde) == 0)
         continue;
       le_nb = find_bde(mesh, &nb_bde);
       if (le_nb != (size_t)NO_INDEX
@@ -640,19 +639,19 @@ static void init_bd(mesh3_s *mesh) {
   // Build a sorted array of all of the boundary edges, which are just
   // the edges incident on the boundary faces. This array will have
   // duplicates, so we'll have to prune these next.
-  diff_edge_s *bde = malloc(3*mesh->nbdf*sizeof(diff_edge_s));
+  bde_s *bde = malloc(3*mesh->nbdf*sizeof(bde_s));
   for (size_t lf = 0, *l; lf < mesh->nbdf; ++lf) {
     l = mesh->bdf[lf].lf;
-    bde[3*lf] = make_diff_edge(l[0], l[1]);
-    bde[3*lf + 1] = make_diff_edge(l[1], l[2]);
-    bde[3*lf + 2] = make_diff_edge(l[2], l[0]);
+    bde[3*lf] = make_bde(l[0], l[1]);
+    bde[3*lf + 1] = make_bde(l[1], l[2]);
+    bde[3*lf + 2] = make_bde(l[2], l[0]);
   }
-  qsort(bde, 3*mesh->nbdf, sizeof(diff_edge_s), (compar_t)diff_edge_cmp);
+  qsort(bde, 3*mesh->nbdf, sizeof(bde_s), (compar_t)bde_cmp);
 
   // Now, let's count the number of distinct boundary edges.
   mesh->nbde = 1; // count the first edge (we assume nbdf > 0)
   for (size_t l = 0; l < 3*mesh->nbdf - 1; ++l)
-    if  (diff_edge_cmp(&bde[l], &bde[l + 1]))
+    if  (bde_cmp(&bde[l], &bde[l + 1]))
       ++mesh->nbde;
 
   size_t le = 0;
@@ -660,10 +659,10 @@ static void init_bd(mesh3_s *mesh) {
   // Traverse the array again, copying over distinct boundary
   // edges. Note: there's no need to sort mesh->bde, since it will
   // already be sorted.
-  mesh->bde = malloc(mesh->nbde*sizeof(diff_edge_s));
+  mesh->bde = malloc(mesh->nbde*sizeof(bde_s));
   mesh->bde[le++] = bde[0];
   for (size_t l = 0; l < 3*mesh->nbdf - 1; ++l)
-    if (diff_edge_cmp(&bde[l], &bde[l + 1]))
+    if (bde_cmp(&bde[l], &bde[l + 1]))
       mesh->bde[le++] = bde[l + 1];
 
   assert(le == mesh->nbde); // sanity
@@ -1476,9 +1475,9 @@ size_t mesh3_nbde(mesh3_s const *mesh) {
 
 bool mesh3_bde(mesh3_s const *mesh, size_t const le[2]) {
   assert(mesh->has_bd_info);
-  diff_edge_s e = make_diff_edge(le[0], le[1]);
-  return bsearch(&e, mesh->bde, mesh->nbde, sizeof(diff_edge_s),
-                 (compar_t)diff_edge_cmp);
+  bde_s e = make_bde(le[0], le[1]);
+  return bsearch(&e, mesh->bde, mesh->nbde, sizeof(bde_s),
+                 (compar_t)bde_cmp);
 }
 
 size_t mesh3_nbdf(mesh3_s const *mesh) {
@@ -1541,9 +1540,9 @@ bool mesh3_is_edge(mesh3_s const *mesh, size_t const l[2]) {
 
 bool mesh3_is_diff_edge(mesh3_s const *mesh, size_t const le[2]) {
   assert(mesh->has_bd_info);
-  diff_edge_s q = make_diff_edge(le[0], le[1]);
-  diff_edge_s const *e = bsearch(
-    &q, mesh->bde, mesh->nbde, sizeof(diff_edge_s), (compar_t)diff_edge_cmp);
+  bde_s q = make_bde(le[0], le[1]);
+  bde_s const *e = bsearch(
+    &q, mesh->bde, mesh->nbde, sizeof(bde_s), (compar_t)bde_cmp);
   return e && e->diff;
 }
 
@@ -1953,19 +1952,20 @@ void mesh3_set_bde(mesh3_s *mesh, size_t const le[2], bool diff) {
 
   mesh->bdv[le[0]] = mesh->bdv[le[1]] = true;
 
-  diff_edge_s bde = {.le = {le[0], le[1]}, .diff = diff};
+  bde_s bde = {.le = {le[0], le[1]}, .diff = diff};
 
+  /* Find bde */
   int cmp;
   size_t l = 0;
-  while ((cmp = diff_edge_cmp(&bde, &mesh->bde[l])) >= 0)
+  while ((cmp = bde_cmp(&bde, &mesh->bde[l])) >= 0)
     ++l;
 
   if (cmp == 0) {
     mesh->bde[l].diff = diff;
   } else if (cmp < 0) {
-    mesh->bde = realloc(mesh->bde, (mesh->nbde + 1)*sizeof(diff_edge_s));
+    mesh->bde = realloc(mesh->bde, (mesh->nbde + 1)*sizeof(bde_s));
     memmove(&mesh->bde[l + 1], &mesh->bde[l],
-            (mesh->nbde - l)*sizeof(diff_edge_s));
+            (mesh->nbde - l)*sizeof(bde_s));
     mesh->bde[l] = bde;
     ++mesh->nbde;
   } else {
