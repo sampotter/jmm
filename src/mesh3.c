@@ -1933,6 +1933,12 @@ void mesh3_get_diffractor(mesh3_s const *mesh, size_t i, size_t (*le)[2]) {
       memcpy(le[k++], mesh->bde[l].le, sizeof(size_t[2]));
 }
 
+size_t mesh3_get_diff_index_for_bde(mesh3_s const *mesh, size_t const le[2]) {
+  bde_s bde = make_bde(le[0], le[1]);
+  size_t l = find_bde(mesh, &bde);
+  return mesh->bde_label[l];
+}
+
 void mesh3_get_bde_inds(mesh3_s const *mesh, size_t l, size_t le[2]) {
   memcpy(le, mesh->bde[l].le, sizeof(size_t[2]));
 }
@@ -1998,6 +2004,19 @@ void mesh3_get_face_normal(mesh3_s const *mesh, size_t const lf[3], dbl normal[3
   // If the normal isn't pointing into the interior of the domain, flip it
   if (dbl3_dot(normal, dx3) < 0)
     dbl3_negate(normal);
+}
+
+void mesh3_get_face_refl_mat(mesh3_s const *mesh, size_t const lf[3], dbl33 R) {
+  dbl3 n;
+  mesh3_get_face_normal(mesh, lf, n);
+
+  dbl33 nnT;
+  dbl3_outer(n, n, nnT);
+
+  dbl33 eye;
+  dbl33_eye(eye);
+
+  dbl33_saxpy(-2, nnT, eye, R);
 }
 
 void mesh3_get_diff_edge_tangent(mesh3_s const *mesh, size_t const le[2],
