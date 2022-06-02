@@ -77,6 +77,10 @@ jmm_error_e jmm_3d_wedge_problem_init(jmm_3d_wedge_problem_s *wedge,
   wedge->jet_o_refl_gt = malloc(nverts*sizeof(jet32t));
   wedge->jet_n_refl_gt = malloc(nverts*sizeof(jet32t));
 
+  wedge->origin_direct = malloc(nverts*sizeof(dbl));
+  wedge->origin_o_refl = malloc(nverts*sizeof(dbl));
+  wedge->origin_n_refl = malloc(nverts*sizeof(dbl));
+
   wedge->t_in_direct = malloc(nverts*sizeof(dbl3));
   wedge->t_in_o_refl = malloc(nverts*sizeof(dbl3));
   wedge->t_in_n_refl = malloc(nverts*sizeof(dbl3));
@@ -131,6 +135,15 @@ void jmm_3d_wedge_problem_deinit(jmm_3d_wedge_problem_s *wedge) {
 
   free(wedge->A_n_refl);
   wedge->A_n_refl = NULL;
+
+  free(wedge->origin_direct);
+  wedge->origin_direct = NULL;
+
+  free(wedge->origin_o_refl);
+  wedge->origin_o_refl = NULL;
+
+  free(wedge->origin_n_refl);
+  wedge->origin_n_refl = NULL;
 
   free(wedge->t_in_direct);
   wedge->t_in_direct = NULL;
@@ -510,6 +523,13 @@ static size_t const *get_accepted_ptr(jmm_3d_wedge_problem_s *wedge, wedge_eik_e
   else assert(false);
 }
 
+static dbl const *get_origin(jmm_3d_wedge_problem_s *wedge, wedge_eik_e wedge_eik) {
+  if      (wedge_eik == WEDGE_EIK_DIRECT) return wedge->origin_direct;
+  else if (wedge_eik == WEDGE_EIK_O_REFL) return wedge->origin_o_refl;
+  else if (wedge_eik == WEDGE_EIK_N_REFL) return wedge->origin_n_refl;
+  else assert(false);
+}
+
 static void prop_amp(jmm_3d_wedge_problem_s *wedge, wedge_eik_e wedge_eik,
                      dbl sp, dbl phip) {
   size_t const *accepted = get_accepted_ptr(wedge, wedge_eik);
@@ -632,6 +652,7 @@ jmm_3d_wedge_problem_solve(jmm_3d_wedge_problem_s *wedge, dbl sp, dbl phip,
 
   eik3_add_pt_src_bcs(wedge->eik_direct, xsrc, rfac);
 
+  array_s const *direct_trial_inds = eik3_get_trial_inds(wedge->eik_direct);
   array_s const *direct_bc_inds = eik3_get_bc_inds(wedge->eik_direct);
 
   /* Solve direct eikonal */
@@ -838,6 +859,86 @@ jmm_3d_wedge_problem_solve(jmm_3d_wedge_problem_s *wedge, dbl sp, dbl phip,
 
   puts("Finished solving eikonal equations");
 
+  /** Compute "approximate origins": */
+
+  /* direct arrival */
+
+  for (size_t l = 0; l < mesh3_nverts(wedge->mesh); ++l)
+    wedge->origin_direct[l] = NAN;
+
+  for (size_t i = 0, l; i < array_size(direct_bc_inds); ++i) {
+    array_get(direct_bc_inds, i, &l);
+    wedge->origin_direct[l] = 1; /* initial BC nodes originate from
+                                  * the point source */
+  }
+
+  for (size_t i = 0, l; i < array_size(direct_trial_inds); ++i) {
+    array_get(direct_trial_inds, i, &l);
+    wedge->origin_direct[l] = 1; /* `TRIAL` nodes originate from the
+                                  * point source */
+  }
+
+  for (size_t l = 0; l < mesh3_nverts(wedge->mesh); ++l) {
+    if (!isnan(wedge->origin_direct[l]))
+      continue; /* already set this value */
+
+    mesh3_copy_vert(wedge->mesh, l, x);
+    if (hypot(x[0], x[1]) < 1e-13)
+      wedge->origin_direct[l] = 0; /* label nodes on the diff. edge */
+  }
+
+  eik3_transport_dbl(wedge->eik_direct, wedge->origin_direct, true);
+
+  for (size_t l = 0; l < mesh3_nverts(wedge->mesh); ++l) {
+    mesh3_copy_vert(wedge->mesh, l, x);
+    if (hypot(x[0], x[1]) < 1e-13)
+      wedge->origin_direct[l] = 0.5; /* label nodes on the diff. edge */
+  }
+
+  /* o-refl */
+
+  array_s const *o_refl_bc_inds = eik3_get_bc_inds(wedge->eik_o_refl);
+
+  for (size_t l = 0; l < mesh3_nverts(wedge->mesh); ++l)
+    wedge->origin_o_refl[l] = NAN;
+
+  if (array_size(o_refl_bc_inds) > 0) {
+    for (size_t i = 0, l; i < array_size(o_refl_bc_inds); ++i) {
+      array_get(o_refl_bc_inds, i, &l);
+      wedge->origin_o_refl[l] = 1;
+    }
+
+    for (size_t l = 0; l < mesh3_nverts(wedge->mesh); ++l) {
+      mesh3_copy_vert(wedge->mesh, l, x);
+      if (hypot(x[0], x[1]) < 1e-13) {
+        assert(wedge->origin_o_refl[l] == 1);
+        wedge->origin_o_refl[l] = 0;
+      }
+    }
+
+    eik3_transport_dbl(wedge->eik_o_refl, wedge->origin_o_refl, true);
+  }
+
+  for (size_t l = 0; l < mesh3_nverts(wedge->mesh); ++l) {
+    mesh3_copy_vert(wedge->mesh, l, x);
+    if (hypot(x[0], x[1]) < 1e-13)
+      wedge->origin_o_refl[l] = 0.5; /* label nodes on the diff. edge */
+  }
+
+  /* n-refl */
+
+  for (size_t l = 0; l < mesh3_nverts(wedge->mesh); ++l)
+    wedge->origin_n_refl[l] = NAN;
+
+  if (array_size(n_refl_bc_inds) > 0) {
+    for (size_t i = 0, l; i < array_size(n_refl_bc_inds); ++i) {
+      array_get(n_refl_bc_inds, i, &l);
+      wedge->origin_n_refl[l] = 1;
+    }
+
+    eik3_transport_dbl(wedge->eik_n_refl, wedge->origin_n_refl, true);
+  }
+
   /** Transport t_in and t_out vectors: */
 
   jet31t const *jet = NULL;
@@ -872,8 +973,6 @@ jmm_3d_wedge_problem_solve(jmm_3d_wedge_problem_s *wedge, dbl sp, dbl phip,
 
   for (size_t l = 0; l < mesh3_nverts(wedge->mesh); ++l)
     dbl3_nan(wedge->t_out_o_refl[l]);
-
-  array_s const *o_refl_bc_inds = eik3_get_bc_inds(wedge->eik_o_refl);
 
   if (array_size(o_refl_bc_inds) > 0) {
     for (size_t i = 0, l; i < array_size(o_refl_bc_inds); ++i) {
@@ -974,6 +1073,17 @@ jmm_3d_wedge_problem_dump_direct_jet_gt(
 }
 
 static void
+jmm_3d_wedge_problem_dump_direct_origin(
+  jmm_3d_wedge_problem_s const *wedge,
+  char const *path)
+{
+  FILE *fp = fopen(path, "wb");
+  fwrite(wedge->origin_direct, sizeof(wedge->origin_direct[0]),
+         mesh3_nverts(wedge->mesh), fp);
+  fclose(fp);
+}
+
+static void
 jmm_3d_wedge_problem_dump_o_refl_jet_gt(
   jmm_3d_wedge_problem_s const *wedge,
   char const *path)
@@ -985,12 +1095,34 @@ jmm_3d_wedge_problem_dump_o_refl_jet_gt(
 }
 
 static void
+jmm_3d_wedge_problem_dump_o_refl_origin(
+  jmm_3d_wedge_problem_s const *wedge,
+  char const *path)
+{
+  FILE *fp = fopen(path, "wb");
+  fwrite(wedge->origin_o_refl, sizeof(wedge->origin_o_refl[0]),
+         mesh3_nverts(wedge->mesh), fp);
+  fclose(fp);
+}
+
+static void
 jmm_3d_wedge_problem_dump_n_refl_jet_gt(
   jmm_3d_wedge_problem_s const *wedge,
   char const *path)
 {
   FILE *fp = fopen(path, "wb");
   fwrite(wedge->jet_n_refl_gt, sizeof(wedge->jet_n_refl_gt[0]),
+         mesh3_nverts(wedge->mesh), fp);
+  fclose(fp);
+}
+
+static void
+jmm_3d_wedge_problem_dump_n_refl_origin(
+  jmm_3d_wedge_problem_s const *wedge,
+  char const *path)
+{
+  FILE *fp = fopen(path, "wb");
+  fwrite(wedge->origin_n_refl, sizeof(wedge->origin_n_refl[0]),
          mesh3_nverts(wedge->mesh), fp);
   fclose(fp);
 }
@@ -1139,6 +1271,12 @@ void jmm_3d_wedge_problem_dump(jmm_3d_wedge_problem_s *wedge,
     file_path = strcat(file_path, "/direct_jet_gt.bin");
     jmm_3d_wedge_problem_dump_direct_jet_gt(wedge, file_path);
 
+    /* Dump "approximate origins" for direct eikonal: */
+
+    strcpy(file_path, path);
+    file_path = strcat(file_path, "/direct_origin.bin");
+    jmm_3d_wedge_problem_dump_direct_origin(wedge, file_path);
+
     /* Dump the t_in and t_out vectors */
 
     strcpy(file_path, path);
@@ -1189,6 +1327,12 @@ void jmm_3d_wedge_problem_dump(jmm_3d_wedge_problem_s *wedge,
     file_path = strcat(file_path, "/o_refl_jet_gt.bin");
     jmm_3d_wedge_problem_dump_o_refl_jet_gt(wedge, file_path);
 
+    /* Dump "approximate origins" for the o-face eikonal: */
+
+    strcpy(file_path, path);
+    file_path = strcat(file_path, "/o_refl_origin.bin");
+    jmm_3d_wedge_problem_dump_o_refl_origin(wedge, file_path);
+
     /* Dump the t_in and t_out vectors */
 
     strcpy(file_path, path);
@@ -1238,6 +1382,12 @@ void jmm_3d_wedge_problem_dump(jmm_3d_wedge_problem_s *wedge,
     strcpy(file_path, path);
     file_path = strcat(file_path, "/n_refl_jet_gt.bin");
     jmm_3d_wedge_problem_dump_n_refl_jet_gt(wedge, file_path);
+
+    /* Dump "approximate origins" for the n-face eikonal: */
+
+    strcpy(file_path, path);
+    file_path = strcat(file_path, "/n_refl_origin.bin");
+    jmm_3d_wedge_problem_dump_n_refl_origin(wedge, file_path);
 
     /* Dump the t_in and t_out vectors */
 
@@ -1310,7 +1460,18 @@ dump_slice(jmm_3d_wedge_problem_s const *wedge, grid2_s const *img_grid,
            char const *file_path, field_e field, wedge_eik_e wedge_eik) {
   FILE *fp = fopen(file_path, "wb");
 
-  if (field == FIELD_A) {
+  if (field == FIELD_ORIGIN) {
+    dbl const *origin = get_origin((jmm_3d_wedge_problem_s *)wedge, wedge_eik);
+    for (size_t l = 0; l < grid2_nind(img_grid); ++l) {
+      dbl value = NAN;
+      if (isfinite(b_grid[l][0])) {
+        value = 0;
+        for (size_t i = 0; i < 4; ++i)
+          value += b_grid[l][i]*origin[cv_grid[l][i]];
+      }
+      fwrite(&value, sizeof(value), 1, fp);
+    }
+  } else if (field == FIELD_A) {
     dbl const *A = get_A((jmm_3d_wedge_problem_s *)wedge, wedge_eik);
     dbl Ab;
     for (size_t l = 0; l < grid2_nind(img_grid); ++l) {
@@ -1415,6 +1576,11 @@ void jmm_3d_wedge_problem_save_slice_plots(jmm_3d_wedge_problem_s const *wedge,
                WEDGE_EIK_DIRECT);
 
     strcpy(file_path, path);
+    file_path = strcat(file_path, "/slice_direct_origin.bin");
+    dump_slice(wedge, img_grid, lc_grid, cv_grid, b_grid, file_path,
+               FIELD_ORIGIN, WEDGE_EIK_DIRECT);
+
+    strcpy(file_path, path);
     file_path = strcat(file_path, "/slice_direct_E_T.bin");
     dump_slice(wedge, img_grid, lc_grid, cv_grid, b_grid, file_path, FIELD_E_T,
                WEDGE_EIK_DIRECT);
@@ -1432,6 +1598,11 @@ void jmm_3d_wedge_problem_save_slice_plots(jmm_3d_wedge_problem_s const *wedge,
                WEDGE_EIK_O_REFL);
 
     strcpy(file_path, path);
+    file_path = strcat(file_path, "/slice_o_refl_origin.bin");
+    dump_slice(wedge, img_grid, lc_grid, cv_grid, b_grid, file_path,
+               FIELD_ORIGIN, WEDGE_EIK_O_REFL);
+
+    strcpy(file_path, path);
     file_path = strcat(file_path, "/slice_o_refl_E_T.bin");
     dump_slice(wedge, img_grid, lc_grid, cv_grid, b_grid, file_path, FIELD_E_T,
                WEDGE_EIK_O_REFL);
@@ -1447,6 +1618,11 @@ void jmm_3d_wedge_problem_save_slice_plots(jmm_3d_wedge_problem_s const *wedge,
     file_path = strcat(file_path, "/slice_n_refl_A.bin");
     dump_slice(wedge, img_grid, lc_grid, cv_grid, b_grid, file_path, FIELD_A,
                WEDGE_EIK_N_REFL);
+
+    strcpy(file_path, path);
+    file_path = strcat(file_path, "/slice_n_refl_origin.bin");
+    dump_slice(wedge, img_grid, lc_grid, cv_grid, b_grid, file_path,
+               FIELD_ORIGIN, WEDGE_EIK_N_REFL);
 
     strcpy(file_path, path);
     file_path = strcat(file_path, "/slice_n_refl_E_T.bin");
