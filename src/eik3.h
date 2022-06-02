@@ -54,6 +54,7 @@ size_t eik3_num_bc(eik3_s const *eik);
 
 void eik3_add_trial(eik3_s *eik, size_t l, jet31t jet);
 void eik3_add_bc(eik3_s *eik, size_t l, jet31t jet);
+void eik3_add_pt_src_bcs(eik3_s *eik, dbl3 const xsrc, dbl tau0);
 void eik3_add_refl_bcs(eik3_s *eik, eik3_s const *eik_in, size_t refl_index);
 void eik3_add_diff_bcs(eik3_s *eik, eik3_s const *eik_in, size_t diff_index);
 bool eik3_has_diff_bc(eik3_s const *eik, size_t const le[2]);

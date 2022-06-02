@@ -958,6 +958,60 @@ void eik3_add_bc(eik3_s *eik, size_t l, jet31t jet) {
   array_append(eik->bc_inds, &l);
 }
 
+/* Naive way of adding point source boundary conditions. This doesn't
+ * take occlusion into account. In the future, we'll need a more
+ * sophisticated way of doing this. */
+void eik3_add_pt_src_bcs(eik3_s *eik, dbl3 const xsrc, dbl rfac) {
+  mesh3_s const *mesh = eik->mesh;
+
+  dbl3 x;
+
+  for (size_t l = 0; l < mesh3_nverts(mesh); ++l) {
+    mesh3_copy_vert(mesh, l, x);
+
+    if (dbl3_dist(x, xsrc) > rfac)
+      continue;
+
+    if (eik3_is_valid(eik, l))
+      continue;
+
+    jet31t jet = {.f = dbl3_dist(x, xsrc)};
+    dbl3_sub(x, xsrc, jet.Df);
+    dbl3_dbl_div_inplace(jet.Df, jet.f);
+
+    eik3_add_bc(eik, l, jet);
+  }
+
+  for (size_t l = 0; l < mesh3_nverts(mesh); ++l) {
+    if (!eik3_is_valid(eik, l))
+      continue;
+
+    size_t nvv = mesh3_nvv(mesh, l);
+    size_t *vv = malloc(nvv*sizeof(size_t));
+    mesh3_vv(mesh, l, vv);
+
+    for (size_t i = 0; i < nvv; ++i) {
+      if (!eik3_is_far(eik, vv[i]))
+        continue;
+
+      mesh3_copy_vert(mesh, vv[i], x);
+
+      jet31t jet;
+
+      jet.f = dbl3_dist(x, xsrc);
+
+      dbl3_sub(x, xsrc, jet.Df);
+      dbl3_dbl_div_inplace(jet.Df, jet.f);
+
+      eik3_add_trial(eik, vv[i], jet);
+    }
+
+    free(vv);
+  }
+
+  assert(!array_is_empty(eik->trial_inds));
+}
+
 /* Store the cubic polynomial `T` approximating the eikonal over this
  * diffracting edge. */
 static void store_diff_bc_T(eik3_s *eik, size_t const le[2], bb31 const *T) {

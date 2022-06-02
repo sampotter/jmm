@@ -650,56 +650,10 @@ jmm_3d_wedge_problem_solve(jmm_3d_wedge_problem_s *wedge, dbl sp, dbl phip,
 
   /* Set up and solve the direct eikonal problem */
 
-  for (size_t l = 0; l < mesh3_nverts(wedge->mesh); ++l) {
-    mesh3_copy_vert(wedge->mesh, l, x);
-    if (dbl3_dist(x, xsrc) <= rfac) {
-      if (eik3_is_valid(wedge->eik_direct, l))
-        continue;
-
-      jet31t jet;
-
-      jet.f = dbl3_dist(x, xsrc);
-
-      dbl3_sub(x, xsrc, jet.Df);
-      dbl3_dbl_div_inplace(jet.Df, jet.f);
-
-      eik3_add_bc(wedge->eik_direct, l, jet);
-    }
-  }
-
-  for (size_t l = 0; l < mesh3_nverts(wedge->mesh); ++l) {
-    if (eik3_is_valid(wedge->eik_direct, l)) {
-      size_t nvv = mesh3_nvv(wedge->mesh, l);
-      size_t *vv = malloc(nvv*sizeof(size_t));
-      mesh3_vv(wedge->mesh, l, vv);
-
-      for (size_t i = 0; i < nvv; ++i) {
-        if (!eik3_is_far(wedge->eik_direct, vv[i]))
-          continue;
-
-        mesh3_copy_vert(wedge->mesh, vv[i], x);
-
-        jet31t jet;
-
-        jet.f = dbl3_dist(x, xsrc);
-
-        dbl3_sub(x, xsrc, jet.Df);
-        dbl3_dbl_div_inplace(jet.Df, jet.f);
-
-        eik3_add_trial(wedge->eik_direct, vv[i], jet);
-      }
-
-      free(vv);
-    }
-  }
+  eik3_add_pt_src_bcs(wedge->eik_direct, xsrc, rfac);
 
   array_s const *direct_trial_inds = eik3_get_trial_inds(wedge->eik_direct);
   array_s const *direct_bc_inds = eik3_get_bc_inds(wedge->eik_direct);
-
-  if (array_is_empty(direct_trial_inds)) {
-    printf("No TRIAL vertices!\n");
-    return JMM_ERROR_BAD_ARGUMENTS;
-  }
 
   /* Solve direct eikonal */
   if (wedge->spec.verbose) {
