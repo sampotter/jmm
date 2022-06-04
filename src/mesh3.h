@@ -101,6 +101,7 @@ bool mesh3_is_edge(mesh3_s const *mesh, size_t const l[2]);
 bool mesh3_is_diff_edge(mesh3_s const *mesh, size_t const l[2]);
 bool mesh3_vert_incident_on_diff_edge(mesh3_s const *mesh, size_t l);
 bool mesh3_local_ray_is_occluded(mesh3_s const *mesh, size_t lhat, par3_s const *par);
+bool mesh3_cell_incident_on_diff_edge(mesh3_s const *mesh, size_t lc);
 dbl mesh3_get_min_tetra_alt(mesh3_s const *mesh);
 dbl mesh3_get_min_edge_length(mesh3_s const *mesh);
 dbl mesh3_get_mean_edge_length(mesh3_s const *mesh);
@@ -121,7 +122,9 @@ void mesh3_get_bde_inds(mesh3_s const *mesh, size_t l, size_t le[2]);
 void mesh3_set_bde(mesh3_s *mesh, size_t const le[2], bool diff);
 dbl mesh3_get_eps(mesh3_s const *mesh);
 void mesh3_get_face_normal(mesh3_s const *mesh, size_t const lf[3], dbl normal[3]);
-void mesh3_get_face_refl_mat(mesh3_s const *mesh, size_t const lf[3], dbl33 R);
+void mesh3_get_R_for_face(mesh3_s const *mesh, size_t const lf[3], dbl33 R);
+void mesh3_get_R_for_reflector(mesh3_s const *mesh, size_t refl_index, dbl33 R);
+void mesh3_get_R_for_interior_reflector_vertex(mesh3_s const *mesh, size_t l, dbl33 R);
 void mesh3_get_diff_edge_tangent(mesh3_s const *mesh, size_t const le[2],
                                  dbl t[3]);
 dbl mesh3_get_edge_ext_angle(mesh3_s const *mesh, size_t const le[2]);

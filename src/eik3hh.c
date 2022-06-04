@@ -422,33 +422,6 @@ static void prop_spread(eik3hh_s *hh) {
   }
 }
 
-static void init_origin_pt_src(eik3hh_s *hh) {
-  /* Set all BC nodes' origin value to 1 initially */
-  array_s const *bc_inds = eik3_get_bc_inds(hh->eik);
-  for (size_t i = 0, l; i < array_size(bc_inds); ++i) {
-    array_get(bc_inds, i, &l);
-    hh->origin[l] = 1;
-  }
-
-  /* Set all initial trial nodes' origin value to 1 initially */
-  array_s const *trial_inds = eik3_get_trial_inds(hh->eik);
-  for (size_t i = 0, l; i < array_size(trial_inds); ++i) {
-    array_get(trial_inds, i, &l);
-    hh->origin[l] = 1;
-  }
-
-  /* Set all nodes without a value that are on a diffracting edge to 0
-   * initially */
-  for (size_t l = 0; l < hh->nverts; ++l)
-    if (isnan(hh->origin[l]) && mesh3_vert_incident_on_diff_edge(hh->mesh, l))
-      hh->origin[l] = 0;
-}
-
-static void prop_origin(eik3hh_s *hh) {
-  /* Transport the origin value */
-  eik3_transport_dbl(hh->eik, hh->origin, true);
-}
-
 void eik3hh_solve(eik3hh_s *hh) {
   eik3_solve(hh->eik);
 
@@ -458,8 +431,7 @@ void eik3hh_solve(eik3hh_s *hh) {
   init_spread_pt_src(hh);
   prop_spread(hh);
 
-  init_origin_pt_src(hh);
-  prop_origin(hh);
+  eik3_get_origins(hh->eik, hh->origin);
 }
 
 size_t eik3hh_num_bc(eik3hh_s const *hh) {

@@ -1563,6 +1563,13 @@ bool mesh3_vert_incident_on_diff_edge(mesh3_s const *mesh, size_t l) {
   return is_incident;
 }
 
+bool mesh3_cell_incident_on_diff_edge(mesh3_s const *mesh, size_t lc) {
+  for (size_t i = 0; i < 4; ++i)
+    if (mesh3_vert_incident_on_diff_edge(mesh, mesh->cells[lc][i]))
+      return true;
+  return false;
+}
+
 static bool local_ray_in_tetra_cone(mesh3_s const *mesh, dbl3 p, size_t lc, size_t lv) {
   dbl3 xhat;
   mesh3_copy_vert(mesh, lv, xhat);
@@ -2006,7 +2013,7 @@ void mesh3_get_face_normal(mesh3_s const *mesh, size_t const lf[3], dbl normal[3
     dbl3_negate(normal);
 }
 
-void mesh3_get_face_refl_mat(mesh3_s const *mesh, size_t const lf[3], dbl33 R) {
+void mesh3_get_R_for_face(mesh3_s const *mesh, size_t const lf[3], dbl33 R) {
   dbl3 n;
   mesh3_get_face_normal(mesh, lf, n);
 
@@ -2017,6 +2024,37 @@ void mesh3_get_face_refl_mat(mesh3_s const *mesh, size_t const lf[3], dbl33 R) {
   dbl33_eye(eye);
 
   dbl33_saxpy(-2, nnT, eye, R);
+}
+
+void mesh3_get_R_for_reflector(mesh3_s const *mesh, size_t refl_index, dbl33 R) {
+  /* Find a face that lies on the reflector, doesn't matter which */
+  size_t i = 0;
+  while (i < mesh->nbdf && mesh->bdf_label[i] != refl_index)
+    ++i;
+  assert(mesh->bdf_label[i] == refl_index);
+
+  /* Get the reflection matrix for that face */
+  mesh3_get_R_for_face(mesh, mesh->bdf[i].lf, R);
+}
+
+void mesh3_get_R_for_interior_reflector_vertex(mesh3_s const *mesh, size_t l, dbl33 R) {
+  /* Verify that this is a boundary vertex which is in the interior of
+   * a facet. */
+  assert(mesh3_bdv(mesh, l));
+  assert(!mesh3_vert_incident_on_diff_edge(mesh, l));
+
+  /* Get the boundary faces incident on `l`. */
+  size_t nbdf  = mesh3_get_num_inc_bdf(mesh, l);
+  assert(nbdf > 0);
+  size_t (*lf)[3] = malloc(nbdf*sizeof(size_t[3]));
+  mesh3_get_inc_bdf(mesh, l, lf);
+
+  /* All of the incident boundary faces lie on the same planar
+   * reflector, so which one we use to compute the reflection matrix
+   * `R` doesn't matter. */
+  mesh3_get_R_for_face(mesh, lf[0], R);
+
+  free(lf);
 }
 
 void mesh3_get_diff_edge_tangent(mesh3_s const *mesh, size_t const le[2],
