@@ -372,6 +372,49 @@ static size_t get_o_face_index(mesh3_s const *mesh) {
   return o_face_index;
 }
 
+static size_t get_n_face_index(jmm_3d_wedge_problem_s const *wedge) {
+  mesh3_s const *mesh = wedge->mesh;
+  dbl const eps = mesh3_get_eps(mesh);
+
+  dbl n_radians = JMM_PI*wedge->spec.n;
+
+  size_t n_face_index = (size_t)NO_INDEX;
+
+  size_t num_refl = mesh3_get_num_reflectors(mesh);
+  for (size_t i = 0; i < num_refl; ++i) {
+    size_t nf = mesh3_get_reflector_size(mesh, i);
+    size_t (*lf)[3] = malloc(nf*sizeof(size_t[3]));
+    mesh3_get_reflector(mesh, i, lf);
+
+    bool found = true;
+
+    for (size_t j = 0; j < nf; ++j) {
+      for (size_t k = 0; k < 3; ++k) {
+        dbl3 x;
+        mesh3_copy_vert(mesh, lf[j][k], x);
+        dbl phi = atan2(x[1], x[0]);
+        if (phi < 0)
+          phi += 2*JMM_PI;
+        if (fabs(phi - n_radians) > eps && hypot(x[0], x[1]) > eps) {
+          found = false;
+          break;
+        }
+      }
+    }
+
+    free(lf);
+
+    if (found) {
+      n_face_index = i;
+      break;
+    }
+  }
+
+  assert(n_face_index != (size_t)NO_INDEX);
+
+  return n_face_index;
+}
+
 /* Set up and solve the direct eikonal problem */
 static void solve_direct(jmm_3d_wedge_problem_s *wedge, dbl sp, dbl phip, dbl rfac) {
   dbl3 const xsrc = {sp*cos(phip), sp*sin(phip), 0};
@@ -452,16 +495,17 @@ static void solve_direct(jmm_3d_wedge_problem_s *wedge, dbl sp, dbl phip, dbl rf
   eik3_get_t_out(wedge->eik_direct, wedge->t_out_direct);
 }
 
-static void solve_o_refl(jmm_3d_wedge_problem_s *wedge, dbl sp, dbl phip) {
+static void solve_o_refl(jmm_3d_wedge_problem_s *wedge, dbl sp, dbl phip,
+                         dbl dtau_max) {
   /* Figure out which reflector is the o-face */
   size_t o_face_refl_index = get_o_face_index(wedge->mesh);
 
-  dbl33 R;
-  mesh3_get_R_for_reflector(wedge->mesh, o_face_refl_index, R);
-
   /** Set up BCs and solve o-refl problem: */
 
-  eik3_add_refl_bcs(wedge->eik_o_refl, wedge->eik_direct, o_face_refl_index);
+  eik3_add_refl_bcs(wedge->eik_o_refl, wedge->eik_direct, o_face_refl_index,
+    dtau_max);
+
+  assert(!array_is_empty(eik3_get_bc_inds(wedge->eik_o_refl)));
 
   if (wedge->spec.verbose) {
     printf("Computing o-face reflection... ");
@@ -517,41 +561,29 @@ static void solve_o_refl(jmm_3d_wedge_problem_s *wedge, dbl sp, dbl phip) {
 
   /** Get t_in and t_out vector fields: */
 
-  if (array_size(eik3_get_bc_inds(wedge->eik_o_refl)) > 0) {
-    eik3_get_t_in(wedge->eik_o_refl, wedge->t_in_o_refl);
-    eik3_get_t_out(wedge->eik_o_refl, wedge->t_out_o_refl);
-  }
+  eik3_get_t_in(wedge->eik_o_refl, wedge->t_in_o_refl);
+  eik3_get_t_out(wedge->eik_o_refl, wedge->t_out_o_refl);
 }
 
-static void solve_n_refl(jmm_3d_wedge_problem_s *wedge, dbl sp, dbl phip) {
+static void solve_n_refl(jmm_3d_wedge_problem_s *wedge, dbl sp, dbl phip,
+                         dbl dtau_max) {
+  /* Figure out which reflector is the n-face */
+  size_t n_face_refl_index = get_n_face_index(wedge);
 
-  /* Ditto for the n-face problem: */
-  dbl n_radians = JMM_PI*wedge->spec.n;
+  /** Set up BCs and solve n-refl problem: */
 
-  /* Get the surface normal for the n-face */
-  dbl3 n_normal = {-sin(n_radians), cos(n_radians), 0};
+  eik3_add_refl_bcs(wedge->eik_n_refl, wedge->eik_direct, n_face_refl_index,
+                    dtau_max);
 
-  /* Compute reflection matrix for the surface normal */
-  dbl33 n_refl;
-  for (size_t i = 0; i < 3; ++i)
-    for (size_t j = 0; j < 3; ++j)
-      n_refl[i][j] = i == j ?
-        1 - 2*n_normal[i]*n_normal[j] : -2*n_normal[i]*n_normal[j];
-
-  // TODO: add diff or refl BCs depending on problem setup...
-  // TODO: move this into add_*_BCs...
-
-  // array_s const *n_refl_trial_inds = eik3_get_trial_inds(wedge->eik_n_refl);
-  array_s const *n_refl_bc_inds = eik3_get_bc_inds(wedge->eik_n_refl);
-
-  // TODO: set refl or diff BCs depending on angle...
-  eik3_add_diff_bcs(wedge->eik_n_refl, wedge->eik_direct, 0);
+  assert(!array_is_empty(eik3_get_bc_inds(wedge->eik_n_refl)));
 
   if (wedge->spec.verbose) {
     printf("Computing n-face reflection... ");
     fflush(stdout);
   }
+
   eik3_solve(wedge->eik_n_refl);
+
   if (wedge->spec.verbose)
     puts("done");
 
@@ -601,37 +633,6 @@ static void solve_n_refl(jmm_3d_wedge_problem_s *wedge, dbl sp, dbl phip) {
 
   /** Transport t_in and t_out vectors: */
 
-  /* n-refl */
-
-  for (size_t l = 0; l < mesh3_nverts(wedge->mesh); ++l)
-    dbl3_nan(wedge->t_in_n_refl[l]);
-
-  for (size_t l = 0; l < mesh3_nverts(wedge->mesh); ++l)
-    dbl3_nan(wedge->t_out_n_refl[l]);
-
-  jet31t const *jet = eik3_get_jet_ptr(wedge->eik_n_refl);
-
-  if (array_size(n_refl_bc_inds) > 0) {
-    for (size_t i = 0, l; i < array_size(n_refl_bc_inds); ++i) {
-      array_get(n_refl_bc_inds, i, &l);
-      dbl3_copy(jet[l].Df, wedge->t_in_n_refl[l]);
-
-      if (!mesh3_vert_incident_on_diff_edge(wedge->mesh, l)) {
-        dbl3_copy(jet[l].Df, wedge->t_out_n_refl[l]);
-        dbl33_dbl3_mul_inplace(n_refl, wedge->t_out_n_refl[l]);
-      }
-    }
-
-    for (size_t l = 0; l < mesh3_nverts(wedge->mesh); ++l) {
-      if (eik3_updated_from_diff_edge(wedge->eik_n_refl, l)) {
-        jet31t J = eik3_get_jet(wedge->eik_n_refl, l);
-        dbl3_copy(J.Df, wedge->t_out_n_refl[l]);
-      }
-    }
-
-    eik3_transport_unit_vector(wedge->eik_n_refl, wedge->t_in_n_refl, true);
-    eik3_transport_unit_vector(wedge->eik_n_refl, wedge->t_out_n_refl, true);
-  }
 
 }
 
@@ -641,8 +642,8 @@ jmm_3d_wedge_problem_solve(jmm_3d_wedge_problem_s *wedge, dbl sp, dbl phip,
   (void)omega;
 
   solve_direct(wedge, sp, phip, rfac);
-  solve_o_refl(wedge, sp, phip);
-  solve_n_refl(wedge, sp, phip);
+  solve_o_refl(wedge, sp, phip, rfac);
+  solve_n_refl(wedge, sp, phip, rfac);
 
   return JMM_ERROR_NONE;
 }

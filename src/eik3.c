@@ -1022,21 +1022,6 @@ static void store_diff_bc_T(eik3_s *eik, size_t const le[2], bb31 const *T) {
   alist_append(eik->T_diff, key, T);
 }
 
-static void add_diff_bc_for_edge(eik3_s *eik, size_t const le[2], jet31t const jet[2]) {
-  for (size_t i = 0; i < 2; ++i)
-    if (!eik3_has_BCs(eik, le[i]))
-      eik3_add_bc(eik, le[i], jet[i]);
-
-  dbl3 x[2];
-  for (size_t i = 0; i < 2; ++i)
-    mesh3_copy_vert(eik->mesh, le[i], x[i]);
-
-  bb31 T;
-  bb31_init_from_jets(&T, jet, x);
-
-  store_diff_bc_T(eik, le, &T);
-}
-
 static void add_diff_bc_for_edge_from_bb31(eik3_s *eik, size_t const le[2],
                                            bb31 const *T){
   /* Add BCs for each node with values taken from T... but with
@@ -1065,26 +1050,40 @@ void eik3_get_diff_bc(eik3_s const *eik, size_t const le[2], bb31 *T) {
   alist_get_by_key(eik->T_diff, key, T);
 }
 
+static dbl get_par_eik_value(eik3_s const *eik, size_t l) {
+  par3_s const *par = &eik->par[l];
+
+  if (par3_is_empty(par))
+    return eik->jet[l].f;
+
+  size_t la[3];
+  dbl3 ba;
+  size_t na = par3_get_active(par, la, ba);
+
+  dbl T = 0;
+  for (size_t i = 0; i < na; ++i)
+    T += ba[i]*eik->jet[la[i]].f;
+
+  return T;
+}
+
 typedef struct update_inds {
   size_t lhat;
   size_t l[3];
 } update_inds_s;
 
-void eik3_add_diff_bcs(eik3_s *eik, eik3_s const *eik_in, size_t diff_index) {
+void eik3_add_diff_bcs(eik3_s *eik, eik3_s const *eik_in, size_t diff_index,
+                       dbl dtau_max) {
   mesh3_s const *mesh = eik3_get_mesh(eik);
-  array_s const *bc_inds = eik3_get_bc_inds(eik);
-
-  assert(mesh3_get_num_diffractors(mesh) == 1);
 
   size_t num_diff_edges = mesh3_get_diffractor_size(mesh, diff_index);
   size_t (*le)[2] = malloc(num_diff_edges*sizeof(size_t[2]));
   mesh3_get_diffractor(mesh, diff_index, le);
 
+  /** Set up BCs for each diffracting edge for this diffractor */
+
   for (size_t i = 0; i < num_diff_edges; ++i) {
-    jet31t jet[2] = {
-      eik3_get_jet(eik_in, le[i][0]),
-      eik3_get_jet(eik_in, le[i][1])
-    };
+    jet31t jet[2] = {eik_in->jet[le[i][0]], eik_in->jet[le[i][1]]};
 
     dbl3 x[2];
     mesh3_copy_vert(mesh, le[i][0], x[0]);
@@ -1096,46 +1095,77 @@ void eik3_add_diff_bcs(eik3_s *eik, eik3_s const *eik_in, size_t diff_index) {
     add_diff_bc_for_edge_from_bb31(eik, le[i], &T);
   }
 
-  for (size_t i = 0, l; i < array_size(bc_inds); ++i) {
-    array_get(bc_inds, i, &l);
+  /** BFS initialized with diffractor verts: */
 
+  /* Array to keep track of the unique vertices on the diffractor */
+  array_s *le_arr;
+  array_alloc(&le_arr);
+  array_init(le_arr, sizeof(size_t), ARRAY_DEFAULT_CAPACITY);
+
+  /* ... fill it */
+  for (size_t i = 0; i < num_diff_edges; ++i)
+    for (size_t j = 0; j < 2; ++j)
+      if (!array_contains(le_arr, &le[i][j]))
+        array_append(le_arr, &le[i][j]);
+
+  /* The queue driving the BFS */
+  array_s *queue;
+  array_alloc(&queue);
+  array_init(queue, sizeof(size_t), ARRAY_DEFAULT_CAPACITY);
+
+  /* ... initialize it with the unique diffractor verts. */
+  for (size_t i = 0; i < array_size(le_arr); ++i)
+    array_append(queue, array_get_ptr(le_arr, i));
+
+  /* Main BFS loop: */
+  while (!array_is_empty(queue)) {
+    size_t l;
+    array_pop_front(queue, &l);
+
+    /* Set the node to trial and insert it into the heap */
+    if (eik3_is_far(eik, l))
+      eik3_add_trial(eik, l, jet31t_make_empty());
+
+    /* If the current node isn't on the diffractor, then update it
+     * from the diffractor
+     *
+     * TODO: should be optimized, otherwise it's O(N^4/3) time */
+    if (!array_contains(le_arr, &l))
+      for (size_t i = 0; i < num_diff_edges; ++i)
+        eik3_do_diff_utri(eik, l, le[i][0], le[i][1]);
+    assert(isfinite(eik->jet[l].f));
+
+    /* Check if we're in the "factoring tube"... */
+    dbl dtau = eik->jet[l].f - get_par_eik_value(eik, l);
+    if (dtau > dtau_max)
+      continue;
+
+    /* ... if we are, then add this node's neighbors to the queue */
     size_t nvv = mesh3_nvv(mesh, l);
     size_t *vv = malloc(nvv*sizeof(size_t));
     mesh3_vv(mesh, l, vv);
-
-    /* get incident diff edges */
-    size_t ne = mesh3_get_num_inc_diff_edges(mesh, l);
-    size_t (*le)[2] = malloc(ne*sizeof(size_t[2]));
-    mesh3_get_inc_diff_edges(mesh, l, le);
-
-    for (size_t i = 0, lhat; i < nvv; ++i) {
-      lhat = vv[i];
-
-      /* skip if this is one of the original points with BCs */
-      if (array_contains(bc_inds, &lhat))
-        continue;
-
-      if (eik3_is_far(eik, lhat))
-        eik3_add_trial(eik, lhat, jet31t_make_empty());
-
-      /* do each of the diffracting triangle updates */
-      for (size_t j = 0; j < ne; ++j)
-        if (array_contains(bc_inds, &le[j][0]) &&
-            array_contains(bc_inds, &le[j][1]))
-          eik3_do_diff_utri(eik, lhat, le[j][0], le[j][1]);
-    }
-
-    free(le);
+    for (size_t i = 0; i < nvv; ++i)
+      if (isinf(eik->jet[vv[i]].f) && !array_contains(queue, &vv[i]))
+        array_append(queue, &vv[i]);
     free(vv);
   }
+
+  array_deinit(le_arr);
+  array_dealloc(&le_arr);
+
+  array_deinit(queue);
+  array_dealloc(&queue);
 
   free(le);
 }
 
-void eik3_add_refl_bcs(eik3_s *eik, eik3_s const *eik_in, size_t refl_index) {
+void eik3_add_refl_bcs(eik3_s *eik, eik3_s const *eik_in, size_t refl_index,
+                       dbl dtau_max) {
   assert(eik->mesh == eik_in->mesh);
 
   mesh3_s const *mesh = eik->mesh;
+
+  /** Set up the reflection BCs: */
 
   size_t nf = mesh3_get_reflector_size(mesh, refl_index);
   size_t (*lf)[3] = malloc(nf*sizeof(size_t[3]));
@@ -1153,30 +1183,7 @@ void eik3_add_refl_bcs(eik3_s *eik, eik3_s const *eik_in, size_t refl_index) {
     }
   }
 
-  array_s *le_arr;
-  array_alloc(&le_arr);
-  array_init(le_arr, sizeof(size_t[2]), ARRAY_DEFAULT_CAPACITY);
-
-  /* Next, add the diffracting edge BCs (we do this second to make
-   * sure that the vertices on the diffracting edge have their
-   * gradient set */
-  for (size_t i = 0; i < nf; ++i) {
-    for (size_t j = 0; j < 3; ++j) {
-      size_t le[2] = {lf[i][j], lf[i][(j + 1) % 3]};
-      SORT2(le[0], le[1]);
-
-      if (mesh3_is_diff_edge(mesh, le)) {
-        assert(!eik3_has_diff_bc(eik, le));
-
-        jet31t jet[2] = {eik3_get_jet(eik, le[0]), eik3_get_jet(eik, le[1])};
-        add_diff_bc_for_edge(eik, le, jet);
-
-        /* Keep track of this edge for doing updates later */
-        assert(!array_contains(le_arr, &le));
-        array_append(le_arr, &le);
-      }
-    }
-  }
+  /** Do boundary updates from the reflector's facets: */
 
   /* Array for keeping track of which boundary updates we've done already */
   array_s *utetra_inds_arr;
@@ -1227,68 +1234,24 @@ void eik3_add_refl_bcs(eik3_s *eik, eik3_s const *eik_in, size_t refl_index) {
     }
   }
 
-  /* Find all of the vertices which don't have BCs and are adjacent to
-   * the diffracting edge */
-  array_s *diff_edge_nb_arr;
-  array_alloc(&diff_edge_nb_arr);
-  array_init(diff_edge_nb_arr, sizeof(size_t), ARRAY_DEFAULT_CAPACITY);
-
-  for (size_t i = 0, le[2]; i < array_size(le_arr); ++i) {
-    array_get(le_arr, i, &le);
-
-    for (size_t j = 0; j < 2; ++j) {
-      size_t nvv = mesh3_nvv(mesh, le[j]);
-      size_t *vv = malloc(nvv*sizeof(size_t));
-      mesh3_vv(mesh, le[j], vv);
-
-      for (size_t k = 0; k < nvv; ++k)
-        if (!eik3_has_BCs(eik, vv[k]) &&
-            !array_contains(diff_edge_nb_arr, &vv[k]))
-          array_append(diff_edge_nb_arr, &vv[k]);
-
-      free(vv);
-    }
-  }
-
-  /* Keep track of which edge updates have been done */
-  array_s *utri_inds_arr;
-  array_alloc(&utri_inds_arr);
-  array_init(utri_inds_arr, sizeof(update_inds_s), ARRAY_DEFAULT_CAPACITY);
-
-  /* Do boundary diffracting updates */
-  for (size_t i = 0, le[2]; i < array_size(le_arr); ++i) {
-    array_get(le_arr, i, &le);
-    SORT2(le[0], le[1]);
-    update_inds_s utri_inds = {.l = {le[0], le[1], (size_t)NO_INDEX}};
-
-    for (size_t j = 0; j < 2; ++j)
-      assert(eik3_has_BCs(eik, utri_inds.l[j]));
-
-    for (size_t j = 0; j < array_size(diff_edge_nb_arr); ++j) {
-      array_get(diff_edge_nb_arr, j, &utri_inds.lhat);
-
-      /* Skip this update I've we've done it already */
-      if (array_contains(utri_inds_arr, &utri_inds))
-        continue;
-      array_append(utri_inds_arr, &utri_inds);
-
-      /* Set the node to trial, insert it into the heap, do the update */
-      if (eik3_is_far(eik, utri_inds.lhat))
-        eik3_add_trial(eik, utri_inds.lhat, jet31t_make_empty());
-      eik3_do_diff_utri(eik, utri_inds.lhat, utri_inds.l[0], utri_inds.l[1]);
-    }
-  }
-
   /* Clean up */
-  array_deinit(utri_inds_arr);
-  array_dealloc(&utri_inds_arr);
-  array_deinit(diff_edge_nb_arr);
-  array_dealloc(&diff_edge_nb_arr);
+
   array_deinit(utetra_inds_arr);
   array_dealloc(&utetra_inds_arr);
-  array_deinit(le_arr);
-  array_dealloc(&le_arr);
+
   free(lf);
+
+  /** Now, add diffraction BCs for each diffracting edge incident on
+   * the reflector: */
+
+  size_t num_diffractors = mesh3_get_num_diffs_inc_on_refl(mesh, refl_index);
+  size_t *diff_index = malloc(num_diffractors*sizeof(size_t));
+  mesh3_get_diffs_inc_on_refl(mesh, refl_index, diff_index);
+
+  for (size_t i = 0; i < num_diffractors; ++i)
+    eik3_add_diff_bcs(eik, eik_in, diff_index[i], dtau_max);
+
+  free(diff_index);
 }
 
 bool eik3_is_far(eik3_s const *eik, size_t l) {
@@ -1698,7 +1661,9 @@ void eik3_get_t_in(eik3_s const *eik, dbl3 *t_in) {
 }
 
 void eik3_get_t_out(eik3_s const *eik, dbl3 *t_out) {
-  for (size_t l = 0; l < mesh3_nverts(eik->mesh); ++l)
+  mesh3_s const *mesh = eik->mesh;
+
+  for (size_t l = 0; l < mesh3_nverts(mesh); ++l)
     dbl3_nan(t_out[l]);
 
   for (size_t i = 0, l; i < array_size(eik->bc_inds); ++i) {
@@ -1708,18 +1673,21 @@ void eik3_get_t_out(eik3_s const *eik, dbl3 *t_out) {
      * diffracting edge...
      *
      * TODO: usually... Will probably need to fix this later */
-    if (mesh3_vert_incident_on_diff_edge(eik->mesh, l))
+    if (mesh3_vert_incident_on_diff_edge(mesh, l))
       continue;
 
     dbl3_copy(eik->jet[l].Df, t_out[l]);
 
+    if (!mesh3_bdv(mesh, l))
+      continue;
+
     dbl33 R;
-    mesh3_get_R_for_interior_reflector_vertex(eik->mesh, l, R);
+    mesh3_get_R_for_interior_reflector_vertex(mesh, l, R);
 
     dbl33_dbl3_mul_inplace(R, t_out[l]);
   }
 
-  for (size_t l = 0; l < mesh3_nverts(eik->mesh); ++l)
+  for (size_t l = 0; l < mesh3_nverts(mesh); ++l)
     if (eik3_updated_from_diff_edge(eik, l))
       dbl3_copy(eik->jet[l].Df, t_out[l]);
 
