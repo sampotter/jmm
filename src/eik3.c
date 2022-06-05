@@ -953,6 +953,8 @@ void eik3_add_trial(eik3_s *eik, size_t l, jet31t jet) {
 }
 
 void eik3_add_bc(eik3_s *eik, size_t l, jet31t jet) {
+  assert(!array_contains(eik->bc_inds, &l));
+
   eik->jet[l] = jet;
   eik->state[l] = VALID;
   eik->has_bc[l] = true;
