@@ -245,11 +245,12 @@ dbl get_phi(dbl3 const x) {
   return phi < 0 ? phi + 2*JMM_PI : phi;
 }
 
-static void set_jet_gt(jmm_3d_wedge_problem_s *wedge, dbl sp, dbl phip,
-                       jet32t *jet,
+static void set_jet_gt(jmm_3d_wedge_problem_s *wedge, jet32t *jet,
                        F_context (*get_context)(dbl, dbl, dbl),
                        bool (*in_valid_zone)(dbl, dbl, dbl, dbl)) {
   size_t nverts = mesh3_nverts(wedge->mesh);
+
+  dbl sp = wedge->spec.sp, phip = wedge->spec.phip;
 
   F_context context = get_context(sp, phip, wedge->spec.n);
 
@@ -416,7 +417,9 @@ static size_t get_n_face_index(jmm_3d_wedge_problem_s const *wedge) {
 }
 
 /* Set up and solve the direct eikonal problem */
-static void solve_direct(jmm_3d_wedge_problem_s *wedge, dbl sp, dbl phip, dbl rfac) {
+static void solve_direct(jmm_3d_wedge_problem_s *wedge) {
+  dbl sp = wedge->spec.sp, phip = wedge->spec.phip;
+  dbl rfac = wedge->spec.rfac;
   dbl3 const xsrc = {sp*cos(phip), sp*sin(phip), 0};
   dbl3 x;
 
@@ -440,7 +443,7 @@ static void solve_direct(jmm_3d_wedge_problem_s *wedge, dbl sp, dbl phip, dbl rf
 
   /** Compute groundtruth data for point source problem: */
 
-  set_jet_gt(wedge, sp, phip, wedge->jet_direct_gt,
+  set_jet_gt(wedge, wedge->jet_direct_gt,
              get_context_direct, in_valid_zone_direct);
 
   if (wedge->spec.verbose)
@@ -495,15 +498,14 @@ static void solve_direct(jmm_3d_wedge_problem_s *wedge, dbl sp, dbl phip, dbl rf
   eik3_get_t_out(wedge->eik_direct, wedge->t_out_direct);
 }
 
-static void solve_o_refl(jmm_3d_wedge_problem_s *wedge, dbl sp, dbl phip,
-                         dbl dtau_max) {
+static void solve_o_refl(jmm_3d_wedge_problem_s *wedge) {
   /* Figure out which reflector is the o-face */
   size_t o_face_refl_index = get_o_face_index(wedge->mesh);
 
   /** Set up BCs and solve o-refl problem: */
 
   eik3_add_refl_bcs(wedge->eik_o_refl, wedge->eik_direct, o_face_refl_index,
-    dtau_max);
+    wedge->spec.rfac);
 
   assert(!array_is_empty(eik3_get_bc_inds(wedge->eik_o_refl)));
 
@@ -519,7 +521,7 @@ static void solve_o_refl(jmm_3d_wedge_problem_s *wedge, dbl sp, dbl phip,
 
   /** Compute the groundtruth data for the o-face reflection: */
 
-  set_jet_gt(wedge, sp, phip, wedge->jet_o_refl_gt,
+  set_jet_gt(wedge, wedge->jet_o_refl_gt,
              get_context_o_refl, in_valid_zone_o_refl);
 
   if (wedge->spec.verbose)
@@ -565,15 +567,14 @@ static void solve_o_refl(jmm_3d_wedge_problem_s *wedge, dbl sp, dbl phip,
   eik3_get_t_out(wedge->eik_o_refl, wedge->t_out_o_refl);
 }
 
-static void solve_n_refl(jmm_3d_wedge_problem_s *wedge, dbl sp, dbl phip,
-                         dbl dtau_max) {
+static void solve_n_refl(jmm_3d_wedge_problem_s *wedge) {
   /* Figure out which reflector is the n-face */
   size_t n_face_refl_index = get_n_face_index(wedge);
 
   /** Set up BCs and solve n-refl problem: */
 
   eik3_add_refl_bcs(wedge->eik_n_refl, wedge->eik_direct, n_face_refl_index,
-                    dtau_max);
+                    wedge->spec.rfac);
 
   assert(!array_is_empty(eik3_get_bc_inds(wedge->eik_n_refl)));
 
@@ -589,7 +590,7 @@ static void solve_n_refl(jmm_3d_wedge_problem_s *wedge, dbl sp, dbl phip,
 
   /** Compute the groundtruth data for the n-face reflection: */
 
-  set_jet_gt(wedge, sp, phip, wedge->jet_n_refl_gt,
+  set_jet_gt(wedge, wedge->jet_n_refl_gt,
              get_context_n_refl, in_valid_zone_n_refl);
 
   if (wedge->spec.verbose)
@@ -637,13 +638,10 @@ static void solve_n_refl(jmm_3d_wedge_problem_s *wedge, dbl sp, dbl phip,
 }
 
 jmm_error_e
-jmm_3d_wedge_problem_solve(jmm_3d_wedge_problem_s *wedge, dbl sp, dbl phip,
-                           dbl rfac, double omega) {
-  (void)omega;
-
-  solve_direct(wedge, sp, phip, rfac);
-  solve_o_refl(wedge, sp, phip, rfac);
-  solve_n_refl(wedge, sp, phip, rfac);
+jmm_3d_wedge_problem_solve(jmm_3d_wedge_problem_s *wedge) {
+  solve_direct(wedge);
+  solve_o_refl(wedge);
+  solve_n_refl(wedge);
 
   return JMM_ERROR_NONE;
 }

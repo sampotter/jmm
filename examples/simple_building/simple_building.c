@@ -105,7 +105,7 @@ int main(int argc, char *argv[]) {
 
   mesh3_s *mesh;
   mesh3_alloc(&mesh);
-  mesh3_init_from_off_file(mesh, spec.off_path, spec.maxvol);
+  mesh3_init_from_off_file(mesh, spec.off_path, spec.maxvol, 1, &spec.xsrc);
 
   rect3 bbox;
   mesh3_get_bbox(mesh, &bbox);

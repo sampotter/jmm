@@ -41,7 +41,8 @@ void mesh3_init(mesh3_s *mesh,
                 dbl const *verts, size_t nverts,
                 size_t const *cells, size_t ncells,
                 bool compute_bd_info, dbl const *eps);
-void mesh3_init_from_off_file(mesh3_s *mesh, char const *path, dbl maxvol);
+void mesh3_init_from_off_file(mesh3_s *mesh, char const *path, dbl maxvol,
+                              size_t nadd, dbl3 const *xadd);
 void mesh3_deinit(mesh3_s *mesh);
 dbl3 const *mesh3_get_verts_ptr(mesh3_s const *mesh);
 size_t const *mesh3_get_cells_ptr(mesh3_s const *mesh);
@@ -138,6 +139,7 @@ void mesh3_get_edge_midpoint(mesh3_s const *mesh, size_t const le[2], dbl p[3]);
 void mesh3_get_face_centroid(mesh3_s const *mesh, size_t const lf[3], dbl p[3]);
 void mesh3_dump_verts(mesh3_s const *mesh, char const *path);
 void mesh3_dump_cells(mesh3_s const *mesh, char const *path);
+bool mesh3_has_vertex(mesh3_s const *mesh, dbl3 const x);
 
 #ifdef __cplusplus
 }

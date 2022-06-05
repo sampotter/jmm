@@ -220,14 +220,16 @@ static std::string get_switches_str(jmm_3d_wedge_spec_s const *spec) {
   oss << "p" /* read a PLC */
       << "q1.414" /* "quality" mesh generation w/ quality bound = 1.414 */
       << "a" << spec->maxvol /* maximum volume constraint */
+      << "i"
     ;
 
   return oss.str();
 }
 
-jmm_error_e mesh3_init_from_3d_wedge_spec(mesh3_s *mesh, jmm_3d_wedge_spec_s const *spec)
+jmm_error_e mesh3_init_from_3d_wedge_spec(mesh3_s *mesh,
+                                          jmm_3d_wedge_spec_s const *spec)
 {
-  tetgenio in, out;
+  tetgenio in, out, addin;
 
   if (1.75 <= spec->n && spec->n < 2) init_tetgenio_in_case1(in, spec);
   else if (1.25 <= spec->n && spec->n < 1.75) init_tetgenio_in_case2(in, spec);
@@ -236,9 +238,15 @@ jmm_error_e mesh3_init_from_3d_wedge_spec(mesh3_s *mesh, jmm_3d_wedge_spec_s con
   else if (0 < spec->n && spec->n <= 0.25) init_tetgenio_in_case5(in, spec);
   else return JMM_ERROR_BAD_ARGUMENTS;
 
+  addin.numberofpoints = 1;
+  addin.pointlist = new REAL[3];
+  addin.pointlist[0] = spec->sp*cos(spec->phip);
+  addin.pointlist[1] = spec->sp*sin(spec->phip);
+  addin.pointlist[2] = 0;
+
   std::string switches = get_switches_str(spec);
 
-  tetrahedralize((char *)switches.c_str(), &in, &out);
+  tetrahedralize((char *)switches.c_str(), &in, &out, &addin);
 
   size_t nverts = out.numberofpoints;
   double *verts = (double *)malloc(3*nverts*sizeof(double));
@@ -251,6 +259,9 @@ jmm_error_e mesh3_init_from_3d_wedge_spec(mesh3_s *mesh, jmm_3d_wedge_spec_s con
     cells[i] = out.tetrahedronlist[i];
 
   mesh3_init(mesh, verts, nverts, cells, ncells, true, NULL);
+
+  /* Make sure the point source is actually included in the mesh! */
+  assert(mesh3_has_vertex(mesh, addin.pointlist));
 
   rect3 bbox;
   mesh3_get_bbox(mesh, &bbox);

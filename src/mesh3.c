@@ -2230,3 +2230,10 @@ void mesh3_dump_cells(mesh3_s const *mesh, char const *path) {
   fwrite(mesh->cells, sizeof(size_t[4]), mesh->ncells, fp);
   fclose(fp);
 }
+
+bool mesh3_has_vertex(mesh3_s const *mesh, dbl3 const x) {
+  for (size_t l = 0; l < mesh->nverts; ++l)
+    if (dbl3_dist(x, mesh->verts[l]) < 1e-13)
+      return true;
+  return false;
+}

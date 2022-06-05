@@ -11,6 +11,16 @@ typedef struct jmm_3d_wedge_spec {
   bool verbose;
   bool visualize;
 
+  /* Point source parameters: */
+  dbl sp;
+  dbl phip;
+
+  /* Factoring radius: */
+  dbl rfac;
+
+  /* Frequency: */
+  dbl omega;
+
   /* Maximum tetrahedron volume constraint for TetGen */
   double maxvol;
 
@@ -83,9 +93,7 @@ jmm_error_e jmm_3d_wedge_problem_init(jmm_3d_wedge_problem_s *wedge,
                                       jmm_3d_wedge_spec_s const *spec);
 void jmm_3d_wedge_problem_deinit(jmm_3d_wedge_problem_s *wedge);
 void jmm_3d_wedge_problem_dealloc(jmm_3d_wedge_problem_s **wedge);
-jmm_error_e jmm_3d_wedge_problem_solve(jmm_3d_wedge_problem_s *wedge,
-                                       dbl sp, dbl phip,
-                                       dbl rfac, double omega);
+jmm_error_e jmm_3d_wedge_problem_solve(jmm_3d_wedge_problem_s *wedge);
 void jmm_3d_wedge_problem_dump(jmm_3d_wedge_problem_s *wedge, char const *path,
                                bool dump_direct, bool dump_o_face,
                                bool dump_n_face);
