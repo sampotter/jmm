@@ -1171,15 +1171,20 @@ void eik3_add_refl_bcs(eik3_s *eik, eik3_s const *eik_in, size_t refl_index,
   size_t (*lf)[3] = malloc(nf*sizeof(size_t[3]));
   mesh3_get_reflector(mesh, refl_index, lf);
 
-  /* Add reflection BCs for each vertex on the o-face */
+  /* Add reflection BCs for each vertex on the reflector */
   for (size_t i = 0; i < nf; ++i) {
+    dbl33 R;
+    mesh3_get_R_for_face(mesh, lf[i], R);
+
     for (size_t j = 0, l; j < 3; ++j) {
       l = lf[i][j];
-      if (!eik3_has_BCs(eik, l)) {
-        jet31t jet = eik3_get_jet(eik_in, l);
-        jet.Df[1] *= -1; /* reflect gradient over o-face */
-        eik3_add_bc(eik, l, jet);
-      }
+      if (eik3_has_BCs(eik, l))
+        continue;
+
+      jet31t jet = eik3_get_jet(eik_in, l);
+      dbl33_dbl3_mul_inplace(R, jet.Df);
+
+      eik3_add_bc(eik, l, jet);
     }
   }
 
