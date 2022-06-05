@@ -116,6 +116,8 @@ void mesh3_get_reflector(mesh3_s const *mesh, size_t i, size_t (*lf)[3]);
 size_t mesh3_get_num_diffractors(mesh3_s const *mesh);
 size_t mesh3_get_diffractor_size(mesh3_s const *mesh, size_t i);
 void mesh3_get_diffractor(mesh3_s const *mesh, size_t i, size_t (*le)[2]);
+size_t mesh3_get_num_diffs_inc_on_refl(mesh3_s const *mesh, size_t refl_index);
+void mesh3_get_diffs_inc_on_refl(mesh3_s const *mesh, size_t refl_index, size_t *diff_index);
 size_t mesh3_get_diff_index_for_bde(mesh3_s const *mesh, size_t const le[2]);
 size_t mesh3_nbde(mesh3_s const *mesh);
 void mesh3_get_bde_inds(mesh3_s const *mesh, size_t l, size_t le[2]);

@@ -1940,6 +1940,65 @@ void mesh3_get_diffractor(mesh3_s const *mesh, size_t i, size_t (*le)[2]) {
       memcpy(le[k++], mesh->bde[l].le, sizeof(size_t[2]));
 }
 
+size_t mesh3_get_num_diffs_inc_on_refl(mesh3_s const *mesh, size_t refl_index) {
+  size_t nf = mesh3_get_reflector_size(mesh, refl_index);
+  size_t (*lf)[3] = malloc(nf*sizeof(size_t[3]));
+  mesh3_get_reflector(mesh, refl_index, lf);
+
+  array_s *diff_index_arr;
+  array_alloc(&diff_index_arr);
+  array_init(diff_index_arr, sizeof(size_t), ARRAY_DEFAULT_CAPACITY);
+
+  for (size_t i = 0; i < nf; ++i) {
+    for (size_t j = 0; j < 3; ++j) {
+      bde_s bde = make_bde(lf[i][j], lf[i][(j + 1) % 3]);
+      size_t l = find_bde(mesh, &bde);
+      if (l != (size_t)NO_INDEX &&
+          mesh->bde[l].diff &&
+          !array_contains(diff_index_arr, &mesh->bde_label[l]))
+        array_append(diff_index_arr, &mesh->bde_label[l]);
+    }
+  }
+
+  size_t num_diffs_inc_on_refl = array_size(diff_index_arr);
+
+  array_deinit(diff_index_arr);
+  array_dealloc(&diff_index_arr);
+
+  free(lf);
+
+  return num_diffs_inc_on_refl;
+}
+
+void mesh3_get_diffs_inc_on_refl(mesh3_s const *mesh, size_t refl_index, size_t *diff_index) {
+  size_t nf = mesh3_get_reflector_size(mesh, refl_index);
+  size_t (*lf)[3] = malloc(nf*sizeof(size_t[3]));
+  mesh3_get_reflector(mesh, refl_index, lf);
+
+  array_s *diff_index_arr;
+  array_alloc(&diff_index_arr);
+  array_init(diff_index_arr, sizeof(size_t), ARRAY_DEFAULT_CAPACITY);
+
+  for (size_t i = 0; i < nf; ++i) {
+    for (size_t j = 0; j < 3; ++j) {
+      bde_s bde = make_bde(lf[i][j], lf[i][(j + 1) % 3]);
+      size_t l = find_bde(mesh, &bde);
+      if (l != (size_t)NO_INDEX &&
+          mesh->bde[l].diff &&
+          !array_contains(diff_index_arr, &mesh->bde_label[l]))
+        array_append(diff_index_arr, &mesh->bde_label[l]);
+    }
+  }
+
+  for (size_t i = 0; i < array_size(diff_index_arr); ++i)
+    array_get(diff_index_arr, i, &diff_index[i]);
+
+  array_deinit(diff_index_arr);
+  array_dealloc(&diff_index_arr);
+
+  free(lf);
+}
+
 size_t mesh3_get_diff_index_for_bde(mesh3_s const *mesh, size_t const le[2]) {
   bde_s bde = make_bde(le[0], le[1]);
   size_t l = find_bde(mesh, &bde);
