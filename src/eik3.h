@@ -63,7 +63,7 @@ bool eik3_updated_from_diff_edge(eik3_s const *eik, size_t l);
 
 dbl eik3_get_max_T(eik3_s const *eik);
 
-void eik3_get_origins(eik3_s const *eik, dbl *origin);
+void eik3_get_org(eik3_s const *eik, dbl *org);
 void eik3_get_D2T(eik3_s const *eik, dbl33 *D2T);
 
 void eik3_init_A_pt_src(eik3_s const *eik, dbl3 const xsrc, dbl *A);

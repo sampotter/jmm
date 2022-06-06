@@ -476,7 +476,7 @@ static void solve_direct(jmm_3d_wedge_problem_s *wedge) {
 
   /** Compute approximate origins: */
 
-  eik3_get_origins(wedge->eik_direct, wedge->origin_direct);
+  eik3_get_org(wedge->eik_direct, wedge->origin_direct);
 
   /** Compute t_in and t_out fields: */
 
@@ -533,7 +533,7 @@ static void solve_o_refl(jmm_3d_wedge_problem_s *wedge) {
 
   /** Get approximate origins: */
 
-  eik3_get_origins(wedge->eik_o_refl, wedge->origin_o_refl);
+  eik3_get_org(wedge->eik_o_refl, wedge->origin_o_refl);
 
   /** Get t_in and t_out vector fields: */
 
@@ -588,7 +588,7 @@ static void solve_n_refl(jmm_3d_wedge_problem_s *wedge) {
 
   /** Compute "approximate origins": */
 
-  eik3_get_origins(wedge->eik_n_refl, wedge->origin_n_refl);
+  eik3_get_org(wedge->eik_n_refl, wedge->origin_n_refl);
 
   /** Transport t_in and t_out vectors: */
 

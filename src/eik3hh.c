@@ -431,7 +431,7 @@ void eik3hh_solve(eik3hh_s *hh) {
   init_spread_pt_src(hh);
   prop_spread(hh);
 
-  eik3_get_origins(hh->eik, hh->origin);
+  eik3_get_org(hh->eik, hh->origin);
 }
 
 size_t eik3hh_num_bc(eik3hh_s const *hh) {

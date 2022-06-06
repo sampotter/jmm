@@ -1459,37 +1459,37 @@ dbl eik3_get_max_T(eik3_s const *eik) {
   return T_max;
 }
 
-void eik3_get_origins(eik3_s const *eik, dbl *origin) {
+void eik3_get_org(eik3_s const *eik, dbl *org) {
   mesh3_s const *mesh = eik->mesh;
 
-  /* Initialize `origin` to `NAN` */
+  /* Initialize `org` to `NAN` */
   for (size_t l = 0; l < mesh3_nverts(mesh); ++l)
-    origin[l] = NAN;
+    org[l] = NAN;
+
+  /* Set the origin of all nodes on a diffracting edge to 0 */
+  for (size_t l = 0; l < mesh3_nverts(mesh); ++l)
+    if (isnan(org[l]) && mesh3_vert_incident_on_diff_edge(mesh, l))
+      org[l] = 0;
 
   /* Set the origin of all BC nodes to 1 */
   for (size_t i = 0, l; i < array_size(eik->bc_inds); ++i) {
     array_get(eik->bc_inds, i, &l);
-    origin[l] = 1;
+    if (isnan(org[l]))
+      org[l] = 1;
   }
-
-  /* Set the origin of all the initial `TRIAL` nodes to 1 */
-  for (size_t i = 0, l; i < array_size(eik->trial_inds); ++i) {
-    array_get(eik->trial_inds, i, &l);
-    origin[l] = 1;
-  }
-
-  /* Set the origin of all nodes on a diffracting edge to 0 */
-  for (size_t l = 0; l < mesh3_nverts(mesh); ++l)
-    if (isnan(origin[l]) && mesh3_vert_incident_on_diff_edge(mesh, l))
-      origin[l] = 0;
 
   /* Now, transport the origins, skipping already set values */
-  eik3_transport_dbl(eik, origin, true);
+  eik3_transport_dbl(eik, org, true);
 
-  /* Finally, for each vertex on a diffracting edge, if it was updated
-   * from a node with an origin equal to 1, we reset its origin value
-   * to 0.5 (this corrects the level set approximating the shadow
-   * boundary at these points) */
+  /* We set `org` to 0.5 for each vertex on a diffracting edge with
+   * BCs. */
+  for (size_t l = 0; l < mesh3_nverts(mesh); ++l)
+    if (mesh3_vert_incident_on_diff_edge(mesh, l)
+        && array_contains(eik->bc_inds, &l))
+      org[l] = 0.5;
+
+  /* We set `org` to 0.5 for each vertex on a diffracting edge that
+   * was updated from a node with an origin equal to 1. */
   for (size_t l = 0; l < mesh3_nverts(mesh); ++l) {
     if (!mesh3_vert_incident_on_diff_edge(mesh, l))
       continue;
@@ -1500,8 +1500,8 @@ void eik3_get_origins(eik3_s const *eik, dbl *origin) {
     size_t num_active = par3_get_active_inds(par, l_active);
 
     for (size_t i = 0; i < num_active; ++i)
-      if (origin[l_active[i]] == 1)
-        origin[l] = 0.5;
+      if (org[l_active[i]] == 1)
+        org[l] = 0.5;
   }
 }
 
