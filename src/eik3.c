@@ -1023,7 +1023,7 @@ static void add_diff_bc_for_edge_from_bb31(eik3_s *eik, size_t const le[2],
   };
 
   for (size_t i = 0; i < 2; ++i)
-    if (!eik3_has_BCs(eik, le[i]))
+    if (eik->state[le[i]] == FAR)
       eik3_add_bc(eik, le[i], jet[i]);
 
   store_diff_bc_T(eik, le, T);
