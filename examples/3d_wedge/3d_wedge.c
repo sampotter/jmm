@@ -441,14 +441,6 @@ static void solve_direct(jmm_3d_wedge_problem_s *wedge) {
   if (wedge->spec.verbose)
     puts("done");
 
-  /** Compute groundtruth data for point source problem: */
-
-  set_jet_gt(wedge, wedge->jet_direct_gt,
-             get_context_direct, in_valid_zone_direct);
-
-  if (wedge->spec.verbose)
-    puts("- computed groundtruth data for direct arrival");
-
   /** Compute cell-averaged D2T: */
 
   if (wedge->spec.verbose) {
@@ -519,14 +511,6 @@ static void solve_o_refl(jmm_3d_wedge_problem_s *wedge) {
   if (wedge->spec.verbose)
     puts("done");
 
-  /** Compute the groundtruth data for the o-face reflection: */
-
-  set_jet_gt(wedge, wedge->jet_o_refl_gt,
-             get_context_o_refl, in_valid_zone_o_refl);
-
-  if (wedge->spec.verbose)
-    puts("- computed groundtruth data for o-face reflection");
-
   /** Cell-averaged D2T for o-refl eikonal: */
 
   if (wedge->spec.verbose) {
@@ -588,14 +572,6 @@ static void solve_n_refl(jmm_3d_wedge_problem_s *wedge) {
   if (wedge->spec.verbose)
     puts("done");
 
-  /** Compute the groundtruth data for the n-face reflection: */
-
-  set_jet_gt(wedge, wedge->jet_n_refl_gt,
-             get_context_n_refl, in_valid_zone_n_refl);
-
-  if (wedge->spec.verbose)
-    puts("- computed groundtruth data for n-face reflection");
-
   /** Cell-averaged D2T for n-face reflection: */
 
   if (wedge->spec.verbose) {
@@ -640,6 +616,24 @@ static void solve_n_refl(jmm_3d_wedge_problem_s *wedge) {
 
 jmm_error_e
 jmm_3d_wedge_problem_solve(jmm_3d_wedge_problem_s *wedge) {
+  if (wedge->spec.verbose)
+    puts("Computing true solutions:");
+
+  set_jet_gt(wedge, wedge->jet_direct_gt,
+             get_context_direct, in_valid_zone_direct);
+  if (wedge->spec.verbose)
+    puts("... for the direct arrival");
+
+  set_jet_gt(wedge, wedge->jet_o_refl_gt,
+             get_context_o_refl, in_valid_zone_o_refl);
+  if (wedge->spec.verbose)
+    puts("... for the o-face reflection");
+
+  set_jet_gt(wedge, wedge->jet_n_refl_gt,
+             get_context_n_refl, in_valid_zone_n_refl);
+  if (wedge->spec.verbose)
+    puts("... for the n-face reflection");
+
   solve_direct(wedge);
   solve_o_refl(wedge);
   solve_n_refl(wedge);
