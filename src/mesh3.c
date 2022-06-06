@@ -2237,3 +2237,10 @@ bool mesh3_has_vertex(mesh3_s const *mesh, dbl3 const x) {
       return true;
   return false;
 }
+
+size_t mesh3_get_vert_index(mesh3_s const *mesh, dbl3 const x) {
+  for (size_t l = 0; l < mesh->nverts; ++l)
+    if (dbl3_dist(x, mesh->verts[l]) < 1e-13)
+      return l;
+  return (size_t)NO_INDEX;
+}
