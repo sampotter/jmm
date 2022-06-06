@@ -60,10 +60,6 @@ struct eik3 {
   array_s *old_bd_utri; // old two-point boundary `utri`
   array_s *old_diff_utri; // old two-point updates from diff. edges
 
-  /* If `has_bc[l] == true`, then node `l` had boundary conditions
-   * specified. */
-  bool *has_bc;
-
   alist_s *T_diff;
 
   array_s *trial_inds, *bc_inds;
@@ -161,8 +157,6 @@ void eik3_init(eik3_s *eik, mesh3_s const *mesh) {
   array_alloc(&eik->trial_inds);
   array_init(eik->trial_inds, sizeof(size_t), ARRAY_DEFAULT_CAPACITY);
 
-  eik->has_bc = calloc(nverts, sizeof(bool));
-
   alist_alloc(&eik->T_diff);
   alist_init(eik->T_diff, sizeof(size_t[2]), sizeof(bb31), ARRAY_DEFAULT_CAPACITY);
 
@@ -221,9 +215,6 @@ void eik3_deinit(eik3_s *eik) {
   array_deinit(eik->trial_inds);
   array_dealloc(&eik->trial_inds);
 
-  free(eik->has_bc);
-  eik->has_bc = NULL;
-
   alist_deinit(eik->T_diff);
   alist_dealloc(&eik->T_diff);
 
@@ -266,55 +257,11 @@ void eik3_dump_accepted(eik3_s const *eik, char const *path) {
   fclose(fp);
 }
 
-void eik3_dump_has_bc(eik3_s const *eik, char const *path) {
-  FILE *fp = fopen(path, "wb");
-  fwrite(eik->has_bc, sizeof(eik->has_bc[0]), mesh3_nverts(eik->mesh), fp);
-  fclose(fp);
-}
-
 static void adjust(eik3_s *eik, size_t l) {
   assert(eik->state[l] == TRIAL);
   assert(l < mesh3_nverts(eik->mesh));
 
   heap_swim(eik->heap, eik->pos[l]);
-}
-
-/* TODO: delete me!! */
-static void do_utetra(eik3_s *eik, size_t lhat, size_t l[3]);
-static void do_diff_utri(eik3_s *eik, size_t lhat, size_t l[2]);
-static void do_bc_updates(eik3_s *eik, size_t l, size_t l0) {
-  assert(eik->has_bc[l0]);
-  assert(eik->state[l] == TRIAL);
-  assert(eik->state[l0] == VALID);
-
-  mesh3_s const *mesh = eik->mesh;
-  array_s const *bc_inds = eik->bc_inds;
-
-  /* Do boundary face BC updates... */
-
-  size_t nf = mesh3_get_num_inc_bdf(mesh, l0);
-  size_t (*lf)[3] = malloc(nf*sizeof(size_t[3]));
-  mesh3_get_inc_bdf(mesh, l0, lf);
-
-  for (size_t i = 0; i < nf; ++i)
-    if (array_contains(bc_inds, &lf[i][0]) &&
-        array_contains(bc_inds, &lf[i][1]) &&
-        array_contains(bc_inds, &lf[i][2]))
-      do_utetra(eik, l, lf[i]);
-
-  /* Do diffracting edge BC updates... */
-
-  size_t ne = mesh3_get_num_inc_diff_edges(mesh, l0);
-  size_t (*le)[2] = malloc(ne*sizeof(size_t[2]));
-  mesh3_get_inc_diff_edges(mesh, l0, le);
-
-  for (size_t i = 0; i < ne; ++i)
-    if (array_contains(bc_inds, &le[i][0]) &&
-        array_contains(bc_inds, &le[i][1]))
-      do_diff_utri(eik, l, le[i]);
-
-  free(le);
-  free(lf);
 }
 
 /** Functions for `do_bd_utri` and `do_diff_utri`: */
@@ -508,7 +455,6 @@ static void do_diff_utri(eik3_s *eik, size_t lhat, size_t l[2]) {
 static void do_utris_if(eik3_s *eik, size_t l, size_t l0, array_s *utri_cache,
                         bool (*pred)(eik3_s const *, size_t const[2])) {
   assert(l != l0);
-  assert(!eik->has_bc[l0]);
 
   /* find the diffracting edges incident on l0 with VALID indices */
   array_s *l1_arr;
@@ -520,14 +466,6 @@ static void do_utris_if(eik3_s *eik, size_t l, size_t l0, array_s *utri_cache,
     array_get(l1_arr, i, &l1);
     if (l == l1)
       continue;
-
-    /* If `l1` has boundary, we do the incident boundary updates
-     * instead and skip this update. */
-    if (eik->has_bc[l1]) {
-      do_bc_updates(eik, l, l1);
-      continue;
-    }
-
     do_utri(eik, l, l0, l1, utri_cache);
   }
 
@@ -774,8 +712,6 @@ cleanup:
 }
 
 static void do_utetra_fan(eik3_s *eik, size_t l, size_t l0) {
-  assert(!eik->has_bc[l0]);
-
   /* Get the fan of `VALID` triangles incident on `l0`. */
   array_s *le_arr;
   array_alloc(&le_arr);
@@ -785,17 +721,8 @@ static void do_utetra_fan(eik3_s *eik, size_t l, size_t l0) {
   /* Do them all */
   for (size_t i = 0, le[2]; i < array_size(le_arr); ++i) {
     array_get(le_arr, i, &le);
-
-    /* If the other valid node has a boundary data, then we should
-     * update from the associated boundary updates and skip this
-     * update. */
-    if (eik->has_bc[le[0]] || eik->has_bc[le[1]]) {
-      for (size_t j = 0; j < 2; ++j)
-        if (eik->has_bc[le[j]])
-          do_bc_updates(eik, l, le[j]);
+    if (l == le[0] || l == le[1])
       continue;
-    }
-
     do_utetra(eik, l, (size_t[3]) {l0, le[0], le[1]});
   }
 
@@ -805,11 +732,6 @@ static void do_utetra_fan(eik3_s *eik, size_t l, size_t l0) {
 }
 
 static void update(eik3_s *eik, size_t l, size_t l0) {
-  if (eik->has_bc[l0]) {
-    do_bc_updates(eik, l, l0);
-    return;
-  }
-
   bool l0_is_on_diff_edge = mesh3_vert_incident_on_diff_edge(eik->mesh, l0);
   bool l_is_on_diff_edge = mesh3_vert_incident_on_diff_edge(eik->mesh, l);
 
@@ -896,8 +818,7 @@ jmm_error_e eik3_step(eik3_s *eik, size_t *l0) {
   *l0 = heap_front(eik->heap);
   assert(isfinite(eik->jet[*l0].f));
   assert(eik->state[*l0] == TRIAL);
-  assert(eik->has_bc[*l0] || !par3_is_empty(&eik->par[*l0])
-         || array_contains(eik->trial_inds, l0));
+  assert(!par3_is_empty(&eik->par[*l0]) || array_contains(eik->trial_inds, l0));
   heap_pop(eik->heap);
   eik->state[*l0] = VALID;
 
@@ -930,11 +851,6 @@ bool eik3_is_solved(eik3_s const *eik) {
 }
 
 void eik3_add_trial(eik3_s *eik, size_t l, jet31t jet) {
-  if (eik->has_bc[l]) {
-    log_warn("tried to add BCs for node %lu more than once\n", l);
-    return;
-  }
-
   if (eik->state[l] == VALID) {
     log_warn("failed to add TRIAL node %lu (already VALID)", l);
     return;
@@ -960,7 +876,6 @@ void eik3_add_bc(eik3_s *eik, size_t l, jet31t jet) {
 
   eik->jet[l] = jet;
   eik->state[l] = VALID;
-  eik->has_bc[l] = true;
   eik->accepted[eik->num_accepted++] = l;
 
   array_append(eik->bc_inds, &l);
@@ -1426,7 +1341,7 @@ bool eik3_has_par(eik3_s const *eik, size_t l) {
 }
 
 bool eik3_has_BCs(eik3_s const *eik, size_t l) {
-  return eik->has_bc[l];
+  return array_contains(eik->bc_inds, &l);
 }
 
 size_t const *eik3_get_accepted_ptr(eik3_s const *eik) {
@@ -1434,10 +1349,7 @@ size_t const *eik3_get_accepted_ptr(eik3_s const *eik) {
 }
 
 size_t eik3_num_bc(eik3_s const *eik) {
-  size_t num_bc = 0;
-  for (size_t l = 0; l < mesh3_nverts(eik->mesh); ++l)
-    num_bc += eik->has_bc[l];
-  return num_bc;
+  return array_size(eik->bc_inds);
 }
 
 void eik3_get_edge_T(eik3_s const *eik, size_t const le[2], bb31 *T) {
