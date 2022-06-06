@@ -26,9 +26,6 @@ void eik3_dump_par_b(eik3_s const *eik, char const *path);
 void eik3_dump_accepted(eik3_s const *eik, char const *path);
 void eik3_dump_has_bc(eik3_s const *eik, char const *path);
 
-void eik3_do_diff_utri(eik3_s *eik, size_t l, size_t l0, size_t l1);
-void eik3_do_utetra(eik3_s *eik, size_t l, size_t l0, size_t l1, size_t l2);
-
 size_t eik3_peek(eik3_s const *eik);
 jmm_error_e eik3_step(eik3_s *eik, size_t *l0);
 jmm_error_e eik3_solve(eik3_s *eik);
