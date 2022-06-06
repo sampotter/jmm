@@ -468,14 +468,8 @@ static void solve_direct(jmm_3d_wedge_problem_s *wedge) {
     fflush(stdout);
   }
 
-  for (size_t l = 0; l < mesh3_nverts(wedge->mesh); ++l) {
-    par3_s par = eik3_get_par(wedge->eik_direct, l);
-    wedge->A_direct[l] = par3_is_empty(&par) ?
-      1/dbl3_dist(mesh3_get_vert_ptr(wedge->mesh, l), xsrc) :
-      NAN;
-  }
-
-  eik3_get_spreading_factor(wedge->eik_direct, wedge->D2T_direct, wedge->A_direct);
+  eik3_init_A_pt_src(wedge->eik_direct, xsrc, wedge->A_direct);
+  eik3_prop_A(wedge->eik_direct, wedge->D2T_direct, wedge->A_direct);
 
   if (wedge->spec.verbose)
     puts("done");
@@ -531,12 +525,8 @@ static void solve_o_refl(jmm_3d_wedge_problem_s *wedge) {
     fflush(stdout);
   }
 
-  for (size_t l = 0; l < mesh3_nverts(wedge->mesh); ++l) {
-    par3_s par = eik3_get_par(wedge->eik_o_refl, l);
-    wedge->A_o_refl[l] = par3_is_empty(&par) ? wedge->A_direct[l] : NAN;
-  }
-
-  eik3_get_spreading_factor(wedge->eik_o_refl, wedge->D2T_o_refl, wedge->A_o_refl);
+  eik3_init_A_refl(wedge->eik_o_refl, wedge->A_direct, wedge->A_o_refl);
+  eik3_prop_A(wedge->eik_o_refl, wedge->D2T_o_refl, wedge->A_o_refl);
 
   if (wedge->spec.verbose)
     puts("done");
@@ -592,12 +582,8 @@ static void solve_n_refl(jmm_3d_wedge_problem_s *wedge) {
     fflush(stdout);
   }
 
-  for (size_t l = 0; l < mesh3_nverts(wedge->mesh); ++l) {
-    par3_s par = eik3_get_par(wedge->eik_n_refl, l);
-    wedge->A_n_refl[l] = par3_is_empty(&par) ? wedge->A_direct[l] : NAN;
-  }
-
-  eik3_get_spreading_factor(wedge->eik_n_refl, wedge->D2T_n_refl, wedge->A_n_refl);
+  eik3_init_A_diff(wedge->eik_n_refl, wedge->A_direct, wedge->A_n_refl);
+  eik3_prop_A(wedge->eik_n_refl, wedge->D2T_n_refl, wedge->A_n_refl);
 
   if (wedge->spec.verbose)
     puts("done");

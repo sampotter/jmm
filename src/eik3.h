@@ -65,7 +65,12 @@ dbl eik3_get_max_T(eik3_s const *eik);
 
 void eik3_get_origins(eik3_s const *eik, dbl *origin);
 void eik3_get_D2T(eik3_s const *eik, dbl33 *D2T);
-void eik3_get_spreading_factor(eik3_s const *eik, dbl33 const *D2T, dbl *spread);
+
+void eik3_init_A_pt_src(eik3_s const *eik, dbl3 const xsrc, dbl *A);
+void eik3_init_A_refl(eik3_s const *eik, dbl const *A_in, dbl *A);
+void eik3_init_A_diff(eik3_s const *eik, dbl const *A_in, dbl *A);
+void eik3_prop_A(eik3_s const *eik, dbl33 const *D2T, dbl *A);
+
 void eik3_get_t_in(eik3_s const *eik, dbl3 *t_in);
 void eik3_get_t_out(eik3_s const *eik, dbl3 *t_out);
 
