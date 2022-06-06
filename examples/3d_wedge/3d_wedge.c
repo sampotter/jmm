@@ -373,48 +373,48 @@ static size_t get_o_face_index(mesh3_s const *mesh) {
   return o_face_index;
 }
 
-static size_t get_n_face_index(jmm_3d_wedge_problem_s const *wedge) {
-  mesh3_s const *mesh = wedge->mesh;
-  dbl const eps = mesh3_get_eps(mesh);
+// static size_t get_n_face_index(jmm_3d_wedge_problem_s const *wedge) {
+//   mesh3_s const *mesh = wedge->mesh;
+//   dbl const eps = mesh3_get_eps(mesh);
 
-  dbl n_radians = JMM_PI*wedge->spec.n;
+//   dbl n_radians = JMM_PI*wedge->spec.n;
 
-  size_t n_face_index = (size_t)NO_INDEX;
+//   size_t n_face_index = (size_t)NO_INDEX;
 
-  size_t num_refl = mesh3_get_num_reflectors(mesh);
-  for (size_t i = 0; i < num_refl; ++i) {
-    size_t nf = mesh3_get_reflector_size(mesh, i);
-    size_t (*lf)[3] = malloc(nf*sizeof(size_t[3]));
-    mesh3_get_reflector(mesh, i, lf);
+//   size_t num_refl = mesh3_get_num_reflectors(mesh);
+//   for (size_t i = 0; i < num_refl; ++i) {
+//     size_t nf = mesh3_get_reflector_size(mesh, i);
+//     size_t (*lf)[3] = malloc(nf*sizeof(size_t[3]));
+//     mesh3_get_reflector(mesh, i, lf);
 
-    bool found = true;
+//     bool found = true;
 
-    for (size_t j = 0; j < nf; ++j) {
-      for (size_t k = 0; k < 3; ++k) {
-        dbl3 x;
-        mesh3_copy_vert(mesh, lf[j][k], x);
-        dbl phi = atan2(x[1], x[0]);
-        if (phi < 0)
-          phi += 2*JMM_PI;
-        if (fabs(phi - n_radians) > eps && hypot(x[0], x[1]) > eps) {
-          found = false;
-          break;
-        }
-      }
-    }
+//     for (size_t j = 0; j < nf; ++j) {
+//       for (size_t k = 0; k < 3; ++k) {
+//         dbl3 x;
+//         mesh3_copy_vert(mesh, lf[j][k], x);
+//         dbl phi = atan2(x[1], x[0]);
+//         if (phi < 0)
+//           phi += 2*JMM_PI;
+//         if (fabs(phi - n_radians) > eps && hypot(x[0], x[1]) > eps) {
+//           found = false;
+//           break;
+//         }
+//       }
+//     }
 
-    free(lf);
+//     free(lf);
 
-    if (found) {
-      n_face_index = i;
-      break;
-    }
-  }
+//     if (found) {
+//       n_face_index = i;
+//       break;
+//     }
+//   }
 
-  assert(n_face_index != (size_t)NO_INDEX);
+//   assert(n_face_index != (size_t)NO_INDEX);
 
-  return n_face_index;
-}
+//   return n_face_index;
+// }
 
 /* Set up and solve the direct eikonal problem */
 static void solve_direct(jmm_3d_wedge_problem_s *wedge) {
@@ -542,13 +542,9 @@ static void solve_o_refl(jmm_3d_wedge_problem_s *wedge) {
 }
 
 static void solve_n_refl(jmm_3d_wedge_problem_s *wedge) {
-  /* Figure out which reflector is the n-face */
-  size_t n_face_refl_index = get_n_face_index(wedge);
-
   /** Set up BCs and solve n-refl problem: */
 
-  eik3_add_diff_bcs(wedge->eik_n_refl, wedge->eik_direct, n_face_refl_index,
-                    wedge->spec.rfac);
+  eik3_add_diff_bcs(wedge->eik_n_refl, wedge->eik_direct, 0, wedge->spec.rfac);
 
   assert(!array_is_empty(eik3_get_bc_inds(wedge->eik_n_refl)));
 
