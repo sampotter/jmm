@@ -573,7 +573,7 @@ static void solve_n_refl(jmm_3d_wedge_problem_s *wedge) {
 
   /** Set up BCs and solve n-refl problem: */
 
-  eik3_add_refl_bcs(wedge->eik_n_refl, wedge->eik_direct, n_face_refl_index,
+  eik3_add_diff_bcs(wedge->eik_n_refl, wedge->eik_direct, n_face_refl_index,
                     wedge->spec.rfac);
 
   assert(!array_is_empty(eik3_get_bc_inds(wedge->eik_n_refl)));
