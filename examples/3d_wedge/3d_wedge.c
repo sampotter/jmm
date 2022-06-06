@@ -438,6 +438,16 @@ static void solve_direct(jmm_3d_wedge_problem_s *wedge) {
 
   eik3_solve(wedge->eik_direct);
 
+  eik3_get_org(wedge->eik_direct, wedge->origin_direct);
+
+  if (wedge->spec.verbose) {
+    puts("done");
+    printf("Resolving direct problem to correct shadow zone... ");
+    fflush(stdout);
+  }
+
+  eik3_resolve_downwind_from_diff(wedge->eik_direct, /* diff_index: */ 0, rfac);
+
   if (wedge->spec.verbose)
     puts("done");
 
@@ -473,10 +483,6 @@ static void solve_direct(jmm_3d_wedge_problem_s *wedge) {
 
   if (wedge->spec.verbose)
     puts("done");
-
-  /** Compute approximate origins: */
-
-  eik3_get_org(wedge->eik_direct, wedge->origin_direct);
 
   /** Compute t_in and t_out fields: */
 
