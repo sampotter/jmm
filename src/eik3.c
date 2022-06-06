@@ -988,6 +988,52 @@ void do_1pt_update(eik3_s *eik, size_t l, size_t l0) {
   adjust(eik, l);
 }
 
+static bool has_nb_with_state(eik3_s const *eik, size_t l, state_e state) {
+  size_t nvv = mesh3_nvv(eik->mesh, l);
+  size_t *vv = malloc(nvv*sizeof(size_t));
+  mesh3_vv(eik->mesh, l, vv);
+
+  bool has_nb = false;
+
+  for (size_t i = 0; i < nvv; ++i) {
+    if (eik->state[vv[i]] == state) {
+      has_nb = true;
+      break;
+    }
+  }
+
+  free(vv);
+
+  return has_nb;
+}
+
+static void freeze_bc_layer(eik3_s *eik) {
+  array_s *l_arr;
+  array_alloc(&l_arr);
+  array_init(l_arr, sizeof(size_t), ARRAY_DEFAULT_CAPACITY);
+
+  while (heap_size(eik->heap) > 0) {
+    size_t l = heap_front(eik->heap);
+    heap_pop(eik->heap);
+    array_append(l_arr, &l);
+  }
+
+  for (size_t i = 0, l; i < array_size(l_arr); ++i) {
+    array_get(l_arr, i, &l);
+
+    if (has_nb_with_state(eik, l, FAR)) {
+      heap_insert(eik->heap, l);
+      continue;
+    }
+
+    eik->state[l] = VALID;
+    eik->accepted[eik->num_accepted++] = l;
+  }
+
+  array_deinit(l_arr);
+  array_dealloc(&l_arr);
+}
+
 void eik3_add_pt_src_bcs(eik3_s *eik, dbl3 const xsrc, dbl rfac) {
   mesh3_s const *mesh = eik->mesh;
 
@@ -1036,6 +1082,8 @@ void eik3_add_pt_src_bcs(eik3_s *eik, dbl3 const xsrc, dbl rfac) {
         array_append(queue, &vv[i]);
     free(vv);
   }
+
+  freeze_bc_layer(eik);
 
   /* Make sure we added some boundary data: */
   assert(!array_is_empty(eik->bc_inds));
@@ -1197,6 +1245,8 @@ void eik3_add_diff_bcs(eik3_s *eik, eik3_s const *eik_in, size_t diff_index, dbl
     free(vv);
   }
 
+  freeze_bc_layer(eik);
+
   array_deinit(queue);
   array_dealloc(&queue);
 
@@ -1302,6 +1352,8 @@ void eik3_add_refl_bcs(eik3_s *eik, eik3_s const *eik_in, size_t refl_index, dbl
         array_append(queue, &vv[i]);
     free(vv);
   }
+
+  freeze_bc_layer(eik);
 
   /* Clean up */
 
