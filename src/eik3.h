@@ -29,6 +29,7 @@ size_t eik3_peek(eik3_s const *eik);
 jmm_error_e eik3_step(eik3_s *eik, size_t *l0);
 jmm_error_e eik3_solve(eik3_s *eik);
 bool eik3_is_solved(eik3_s const *eik);
+void eik3_resolve_downwind_from_diff(eik3_s *eik, size_t diff_index, dbl rfac);
 
 bool eik3_is_far(eik3_s const *eik, size_t ind);
 bool eik3_is_trial(eik3_s const *eik, size_t ind);

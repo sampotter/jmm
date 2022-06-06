@@ -850,6 +850,128 @@ bool eik3_is_solved(eik3_s const *eik) {
   return eik->num_accepted == mesh3_nverts(eik->mesh);
 }
 
+static void reset_nodes(eik3_s *eik, array_s const *l_arr) {
+  for (size_t i = 0, l; i < array_size(l_arr); ++i) {
+    array_get(l_arr, i, &l);
+    assert(eik->state[l] == VALID);
+    eik->jet[l] = jet31t_make_empty();
+    eik->state[l] = FAR;
+    par3_init_empty(&eik->par[l]);
+  }
+
+  size_t j = 0;
+  for (size_t i = 0; i < eik->num_accepted; ++i) {
+    if (array_contains(l_arr, &eik->accepted[i]))
+      continue;
+    eik->accepted[j++] = eik->accepted[i];
+  }
+  for (; j < eik->num_accepted; ++j)
+    eik->accepted[j] = (size_t)NO_INDEX;
+
+  eik->num_accepted -= array_size(l_arr);
+}
+
+void eik3_resolve_downwind_from_diff(eik3_s *eik, size_t diff_index, dbl rfac) {
+  mesh3_s const *mesh = eik->mesh;
+
+  /** First, find all of the nodes which are downwind of the
+   * diffractor and whose origin value is less than 0.5. These are the
+   * nodes that we'll reset, since their error will be polluted. */
+
+  /* Get the current diffractor */
+  size_t diff_size = mesh3_get_diffractor_size(mesh, diff_index);
+  size_t (*le)[2] = malloc(diff_size*sizeof(size_t[2]));
+  mesh3_get_diffractor(mesh, diff_index, le);
+
+  /* Array of unique diffractor node indices */
+  array_s *l_diff;
+  array_alloc(&l_diff);
+  array_init(l_diff, sizeof(size_t), ARRAY_DEFAULT_CAPACITY);
+
+  /* ... fill it */
+  for (size_t i = 0; i < diff_size; ++i)
+    for (size_t j = 0; j < 2; ++j)
+      if (!array_contains(l_diff, &le[i][j]))
+        array_append(l_diff, &le[i][j]);
+
+  /* Free the diffractor edges */
+  free(le);
+
+  /* Queue backing the BFS */
+  array_s *l_queue;
+  array_alloc(&l_queue);
+  array_init(l_queue, sizeof(size_t), ARRAY_DEFAULT_CAPACITY);
+
+  /* ... fill it */
+  for (size_t i = 0; i < array_size(l_diff); ++i)
+    array_append(l_queue, array_get_ptr(l_diff, i));
+
+  /* Get the origins */
+  dbl *org = malloc(mesh3_nverts(mesh)*sizeof(dbl));
+  eik3_get_org(eik, org);
+
+  /* Array used to accumulate indices of nodes to be reset */
+  array_s *l_reset;
+  array_alloc(&l_reset);
+  array_init(l_reset, sizeof(size_t), ARRAY_DEFAULT_CAPACITY);
+
+  /* Use a BFS to find each of the nodes downwind from the diffracting
+   * edge which should be reset. */
+  while (!array_is_empty(l_queue)) {
+    size_t l;
+    array_pop_front(l_queue, &l);
+    if (array_contains(l_reset, &l))
+      continue;
+
+    if (!array_contains(l_diff, &l))
+      array_append(l_reset, &l);
+
+    /* Get the neighbors of the current node */
+    size_t nvv = mesh3_nvv(mesh, l);
+    size_t *vv = malloc(nvv*sizeof(size_t));
+    mesh3_vv(mesh, l, vv);
+
+    /* For each neighbor... */
+    for (size_t j = 0; j < nvv; ++j) {
+      /* ... skip this node if its origin is too big or if we're
+       * already resetting it. */
+      if (org[vv[j]] >= 0.5 || array_contains(l_reset, &vv[j]))
+        continue;
+
+      /* Get the active parent indices of the current node. */
+      size_t la[3];
+      size_t na = par3_get_active_inds(&eik->par[vv[j]], la);
+
+      for (size_t k = 0; k < na; ++k) {
+        if (array_contains(l_diff, &la[k]) || array_contains(l_reset, &la[k])) {
+          array_append(l_queue, &vv[j]);
+          break;
+        }
+      }
+    }
+
+    free(vv);
+  }
+
+  reset_nodes(eik, l_reset);
+
+  array_deinit(l_reset);
+  array_dealloc(&l_reset);
+
+  free(org);
+
+  array_deinit(l_queue);
+  array_dealloc(&l_queue);
+
+  array_deinit(l_diff);
+  array_dealloc(&l_diff);
+
+  /** Now, add BCs for the diffractor and solve again */
+
+  eik3_add_diff_bcs(eik, /* eik_in: */ eik, diff_index, rfac);
+  eik3_solve(eik);
+}
+
 void eik3_add_trial(eik3_s *eik, size_t l, jet31t jet) {
   if (eik->state[l] == VALID) {
     log_warn("failed to add TRIAL node %lu (already VALID)", l);
