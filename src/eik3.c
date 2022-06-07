@@ -742,27 +742,70 @@ cleanup:
   utetra_dealloc(&utetra);
 }
 
-static void do_utetra_fan(eik3_s *eik, size_t l, size_t l0) {
+static void do_1pt_update(eik3_s *eik, size_t l, size_t l0) {
+  mesh3_s const *mesh = eik->mesh;
+
+  dbl3 x, x0;
+  mesh3_copy_vert(mesh, l, x);
+  mesh3_copy_vert(mesh, l0, x0);
+
+  jet31t jet;
+  dbl3_sub(x, x0, jet.Df);
+  jet.f = eik->jet[l0].f + dbl3_normalize(jet.Df);
+
+  if (jet.f >= eik->jet[l].f)
+    return;
+
+  eik->jet[l] = jet;
+
+  eik->par[l].l[0] = l0;
+  eik->par[l].b[0] = 1;
+
+  adjust(eik, l);
+}
+
+static void do_utetra_fan(eik3_s *eik, size_t lhat, size_t l0) {
+  assert(lhat != l0);
+
   /* Get the fan of `VALID` triangles incident on `l0`. */
   array_s *le_arr;
   array_alloc(&le_arr);
   array_init(le_arr, sizeof(size_t[2]), ARRAY_DEFAULT_CAPACITY);
   get_update_fan(eik, l0, le_arr);
 
+  size_t l[3] = {l0, (size_t)NO_INDEX, (size_t)NO_INDEX};
+
   /* Do them all */
-  for (size_t i = 0, le[2]; i < array_size(le_arr); ++i) {
-    array_get(le_arr, i, &le);
-    if (l == le[0] || l == le[1])
+  for (size_t i = 0; i < array_size(le_arr); ++i) {
+    array_get(le_arr, i, &l[1]);
+
+    /* Skip degenerate updates */
+    if (lhat == l[1] || lhat == l[2])
       continue;
-    do_utetra(eik, l, (size_t[3]) {l0, le[0], le[1]});
+
+    for (size_t j = 1; j < 3; ++j) {
+      if (jet31t_is_point_source(&eik->jet[l[j]])) {
+        assert(array_contains(eik->bc_inds, &l[j]));
+        do_1pt_update(eik, lhat, l[j]);
+        goto cleanup;
+      }
+    }
+
+    do_utetra(eik, lhat, l);
   }
 
-  /* Clean up */
+cleanup:
   array_deinit(le_arr);
   array_dealloc(&le_arr);
 }
 
 static void update(eik3_s *eik, size_t l, size_t l0) {
+  if (jet31t_is_point_source(&eik->jet[l0])) {
+    assert(array_contains(eik->bc_inds, &l0));
+    do_1pt_update(eik, l, l0);
+    return;
+  }
+
   bool l0_is_on_diff_edge = mesh3_vert_incident_on_diff_edge(eik->mesh, l0);
   bool l_is_on_diff_edge = mesh3_vert_incident_on_diff_edge(eik->mesh, l);
 
@@ -881,6 +924,18 @@ bool eik3_is_solved(eik3_s const *eik) {
   return eik->num_accepted == mesh3_nverts(eik->mesh);
 }
 
+static void unaccept_nodes(eik3_s *eik, array_s const *l_arr) {
+  size_t j = 0;
+  for (size_t i = 0; i < eik->num_accepted; ++i) {
+    if (array_contains(l_arr, &eik->accepted[i]))
+      continue;
+    eik->accepted[j++] = eik->accepted[i];
+  }
+  for (; j < eik->num_accepted; ++j)
+    eik->accepted[j] = (size_t)NO_INDEX;
+  eik->num_accepted -= array_size(l_arr);
+}
+
 static void reset_nodes(eik3_s *eik, array_s const *l_arr) {
   for (size_t i = 0, l; i < array_size(l_arr); ++i) {
     array_get(l_arr, i, &l);
@@ -890,16 +945,40 @@ static void reset_nodes(eik3_s *eik, array_s const *l_arr) {
     par3_init_empty(&eik->par[l]);
   }
 
-  size_t j = 0;
-  for (size_t i = 0; i < eik->num_accepted; ++i) {
-    if (array_contains(l_arr, &eik->accepted[i]))
-      continue;
-    eik->accepted[j++] = eik->accepted[i];
-  }
-  for (; j < eik->num_accepted; ++j)
-    eik->accepted[j] = (size_t)NO_INDEX;
+  unaccept_nodes(eik, l_arr);
+}
 
-  eik->num_accepted -= array_size(l_arr);
+static void fix_valid_front(eik3_s *eik) {
+  array_s *l_arr;
+  array_alloc(&l_arr);
+  array_init(l_arr, sizeof(size_t), ARRAY_DEFAULT_CAPACITY);
+
+  for (size_t l = 0; l < mesh3_nverts(eik->mesh); ++l) {
+    if (eik->state[l] != FAR)
+      continue;
+
+    size_t nvv = mesh3_nvv(eik->mesh, l);
+    size_t *vv = malloc(nvv*sizeof(size_t));
+    mesh3_vv(eik->mesh, l, vv);
+
+    for (size_t i = 0; i < nvv; ++i)
+      if (eik->state[vv[i]] == VALID && !array_contains(l_arr, &vv[i]))
+        array_append(l_arr, &vv[i]);
+
+    free(vv);
+  }
+
+  /* Reinsert these nodes into the heap */
+  for (size_t i = 0, l; i < array_size(l_arr); ++i) {
+    array_get(l_arr, i, &l);
+    eik->state[l] = TRIAL;
+    heap_insert(eik->heap, l);
+  }
+
+  unaccept_nodes(eik, l_arr);
+
+  array_deinit(l_arr);
+  array_dealloc(&l_arr);
 }
 
 void eik3_resolve_downwind_from_diff(eik3_s *eik, size_t diff_index, dbl rfac) {
@@ -986,6 +1065,14 @@ void eik3_resolve_downwind_from_diff(eik3_s *eik, size_t diff_index, dbl rfac) {
 
   reset_nodes(eik, l_reset);
 
+  /** Now, add BCs for the diffractor and solve again */
+
+  eik3_add_diff_bcs(eik, /* eik_in: */ eik, diff_index, rfac);
+  fix_valid_front(eik);
+  eik3_solve(eik);
+
+  /** Cleanup */
+
   array_deinit(l_reset);
   array_dealloc(&l_reset);
 
@@ -996,11 +1083,6 @@ void eik3_resolve_downwind_from_diff(eik3_s *eik, size_t diff_index, dbl rfac) {
 
   array_deinit(l_diff);
   array_dealloc(&l_diff);
-
-  /** Now, add BCs for the diffractor and solve again */
-
-  eik3_add_diff_bcs(eik, /* eik_in: */ eik, diff_index, rfac);
-  eik3_solve(eik);
 }
 
 void eik3_add_trial(eik3_s *eik, size_t l, jet31t jet) {
@@ -1032,28 +1114,6 @@ void eik3_add_bc(eik3_s *eik, size_t l, jet31t jet) {
   eik->accepted[eik->num_accepted++] = l;
 
   array_append(eik->bc_inds, &l);
-}
-
-void do_1pt_update(eik3_s *eik, size_t l, size_t l0) {
-  mesh3_s const *mesh = eik->mesh;
-
-  dbl3 x, x0;
-  mesh3_copy_vert(mesh, l, x);
-  mesh3_copy_vert(mesh, l0, x0);
-
-  jet31t jet;
-  dbl3_sub(x, x0, jet.Df);
-  jet.f = dbl3_normalize(jet.Df);
-
-  if (jet.f >= eik->jet[l].f)
-    return;
-
-  eik->jet[l] = jet;
-
-  eik->par[l].l[0] = l0;
-  eik->par[l].b[0] = 1;
-
-  adjust(eik, l);
 }
 
 static bool has_nb_with_state(eik3_s const *eik, size_t l, state_e state) {
