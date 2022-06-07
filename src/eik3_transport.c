@@ -3,6 +3,7 @@
 #include <assert.h>
 #include <math.h>
 
+#include "log.h"
 #include "mesh3.h"
 #include "util.h"
 
@@ -143,16 +144,20 @@ static void slerp2(dbl const b[2], dbl3 const p[2], dbl3 q) {
     q[i] = c[0]*p[0][i] + c[1]*p[1][i];
 }
 
-static void slerp3(dbl const b[3], dbl3 const p[3], dbl3 q) {
-  /* initialize q to nlerp */
+static void nlerp3(dbl const b[3], dbl3 const p[3], dbl3 q) {
   for (size_t i = 0; i < 3; ++i)
     q[i] = b[0]*p[0][i] + b[1]*p[1][i] + b[2]*p[2][i];
   dbl3_normalize(q);
+}
+
+static void slerp3(dbl const b[3], dbl3 const p[3], dbl3 q) {
+  nlerp3(b, p, q);
 
   dbl3 q0;
   dbl3_copy(q, q0);
 
   /* projected gradient descent for slerp */
+  size_t it = 0, max_it = 100;
   while (true) {
     /* take projected gradient step */
     dbl c[3];
@@ -172,6 +177,15 @@ static void slerp3(dbl const b[3], dbl3 const p[3], dbl3 q) {
 
     /* prepare for the next iteration */
     dbl3_copy(q, q0);
+
+    ++it;
+
+    /* Failed to converge: reset to nlerp and bail */
+    if (it == max_it) {
+      log_warn("slerp3 failed to converge");
+      nlerp3(b, p, q);
+      break;
+    }
   }
 }
 
