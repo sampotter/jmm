@@ -75,6 +75,37 @@ struct eik3 {
   bool is_initialized;
 };
 
+static char const *state_str[] = {
+  [FAR] = "FAR",
+  [TRIAL] = "TRIAL",
+  [VALID] = "VALID"
+};
+
+static void print_node(eik3_s const *eik, size_t l) {
+  printf("l = %lu: state = %s, T = %.3g, DT = {%.3g, %.3g, %.3g}\n",
+         l, state_str[eik->state[l]], eik->jet[l].f,
+         eik->jet[l].Df[0], eik->jet[l].Df[1], eik->jet[l].Df[2]);
+}
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-function"
+static void print_node_and_nbs(eik3_s const *eik, size_t l) {
+  print_node(eik, l);
+
+  size_t nvv = mesh3_nvv(eik->mesh, l);
+  size_t *vv = malloc(nvv*sizeof(size_t));
+  mesh3_vv(eik->mesh, l, vv);
+
+  printf("neighbors:\n");
+  for (size_t i = 0; i < nvv; ++i) {
+    printf("  ");
+    print_node(eik, vv[i]);
+  }
+
+  free(vv);
+}
+#pragma GCC diagnostic pop
+
 void eik3_alloc(eik3_s **eik) {
   *eik = malloc(sizeof(eik3_s));
 
