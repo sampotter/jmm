@@ -373,6 +373,8 @@ bool utri_has_interior_point_solution(utri_s const *utri) {
 bool utri_is_backwards(utri_s const *utri, eik3_s const *eik) {
   mesh3_s const *mesh = eik3_get_mesh(eik);
 
+  assert(mesh3_bdv(mesh, utri->l0) && mesh3_bdv(mesh, utri->l1));
+
   /* We need to allow diffracted triangle updates... */
   if (mesh3_is_diff_edge(mesh, (size_t[2]) {utri->l0, utri->l1}))
     return false;
@@ -389,12 +391,29 @@ bool utri_is_backwards(utri_s const *utri, eik3_s const *eik) {
   dbl3 dxhat;
   dbl3_sub(xhat, xproj, dxhat);
 
-  jet31t const *jet = eik3_get_jet_ptr(eik);
+  jet31t jet[2] = {
+    eik3_get_jet(eik, utri->l0),
+    eik3_get_jet(eik, utri->l1)
+  };
 
-  if (dbl3_dot(dxhat, jet[utri->l0].Df) <= 0)
+  bool diff[2] = {
+    mesh3_vert_incident_on_diff_edge(mesh, utri->l0),
+    mesh3_vert_incident_on_diff_edge(mesh, utri->l1)
+  };
+
+  assert(!(diff[0] && diff[1]));
+
+  if (diff[0] ^ diff[1]) {
+    size_t l_diff = diff[0] ? utri->l0 : utri->l1;
+    size_t l_bdv = diff[0] ? utri->l1 : utri->l0;
+    int which = diff[0] ? 0 : 1;
+    rotate_jet_for_diffraction(mesh, l_diff, l_bdv, &jet[which]);
+  }
+
+  if (dbl3_dot(dxhat, jet[0].Df) <= 0)
     return true;
 
-  if (dbl3_dot(dxhat, jet[utri->l1].Df) <= 0)
+  if (dbl3_dot(dxhat, jet[1].Df) <= 0)
     return true;
 
   return false;
