@@ -299,7 +299,7 @@ static void set_jet_gt(jmm_3d_wedge_problem_s *wedge, jet32t *jet,
       dbl3 q1;
       dbl3_cross(context.v1, v2, q1);
 
-      /* Compute au nit vector orthogonal to q1 and the ray
+      /* Compute a unit vector orthogonal to q1 and the ray
        * direction: */
       dbl3 q2;
       dbl3_cross(jet[i].Df, q1, q2);
