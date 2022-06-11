@@ -1784,22 +1784,23 @@ mesh2_s *mesh3_get_surface_mesh(mesh3_s const *mesh) {
 
   // Grab all of the referenced vertices and splat them into a new
   // array. There will be duplicate vertices!
-  dbl *verts = malloc(3*mesh->nbdf*sizeof(dbl[3]));
+  dbl3 *verts = malloc(3*mesh->nbdf*sizeof(dbl3));
   for (size_t lf = 0; lf < mesh->nbdf; ++lf) {
     bdf_s const *face = &mesh->bdf[lf];
     for (int i = 0; i < 3; ++i) {
       size_t lv = face->lf[i];
       for (int j = 0; j < 3; ++j)
-        verts[3*(3*lf + i) + j] = mesh->verts[lv][j];
+        verts[3*lf + i][j] = mesh->verts[lv][j];
     }
   }
 
   // The faces array is very easy to construct at this point---it's
   // just an array of 3*nbdf size_t's, filled with the values 0, ...,
   // 3*mesh->nbdf - 1.
-  size_t *faces = malloc(mesh->nbdf*sizeof(size_t[3]));
-  for (size_t lf = 0; lf < 3*mesh->nbdf; ++lf)
-    faces[lf] = lf;
+  uint3 *faces = malloc(mesh->nbdf*sizeof(uint3));
+  for (size_t lf = 0; lf < mesh->nbdf; ++lf)
+    for (size_t i = 0; i < 3; ++i)
+      faces[lf][i] = lf;
 
   /* Precompute the array of face normals. The face normal for the
    * tetrahedron mesh is assumed to point *into* the interior of the
@@ -1813,7 +1814,10 @@ mesh2_s *mesh3_get_surface_mesh(mesh3_s const *mesh) {
 
   mesh2_s *surface_mesh;
   mesh2_alloc(&surface_mesh);
-  mesh2_init(surface_mesh,verts,3*mesh->nbdf,faces,mesh->nbdf,face_normals);
+  mesh2_init(surface_mesh,
+             verts, 3*mesh->nbdf, /* copy_verts: */ true,
+             faces, mesh->nbdf,
+             face_normals);
 
   free(faces);
   free(verts);

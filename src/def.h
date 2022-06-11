@@ -85,6 +85,8 @@ typedef int int2[2];
 
 typedef int int3[3];
 
+typedef size_t uint3[3];
+
 typedef enum error {
   SUCCESS,
   BAD_ARGUMENT
