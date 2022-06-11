@@ -17,18 +17,19 @@ bool mesh2_tri_equal(mesh2_tri_s const *t1, mesh2_tri_s const *t2);
 void mesh2_alloc(mesh2_s **mesh);
 void mesh2_dealloc(mesh2_s **mesh);
 void mesh2_init(mesh2_s *mesh,
-                dbl3 const *verts, size_t nverts, bool copy_verts,
-                size_t const (*faces)[3], size_t nfaces,
-                dbl3 const *face_normals);
+                dbl3 const *verts, size_t nverts, policy_e verts_policy,
+                size_t const (*faces)[3], size_t nfaces, policy_e faces_policy,
+                dbl3 const *face_normals, policy_e face_normals_policy);
 void mesh2_init_from_binary_files(mesh2_s *mesh, char const *verts_path,
                                   char const *faces_path);
 void mesh2_deinit(mesh2_s *mesh);
 void mesh2_dump_verts(mesh2_s const *mesh, char const *path);
 void mesh2_dump_faces(mesh2_s const *mesh, char const *path);
-size_t mesh2_get_num_points(mesh2_s const *mesh);
-dbl3 const *mesh2_get_points_ptr(mesh2_s const *mesh);
-size_t mesh2_get_num_faces(mesh2_s const *mesh);
+size_t mesh2_nverts(mesh2_s const *mesh);
+size_t mesh2_nfaces(mesh2_s const *mesh);
+dbl3 const *mesh2_get_verts_ptr(mesh2_s const *mesh);
 uint3 const *mesh2_get_faces_ptr(mesh2_s const *mesh);
+
 rect3 mesh2_get_bounding_box(mesh2_s const *mesh);
 void mesh2_get_centroid(mesh2_s const *mesh, size_t i, dbl *centroid);
 void mesh2_get_vertex(mesh2_s const *mesh, size_t i, size_t j, dbl *v);

@@ -17,12 +17,14 @@ bool mesh2_tri_equal(mesh2_tri_s const *t1, mesh2_tri_s const *t2) {
 struct mesh2 {
   dbl3 const *verts;
   size_t num_verts;
-  bool owns_verts;
+  policy_e verts_policy;
 
   size_t const (*faces)[3];
   size_t num_faces;
+  policy_e faces_policy;
 
   dbl3 const *face_normals;
+  policy_e face_normals_policy;
 };
 
 void mesh2_alloc(mesh2_s **mesh) {
@@ -35,24 +37,61 @@ void mesh2_dealloc(mesh2_s **mesh) {
 }
 
 void mesh2_init(mesh2_s *mesh,
-                dbl3 const *verts, size_t nverts, bool copy_verts,
-                size_t const (*faces)[3], size_t nfaces,
-                dbl3 const *face_normals) {
-  if (copy_verts) {
+                dbl3 const *verts, size_t nverts, policy_e verts_policy,
+                size_t const (*faces)[3], size_t nfaces, policy_e faces_policy,
+                dbl3 const *face_normals, policy_e face_normals_policy) {
+  /* Set up `verts`: */
+  switch (verts_policy) {
+  case POLICY_COPY: {
     mesh->verts = malloc(nverts*sizeof(dbl3));
     memcpy((dbl3 *)mesh->verts, verts, nverts*sizeof(dbl3));
-  } else {
+    break;
+  }
+  case POLICY_XFER:
+  case POLICY_VIEW: {
     mesh->verts = (dbl3 *)verts;
+    break;
+  }
+  default:
+    assert(false);
   }
   mesh->num_verts = nverts;
-  mesh->owns_verts = copy_verts;
+  mesh->verts_policy = verts_policy;
 
-  mesh->faces = malloc(nfaces*sizeof(size_t[3]));
-  memcpy((size_t(*)[3])mesh->faces, faces, nfaces*sizeof(size_t[3]));
+  /* Set up `faces`: */
+  switch (faces_policy) {
+  case POLICY_COPY: {
+    mesh->faces = malloc(nfaces*sizeof(size_t[3]));
+    memcpy((size_t(*)[3])mesh->faces, faces, nfaces*sizeof(size_t[3]));
+    break;
+  }
+  case POLICY_XFER:
+  case POLICY_VIEW: {
+    mesh->faces = faces;
+    break;
+  }
+  default:
+    assert(false);
+  }
   mesh->num_faces = nfaces;
+  mesh->faces_policy = faces_policy;
 
-  mesh->face_normals = malloc(nfaces*sizeof(dbl3));
-  memcpy((dbl3 *)mesh->face_normals, face_normals, nfaces*sizeof(dbl3));
+  /* Set up `face_normals`: */
+  switch (face_normals_policy) {
+  case POLICY_COPY: {
+    mesh->face_normals = malloc(nfaces*sizeof(dbl3));
+    memcpy((dbl3 *)mesh->face_normals, face_normals, nfaces*sizeof(dbl3));
+    break;
+  }
+  case POLICY_XFER:
+  case POLICY_VIEW: {
+    mesh->face_normals = face_normals;
+    break;
+  }
+  default:
+    assert(false);
+  }
+  mesh->face_normals_policy = face_normals_policy;
 }
 
 void mesh2_init_from_binary_files(mesh2_s *mesh, char const *verts_path,
@@ -78,7 +117,7 @@ void mesh2_init_from_binary_files(mesh2_s *mesh, char const *verts_path,
 
   mesh->verts = malloc(size);
   mesh->num_verts = size/sizeof(dbl3);
-  mesh->owns_verts = true;
+  mesh->verts_policy = POLICY_COPY;
 
   fread((dbl3 *)mesh->verts, sizeof(dbl3), mesh->num_verts, fp);
 
@@ -114,19 +153,52 @@ void mesh2_init_from_binary_files(mesh2_s *mesh, char const *verts_path,
 }
 
 void mesh2_deinit(mesh2_s *mesh) {
-  if (mesh->owns_verts) {
+  /* Deinit `verts`: */
+  switch (mesh->verts_policy) {
+  case POLICY_COPY:
+  case POLICY_XFER: {
     free((dbl3 *)mesh->verts);
-    mesh->num_verts = 0;
+    break;
   }
+  case POLICY_VIEW:
+    break;
+  default:
+    assert(false);
+  }
+  mesh->num_verts = 0;
   mesh->verts = NULL;
-  mesh->owns_verts = false;
+  mesh->verts_policy = POLICY_INVALID;
 
-  free((size_t(*)[3])mesh->faces);
+  /* Deinit `faces`: */
+  switch (mesh->faces_policy) {
+  case POLICY_COPY:
+  case POLICY_XFER: {
+    free((size_t(*)[3])mesh->faces);
+    break;
+  }
+  case POLICY_VIEW:
+    break;
+  default:
+    assert(false);
+  }
   mesh->faces = NULL;
   mesh->num_faces = 0;
+  mesh->faces_policy = POLICY_INVALID;
 
-  free((dbl3 *)mesh->face_normals);
+  /* Deinit `face_normals`: */
+  switch (mesh->face_normals_policy) {
+  case POLICY_COPY:
+  case POLICY_XFER: {
+    free((dbl3 *)mesh->face_normals);
+    break;
+  }
+  case POLICY_VIEW:
+    break;
+  default:
+    assert(false);
+  }
   mesh->face_normals = NULL;
+  mesh->face_normals_policy = POLICY_INVALID;
 }
 
 void mesh2_dump_verts(mesh2_s const *mesh, char const *path) {
@@ -141,7 +213,7 @@ void mesh2_dump_faces(mesh2_s const *mesh, char const *path) {
   fclose(fp);
 }
 
-size_t mesh2_get_num_verts(mesh2_s const *mesh) {
+size_t mesh2_nverts(mesh2_s const *mesh) {
   return mesh->num_verts;
 }
 
@@ -149,7 +221,7 @@ dbl3 const *mesh2_get_verts_ptr(mesh2_s const *mesh) {
   return mesh->verts;
 }
 
-size_t mesh2_get_num_faces(mesh2_s const *mesh) {
+size_t mesh2_nfaces(mesh2_s const *mesh) {
   return mesh->num_faces;
 }
 

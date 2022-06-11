@@ -498,7 +498,7 @@ void rtree_insert_bmesh33(rtree_s *rtree, bmesh33_s const *bmesh) {
 void rtree_insert_mesh2(rtree_s *rtree, mesh2_s const *mesh) {
   rnode_s *node = &rtree->root;
   assert(node->type == RNODE_TYPE_LEAF);
-  size_t num_faces = mesh2_get_num_faces(mesh);
+  size_t num_faces = mesh2_nfaces(mesh);
   robj_s obj = {.type = ROBJ_MESH2_TRI};
   for (size_t l = 0; l < num_faces; ++l) {
     mesh2_tri_s *tri = pool_get(rtree->pool, sizeof(mesh2_tri_s));

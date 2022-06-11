@@ -1815,13 +1815,13 @@ mesh2_s *mesh3_get_surface_mesh(mesh3_s const *mesh) {
   mesh2_s *surface_mesh;
   mesh2_alloc(&surface_mesh);
   mesh2_init(surface_mesh,
-             verts, 3*mesh->nbdf, /* copy_verts: */ true,
-             faces, mesh->nbdf,
-             face_normals);
+             verts, 3*mesh->nbdf, /* copy_verts: */ false,
+             faces, mesh->nbdf, /* copy_faces: */ false,
+             face_normals, /* copy_face_normals: */ false);
 
-  free(faces);
-  free(verts);
-  free(face_normals);
+  /* Don't need to free `verts`, `faces`, or `face_normals` here since
+   * we've passed ownership to `surface_mesh`. They will be freed when
+   * `surface_mesh` is destructed. */
 
   return surface_mesh;
 }
@@ -1924,6 +1924,31 @@ void mesh3_get_reflector(mesh3_s const *mesh, size_t i, size_t (*lf)[3]) {
   for (size_t l = 0; l < mesh->nbdf; ++l)
     if (mesh->bdf_label[l] == i)
       memcpy(lf[nf++], mesh->bdf[l].lf, sizeof(size_t[3]));
+}
+
+/* Create a `mesh2_s` corresponding to the `i`th reflector. It is the
+ * caller's responsibility to clean up the returned mesh. */
+mesh2_s *mesh3_get_reflector_mesh(mesh3_s const *mesh, size_t i) {
+  size_t nf = mesh3_get_reflector_size(mesh, i);
+  uint3 *lf = malloc(nf*sizeof(uint3));
+  mesh3_get_reflector(mesh, i, lf);
+
+  dbl3 *face_normals = malloc(nf*sizeof(dbl3));
+  for (size_t i = 0; i < nf; ++i)
+    mesh3_get_face_normal(mesh, lf[i], face_normals[i]);
+
+  mesh2_s *reflector_mesh;
+  mesh2_alloc(&reflector_mesh);
+  mesh2_init(
+    reflector_mesh,
+    mesh->verts, mesh->nverts, POLICY_XFER,
+    lf, nf, POLICY_XFER,
+    face_normals, POLICY_XFER);
+
+  /* Don't need to free `lf` or `face_normals` here since we transfer
+   * ownership to `reflector_mesh`. */
+
+  return reflector_mesh;
 }
 
 size_t mesh3_get_num_diffractors(mesh3_s const *mesh) {

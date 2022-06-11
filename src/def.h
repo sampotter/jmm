@@ -31,6 +31,13 @@ extern "C" {
 #define NO_LABEL SIZE_MAX
 #define NO_PARENT SIZE_MAX
 
+typedef enum policy {
+  POLICY_INVALID,
+  POLICY_COPY,
+  POLICY_XFER,
+  POLICY_VIEW
+} policy_e;
+
 typedef enum state {
   FAR,
   TRIAL,

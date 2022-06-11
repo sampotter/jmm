@@ -114,6 +114,7 @@ void mesh3_get_inc_bdf(mesh3_s const *mesh, size_t l, size_t (*lf)[3]);
 size_t mesh3_get_num_reflectors(mesh3_s const *mesh);
 size_t mesh3_get_reflector_size(mesh3_s const *mesh, size_t i);
 void mesh3_get_reflector(mesh3_s const *mesh, size_t i, size_t (*lf)[3]);
+mesh2_s *mesh3_get_reflector_mesh(mesh3_s const *mesh, size_t i);
 size_t mesh3_get_num_diffractors(mesh3_s const *mesh);
 size_t mesh3_get_diffractor_size(mesh3_s const *mesh, size_t i);
 void mesh3_get_diffractor(mesh3_s const *mesh, size_t i, size_t (*le)[2]);
