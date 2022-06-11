@@ -57,12 +57,12 @@ def compute_rel_lp_errors_wrt_a(field, selected_origin=None, p=1):
             mask = np.ones(T.shape, dtype=np.bool_)
         if mask.sum() == 0:
             break
-        E_T.append(np.mean(abs(T[mask] - T_gt[mask]))/np.mean(abs(T_gt[mask])))
-        E_DT.append(np.mean(np.apply_along_axis(norm, 1, DT[mask] - DT_gt[mask]))/
-                    np.mean(np.apply_along_axis(norm, 1, DT_gt[mask])))
+        E_T.append(np.nanmean(abs(T[mask] - T_gt[mask]))/np.nanmean(abs(T_gt[mask])))
+        E_DT.append(np.nanmean(np.apply_along_axis(norm, 1, DT[mask] - DT_gt[mask]))/
+                    np.nanmean(np.apply_along_axis(norm, 1, DT_gt[mask])))
         E_D2T.append(
-            np.mean([norm(H - H_gt) for H, H_gt in zip(D2T[mask], D2T_gt[mask])])/
-            np.mean([norm(H_gt) for H_gt in D2T_gt[mask]]))
+            np.nanmean([norm(H - H_gt) for H, H_gt in zip(D2T[mask], D2T_gt[mask])])/
+            np.nanmean([norm(H_gt) for H_gt in D2T_gt[mask]]))
     return np.array(E_T), np.array(E_DT), np.array(E_D2T)
 
 plt.figure(figsize=(10, 10))
@@ -96,6 +96,9 @@ for i, (selected_origin, field) in enumerate(
     E_T = E_T[I]
     E_DT = E_DT[I]
     E_D2T = E_D2T[I]
+
+    if np.isnan(E_T).any() or np.isnan(E_DT).any() or np.isnan(E_D2T).any():
+        continue
 
     fit_T = np.poly1d(np.polyfit(np.log(h), np.log(E_T), 1))
     fit_DT = np.poly1d(np.polyfit(np.log(h), np.log(E_DT), 1))
