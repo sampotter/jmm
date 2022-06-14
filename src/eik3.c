@@ -16,11 +16,25 @@
 #include "log.h"
 #include "macros.h"
 #include "mat.h"
+#include "mesh1.h"
+#include "mesh2.h"
 #include "mesh3.h"
 #include "utetra.h"
 #include "util.h"
 #include "utri.h"
 #include "vec.h"
+
+static bool l_OK(size_t l) {
+  return l != (size_t)NO_INDEX;
+}
+
+static bool is_edge(uint3 const l) {
+  return l_OK(l[0]) && l_OK(l[1]) && !l_OK(l[2]);
+}
+
+static bool is_face(uint3 const l) {
+  return l_OK(l[0]) && l_OK(l[1]) && l_OK(l[2]);
+}
 
 // TODO:
 //
@@ -295,7 +309,7 @@ static void adjust(eik3_s *eik, size_t l) {
   heap_swim(eik->heap, eik->pos[l]);
 }
 
-/** Functions for `do_bd_utri` and `do_diff_utri`: */
+/** Functions for `do_utri`: */
 
 static void commit_utri(eik3_s *eik, size_t lhat, utri_s const *utri) {
   /* TODO: see comment about caustics in `commit_utetra` */
@@ -414,27 +428,30 @@ static bool utri_is_cached(array_s const *utri_cache, utri_s const *utri) {
   return false;
 }
 
-static bool did_utri_already(array_s const *utri_cache, utri_s const *utri) {
+static bool did_utri_already(array_s const *utri_cache, size_t lhat, uint2 l) {
   for (size_t j = 0; j < array_size(utri_cache); ++j) {
-    utri_s *utri_other;
-    array_get(utri_cache, j, &utri_other);
-    if (utris_have_same_inds(utri, utri_other))
+    utri_s *utri;
+    array_get(utri_cache, j, &utri);
+    if (utri_has_inds(utri, lhat, l))
       return true;
   }
   return false;
 }
 
 static void
-do_utri(eik3_s *eik, size_t l, size_t l0, size_t l1, array_s *utri_cache) {
+do_utri(eik3_s *eik, size_t l, size_t l0, size_t l1, array_s *utri_cache,
+        par3_s *par) {
+  if (did_utri_already(utri_cache, l, (uint2) {l0, l1}))
+    goto cleanup;
+
   utri_spec_s spec = utri_spec_from_eik(eik, l, l0, l1);
+
+  if (par != NULL)
+    par3_init_empty(par);
 
   utri_s *utri;
   utri_alloc(&utri);
   utri_init(utri, &spec);
-
-  /* TODO: don't need to init utri to check this! */
-  if (did_utri_already(utri_cache, utri))
-    goto cleanup;
 
   if (utri_is_backwards(utri, eik))
     goto cleanup;
@@ -444,13 +461,17 @@ do_utri(eik3_s *eik, size_t l, size_t l0, size_t l1, array_s *utri_cache) {
 
   utri_solve(utri);
 
+  if (par != NULL && utri_get_value(utri) < eik->jet[l].f)
+    *par = utri_get_par(utri);
+
   if (utri_get_value(utri) >= eik->jet[l].f)
     goto cleanup;
 
   if (utri_ray_is_occluded(utri, eik))
     goto cleanup;
 
-  if (utri_has_interior_point_solution(utri)) {
+  if (utri_has_interior_point_solution(utri) ||
+      utri_active_vert_is_terminal_diff_vert(utri, eik)) {
     commit_utri(eik, l, utri);
     adjust(eik, l);
     goto cleanup;
@@ -479,10 +500,6 @@ cleanup:
   utri_dealloc(&utri);
 }
 
-static void do_diff_utri(eik3_s *eik, size_t lhat, size_t l[2]) {
-  do_utri(eik, lhat, l[0], l[1], eik->old_diff_utri);
-}
-
 static void do_utris_if(eik3_s *eik, size_t l, size_t l0, array_s *utri_cache,
                         bool (*pred)(eik3_s const *, size_t const[2])) {
   assert(l != l0);
@@ -497,7 +514,7 @@ static void do_utris_if(eik3_s *eik, size_t l, size_t l0, array_s *utri_cache,
     array_get(l1_arr, i, &l1);
     if (l == l1)
       continue;
-    do_utri(eik, l, l0, l1, utri_cache);
+    do_utri(eik, l, l0, l1, utri_cache, /* par: */ NULL);
   }
 
   /* release array of VALID diff edges */
@@ -557,32 +574,14 @@ static void commit_utetra(eik3_s *eik, size_t l, utetra_s const *utetra) {
 }
 
 static bool
-utetras_bracket_ray(utetra_s const *utetra, size_t l0,
-                    utetra_s **utetra_other, size_t num_utetra_other) {
-  if (num_utetra_other == 0)
-    return false;
-
-  size_t num_interior = utetra_get_num_interior_coefs(utetra);
-  assert(num_interior == 0 || num_interior == 2);
-
-  bool l0_is_active = utetra_index_is_active(utetra, l0);
-
-  if (num_interior == 2)
-    return l0_is_active;
-
-  if (!l0_is_active)
-    return false;
-
-  /* Get the first utetra... if any of the vertices are boundary
-   * vertices, we should do something a little different here. Namely,
-   * we should make sure that l_start is on the boundary! But I'm not
-   * sure whether this is actually that important... see comment
-   * below. */
+utetras_bracket_ray_1(utetra_s const *utetra, size_t la,
+                      utetra_s **utetra_other, size_t num_utetra_other) {
+  (void)utetra;
 
   size_t i_current = 0;
 
   size_t l_other[2] = {NO_INDEX, NO_INDEX};
-  utetra_get_other_inds(utetra_other[i_current], l0, l_other);
+  utetra_get_other_inds(utetra_other[i_current], la, l_other);
 
   size_t l_start = l_other[0], l_current = l_other[1];
 
@@ -595,7 +594,7 @@ utetras_bracket_ray(utetra_s const *utetra, size_t l0,
       if (i == i_current)
         continue;
 
-      utetra_get_other_inds(utetra_other[i], l0, l_other);
+      utetra_get_other_inds(utetra_other[i], la, l_other);
       if (l_current != l_other[0] && l_current != l_other[1])
         continue;
 
@@ -603,6 +602,10 @@ utetras_bracket_ray(utetra_s const *utetra, size_t l0,
       l_current = l_current == l_other[0] ? l_other[1] : l_other[0];
       i_current = i;
       break;
+
+      /* TODO: actually check whether these vertices form a ring
+       * around the active index after projecting onto the normal
+       * plane */
     }
   }
 
@@ -610,10 +613,95 @@ utetras_bracket_ray(utetra_s const *utetra, size_t l0,
   return l_start == l_current;
 }
 
+static void get_unit_normal_for_verts_by_index(mesh3_s const *mesh,
+                                               uint3 const l, dbl3 n) {
+  dbl3 x0;
+  mesh3_copy_vert(mesh, l[0], x0);
+
+  dbl3 dx[2];
+  for (size_t i = 0; i < 2; ++i)
+    dbl3_sub(mesh3_get_vert_ptr(mesh, l[i + 1]), x0, dx[i]);
+
+  dbl3_cross(dx[0], dx[1], n);
+  dbl3_normalize(n);
+}
+
+static bool
+utetras_bracket_ray_2(eik3_s const *eik, utetra_s const *utetra,
+                      utetra_s **utetra_other, size_t num_utetra_other) {
+  mesh3_s const *mesh = eik->mesh;
+
+  size_t l = utetra_get_l(utetra);
+
+  par3_s par = utetra_get_parent(utetra);
+  uint3 la, li;
+  size_t na = par3_get_active_and_inactive_inds(&par, la, li);
+  assert(na == 2);
+  SORT_UINT3(la);
+  SORT_UINT3(li);
+
+  dbl3 xa, xi;
+  mesh3_copy_vert(mesh, la[0], xa);
+  mesh3_copy_vert(mesh, li[0], xi);
+
+  for (size_t i = 0; i < num_utetra_other; ++i) {
+    assert(l == utetra_get_l(utetra_other[i]));
+
+    par3_s par_ = utetra_get_parent(utetra_other[i]);
+
+    uint3 la_, li_;
+    size_t na_ = par3_get_active_and_inactive_inds(&par_, la_, li_);
+    SORT_UINT3(la_);
+    SORT_UINT3(li_);
+
+    /* Check if both `utetra` have the same active indices */
+    if (na_ != 2 && la_[0] != la[0] && la_[1] != la[1])
+      continue;
+
+    /* Get the unit normal for the plane determined by the update
+     * index and the active edge */
+    dbl3 n;
+    get_unit_normal_for_verts_by_index(mesh, (uint3) {l, la[0], la[1]}, n);
+
+    /* Get the inactive vertex for the current other utetra */
+    dbl3 xi_;
+    mesh3_copy_vert(mesh, li_[0], xi_);
+
+    /* Check whether the two inactive vertices lie on either side of
+     * the plane */
+    dbl n_dot_xa = dbl3_dot(n, xa);
+    dbl dp = dbl3_dot(n, xi) - n_dot_xa;
+    dbl dp_ = dbl3_dot(n, xi_) - n_dot_xa;
+    if (sgn(dp) != sgn(dp_))
+      return true;
+  }
+
+  return false;
+}
+
+static bool
+utetras_bracket_ray(eik3_s const *eik, utetra_s const *utetra,
+                    utetra_s **utetra_other, size_t num_utetra_other) {
+  if (num_utetra_other == 0)
+    return false;
+
+  par3_s par = utetra_get_parent(utetra);
+  uint3 la;
+  size_t na = par3_get_active_inds(&par, la);
+  assert(na == 1 || na == 2);
+
+  if (na == 1)
+    return utetras_bracket_ray_1(utetra, la[0], utetra_other, num_utetra_other);
+  else if (na == 2)
+    return utetras_bracket_ray_2(eik, utetra, utetra_other, num_utetra_other);
+  else
+    assert(false);
+}
+
 
 static utetra_s **
-find_and_delete_cached_utetra(eik3_s *eik, size_t l0,
-                              utetra_s const *utetra, size_t *num_utetra) {
+find_and_delete_cached_utetra(eik3_s *eik, utetra_s const *utetra,
+                              size_t *num_utetra_other) {
   size_t l = utetra_get_l(utetra);
 
   // TODO: not 100% sure what the right way to set this is...
@@ -640,8 +728,8 @@ find_and_delete_cached_utetra(eik3_s *eik, size_t l0,
   }
 
   /* Get the pointers to the utetra we found */
-  *num_utetra = array_size(i_arr);
-  utetra_s **utetra_found = malloc(*num_utetra*sizeof(utetra_s *));
+  *num_utetra_other = array_size(i_arr);
+  utetra_s **utetra_found = malloc(*num_utetra_other*sizeof(utetra_s *));
   for (size_t j = 0, i; j < array_size(i_arr); ++j) {
     array_get(i_arr, j, &i);
     array_get(eik->old_utetra, i, &utetra_found[j]);
@@ -652,12 +740,13 @@ find_and_delete_cached_utetra(eik3_s *eik, size_t l0,
    * we're dealing with an optimum on the interior of an edge, or 2)
    * we have an optimum on a corner and we can "walk" the ring of
    * surrounding utetra */
-  bool found = *num_utetra > 0 &&
-    utetras_bracket_ray(utetra, l0, utetra_found, *num_utetra);
+  bool found = *num_utetra_other > 0 &&
+    utetras_bracket_ray(eik, utetra, utetra_found, *num_utetra_other);
   if (found) {
     array_delete_all(eik->old_utetra, i_arr);
   } else {
     free(utetra_found);
+    *num_utetra_other = 0;
     utetra_found = NULL;
   }
 
@@ -677,26 +766,52 @@ static bool utetra_cached_already(eik3_s const *eik, utetra_s const *utetra) {
   return false;
 }
 
-static bool did_utetra_already(eik3_s const *eik, utetra_s const *utetra) {
+static bool did_utetra_already(eik3_s const *eik, size_t lhat, uint3 const l) {
   for (size_t j = 0; j < array_size(eik->old_utetra); ++j) {
-    utetra_s *utetra_other;
-    array_get(eik->old_utetra, j, &utetra_other);
-    if (utetras_have_same_inds(utetra, utetra_other))
+    utetra_s *utetra;
+    array_get(eik->old_utetra, j, &utetra);
+    if (utetra_has_inds(utetra, lhat, l))
       return true;
   }
   return false;
 }
 
-void do_utetra(eik3_s *eik, size_t lhat, size_t l[3]) {
+static bool find_and_do_matched_utetra(eik3_s *eik, size_t lhat,
+                                       utetra_s const *utetra) {
+  size_t num_interior = utetra_get_num_interior_coefs(utetra);
+  assert(num_interior == 0 || num_interior == 2);
+
+  size_t num_utetra_other = 0;
+  utetra_s **utetra_other =
+    find_and_delete_cached_utetra(eik, utetra, &num_utetra_other);
+
+  if (!utetra_other) {
+    assert(num_utetra_other == 0);
+    return false;
+  }
+
+  commit_utetra(eik, lhat, utetra);
+  adjust(eik, lhat);
+
+  for (size_t j = 0; j < num_utetra_other; ++j)
+    utetra_dealloc(&utetra_other[j]);
+  free(utetra_other);
+
+  return true;
+}
+
+void do_utetra(eik3_s *eik, size_t lhat, uint3 const l, par3_s *par) {
+  if (did_utetra_already(eik, lhat, l))
+    return;
+
   utetra_spec_s spec = utetra_spec_from_eik_and_inds(eik, lhat, l[0], l[1], l[2]);
+
+  if (par != NULL)
+    par3_init_empty(par);
 
   utetra_s *utetra;
   utetra_alloc(&utetra);
   utetra_init(utetra, &spec);
-
-  /* TODO: we don't need to init the utetra in order to check this! */
-  if (did_utetra_already(eik, utetra))
-    goto cleanup;
 
   if (utetra_is_backwards(utetra, eik))
     goto cleanup;
@@ -705,6 +820,9 @@ void do_utetra(eik3_s *eik, size_t lhat, size_t l[3]) {
     goto cleanup;
 
   utetra_solve(utetra, /* warm start: */ NULL);
+
+  if (par != NULL)
+    *par = utetra_get_parent(utetra);
 
   if (utetra_get_value(utetra) >= eik->jet[lhat].f)
     goto cleanup;
@@ -718,20 +836,8 @@ void do_utetra(eik3_s *eik, size_t lhat, size_t l[3]) {
     goto cleanup;
   }
 
-  size_t num_interior = utetra_get_num_interior_coefs(utetra);
-  assert(num_interior == 0 || num_interior == 2);
-
-  size_t num_utetra_other;
-  utetra_s **utetra_other =
-    find_and_delete_cached_utetra(eik, l[0], utetra, &num_utetra_other);
-  if (utetra_other) {
-    commit_utetra(eik, lhat, utetra);
-    adjust(eik, lhat);
-    for (size_t j = 0; j < num_utetra_other; ++j)
-      utetra_dealloc(&utetra_other[j]);
-    free(utetra_other);
+  if (find_and_do_matched_utetra(eik, lhat, utetra))
     goto cleanup;
-  }
 
   if (!utetra_cached_already(eik, utetra)) {
     array_append(eik->old_utetra, &utetra);
@@ -758,6 +864,7 @@ static void do_1pt_update(eik3_s *eik, size_t l, size_t l0) {
 
   eik->jet[l] = jet;
 
+  par3_init_empty(&eik->par[l]);
   eik->par[l].l[0] = l0;
   eik->par[l].b[0] = 1;
 
@@ -791,7 +898,7 @@ static void do_utetra_fan(eik3_s *eik, size_t lhat, size_t l0) {
       }
     }
 
-    do_utetra(eik, lhat, l);
+    do_utetra(eik, lhat, l, /* par: */ NULL);
   }
 
 cleanup:
@@ -864,24 +971,26 @@ void update_neighbors(eik3_s *eik, size_t l0) {
   free(nb);
 }
 
-/* Remove old tetrahedron and two-point boundary updates targeting
- * `l0` from `eik`. */
-static void purge_old_utetra(eik3_s *eik, size_t l0) {
-  utetra_s *old_utetra;
-  for (size_t i = array_size(eik->old_utetra); i > 0; --i) {
-    array_get(eik->old_utetra, i - 1, &old_utetra);
-    if (utetra_get_l(old_utetra) == l0) {
-      utetra_dealloc(&old_utetra);
-      array_delete(eik->old_utetra, i - 1);
+/* Remove tetrahedron updates targeting `l0` from `utetra_cache`. */
+static void purge_utetra(array_s *utetra_cache, size_t l0) {
+  utetra_s *utetra;
+  for (size_t i = array_size(utetra_cache); i > 0; --i) {
+    array_get(utetra_cache, i - 1, &utetra);
+    if (utetra_get_l(utetra) == l0) {
+      utetra_dealloc(&utetra);
+      array_delete(utetra_cache, i - 1);
     }
   }
+}
 
-  utri_s *old_utri;
-  for (size_t i = array_size(eik->old_bd_utri); i > 0; --i) {
-    array_get(eik->old_bd_utri, i - 1, &old_utri);
-    if (utri_get_l(old_utri) == l0) {
-      utri_dealloc(&old_utri);
-      array_delete(eik->old_bd_utri, i - 1);
+/* Remove triangle updates targeting `l0` from `utri_cache`. */
+static void purge_utri(array_s *utri_cache, size_t l0) {
+  utri_s *utri;
+  for (size_t i = array_size(utri_cache); i > 0; --i) {
+    array_get(utri_cache, i - 1, &utri);
+    if (utri_get_l(utri) == l0) {
+      utri_dealloc(&utri);
+      array_delete(utri_cache, i - 1);
     }
   }
 }
@@ -901,7 +1010,10 @@ jmm_error_e eik3_step(eik3_s *eik, size_t *l0) {
   if (!isfinite(eik->jet[*l0].f))
     return JMM_ERROR_RUNTIME_ERROR;
 
-  purge_old_utetra(eik, *l0);
+  purge_utetra(eik->old_utetra, *l0);
+  purge_utri(eik->old_bd_utri, *l0);
+  purge_utri(eik->old_diff_utri, *l0);
+
   update_neighbors(eik, *l0);
 
   /* Increment the number of nodes that have been accepted, and mark
@@ -940,9 +1052,14 @@ static void reset_nodes(eik3_s *eik, array_s const *l_arr) {
   for (size_t i = 0, l; i < array_size(l_arr); ++i) {
     array_get(l_arr, i, &l);
     assert(eik->state[l] == VALID);
+
     eik->jet[l] = jet31t_make_empty();
     eik->state[l] = FAR;
     par3_init_empty(&eik->par[l]);
+
+    purge_utetra(eik->old_utetra, l);
+    purge_utri(eik->old_bd_utri, l);
+    purge_utri(eik->old_diff_utri, l);
   }
 
   unaccept_nodes(eik, l_arr);
@@ -979,6 +1096,140 @@ static void fix_valid_front(eik3_s *eik) {
 
   array_deinit(l_arr);
   array_dealloc(&l_arr);
+}
+
+/* Sort `eik->accepted` topologically, otherwise can't propagate. */
+static void fix_accepted(eik3_s *eik) {
+  size_t nverts = mesh3_nverts(eik->mesh);
+
+  /* TODO: Make sure all nodes *have* an accepted value... could relax
+   * this, but not a high priority... just shift all nodes w/o an
+   * accepted value to the end of array first */
+  for (size_t l = 0; l < nverts; ++l)
+    assert(l_OK(eik->accepted[l]));
+
+  /* Go through and count the children of each node.
+   *
+   * Note: this is well-defined, since by construction a node can have
+   * at most one parent. */
+  size_t *num_ch = calloc(nverts, sizeof(size_t));
+  for (size_t l_ch = 0; l_ch < nverts; ++l_ch) {
+    uint3 l;
+    size_t n = par3_get_active_inds(&eik->par[l_ch], l);
+    for (size_t i = 0; i < n; ++i)
+      ++num_ch[l[i]];
+  }
+
+  /* Figure out the offsets for each subrange of children which will
+   * be contained by `ch` */
+  size_t *ch_offset = malloc((nverts + 1)*sizeof(size_t));
+  ch_offset[0] = 0;
+  for (size_t l = 0; l < nverts; ++l)
+    ch_offset[l + 1] = ch_offset[l] + num_ch[l];
+
+  /* Reset `num_ch`---we'll count them again below */
+  memset(num_ch, 0x0, nverts*sizeof(size_t));
+
+  /* We need to keep track of the indegree of each vertex. We'll use
+   * this to control when we insert new nodes into the queue. */
+  size_t *indegree = malloc(nverts*sizeof(size_t));
+
+  /* Simultaneously recount the children and populate the subranges of
+   * `ch` where the child indices will be kept */
+  size_t *ch = malloc(ch_offset[nverts]*sizeof(size_t));
+  for (size_t l_ch = 0; l_ch < nverts; ++l_ch) {
+    uint3 l;
+    size_t n = par3_get_active_inds(&eik->par[l_ch], l);
+    for (size_t i = 0; i < n; ++i)
+      ch[ch_offset[l[i]] + num_ch[l[i]]++] = l_ch;
+
+    /* Set indegree of child node. */
+    indegree[l_ch] = n;
+  }
+
+  /* Prepare an array which we'll use for a queue backing the
+   * topological sort's BFS */
+  array_s *queue;
+  array_alloc(&queue);
+  array_init(queue, sizeof(size_t), ARRAY_DEFAULT_CAPACITY);
+
+  /* Reset the number of accepted nodes. We'll use this as the
+   * accumulation index into `eik->accepted`. */
+  eik->num_accepted = 0;
+
+  /* States indicating whether our BFS has visited each node */
+  state_e *marked = malloc(nverts*sizeof(state_e));
+  for (size_t l = 0; l < nverts; ++l)
+    marked[l] = FAR;
+
+  /* Initially populate the queue with nodes without a parent and
+   * which also have BCs. We also mark these nodes as `TRIAL` so we
+   * can quickly determine whether or not they've been queued. */
+  for (size_t l = 0; l < nverts; ++l) {
+    if (par3_is_empty(&eik->par[l]) && array_contains(eik->bc_inds, &l)) {
+      array_append(queue, &l);
+      marked[l] = TRIAL;
+    }
+  }
+
+  /* Use a BFS to visit each node in topological order */
+  while (!array_is_empty(queue)) {
+    size_t l;
+    array_pop_front(queue, &l);
+    assert(indegree[l] == 0);
+
+    /* Mark and accept the current node */
+    assert(marked[l] == TRIAL);
+    marked[l] = VALID;
+    eik->accepted[eik->num_accepted++] = l;
+
+    /* Make sure each of the newly marked node's parents have already
+     * been visited */
+    uint3 la;
+    size_t na = par3_get_active_inds(&eik->par[l], la);
+    for (size_t i = 0; i < na; ++i)
+      assert(marked[la[i]] == VALID);
+
+    /* Enqueue each child node which hasn't been marked and which
+     * isn't already queued */
+    for (size_t i = 0, l_ch; i < num_ch[l]; ++i) {
+      l_ch = ch[ch_offset[l] + i];
+
+      /* Skip each node with zero indegree... */
+      if (indegree[l_ch] == 0)
+        continue;
+
+      /* ... and if we don't skip it, it shouldn't be marked yet */
+      assert(marked[l_ch] == FAR);
+
+      /* Decrement the indegree of the child node and insert it if it
+       * reached zero */
+      if (--indegree[l_ch] == 0) {
+        array_append(queue, &l_ch);
+        marked[l_ch] = TRIAL;
+      }
+    }
+  }
+
+  /* Make sure we visited every node. */
+  assert(eik->num_accepted == nverts);
+  for (size_t l = 0; l < nverts; ++l) {
+    assert(indegree[l] == 0);
+    assert(marked[l]);
+  }
+
+  /** Clean everything up: */
+
+  free(marked);
+
+  free(indegree);
+
+  array_deinit(queue);
+  array_dealloc(&queue);
+
+  free(ch);
+  free(ch_offset);
+  free(num_ch);
 }
 
 void eik3_resolve_downwind_from_diff(eik3_s *eik, size_t diff_index, dbl rfac) {
@@ -1070,6 +1321,7 @@ void eik3_resolve_downwind_from_diff(eik3_s *eik, size_t diff_index, dbl rfac) {
   eik3_add_diff_bcs(eik, /* eik_in: */ eik, diff_index, rfac);
   fix_valid_front(eik);
   eik3_solve(eik);
+  fix_accepted(eik);
 
   /** Cleanup */
 
@@ -1276,9 +1528,16 @@ typedef struct update_inds {
   size_t l[3];
 } update_inds_s;
 
+update_inds_s make_empty_update_inds(size_t lhat) {
+  return (update_inds_s) {
+    .lhat = lhat,
+    .l = {(size_t)NO_INDEX, (size_t)NO_INDEX, (size_t)NO_INDEX}
+  };
+}
+
 /* Set up BCs for each diffracting edge for this diffractor */
 static void add_diff_bcs_for_diffractor(eik3_s *eik, eik3_s const *eik_in,
-                                        size_t diff_index, array_s *le_arr) {
+                                        size_t diff_index) {
   assert(eik->mesh == eik_in->mesh);
   mesh3_s const *mesh = eik->mesh;
 
@@ -1299,11 +1558,116 @@ static void add_diff_bcs_for_diffractor(eik3_s *eik, eik3_s const *eik_in,
     add_diff_bc_for_edge_from_bb31(eik, le[i], &T);
   }
 
-  for (size_t i = 0; i < num_diff_edges; ++i)
-    if (!array_contains(le_arr, &le[i]))
-      array_append(le_arr, &le[i]);
-
   free(le);
+}
+
+static bool OK_edge_inds(uint2 const le) {
+  return le[0] != (size_t)NO_INDEX && le[1] != (size_t)NO_INDEX;
+}
+
+static size_t add_next_edge_to_queue(eik3_s *eik, mesh1_s const *diff_mesh,
+                                     size_t lhat, uint2 const l, size_t la,
+                                     array_s *queue) {
+  size_t le[2];
+  mesh1_ve(diff_mesh, la, le);
+  assert(le[0] != (size_t)NO_INDEX || le[1] != (size_t)NO_INDEX);
+
+  uint2 l_sorted = {l[0], l[1]};
+  SORT2(l_sorted[0], l_sorted[1]);
+
+  bool added = false;
+
+  for (size_t i = 0; i < 2; ++i) {
+    if (le[i] == (size_t)NO_INDEX)
+      continue;
+
+    uint2 ev;
+    mesh1_ev(diff_mesh, le[i], ev);
+    SORT2(ev[0], ev[1]);
+
+    if (l_sorted[0] == ev[0] && l_sorted[1] == ev[1])
+      continue;
+
+    if (array_contains(queue, &ev) ||
+        did_utri_already(eik->old_diff_utri, lhat, ev))
+      continue;
+
+    array_append(queue, &ev);
+    added = true;
+  }
+
+  assert(added);
+
+  return 1;
+}
+
+static void do_diffractor_updates(eik3_s *eik, mesh1_s const *diff_mesh,
+                                  size_t l, uint2 const le_guess) {
+  assert(OK_edge_inds(le_guess));
+
+  array_s *queue;
+  array_alloc(&queue);
+  array_init(queue, sizeof(uint2), ARRAY_DEFAULT_CAPACITY);
+
+  uint2 le = {le_guess[0], le_guess[1]};
+  SORT2(le[0], le[1]);
+  array_append(queue, &le);
+
+  while (isinf(eik->jet[l].f)) {
+    assert(!array_is_empty(queue));
+    array_pop_front(queue, &le);
+
+    par3_s par;
+
+    /* Do the current triangle update */
+    assert(!did_utri_already(eik->old_diff_utri, l, le));
+    do_utri(eik, l, le[0], le[1], eik->old_diff_utri, &par);
+
+    /* If we managed to update `l`, break early */
+    if (isfinite(eik->jet[l].f))
+      break;
+
+    /* TODO: for now... */
+    assert(!par3_is_empty(&par));
+
+    /* Get the active indices */
+    size_t la[3];
+    size_t na = par3_get_active_inds(&par, la);
+    assert(na == 1);
+
+    size_t num_added = add_next_edge_to_queue(eik,diff_mesh,l,le,la[0],queue);
+    assert(num_added == 1);
+  }
+
+  array_deinit(queue);
+  array_dealloc(&queue);
+}
+
+update_inds_s get_diff_update_inds(mesh1_s const *diff_mesh,
+                                   update_inds_s parent_update_inds, size_t l) {
+  update_inds_s update_inds = parent_update_inds;
+  update_inds.lhat = l;
+
+  size_t num_active = 0;
+  for (size_t i = 0; i < 3; ++i)
+    num_active += update_inds.l[i] != (size_t)NO_INDEX;
+  assert(num_active == 0 || num_active == 2);
+
+  if (num_active == 0) {
+    size_t le[2];
+    mesh1_ve(diff_mesh, parent_update_inds.lhat, le);
+
+    bool le_active[2] = {
+      le[0] != (size_t)NO_INDEX,
+      le[1] != (size_t)NO_INDEX
+    };
+
+    assert(le_active[0] || le_active[1]);
+
+    mesh1_ev(diff_mesh, le_active[0] ? le[0] : le[1], update_inds.l);
+  }
+
+  return update_inds;
 }
 
 /* Add edge diffraction BCs in a tube surrounding diff_index */
@@ -1311,65 +1675,71 @@ void eik3_add_diff_bcs(eik3_s *eik, eik3_s const *eik_in, size_t diff_index, dbl
   assert(eik->mesh == eik_in->mesh);
   mesh3_s const *mesh = eik3_get_mesh(eik);
 
-  /* Array to keep track of the unique vertices on the diffractor */
-  array_s *le_arr;
-  array_alloc(&le_arr);
-  array_init(le_arr, sizeof(size_t[2]), ARRAY_DEFAULT_CAPACITY);
-
   /* Add BCs for the diffractor */
-  add_diff_bcs_for_diffractor(eik, eik_in, diff_index, le_arr);
+  add_diff_bcs_for_diffractor(eik, eik_in, diff_index);
 
-  /* Array containing the unique diffractor vertices */
-  array_s *l_uniq_arr;
-  array_alloc(&l_uniq_arr);
-  array_init(l_uniq_arr, sizeof(size_t), ARRAY_DEFAULT_CAPACITY);
-
-  /* ... fill it */
-  for (size_t i = 0, le[2]; i < array_size(le_arr); ++i) {
-    array_get(le_arr, i, &le);
-    for (size_t j = 0; j < 2; ++j)
-      if (!array_contains(l_uniq_arr, &le[j]))
-        array_append(l_uniq_arr, &le[j]);
-  }
+  /* Get the polygonal curve corresponding to the diffractor. We'll
+   * use this to do a local search for updates to accelerate our
+   * BFS. */
+  mesh1_s *diff_mesh = mesh3_get_diff_mesh(mesh, diff_index);
 
   /* The queue driving the BFS */
   array_s *queue;
   array_alloc(&queue);
-  array_init(queue, sizeof(size_t), ARRAY_DEFAULT_CAPACITY);
+  array_init(queue, sizeof(update_inds_s), ARRAY_DEFAULT_CAPACITY);
 
-  /* ... initialize it with the unique vertices on the diffractor. */
-  for (size_t i = 0; i < array_size(l_uniq_arr); ++i)
-    array_append(queue, array_get_ptr(l_uniq_arr, i));
+  /* Seed the BFS's queue with updates for each of the nodes on the
+   * diffractor */
+  for (size_t le = 0; le < mesh1_nedges(diff_mesh); ++le) {
+    uint2 l;
+    mesh1_ev(diff_mesh, le, l);
+    for (size_t i = 0; i < 2; ++i) {
+      update_inds_s update_inds = make_empty_update_inds(l[i]);
+      if (!array_contains(queue, &update_inds))
+        array_append(queue, &update_inds);
+    }
+  }
 
   /* Main BFS loop: */
   while (!array_is_empty(queue)) {
-    size_t l;
-    array_pop_front(queue, &l);
+    update_inds_s update_inds;
+    array_pop_front(queue, &update_inds);
 
-    /* Set the node to trial and insert it into the heap */
-    if (eik3_is_far(eik, l))
+    size_t l = update_inds.lhat, *le = &update_inds.l[0];
+
+    /* If `l` isn't one of the initial points on the diffractor, set
+     * the node to trial, insert it into the heap, and do updates from
+     * the reflector, using `le` as a warm start. */
+    if (OK_edge_inds(le) && eik3_is_far(eik, l)) {
       eik3_add_trial(eik, l, jet31t_make_empty());
-
-    /* If the current node isn't on the diffractor, then update it
-     * from the diffractor
-     *
-     * TODO: should be optimized, otherwise it's O(N^4/3) time */
-    if (!array_contains(l_uniq_arr, &l))
-      for (size_t i = 0; i < array_size(le_arr); ++i)
-        do_diff_utri(eik, l, array_get_ptr(le_arr, i));
-    assert(isfinite(eik->jet[l].f));
+      do_diffractor_updates(eik, diff_mesh, l, le);
+    }
 
     /* Check if we're in the "factoring tube"... */
     if (eik->jet[l].f - get_par_eik_value(eik, l) > rfac)
       continue;
 
-    /* ... if we are, then add this node's neighbors to the queue */
+    /* ... if we are, then add this node's neighbors to the queue,
+     * using the parent of `l` as a warm start for the reflector
+     * updates for each added node. */
+
     size_t nvv = mesh3_nvv(mesh, l);
     size_t *vv = malloc(nvv*sizeof(size_t));
     mesh3_vv(mesh, l, vv);
-    for (size_t i = 0; i < nvv; ++i)
-      if (isinf(eik->jet[vv[i]].f) && !array_contains(queue, &vv[i]))
-        array_append(queue, &vv[i]);
+
+    for (size_t i = 0; i < nvv; ++i) {
+      /* Skip this node if we've already updated it */
+      if (isfinite(eik->jet[vv[i]].f))
+        continue;
+
+      /* Get the update indices for the child and append it to the
+       * queue if we haven't done so already */
+      update_inds_s child_update_inds =
+        get_diff_update_inds(diff_mesh, update_inds, vv[i]);
+      if (!array_contains(queue, &child_update_inds))
+        array_append(queue, &child_update_inds);
+    }
+
     free(vv);
   }
 
@@ -1377,107 +1747,297 @@ void eik3_add_diff_bcs(eik3_s *eik, eik3_s const *eik_in, size_t diff_index, dbl
 
   array_deinit(queue);
   array_dealloc(&queue);
+}
 
-  array_deinit(l_uniq_arr);
-  array_dealloc(&l_uniq_arr);
+static bool OK_face_inds(uint3 const lf) {
+  return lf[0] != (size_t)NO_INDEX
+    && lf[1] != (size_t)NO_INDEX && lf[2] != (size_t)NO_INDEX;
+}
 
-  array_deinit(le_arr);
-  array_dealloc(&le_arr);
+static bool add_face_to_queue(eik3_s const *eik, mesh2_s const *refl_mesh,
+                              size_t lhat, size_t lf, array_s *queue) {
+  uint3 l;
+  mesh2_fv(refl_mesh, lf, l);
+  SORT3(l[0], l[1], l[2]);
+
+  if (array_contains(queue, &l) || did_utetra_already(eik, lhat, l))
+    return false;
+
+  array_append(queue, &l);
+  return true;
+}
+
+static size_t add_vf_to_queue(eik3_s *eik, mesh2_s const *refl_mesh,
+                              size_t lhat, size_t la, array_s *queue) {
+  size_t nvf = mesh2_nvf(refl_mesh, la);
+  size_t *lf = malloc(nvf*sizeof(uint3));
+  mesh2_vf(refl_mesh, la, lf);
+
+  size_t num_added = 0;
+  for (size_t i = 0; i < nvf; ++i)
+    if (add_face_to_queue(eik, refl_mesh, lhat, lf[i], queue))
+      ++num_added;
+
+  free(lf);
+
+  return num_added;
+}
+
+static size_t add_opposite_face_to_queue(eik3_s *eik, mesh2_s const *refl_mesh,
+                                         size_t lhat, uint3 const vf,
+                                         size_t la[2], array_s *queue) {
+  /* Find the inactive face vertex */
+  size_t l = (size_t)NO_INDEX;
+  for (size_t i = 0; i < 3; ++i)
+    if (vf[i] != la[0] && vf[i] != la[1])
+      l = vf[i];
+  assert(l != (size_t)NO_INDEX);
+
+  /* Get the current face index */
+  size_t lf = mesh2_find_face(refl_mesh, vf);
+
+  /* Find the face opposite from the inactive vertex */
+  size_t lf_op = mesh2_fvf(refl_mesh, lf, l);
+  if (lf_op == (size_t)NO_INDEX)
+    return 0;
+
+  /* And add it to the queue */
+  return add_face_to_queue(eik, refl_mesh, lhat, lf_op, queue) ? 1 : 0;
+}
+
+static void do_utri_and_add_inc(eik3_s *eik, mesh2_s const *refl_mesh,
+                                size_t lhat, uint3 const l, array_s *queue) {
+  mesh3_s const *mesh = eik->mesh;
+  assert(mesh3_is_diff_edge(mesh, l));
+
+  par3_s par;
+  do_utri(eik, lhat, l[0], l[1], eik->old_diff_utri, &par);
+  assert(!par3_is_empty(&par));
+  if (isfinite(eik->jet[lhat].f))
+    return;
+
+  size_t la[3];
+  size_t na = par3_get_active_inds(&par, la);
+  assert(na == 1);
+
+  size_t nvf = mesh2_nvf(refl_mesh, la[0]);
+  size_t *vf = malloc(nvf*sizeof(size_t));
+  mesh2_vf(refl_mesh, la[0], vf);
+
+  for (size_t i = 0; i < nvf; ++i) {
+    uint3 fv;
+    mesh2_fv(refl_mesh, vf[i], fv);
+    SORT_UINT3(fv);
+    if (!array_contains(queue, &fv) && !did_utetra_already(eik, lhat, fv))
+      array_append(queue, &fv);
+  }
+
+  for (size_t i = 0; i < nvf; ++i) {
+    uint3 fv;
+    mesh2_fv(refl_mesh, vf[i], fv);
+    for (size_t j = 0; j < 3; ++j) {
+      uint3 ve_ = {fv[j], fv[(j + 1) % 3], (size_t)NO_INDEX};
+      SORT_UINT3(ve_);
+      if (ve_[0] != la[0] && ve_[1] != la[0])
+        continue;
+      if (mesh3_is_diff_edge(mesh, ve_)
+          && !array_contains(queue, &ve_)
+          && !did_utri_already(eik->old_diff_utri, lhat, ve_))
+        array_append(queue, &ve_);
+    }
+  }
+
+  free(vf);
+}
+
+static void add_diff_utri_inc_on_utetra(eik3_s *eik, size_t lhat,
+                                        uint3 const l, array_s *queue) {
+  for (size_t i = 0; i < 3; ++i) {
+    uint3 le = {l[i], l[(i + 1) % 3], (size_t)NO_INDEX};
+    SORT_UINT2(le);
+    if (mesh3_is_diff_edge(eik->mesh, le)
+        && !array_contains(queue, &le)
+        && !did_utri_already(eik->old_diff_utri, lhat, le))
+      array_append(queue, &le);
+  }
+}
+
+static void do_utetra_and_add_inc(eik3_s *eik, mesh2_s const *refl_mesh,
+                                  size_t lhat, uint3 const l, array_s *queue) {
+  par3_s par;
+  do_utetra(eik, lhat, l, &par);
+  if (par3_is_empty(&par)) {
+    add_diff_utri_inc_on_utetra(eik, lhat, l, queue);
+    return;
+  } else if (isfinite(eik->jet[lhat].f))
+    return;
+
+  size_t la[3];
+  size_t na = par3_get_active_inds(&par, la);
+  assert(na < 3);
+
+  size_t num_added = 0;
+
+  /* If there's only one active index, find the faces incident on
+   * the active vertex */
+  if (na == 1)
+    num_added = add_vf_to_queue(eik, refl_mesh, lhat, la[0], queue);
+
+  /* If there are two active indices, add the opposite face */
+  if (na == 2)
+    num_added = add_opposite_face_to_queue(eik, refl_mesh, lhat, l, la, queue);
+
+  if (num_added == 0 && na == 2 && mesh3_is_diff_edge(eik->mesh, la)) {
+    uint3 la_ = {la[0], la[1], (size_t)NO_INDEX};
+    if (!array_contains(queue, &la_)
+        && !did_utri_already(eik->old_diff_utri, lhat, la_))
+      array_append(queue, &la_);
+  }
+
+  if (num_added == 0
+      && na == 1
+      && mesh3_vert_is_terminal_diff_edge_vert(eik->mesh, la[0]))
+    assert(false); // TODO: handle
+}
+
+static void do_reflector_updates(eik3_s *eik, mesh2_s const *refl_mesh,
+                                 size_t lhat, uint3 const l_guess) {
+  assert(OK_face_inds(l_guess));
+
+  array_s *queue;
+  array_alloc(&queue);
+  array_init(queue, sizeof(uint3), ARRAY_DEFAULT_CAPACITY);
+
+  uint3 l = {l_guess[0], l_guess[1], l_guess[2]};
+  SORT3(l[0], l[1], l[2]);
+  array_append(queue, &l);
+
+  while (isinf(eik->jet[lhat].f)) {
+    assert(!array_is_empty(queue));
+    array_pop_front(queue, &l);
+
+    if (is_edge(l))
+      do_utri_and_add_inc(eik, refl_mesh, lhat, l, queue);
+    else if (is_face(l))
+      do_utetra_and_add_inc(eik, refl_mesh, lhat, l, queue);
+  }
+
+  array_deinit(queue);
+  array_dealloc(&queue);
+}
+
+static update_inds_s get_refl_update_inds(mesh2_s const *refl_mesh,
+                                          update_inds_s parent_update_inds,
+                                          size_t l) {
+  update_inds_s update_inds = parent_update_inds;
+  update_inds.lhat = l;
+
+  size_t num_active = 0;
+  for (size_t i = 0; i < 3; ++i)
+    num_active += update_inds.l[i] != (size_t)NO_INDEX;
+  assert(num_active == 0 || num_active == 3);
+
+  if (num_active == 0) {
+    size_t nvf = mesh2_nvf(refl_mesh, parent_update_inds.lhat);
+    size_t *vf = malloc(nvf*sizeof(size_t));
+    mesh2_vf(refl_mesh, parent_update_inds.lhat, vf);
+
+    assert(nvf > 0);
+
+    mesh2_fv(refl_mesh, vf[0], update_inds.l);
+
+    free(vf);
+  }
+
+  return update_inds;
 }
 
 void eik3_add_refl_bcs(eik3_s *eik, eik3_s const *eik_in, size_t refl_index, dbl rfac) {
   assert(eik->mesh == eik_in->mesh);
   mesh3_s const *mesh = eik->mesh;
 
-  /** Set up the reflection BCs: */
+  /* The queue driving the BFS. We store the node to update along with
+   * a starting guess for a face to start with. */
+  array_s *queue;
+  array_alloc(&queue);
+  array_init(queue, sizeof(update_inds_s), ARRAY_DEFAULT_CAPACITY);
 
-  size_t nf = mesh3_get_reflector_size(mesh, refl_index);
-  size_t (*lf)[3] = malloc(nf*sizeof(size_t[3]));
-  mesh3_get_reflector(mesh, refl_index, lf);
+  /* We get a mesh corresponding to the reflector. We'll use this to
+   * do a local search for updates to accelerate our BFS. */
+  mesh2_s *refl_mesh = mesh3_get_refl_mesh(mesh, refl_index);
 
-  /* Add reflection BCs for each vertex on the reflector */
-  for (size_t i = 0; i < nf; ++i) {
+  /* Add reflection BCs for each vertex on the reflector. We also go
+   * ahead and add the unique nodes into the BFS queue. */
+  for (size_t lf = 0; lf < mesh2_nfaces(refl_mesh); ++lf) {
     dbl33 R;
-    mesh3_get_R_for_face(mesh, lf[i], R);
+    mesh2_get_R_for_face(refl_mesh, lf, R);
 
-    for (size_t j = 0, l; j < 3; ++j) {
-      l = lf[i][j];
-      if (eik3_has_BCs(eik, l))
+    uint3 l;
+    mesh2_fv(refl_mesh, lf, l);
+
+    /* ... add the BCs... */
+    for (size_t i = 0; i < 3; ++i) {
+      if (eik3_has_BCs(eik, l[i]))
         continue;
-
-      jet31t jet = eik3_get_jet(eik_in, l);
+      jet31t jet = eik3_get_jet(eik_in, l[i]);
       dbl33_dbl3_mul_inplace(R, jet.Df);
+      eik3_add_bc(eik, l[i], jet);
+    }
 
-      eik3_add_bc(eik, l, jet);
+    /* ... add the queue entry... */
+    for (size_t i = 0; i < 3; ++i) {
+      update_inds_s update_inds = make_empty_update_inds(l[i]);
+      if (!array_contains(queue, &update_inds))
+        array_append(queue, &update_inds);
     }
   }
 
-  array_s *l_uniq_arr;
-  array_alloc(&l_uniq_arr);
-  array_init(l_uniq_arr, sizeof(size_t), ARRAY_DEFAULT_CAPACITY);
-
-  for (size_t i = 0; i < nf; ++i)
-    for (size_t j = 0; j < 3; ++j)
-      if (!array_contains(l_uniq_arr, &lf[i][j]))
-        array_append(l_uniq_arr, &lf[i][j]);
-
-  /** Set up diff BCs for each incident diffractor: */
-
-  /* Array used to keep track of all diffracting edges incident on the
-   * reflector which we need to do updates from */
-  array_s *le_arr;
-  array_alloc(&le_arr);
-  array_init(le_arr, sizeof(size_t[2]), ARRAY_DEFAULT_CAPACITY);
-
-  /* Add BCs for each diffracting edge and accumulate the unique edges
-   * into `le_arr` */
+  /* Add BCs for each diffracting edge incident on the reflector. */
   size_t num_diffractors = mesh3_get_num_diffs_inc_on_refl(mesh, refl_index);
   size_t *diff_index = malloc(num_diffractors*sizeof(size_t));
   mesh3_get_diffs_inc_on_refl(mesh, refl_index, diff_index);
   for (size_t i = 0; i < num_diffractors; ++i)
-    add_diff_bcs_for_diffractor(eik, eik_in, diff_index[i], le_arr);
+    add_diff_bcs_for_diffractor(eik, eik_in, diff_index[i]);
   free(diff_index);
-
-  /** Using BFS, do boundary updates from the reflector's facets: */
-
-  /* The queue driving the BFS */
-  array_s *queue;
-  array_alloc(&queue);
-  array_init(queue, sizeof(size_t), ARRAY_DEFAULT_CAPACITY);
-
-  /* ... initialize it with the unique reflector vertices. */
-  for (size_t i = 0; i < array_size(l_uniq_arr); ++i)
-    array_append(queue, array_get_ptr(l_uniq_arr, i));
 
   /* Main BFS loop: */
   while (!array_is_empty(queue)) {
-    size_t l;
-    array_pop_front(queue, &l);
+    update_inds_s update_inds;
+    array_pop_front(queue, &update_inds);
 
-    /* Set the node to trial and insert it into the heap */
-    if (eik3_is_far(eik, l))
+    size_t l = update_inds.lhat, *lf = &update_inds.l[0];
+
+    /* If `l` is off the reflector, set the node to trial, insert it
+     * into the heap, and do updates from the reflector, using `lf` as
+     * a warm start. */
+    if (OK_face_inds(lf) && eik3_is_far(eik, l)) {
       eik3_add_trial(eik, l, jet31t_make_empty());
-
-    /* Do updates */
-    if (!array_contains(l_uniq_arr, &l)) {
-      for (size_t i = 0; i < array_size(le_arr); ++i)
-        do_diff_utri(eik, l, array_get_ptr(le_arr, i));
-      for (size_t i = 0; i < nf; ++i)
-        do_utetra(eik, l, lf[i]);
+      do_reflector_updates(eik, refl_mesh, l, lf);
     }
-    assert(isfinite(eik->jet[l].f));
 
     /* Check if we're in the "factoring tube"... */
     if (eik->jet[l].f - get_par_eik_value(eik, l) > rfac)
       continue;
 
-    /* ... if we are, then add this node's neighbors to the queue */
+    /* Get `l`'s neighbors */
     size_t nvv = mesh3_nvv(mesh, l);
     size_t *vv = malloc(nvv*sizeof(size_t));
     mesh3_vv(mesh, l, vv);
-    for (size_t i = 0; i < nvv; ++i)
-      if (isinf(eik->jet[vv[i]].f) && !array_contains(queue, &vv[i]))
-        array_append(queue, &vv[i]);
+
+    /* ... if we are, then add this node's neighbors to the queue,
+     * using the parent of `l` as a warm start for the reflector
+     * updates for each added node. */
+    for (size_t i = 0; i < nvv; ++i) {
+      /* Skip this node if we've already updated it */
+      if (isfinite(eik->jet[vv[i]].f))
+        continue;
+
+      update_inds_s child_update_inds =
+        get_refl_update_inds(refl_mesh, update_inds, vv[i]);
+      if (!array_contains(queue, &child_update_inds))
+        array_append(queue, &child_update_inds);
+    }
+
     free(vv);
   }
 
@@ -1488,13 +2048,8 @@ void eik3_add_refl_bcs(eik3_s *eik, eik3_s const *eik_in, size_t refl_index, dbl
   array_deinit(queue);
   array_dealloc(&queue);
 
-  array_deinit(le_arr);
-  array_dealloc(&le_arr);
-
-  free(lf);
-
-  array_deinit(l_uniq_arr);
-  array_dealloc(&l_uniq_arr);
+  mesh2_deinit(refl_mesh);
+  mesh2_dealloc(&refl_mesh);
 }
 
 bool eik3_is_far(eik3_s const *eik, size_t l) {
@@ -1845,16 +2400,37 @@ void eik3_get_D2T(eik3_s const *eik, dbl33 *D2T) {
 void eik3_init_A_pt_src(eik3_s const *eik, dbl3 const xsrc, dbl *A) {
   assert(array_size(eik->bc_inds) == 1);
 
-  size_t lsrc = mesh3_get_vert_index(eik->mesh, xsrc);
-  A[lsrc] = INFINITY;
+  /* Initialize with NANs */
+  for (size_t l = 0; l < mesh3_nverts(eik->mesh); ++l)
+    A[l] = NAN;
 
+  /* Set amplitude of nodes with point source BCs to 1/r */
   for (size_t i = 0, l; i < array_size(eik->bc_inds); ++i) {
     array_get(eik->bc_inds, i, &l);
     A[l] = 1/dbl3_dist(mesh3_get_vert_ptr(eik->mesh, l), xsrc);
   }
+
+  /* We also need to go through and set the values of `A` for nodes
+   * which don't have BCs but which nevertheless only have `lsrc` for
+   * a parent to `1/r` */
+  size_t lsrc = mesh3_get_vert_index(eik->mesh, xsrc);
+  for (size_t l = 0; l < mesh3_nverts(eik->mesh); ++l) {
+    size_t la[3];
+    size_t na = par3_get_active_inds(&eik->par[l], la);
+    assert(na <= 1 || (la[0] != lsrc && la[1] != lsrc && la[2] != lsrc));
+    if (na == 1 && la[0] == lsrc) {
+      assert(!isfinite(A[l]));
+      A[l] = 1/dbl3_dist(mesh3_get_vert_ptr(eik->mesh, l), xsrc);
+    }
+  }
 }
 
 void eik3_init_A_refl(eik3_s const *eik, dbl const *A_in, dbl *A) {
+  /* Initialize with NANs */
+  for (size_t l = 0; l < mesh3_nverts(eik->mesh); ++l)
+    A[l] = NAN;
+
+  /* Copy amplitude from incident field */
   for (size_t i = 0, l; i < array_size(eik->bc_inds); ++i) {
     array_get(eik->bc_inds, i, &l);
     A[l] = A_in[l];
@@ -1862,6 +2438,11 @@ void eik3_init_A_refl(eik3_s const *eik, dbl const *A_in, dbl *A) {
 }
 
 void eik3_init_A_diff(eik3_s const *eik, dbl const *A_in, dbl *A) {
+  /* Initialize with NANs */
+  for (size_t l = 0; l < mesh3_nverts(eik->mesh); ++l)
+    A[l] = NAN;
+
+  /* Copy amplitude from incident field */
   for (size_t i = 0, l; i < array_size(eik->bc_inds); ++i) {
     array_get(eik->bc_inds, i, &l);
     A[l] = A_in[l];
@@ -1889,23 +2470,23 @@ void eik3_prop_A(eik3_s const *eik, dbl33 const *D2T, dbl *A) {
 
     dbl kappa1 = lam[perm[2]], kappa2 = lam[perm[1]];
 
+    uint3 la;
+    dbl3 ba;
+    size_t na = par3_get_active(&par, la, ba);
+    assert(na > 0);
+
     dbl A_lam = 1;
-    assert(isfinite(par.b[0]));
-    for (size_t j = 0; j < 3; ++j) {
-      if (isfinite(par.b[j])) {
-        assert(isfinite(A[par.l[j]]));
-        A_lam *= pow(A[par.l[j]], par.b[j]);
-      }
+    for (size_t j = 0; j < na; ++j) {
+      assert(isfinite(A[la[j]]));
+      A_lam *= pow(A[la[j]], ba[j]);
     }
 
     dbl3 xlam = {0, 0, 0};
-    for (size_t j = 0; j < 3; ++j) {
-      if (isfinite(par.b[j])) {
-        dbl3 x_;
-        mesh3_copy_vert(mesh, par.l[j], x_);
-        for (size_t k = 0; k < 3; ++k)
-          xlam[k] += par.b[j]*x_[k];
-      }
+    for (size_t j = 0; j < na; ++j) {
+      dbl3 xj;
+      mesh3_copy_vert(mesh, la[j], xj);
+      for (size_t k = 0; k < 3; ++k)
+        xlam[k] += ba[j]*xj[k];
     }
 
     dbl3 x;

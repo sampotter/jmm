@@ -30,12 +30,24 @@ size_t mesh2_nfaces(mesh2_s const *mesh);
 dbl3 const *mesh2_get_verts_ptr(mesh2_s const *mesh);
 uint3 const *mesh2_get_faces_ptr(mesh2_s const *mesh);
 
+size_t mesh2_find_face(mesh2_s const *mesh, uint3 const vf);
+
+size_t mesh2_nvf(mesh2_s const *mesh, size_t l);
+void mesh2_vf(mesh2_s const *mesh, size_t l, size_t *lf);
+void mesh2_fv(mesh2_s const *mesh, size_t lf, uint3 l);
+size_t mesh2_nve(mesh2_s const *mesh, size_t l);
+void mesh2_ve(mesh2_s const *mesh, size_t l, uint2 *le);
+void mesh2_fve(mesh2_s const *mesh, size_t lf, size_t l, uint2 le);
+void mesh2_ef(mesh2_s const *mesh, uint2 const le, size_t lf[2]);
+size_t mesh2_fvf(mesh2_s const *mesh, size_t lf, size_t l);
+
 rect3 mesh2_get_bounding_box(mesh2_s const *mesh);
 void mesh2_get_centroid(mesh2_s const *mesh, size_t i, dbl *centroid);
 void mesh2_get_vertex(mesh2_s const *mesh, size_t i, size_t j, dbl *v);
 bool mesh2_tri_bbox_overlap(mesh2_s const *mesh, size_t i, rect3 const *bbox);
 tri3 mesh2_get_tri(mesh2_s const *mesh, size_t i);
 void mesh2_get_unit_surface_normal(mesh2_s const *mesh, size_t lf, dbl3 n);
+void mesh2_get_R_for_face(mesh2_s const *mesh, size_t lf, dbl33 R);
 
 #ifdef __cplusplus
 }

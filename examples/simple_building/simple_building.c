@@ -170,6 +170,7 @@ int main(int argc, char *argv[]) {
   printf("Saved xy-slice (z = %g) of the direct origin [%1.2gs]\n",
          spec.xsrc[2], toc());
 
+#if 0
   /** <RAYTRACING> */
 
   camera_s camera = {
@@ -305,14 +306,17 @@ int main(int argc, char *argv[]) {
   }
 
   /** </RAYTRACING> */
+#endif
 
 cleanup:
 
+#if 0
   mesh2_deinit(surface_mesh);
   mesh2_dealloc(&surface_mesh);
 
   bmesh33_deinit(bmesh);
   bmesh33_dealloc(&bmesh);
+#endif
 
   grid2_to_mesh3_mapping_deinit(&mapping);
 

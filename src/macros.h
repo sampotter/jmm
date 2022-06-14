@@ -39,4 +39,7 @@
     SORT2(y, z);                                                        \
   } while (0)
 
+#define SORT_UINT2(l) SORT2(l[0], l[1])
+#define SORT_UINT3(l) SORT3(l[0], l[1], l[2])
+
 #define SPLAT2(arr) arr[0], arr[1]

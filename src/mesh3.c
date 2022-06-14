@@ -10,36 +10,10 @@
 #include "index.h"
 #include "macros.h"
 #include "mat.h"
+#include "mesh1.h"
 #include "mesh2.h"
+#include "mesh_util.h"
 #include "util.h"
-
-bool face_in_cell(size_t const f[3], size_t const c[4]) {
-  return point_in_cell(f[0], c) && point_in_cell(f[1], c) &&
-    point_in_cell(f[2], c);
-}
-
-bool point_in_face(size_t l, size_t const f[3]) {
-  return f[0] == l || f[1] == l || f[2] == l;
-}
-
-bool point_in_cell(size_t l, size_t const c[4]) {
-  return c[0] == l || c[1] == l || c[2] == l || c[3] == l;
-}
-
-bool edge_in_face(size_t const le[2], size_t const lf[3]) {
-  assert(le[0] != le[1]);
-  assert(lf[0] != lf[1]);
-  assert(lf[1] != lf[2]);
-  assert(lf[2] != lf[0]);
-
-  return (le[0] == lf[0] || le[0] == lf[1] || le[0] == lf[2])
-      && (le[1] == lf[0] || le[1] == lf[1] || le[1] == lf[2]);
-}
-
-int edge_cmp(size_t const e1[2], size_t const e2[2]) {
-  int cmp = compar_size_t(&e1[0], &e2[0]);
-  return cmp != 0 ? cmp : compar_size_t(&e1[1], &e2[1]);
-}
 
 typedef struct {
   size_t le[2];
@@ -1563,6 +1537,45 @@ bool mesh3_vert_incident_on_diff_edge(mesh3_s const *mesh, size_t l) {
   return is_incident;
 }
 
+bool mesh3_vert_is_terminal_diff_edge_vert(mesh3_s const *mesh, size_t l) {
+  assert(mesh->has_bd_info);
+
+  if (!mesh3_vert_incident_on_diff_edge(mesh, l))
+    return false;
+
+  array_s *diff_labels_seen;
+  array_alloc(&diff_labels_seen);
+  array_init(diff_labels_seen, sizeof(size_t), ARRAY_DEFAULT_CAPACITY);
+
+  size_t nvv = mesh3_nvv(mesh, l);
+  size_t *vv = malloc(nvv*sizeof(size_t));
+  mesh3_vv(mesh, l, vv);
+
+  bool terminal = true;
+
+  for (size_t i = 0; i < nvv; ++i) {
+    if (!mesh3_is_diff_edge(mesh, (size_t[2]) {l, vv[i]}))
+      continue;
+    bde_s bde = make_bde(l, vv[i]);
+    size_t j = find_bde(mesh, &bde);
+    size_t bde_label = mesh->bde_label[j];
+    assert(bde_label != NO_LABEL);
+    if (array_contains(diff_labels_seen, &bde_label)) {
+      terminal = false;
+      break;
+    } else {
+      array_append(diff_labels_seen, &bde_label);
+    }
+  }
+
+  free(vv);
+
+  array_deinit(diff_labels_seen);
+  array_dealloc(&diff_labels_seen);
+
+  return terminal;
+}
+
 bool mesh3_cell_incident_on_diff_edge(mesh3_s const *mesh, size_t lc) {
   for (size_t i = 0; i < 4; ++i)
     if (mesh3_vert_incident_on_diff_edge(mesh, mesh->cells[lc][i]))
@@ -1815,9 +1828,9 @@ mesh2_s *mesh3_get_surface_mesh(mesh3_s const *mesh) {
   mesh2_s *surface_mesh;
   mesh2_alloc(&surface_mesh);
   mesh2_init(surface_mesh,
-             verts, 3*mesh->nbdf, /* copy_verts: */ false,
-             faces, mesh->nbdf, /* copy_faces: */ false,
-             face_normals, /* copy_face_normals: */ false);
+             verts, 3*mesh->nbdf, /* verts_policy: */ POLICY_XFER,
+             faces, mesh->nbdf, /* faces_policy: */ POLICY_XFER,
+             face_normals, /* face_normals_policy: */ POLICY_XFER);
 
   /* Don't need to free `verts`, `faces`, or `face_normals` here since
    * we've passed ownership to `surface_mesh`. They will be freed when
@@ -1928,7 +1941,7 @@ void mesh3_get_reflector(mesh3_s const *mesh, size_t i, size_t (*lf)[3]) {
 
 /* Create a `mesh2_s` corresponding to the `i`th reflector. It is the
  * caller's responsibility to clean up the returned mesh. */
-mesh2_s *mesh3_get_reflector_mesh(mesh3_s const *mesh, size_t i) {
+mesh2_s *mesh3_get_refl_mesh(mesh3_s const *mesh, size_t i) {
   size_t nf = mesh3_get_reflector_size(mesh, i);
   uint3 *lf = malloc(nf*sizeof(uint3));
   mesh3_get_reflector(mesh, i, lf);
@@ -1941,7 +1954,7 @@ mesh2_s *mesh3_get_reflector_mesh(mesh3_s const *mesh, size_t i) {
   mesh2_alloc(&reflector_mesh);
   mesh2_init(
     reflector_mesh,
-    mesh->verts, mesh->nverts, POLICY_XFER,
+    mesh->verts, mesh->nverts, POLICY_VIEW,
     lf, nf, POLICY_XFER,
     face_normals, POLICY_XFER);
 
@@ -1967,6 +1980,23 @@ void mesh3_get_diffractor(mesh3_s const *mesh, size_t i, size_t (*le)[2]) {
   for (size_t l = 0; l < mesh->nbde; ++l)
     if (mesh->bde_label[l] == i)
       memcpy(le[k++], mesh->bde[l].le, sizeof(size_t[2]));
+}
+
+mesh1_s *mesh3_get_diff_mesh(mesh3_s const *mesh, size_t diff_index) {
+  size_t nedges = mesh3_get_diffractor_size(mesh, diff_index);
+  uint2 *le = malloc(nedges*sizeof(uint2));
+  mesh3_get_diffractor(mesh, diff_index, le);
+
+  mesh1_s *diff_mesh;
+  mesh1_alloc(&diff_mesh);
+  mesh1_init(diff_mesh,
+             mesh->verts, mesh->nverts, POLICY_XFER,
+             le, nedges, POLICY_XFER);
+
+  /* Don't need to free `le` since we transfer ownership to
+   * `diff_mesh`. */
+
+  return diff_mesh;
 }
 
 size_t mesh3_get_num_diffs_inc_on_refl(mesh3_s const *mesh, size_t refl_index) {
@@ -2105,13 +2135,7 @@ void mesh3_get_R_for_face(mesh3_s const *mesh, size_t const lf[3], dbl33 R) {
   dbl3 n;
   mesh3_get_face_normal(mesh, lf, n);
 
-  dbl33 nnT;
-  dbl3_outer(n, n, nnT);
-
-  dbl33 eye;
-  dbl33_eye(eye);
-
-  dbl33_saxpy(-2, nnT, eye, R);
+  R_from_n(n, R);
 }
 
 void mesh3_get_R_for_reflector(mesh3_s const *mesh, size_t refl_index, dbl33 R) {

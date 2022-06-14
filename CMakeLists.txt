@@ -111,9 +111,11 @@ set (JMM_SRCS
   src/jet.c
   src/log.c
   src/mat.c
+  src/mesh1.c
   src/mesh2.c
   src/mesh3.c
   src/mesh3.cpp
+  src/mesh_util.c
   src/opt.c
   src/par.c
   src/pool.c

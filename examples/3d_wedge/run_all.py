@@ -3,6 +3,7 @@
 import itertools as it
 import numpy as np
 import subprocess
+import time
 
 from pathlib import Path
 
@@ -43,8 +44,11 @@ for n, maxvol, rfac, phip, sp, width, height in it.product(
         f'--height={height}',
         f'--verbose'
     ]
-    print(subprocess.list2cmdline(args))
+    print(f'Running command: "{subprocess.list2cmdline(args)}"')
+
+    t0 = time.time()
     result = subprocess.run(args, capture_output=True, text=True)
+    print(f'- elapsed time: {time.time() - t0:.1f}s')
 
     # write output to results directory
     with open(out_path/'output.txt', 'w') as f:

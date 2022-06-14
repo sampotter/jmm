@@ -107,7 +107,7 @@ def add_plot(path, field_path, origin_path):
     plt.gca().set_aspect('equal')
     return cbar
 
-plt.figure(figsize=(9.5, 12))
+plt.figure(figsize=(10, 12))
 for i, path in enumerate(paths):
     plt.subplot(len(paths), 3, 3*i + 1)
     add_plot(path, 'slice_direct_E_T.bin', 'slice_direct_origin.bin')
@@ -137,7 +137,7 @@ img_grid = read_img_grid(path/'img_grid.txt')
 x, y = get_grid(*img_grid)
 shape = img_grid[0]
 
-k = 50
+k = 20
 
 Td = np.fromfile(path/'slice_direct_T.bin').reshape(shape)
 Ad = np.fromfile(path/'slice_direct_A.bin').reshape(shape)
@@ -164,11 +164,16 @@ def make_plot(field, clim, cmap):
     plt.ylim(-2, 2)
 
 Tmax = max(np.nanmax(Td), np.nanmax(To), np.nanmax(Tn))
-Amax = max(np.nanmax(Ad), np.nanmax(Ao), np.nanmax(An))
+Amin = min(Ad[np.isfinite(Ad)].min(),
+           Ao[np.isfinite(Ao)].min(),
+           An[np.isfinite(An)].min())
+A_vmin = 20*np.log10(Amin)
+A_vmax = A_vmin + 60
 umax = 3
 
-m, n = 4, 3
-plt.figure(figsize=(9, 10))
+m, n = 2, 3
+
+plt.figure(figsize=(10, 6))
 plt.subplot(m, n, 1)
 make_plot(Td, (0, Tmax), cc.cm.gouldian)
 plt.ylabel('$y$')
@@ -181,49 +186,61 @@ make_plot(Tn, (0, Tmax), cc.cm.gouldian)
 plt.title('$T$ ($n$-face)')
 plt.colorbar()
 plt.subplot(m, n, 4)
-make_plot(Ad, (0, 10), cc.cm.gouldian)
+make_plot(20*np.log10(Ad), (A_vmin, A_vmax), cc.cm.gouldian)
 plt.title('Spreading factor (direct)')
 plt.ylabel('$y$')
 plt.subplot(m, n, 5)
-make_plot(Ao, (0, Amax), cc.cm.gouldian)
+make_plot(20*np.log10(Ao), (A_vmin, A_vmax), cc.cm.gouldian)
 plt.title('Spreading factor ($o$-face)')
 plt.subplot(m, n, 6)
-make_plot(An, (0, Amax), cc.cm.gouldian)
+make_plot(20*np.log10(An), (A_vmin, A_vmax), cc.cm.gouldian)
 plt.title('Spreading factor ($n$-face)')
 plt.colorbar()
-plt.subplot(m, n, 7)
+plt.tight_layout()
+plt.savefig('T-and-amp-fields.pdf')
+plt.show()
+
+m, n = 2, 3
+plt.figure(figsize=(10, 6))
+plt.subplot(m, n, 1)
 make_plot(np.real(ud), (-umax, umax), cc.cm.CET_D13)
 plt.title('$u$ (direct)')
 plt.ylabel('$y$')
-plt.subplot(m, n, 8)
+plt.subplot(m, n, 2)
 make_plot(np.real(uo), (-umax, umax), cc.cm.CET_D13)
 plt.title('$u$ ($o$-face)')
-plt.subplot(m, n, 9)
+plt.subplot(m, n, 3)
 make_plot(np.real(un), (-umax, umax), cc.cm.CET_D13)
 plt.title('$u$ ($n$-face)')
 plt.colorbar()
-plt.subplot(m, n, 10)
+plt.subplot(m, n, 4)
 make_plot((Od >= 0.5).astype(float)*np.real(ud), (-umax, umax), cc.cm.CET_D13)
 plt.title('$[\mathtt{origin} \geq 1/2] \cdot u$ (direct)')
+plt.xlabel('$x$')
 plt.ylabel('$y$')
-plt.subplot(m, n, 11)
+plt.subplot(m, n, 5)
 make_plot((Oo >= 0.5).astype(float)*np.real(uo), (-umax, umax), cc.cm.CET_D13)
 plt.title('$[\mathtt{origin} \geq 1/2] \cdot u$ ($o$-face)')
-plt.subplot(m, n, 12)
+plt.xlabel('$x$')
+plt.subplot(m, n, 6)
 make_plot(np.real(un), (-umax, umax), cc.cm.CET_D13)
 plt.title('$D \cdot u$ ($n$-face)')
 plt.colorbar()
+plt.xlabel('$x$')
 plt.tight_layout()
-plt.savefig('individual-fields.pdf')
+plt.savefig('u-fields.pdf')
 plt.show()
 
 plt.figure()
 plt.imshow(Oo)
 plt.show()
 
+xfer = lambda x: (1 - x)*x**2 + x*(1 - (1 - x)**2)
+
 # u = ud + uo + un
 u = ud*Od + uo*Oo + un
-# u = ud*(Od >= 0.5).astype(float) + uo*(Oo >= 0.5).astype(float)
+# u = ud*xfer(xfer(Od)) + uo*xfer(xfer(Oo)) + un
+# u = ud*(Od >= 0.5).astype(float) + uo*(Oo >= 0.5).astype(float) + un
 plt.figure(figsize=(9, 7))
 make_plot(np.real(u), (-umax, umax), cc.cm.CET_D13)
 plt.colorbar()
@@ -233,8 +250,6 @@ plt.xlabel('$x$')
 plt.savefig('total-field.pdf')
 plt.tight_layout()
 plt.show()
-
-xfer = lambda x: (1 - x)*x**2 + x*(1 - (1 - x)**2)
 
 plt.figure(figsize=(10, 6))
 levels = np.linspace(-60, 0, 2*12 + 1)

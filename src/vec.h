@@ -133,6 +133,8 @@ void int3_add(int3 const p, int3 const q, int3 r);
 void int3_dbl_mul(int3 const p, dbl a, dbl3 x);
 void int3_int_div(int3 const p, int q, int3 r);
 
+bool uint3_equal(uint3 const i, uint3 const j);
+
 #ifdef __cplusplus
 }
 #endif

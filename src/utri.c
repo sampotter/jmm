@@ -370,6 +370,13 @@ bool utri_has_interior_point_solution(utri_s const *utri) {
     || fabs(get_lag_mult(utri)) <= atol;
 }
 
+bool utri_active_vert_is_terminal_diff_vert(utri_s const *utri,
+                                            eik3_s const *eik) {
+  mesh3_s const *mesh = eik3_get_mesh(eik);
+  size_t la = utri_get_active_ind(utri);
+  return mesh3_vert_is_terminal_diff_edge_vert(mesh, la);
+}
+
 bool utri_is_backwards(utri_s const *utri, eik3_s const *eik) {
   mesh3_s const *mesh = eik3_get_mesh(eik);
 
@@ -450,6 +457,10 @@ bool utri_is_degenerate(utri_s const *u) {
   dbl3_sub(u->x1, u->x, dx1);
   dbl dot = dbl3_dot(dx0, dx1)/(dbl3_norm(dx0)*dbl3_norm(dx1));
   return fabs(1 - fabs(dot)) < atol;
+}
+
+bool utri_has_inds(utri_s const *u, size_t lhat, uint2 const l) {
+  return u->l == lhat && u->l0 == l[0] && u->l1 == l[1];
 }
 
 /* Check whether two triangle updates have the same indices. The

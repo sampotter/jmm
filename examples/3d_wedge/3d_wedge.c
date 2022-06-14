@@ -598,8 +598,8 @@ static void solve_n_refl(jmm_3d_wedge_problem_s *wedge) {
 
   /** Transport t_in and t_out vectors: */
 
-  eik3_get_t_in(wedge->eik_o_refl, wedge->t_in_o_refl);
-  eik3_get_t_out(wedge->eik_o_refl, wedge->t_out_o_refl);
+  eik3_get_t_in(wedge->eik_o_refl, wedge->t_in_n_refl);
+  eik3_get_t_out(wedge->eik_o_refl, wedge->t_out_n_refl);
 }
 
 jmm_error_e

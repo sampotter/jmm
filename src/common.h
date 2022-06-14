@@ -14,6 +14,7 @@ typedef struct eik31m eik31m_s;
 typedef struct field2 field2_s;
 typedef struct field3 field3_s;
 typedef struct grid3 grid3_s;
+typedef struct mesh1 mesh1_s;
 typedef struct mesh2 mesh2_s;
 typedef struct mesh2_tri mesh2_tri_s;
 typedef struct mesh3 mesh3_s;

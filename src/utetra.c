@@ -705,6 +705,10 @@ bool utetra_index_is_active(utetra_s const *utetra, size_t l) {
     assert(false);
 }
 
+bool utetra_has_inds(utetra_s const *u, size_t lhat, uint3 const l) {
+  return u->lhat == lhat && uint3_equal(u->l, l);
+}
+
 bool utetras_have_same_minimizer(utetra_s const *u1, utetra_s const *u2, dbl tol) {
   dbl x1[3], x2[3];
   utetra_get_x(u1, x1);

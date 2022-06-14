@@ -732,3 +732,7 @@ void int3_int_div(int3 const p, int q, int3 r) {
   r[1] = p[1]/q;
   r[2] = p[2]/q;
 }
+
+bool uint3_equal(uint3 const i, uint3 const j) {
+  return i[0] == j[0] && i[1] == j[1] && i[2] == j[2];
+}

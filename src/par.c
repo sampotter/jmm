@@ -91,6 +91,33 @@ size_t par3_get_active_inds(par3_s const *par, size_t l[3]) {
   for (size_t i = 0; i < 3; ++i)
     if (par->l[i] != NO_PARENT && par->b[i] > atol)
       l[num_active++] = par->l[i];
+  for (size_t i = num_active; i < 3; ++i)
+    l[i] = (size_t)NO_PARENT;
+  return num_active;
+}
+
+size_t par3_get_active_and_inactive_inds(par3_s const *par, uint3 la, uint3 li) {
+  dbl const atol = 1e-14;
+
+  bool active[3] = {false, false, false};
+
+  size_t num_active = 0;
+  for (size_t i = 0; i < 3; ++i) {
+    if (par->l[i] != NO_PARENT && par->b[i] > atol) {
+      active[i] = true;
+      la[num_active++] = par->l[i];
+    }
+  }
+  for (size_t i = num_active; i < 3; ++i)
+    la[i] = (size_t)NO_PARENT;
+
+  size_t num_inactive = 0;
+  for (size_t i = 0; i < 3; ++i)
+    if (!active[i])
+      li[num_inactive++] = par->l[i];
+  for (size_t i = num_inactive; i < 3; ++i)
+    li[i] = (size_t)NO_PARENT;
+
   return num_active;
 }
 
