@@ -139,3 +139,13 @@ size_t par3_get_active(par3_s const *par, size_t *l, dbl *b) {
 
   return num_active;
 }
+
+bool par3_has_active_parent(par3_s const *par, size_t l) {
+  if (l == (size_t)NO_PARENT)
+    return false;
+  size_t i;
+  for (i = 0; i < 3; ++i)
+    if (par->l[i] == l && fabs(par->b[i]) > EPS)
+      break;
+  return i < 3;
+}

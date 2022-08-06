@@ -30,6 +30,7 @@ size_t par3_num_active(par3_s const *par);
 size_t par3_get_active_inds(par3_s const *par, size_t l[3]);
 size_t par3_get_active_and_inactive_inds(par3_s const *par, uint3 la, uint3 li);
 size_t par3_get_active(par3_s const *par, size_t *l, dbl *b);
+bool par3_has_active_parent(par3_s const *par, size_t l);
 
 #ifdef __cplusplus
 }

@@ -1358,6 +1358,17 @@ void eik3_add_trial(eik3_s *eik, size_t l, jet31t jet) {
   array_append(eik->trial_inds, &l);
 }
 
+size_t eik3_num_trial(eik3_s const *eik) {
+  size_t num_trial = 0;
+  for (size_t l = 0; l < mesh3_nverts(eik->mesh); ++l)
+    num_trial += eik->state[l] == TRIAL;
+  return num_trial;
+}
+
+size_t eik3_num_valid(eik3_s const *eik) {
+  return eik->num_accepted;
+}
+
 void eik3_add_bc(eik3_s *eik, size_t l, jet31t jet) {
   assert(!array_contains(eik->bc_inds, &l));
 

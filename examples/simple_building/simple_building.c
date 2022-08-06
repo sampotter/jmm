@@ -138,9 +138,11 @@ int main(int argc, char *argv[]) {
   eik3hh_init_pt_src(hh, mesh, spec.xsrc, spec.rfac);
 
   printf("Set up direct eikonal problem:\n");
-  printf("- num. BC points: %lu\n", eik3hh_num_bc(hh));
-
-  if (eik3hh_num_bc(hh) == 0) {
+  printf("- number of points inside factoring radius: %lu\n",
+         eik3hh_num_valid(hh));
+  printf("- number of TRIAL points adjacent to factored ball: %lu\n",
+         eik3hh_num_trial(hh));
+  if (eik3hh_num_trial(hh) == 0) {
     printf("ERROR: didn't insert any TRIAL points!\n");
     exit(EXIT_FAILURE);
   }

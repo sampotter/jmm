@@ -9,6 +9,7 @@
 #include "mat.h"
 
 struct eik3hh {
+  size_t lsrc;
   dbl3 xsrc;
   dbl rfac;
 
@@ -48,54 +49,15 @@ static void init(eik3hh_s *hh, mesh3_s const *mesh) {
     hh->origin[l] = NAN;
 }
 
-static void add_pt_src_BCs(eik3hh_s *hh) {
-  dbl3 x;
-
-  /* iterate over all points inside the factoring radius and
-   * initialize them with the exact jet */
-  for (size_t l = 0; l < hh->nverts; ++l) {
-    mesh3_copy_vert(hh->mesh, l, x);
-    if (dbl3_dist(x, hh->xsrc) <= hh->rfac) {
-      if (eik3_is_valid(hh->eik, l))
-        continue;
-      jet31t jet;
-      jet.f = dbl3_dist(x, hh->xsrc);
-      dbl3_sub(x, hh->xsrc, jet.Df);
-      dbl3_dbl_div_inplace(jet.Df, jet.f);
-      eik3_add_bc(hh->eik, l, jet);
-    }
-  }
-
-  /* set all `FAR` neighbors of the now `VALID` BC nodes with exact
-   * data and insert them as `TRIAL` nodes into the heap */
-  for (size_t l = 0; l < hh->nverts; ++l) {
-    if (!eik3_is_valid(hh->eik, l))
-      continue;
-    size_t nvv = mesh3_nvv(hh->mesh, l);
-    size_t *vv = malloc(nvv*sizeof(size_t));
-    mesh3_vv(hh->mesh, l, vv);
-    for (size_t i = 0; i < nvv; ++i) {
-      if (!eik3_is_far(hh->eik, vv[i]))
-        continue;
-      mesh3_copy_vert(hh->mesh, vv[i], x);
-      jet31t jet;
-      jet.f = dbl3_dist(x, hh->xsrc);
-      dbl3_sub(x, hh->xsrc, jet.Df);
-      dbl3_dbl_div_inplace(jet.Df, jet.f);
-      eik3_add_trial(hh->eik, vv[i], jet);
-    }
-    free(vv);
-  }
-}
-
 void eik3hh_init_pt_src(eik3hh_s *hh, mesh3_s const *mesh,
                         dbl3 const xsrc, dbl rfac) {
   init(hh, mesh);
 
+  hh->lsrc = mesh3_get_vert_index(mesh, xsrc);
   dbl3_copy(xsrc, hh->xsrc);
   hh->rfac = rfac;
 
-  add_pt_src_BCs(hh);
+  eik3_add_pt_src_bcs(hh->eik, hh->xsrc, hh->rfac);
 }
 
 void eik3hh_deinit(eik3hh_s *hh) {
@@ -365,9 +327,11 @@ static void approx_D2T(eik3hh_s *hh) {
 static void init_spread_pt_src(eik3hh_s *hh) {
   for (size_t l = 0; l < hh->nverts; ++l) {
     par3_s par = eik3_get_par(hh->eik, l);
-    if (!dbl3_all_nan(par.b)) continue;
-    dbl3 x; mesh3_copy_vert(hh->mesh, l, x);
-    hh->spread[l] = 1/dbl3_dist(x, hh->xsrc);
+    if (dbl3_all_nan(par.b) || par3_has_active_parent(&par, hh->lsrc)) {
+      dbl3 x;
+      mesh3_copy_vert(hh->mesh, l, x);
+      hh->spread[l] = 1/dbl3_dist(x, hh->xsrc);
+    }
   }
 }
 
@@ -381,8 +345,10 @@ static void prop_spread(eik3hh_s *hh) {
 
   for (size_t l = 0; l < hh->nverts; ++l) {
     size_t lhat = accepted[l];
-    par3_s par = eik3_get_par(eik, lhat);
+    if (!isnan(spread[lhat]))
+      continue;
 
+    par3_s par = eik3_get_par(eik, lhat);
     if (par3_is_empty(&par))
       continue;
 
@@ -434,8 +400,12 @@ void eik3hh_solve(eik3hh_s *hh) {
   eik3_get_org(hh->eik, hh->origin);
 }
 
-size_t eik3hh_num_bc(eik3hh_s const *hh) {
-  return eik3_num_bc(hh->eik);
+size_t eik3hh_num_trial(eik3hh_s const *hh) {
+  return eik3_num_trial(hh->eik);
+}
+
+size_t eik3hh_num_valid(eik3hh_s const *hh) {
+  return eik3_num_valid(hh->eik);
 }
 
 static void dump_xy_T_slice(eik3hh_s const *hh,

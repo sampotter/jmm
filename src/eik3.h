@@ -34,6 +34,8 @@ void eik3_resolve_downwind_from_diff(eik3_s *eik, size_t diff_index, dbl rfac);
 bool eik3_is_far(eik3_s const *eik, size_t ind);
 bool eik3_is_trial(eik3_s const *eik, size_t ind);
 bool eik3_is_valid(eik3_s const *eik, size_t ind);
+size_t eik3_num_trial(eik3_s const *eik);
+size_t eik3_num_valid(eik3_s const *eik);
 
 mesh3_s const *eik3_get_mesh(eik3_s const *eik);
 array_s const *eik3_get_trial_inds(eik3_s const *eik);
