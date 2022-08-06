@@ -286,7 +286,8 @@ void rnode_recompute_bbox(rnode_s *node) {
 
 void rnode_grow(rnode_s *node) {
   assert(node->type == RNODE_TYPE_LEAF);
-  assert(node->leaf_data.capacity > 0);
+  assert(0 < node->leaf_data.capacity);
+  assert(node->leaf_data.size <= node->leaf_data.capacity);
 
   node->leaf_data.capacity *= 2;
 
@@ -299,6 +300,7 @@ void rnode_append_robj(rnode_s *node, robj_s obj) {
   if (node->leaf_data.size == node->leaf_data.capacity)
     rnode_grow(node);
   node->leaf_data.obj[node->leaf_data.size++] = obj;
+  assert(node->leaf_data.size <= node->leaf_data.capacity);
 }
 
 void rnode_append_robjs(rnode_s *node, robj_s const *obj, size_t n) {
@@ -307,6 +309,7 @@ void rnode_append_robjs(rnode_s *node, robj_s const *obj, size_t n) {
     rnode_grow(node);
   memcpy(&node->leaf_data.obj[node->leaf_data.size], obj, n*sizeof(robj_s));
   node->leaf_data.size += n;
+  assert(node->leaf_data.size <= node->leaf_data.capacity);
 }
 
 size_t rnode_leaf_size(rnode_s const *node) {
