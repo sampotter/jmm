@@ -74,6 +74,8 @@ if (SANITIZE_UNDEFINED)
   set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${SANITIZE_UNDEFINED_CMAKE_C_FLAGS}")
 endif ()
 
+add_subdirectory (extra/tetgen1.6.0)
+
 set (JMM_PUBLIC_HEADERS
   src/def.h
   src/dial.h
@@ -147,6 +149,7 @@ if (UNIX)
   target_link_libraries (jmm PRIVATE m)
 endif ()
 target_link_libraries (jmm PRIVATE GSL::gsl)
+target_include_directories (jmm PRIVATE tet)
 target_include_directories (
   jmm INTERFACE
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>
