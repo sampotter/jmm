@@ -1856,7 +1856,7 @@ mesh2_s *mesh3_get_surface_mesh(mesh3_s const *mesh) {
   uint3 *faces = malloc(mesh->nbdf*sizeof(uint3));
   for (size_t lf = 0; lf < mesh->nbdf; ++lf)
     for (size_t i = 0; i < 3; ++i)
-      faces[lf][i] = lf;
+      faces[lf][i] = 3*lf + i;
 
   /* Precompute the array of face normals. The face normal for the
    * tetrahedron mesh is assumed to point *into* the interior of the
@@ -1874,6 +1874,14 @@ mesh2_s *mesh3_get_surface_mesh(mesh3_s const *mesh) {
              verts, 3*mesh->nbdf, /* verts_policy: */ POLICY_XFER,
              faces, mesh->nbdf, /* faces_policy: */ POLICY_XFER,
              face_normals, /* face_normals_policy: */ POLICY_XFER);
+
+#if JMM_DEBUG
+  /* Make sure no faces have duplicate vertices */
+  for (size_t lf = 0; lf < mesh->nbdf; ++lf)
+    assert(faces[lf][0] != faces[lf][1] &&
+           faces[lf][1] != faces[lf][2] &&
+           faces[lf][2] != faces[lf][0]);
+#endif
 
   /* Don't need to free `verts`, `faces`, or `face_normals` here since
    * we've passed ownership to `surface_mesh`. They will be freed when
