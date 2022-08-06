@@ -408,7 +408,13 @@ bool utri_is_backwards(utri_s const *utri, eik3_s const *eik) {
     mesh3_vert_incident_on_diff_edge(mesh, utri->l1)
   };
 
-  assert(!(diff[0] && diff[1]));
+  /* TODO: this can happen. Example: boundary triangle update on the
+   * inside of a portal which is ~one triangle wedge. Both x0 and x1
+   * could be incident on diffracting edges, but in this case they
+   * would be different diffracting edges. Need to think about how
+   * important it is to check this case carefully. It's doable, but
+   * inefficient. */
+  // assert(!(diff[0] && diff[1]));
 
   if (diff[0] ^ diff[1]) {
     size_t l_diff = diff[0] ? utri->l0 : utri->l1;
