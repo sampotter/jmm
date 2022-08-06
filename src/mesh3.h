@@ -35,14 +35,19 @@ struct mesh3_tetra {
 tri3 mesh3_tetra_get_face(mesh3_tetra_s const *tetra, int face_inds[3]);
 bool mesh3_tetra_equal(mesh3_tetra_s const *t1, mesh3_tetra_s const *t2);
 
+typedef struct mesh3_data {
+  size_t nverts;
+  dbl3 *verts;
+  size_t ncells;
+  uint4 *cells;
+} mesh3_data_s;
+
+void mesh3_data_from_off_file(mesh3_data_s *data, char const *path, dbl maxvol, bool verbose);
+error_e mesh3_data_insert_vert(mesh3_data_s *data, dbl3 const x, dbl eps);
+
 void mesh3_alloc(mesh3_s **mesh);
 void mesh3_dealloc(mesh3_s **mesh);
-void mesh3_init(mesh3_s *mesh,
-                dbl const *verts, size_t nverts,
-                size_t const *cells, size_t ncells,
-                bool compute_bd_info, dbl const *eps);
-void mesh3_init_from_off_file(mesh3_s *mesh, char const *path, dbl maxvol,
-                              size_t nadd, dbl3 const *xadd);
+void mesh3_init(mesh3_s *mesh, mesh3_data_s const *data, bool compute_bd_info, dbl const *eps);
 void mesh3_deinit(mesh3_s *mesh);
 dbl3 const *mesh3_get_verts_ptr(mesh3_s const *mesh);
 size_t const *mesh3_get_cells_ptr(mesh3_s const *mesh);

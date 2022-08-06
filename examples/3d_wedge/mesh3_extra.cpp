@@ -249,17 +249,16 @@ jmm_error_e mesh3_init_from_3d_wedge_spec(mesh3_s *mesh,
 
   tetrahedralize((char *)switches.c_str(), &in, &out, &addin);
 
-  size_t nverts = out.numberofpoints;
-  double *verts = (double *)malloc(3*nverts*sizeof(double));
-  for (size_t i = 0; i < 3*nverts; ++i)
-    verts[i] = out.pointlist[i];
+  mesh3_data_s data;
+  data.nverts = out.numberofpoints;
+  data.verts = (dbl3 *)malloc(data.nverts*sizeof(dbl3));
+  data.ncells = out.numberoftetrahedra;
+  data.cells = (uint4 *)malloc(data.ncells*sizeof(uint4));
 
-  size_t ncells = out.numberoftetrahedra;
-  size_t *cells = (size_t *)malloc(4*ncells*sizeof(size_t));
-  for (size_t i = 0; i < 4*ncells; ++i)
-    cells[i] = out.tetrahedronlist[i];
+  memcpy(data.verts, out.pointlist, data.nverts*sizeof(dbl3));
+  memcpy(data.cells, out.tetrahedronlist, data.ncells*sizeof(uint4));
 
-  mesh3_init(mesh, verts, nverts, cells, ncells, true, NULL);
+  mesh3_init(mesh, &data, true, NULL);
 
   /* Make sure the point source is actually included in the mesh! */
   assert(mesh3_has_vertex(mesh, addin.pointlist));

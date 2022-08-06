@@ -55,11 +55,11 @@ int bdf_cmp(bdf_s const *f1, bdf_s const *f2) {
 }
 
 struct mesh3 {
-  dbl (*verts)[3];
   size_t nverts;
+  dbl3 *verts;
 
-  size_t (*cells)[4];
   size_t ncells;
+  uint4 *cells;
 
   size_t *vc;
   size_t *vc_offsets;
@@ -104,6 +104,59 @@ tri3 mesh3_tetra_get_face(mesh3_tetra_s const *tetra, int f[3]) {
 
 bool mesh3_tetra_equal(mesh3_tetra_s const *t1, mesh3_tetra_s const *t2) {
   return t1->mesh == t2->mesh && t1->l == t2->l;
+}
+
+size_t mesh3_data_append_vert(mesh3_data_s *data, dbl3 const x) {
+  data->verts = reallocarray(data->verts, data->nverts + 1, sizeof(dbl3));
+  dbl3_copy(x, data->verts[data->nverts]);
+  return data->nverts++;
+}
+
+void mesh3_data_append_cells(mesh3_data_s *data, size_t n, uint4 const C[4]) {
+  data->cells = reallocarray(data->cells, data->ncells + n, sizeof(uint4));
+  memcpy(data->cells[data->ncells], C, n*sizeof(uint4));
+  data->ncells += n;
+}
+
+void mesh3_data_delete_cell(mesh3_data_s *data, size_t lc0) {
+  --data->ncells;
+  for (size_t lc = lc0; lc < data->ncells; ++lc)
+    memcpy(data->cells[lc], data->cells[lc + 1], sizeof(uint4));
+  data->cells = reallocarray(data->cells, data->ncells, sizeof(uint4));
+}
+
+bool mesh3_data_cell_contains_point(mesh3_data_s const *data, size_t lc,
+                                    dbl3 const x, dbl eps) {
+  tetra3 tetra;
+  for (size_t i = 0; i < 4; ++i)
+    dbl3_copy(data->verts[data->cells[lc][i]], tetra.v[i]);
+  return tetra3_contains_point(&tetra, x, &eps);
+}
+
+size_t mesh3_data_find_cell_containing_point(mesh3_data_s const *data, dbl3 const x, dbl eps) {
+  for (size_t lc = 0; lc < data->ncells; ++lc)
+    if (mesh3_data_cell_contains_point(data, lc, x, eps))
+      return lc;
+  return (size_t)NO_INDEX;
+}
+
+error_e mesh3_data_insert_vert(mesh3_data_s *data, dbl3 const x, dbl eps) {
+  size_t lc = mesh3_data_find_cell_containing_point(data, x, eps);
+  if (lc == (size_t)NO_INDEX)
+    return BAD_ARGUMENT;
+
+  size_t lv = mesh3_data_append_vert(data, x);
+
+  uint4 cells[4];
+  for (size_t i = 0; i < 4; ++i) {
+    memcpy(cells[i], data->cells[lc], sizeof(uint4));
+    cells[i][i] = lv;
+  }
+
+  mesh3_data_delete_cell(data, lc);
+  mesh3_data_append_cells(data, 4, cells);
+
+  return SUCCESS;
 }
 
 void mesh3_alloc(mesh3_s **mesh) {
@@ -680,25 +733,15 @@ static void compute_geometric_quantities(mesh3_s *mesh) {
   mesh->mean_edge_length /= mesh->nedges;
 }
 
-void mesh3_init(mesh3_s *mesh,
-                dbl const *verts, size_t nverts,
-                size_t const *cells, size_t ncells,
+void mesh3_init(mesh3_s *mesh, mesh3_data_s const *data,
                 bool compute_bd_info, dbl const *eps) {
-  size_t k = 0;
+  mesh->verts = malloc(data->nverts*sizeof(dbl3));
+  memcpy(mesh->verts, data->verts, data->nverts*sizeof(dbl3));
+  mesh->nverts = data->nverts;
 
-  mesh->verts = malloc(nverts*sizeof(dbl[3]));
-  for (size_t i = 0; i < nverts; ++i)
-    for (int j = 0; j < 3; ++j)
-      mesh->verts[i][j] = verts[k++];
-  mesh->nverts = nverts;
-
-  k = 0;
-
-  mesh->cells = malloc(ncells*sizeof(size_t[4]));
-  for (size_t i = 0; i < ncells; ++i)
-    for (int j = 0; j < 4; ++j)
-      mesh->cells[i][j] = cells[k++];
-  mesh->ncells = ncells;
+  mesh->cells = malloc(data->ncells*sizeof(uint4));
+  memcpy(mesh->cells, data->cells, data->ncells*sizeof(uint4));
+  mesh->ncells = data->ncells;
 
   init_vc(mesh);
 

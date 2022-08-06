@@ -103,9 +103,13 @@ int main(int argc, char *argv[]) {
 
   toc();
 
+  mesh3_data_s data;
+  mesh3_data_from_off_file(&data, spec.off_path, spec.maxvol, spec.verbose);
+  mesh3_data_insert_vert(&data, spec.xsrc, EPS);
+
   mesh3_s *mesh;
   mesh3_alloc(&mesh);
-  mesh3_init_from_off_file(mesh, spec.off_path, spec.maxvol, 1, &spec.xsrc);
+  mesh3_init(mesh, &data, true, NULL);
 
   rect3 bbox;
   mesh3_get_bbox(mesh, &bbox);

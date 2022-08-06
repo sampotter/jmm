@@ -29,17 +29,14 @@ void mesh3_data_from_off_file(mesh3_data_s *data, char const *path, dbl maxvol, 
    * and *not* call mesh3_init */
 
   /* Copy over the vertices */
-  size_t nverts = out.numberofpoints;
-  double *verts = (double *)malloc(3*nverts*sizeof(double));
-  for (size_t i = 0; i < 3*nverts; ++i)
-    verts[i] = out.pointlist[i];
+  data->nverts = out.numberofpoints;
+  data->verts = (dbl3 *)malloc(data->nverts*sizeof(dbl3));
+  memcpy(data->verts, out.pointlist, data->nverts*sizeof(dbl3));
 
   /* Copy over the cells */
-  size_t ncells = out.numberoftetrahedra;
-  size_t *cells = (size_t *)malloc(4*ncells*sizeof(size_t));
-  for (size_t i = 0; i < 4*ncells; ++i)
-    cells[i] = out.tetrahedronlist[i];
-
-  /* Initialize the mesh */
-  mesh3_init(mesh, verts, nverts, cells, ncells, true, NULL);
+  data->ncells = out.numberoftetrahedra;
+  data->cells = (uint4 *)malloc(data->ncells*sizeof(uint4));
+  for (size_t lc = 0; lc < data->ncells; ++lc)
+    for (size_t i = 0; i < 4; ++i)
+      data->cells[lc][i] = out.tetrahedronlist[4*lc + i];
 }

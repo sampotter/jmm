@@ -242,8 +242,8 @@ bmesh33_s *bmesh33_restrict_to_level(bmesh33_s const *bmesh, dbl level) {
   bmesh33_s *level_bmesh = malloc(sizeof(bmesh33_s));
   level_bmesh->bb = malloc(num_brack*sizeof(bb33));
 
-  dbl *verts = malloc(4*num_brack*sizeof(dbl[3]));
-  size_t *cells = malloc(num_brack*sizeof(size_t[4]));
+  dbl3 *verts = malloc(4*num_brack*sizeof(dbl3));
+  uint4 *cells = malloc(num_brack*sizeof(uint4));
 
   // For each bracketed cell, we go ahead and splat all of the
   // incident vertices into `verts`. There will be duplicates. For now
@@ -256,8 +256,8 @@ bmesh33_s *bmesh33_restrict_to_level(bmesh33_s const *bmesh, dbl level) {
     level_bmesh->bb[lc] = bmesh->bb[l]; // Copy Bezier tetra data
     mesh3_cv(bmesh->mesh, l, cv); // Grab the inds for this cell
     for (int i = 0; i < 4; ++i) {
-      mesh3_copy_vert(bmesh->mesh, cv[i], &verts[4*3*lc + 3*i]);
-      cells[4*lc + i] = j++; // Splat new vert inds into `cells`
+      mesh3_copy_vert(bmesh->mesh, cv[i], verts[4*lc + i]);
+      cells[lc][i] = j++; // Splat new vert inds into `cells`
     }
     lv += 4;
     ++lc;
@@ -265,8 +265,13 @@ bmesh33_s *bmesh33_restrict_to_level(bmesh33_s const *bmesh, dbl level) {
 
   dbl eps = mesh3_get_eps(bmesh->mesh);
 
+  mesh3_data_s data = {
+    .nverts = lv, .verts = verts,
+    .ncells = lc, .cells = cells
+  };
+
   mesh3_alloc((mesh3_s **)&level_bmesh->mesh);
-  mesh3_init((mesh3_s *)level_bmesh->mesh, verts, lv, cells, lc, false, &eps);
+  mesh3_init((mesh3_s *)level_bmesh->mesh, &data, false, &eps);
 
   level_bmesh->mesh_owner = true;
   level_bmesh->num_cells = mesh3_ncells(level_bmesh->mesh);
