@@ -8,8 +8,6 @@
 #include <camera.h>
 #include <eik3.h>
 #include <eik3hh.h>
-#include <mesh2.h>
-#include <rtree.h>
 #include <util.h>
 
 const char *argp_program_version = "simple_building 0.0";
@@ -18,6 +16,13 @@ char const *argp_program_bug_address = "sfp@cims.nyu.edu";
 static char doc[] = ""; // TODO: add some docs here when it makes sense
 
 static char args_doc[] = "EXAMPLE";
+
+enum long_opts {
+  LONG_OPT_RENDER = 777,
+  LONG_OPT_T0,
+  LONG_OPT_T1,
+  LONG_OPT_FRAMERATE
+};
 
 static struct argp_option options[] = {
   {"verbose", 'v', 0, OPTION_ARG_OPTIONAL, "Produce verbose output", 0},
@@ -29,9 +34,19 @@ static struct argp_option options[] = {
    "Sound-hard reflection coefficient (default: 1)", 0},
   {"rfac", 'r', "RADIUS", OPTION_ARG_OPTIONAL,
    "Factoring radius (default: 0.1)", 0},
+  {"speed", 'c', "SPEED", OPTION_ARG_OPTIONAL,
+   "Speed of sound in m/s (default: 340.3 m/s)", 0},
   {"freq", 'f', "FREQUENCY", OPTION_ARG_OPTIONAL,
    "Angular frequency of wave (default: 1000)", 0},
   {"omega", 0, "FREQUENCY", OPTION_ALIAS, 0, 0},
+  {"render", LONG_OPT_RENDER, 0, OPTION_ARG_OPTIONAL,
+   "Render video of wavefront", 0},
+  {"t0", LONG_OPT_T0, "T0", OPTION_ARG_OPTIONAL,
+   "Initial time point for rendering", 0},
+  {"t1", LONG_OPT_T1, "T1", OPTION_ARG_OPTIONAL,
+   "Final time point for rendering", 0},
+  {"framerate", LONG_OPT_FRAMERATE, "FRAMERATE", OPTION_ARG_OPTIONAL,
+   "Rendering frame rate (default: 23.98 s^-1)", 0},
   {0}
 };
 
@@ -40,7 +55,12 @@ typedef struct problem_spec {
   dbl maxvol;
   dbl3 xsrc;
   dbl rfac;
+  dbl c;
   dbl omega;
+  bool render;
+  dbl t0;
+  dbl t1;
+  dbl frame_rate;
   char *off_path;
 } problem_spec_s;
 
@@ -62,8 +82,23 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
   case 'r':
     spec->rfac = atof(arg);
     break;
+  case 'c':
+    spec->c = atof(arg);
+    break;
   case 'f':
     spec->omega = atof(arg);
+    break;
+  case LONG_OPT_RENDER:
+    spec->render = true;
+    break;
+  case LONG_OPT_T0:
+    spec->t0 = atof(arg);
+    break;
+  case LONG_OPT_T1:
+    spec->t1 = atof(arg);
+    break;
+  case LONG_OPT_FRAMERATE:
+    spec->frame_rate = atof(arg);
     break;
   case ARGP_KEY_ARG:
     size_t n = strlen(arg);
@@ -90,7 +125,12 @@ int main(int argc, char *argv[]) {
     .maxvol = 0.01,
     .xsrc = {NAN, NAN, NAN},
     .rfac = 0.1,
+    .c = 340.3,
     .omega = 100,
+    .render = false,
+    .t0 = NAN,
+    .t1 = NAN,
+    .frame_rate = 23.98,
     .off_path = NULL
   };
 
@@ -135,7 +175,7 @@ int main(int argc, char *argv[]) {
 
   eik3hh_s *hh;
   eik3hh_alloc(&hh);
-  eik3hh_init_pt_src(hh, mesh, spec.xsrc, spec.rfac);
+  eik3hh_init_pt_src(hh, mesh, spec.xsrc, spec.rfac, spec.c);
 
   printf("Set up direct eikonal problem:\n");
   printf("- number of points inside factoring radius: %lu\n",
@@ -185,9 +225,9 @@ int main(int argc, char *argv[]) {
   printf("Saved xy-slice (z = %g) of the direct origin [%1.2gs]\n",
          spec.xsrc[2], toc());
 
-#if 0
-  /** <RAYTRACING> */
+  /** Render frames to disk */
 
+  /* TODO: read camera from file */
   camera_s camera = {
     // .type = CAMERA_TYPE_ORTHOGRAPHIC,
     .type = CAMERA_TYPE_PERSPECTIVE,
@@ -201,137 +241,9 @@ int main(int argc, char *argv[]) {
     .aspect = 1,
     .dim = {1024, 1024}
   };
-
-  bmesh33_s *bmesh;
-  bmesh33_alloc(&bmesh);
-  bmesh33_init_from_mesh3_and_jets(bmesh, mesh, eik3hh_get_jet_ptr(hh));
-
-  mesh2_s *surface_mesh = mesh3_get_surface_mesh(mesh);
-
-  dbl T_max = eik3_get_max_T(eik3hh_get_eik_ptr(hh));
-
-  dbl T0 = 0.2*T_max, T1 = 0.8*T_max;
-
-  size_t num_T = 12;
-  dbl *T = malloc(num_T*sizeof(dbl));
-  for (size_t i = 0; i < num_T; ++i) {
-    dbl t = i/(dbl)(num_T - 1);
-    T[i] = (1 - t)*T0 + t*T1;
-  }
-
-  for (size_t i = 0; i < num_T; ++i) {
-    printf("frame %lu/%lu (T = %g)\n", i, num_T - 1, T[i]);
-
-    rtree_s *rtree;
-    rtree_alloc(&rtree);
-    rtree_init(rtree, 16, RTREE_SPLIT_STRATEGY_SURFACE_AREA);
-
-    rtree_insert_mesh2(rtree, surface_mesh);
-
-    bmesh33_s *level_bmesh = bmesh33_restrict_to_level(bmesh, T[i]);
-    rtree_insert_bmesh33(rtree, level_bmesh);
-
-    rtree_build(rtree);
-
-    size_t npix = camera.dim[0]*camera.dim[1];
-
-    dbl4 *img = malloc(npix*sizeof(dbl4));
-
-    dbl3 surf_rgb = {1.0, 1.0, 1.0};
-    dbl3 eik_rgb = {1.0, 1.0, 1.0};
-
-    dbl surf_alpha = 0.5;
-    dbl eik_alpha = 0.95;
-
-    for (size_t i = 0, l = 0; i < camera.dim[0]; ++i) {
-      for (size_t j = 0; j < camera.dim[1]; ++j, ++l) {
-        ray3 ray = camera_get_ray_for_index(&camera, i, j);
-
-        isect isect;
-        rtree_intersect(rtree, &ray, &isect, NULL);
-
-        img[l][0] = 0;
-        img[l][1] = 0;
-        img[l][2] = 0;
-        img[l][3] = isfinite(isect.t) ? 1 : 0;
-
-        dbl alpha = 1, scale;
-        dbl const *rgb = NULL;
-        dbl3 n;
-
-        while (isfinite(isect.t)) {
-          robj_type_e robj_type = robj_get_type(isect.obj);
-          void const *robj_data = robj_get_data(isect.obj);
-
-          /* Increment the distance along the ray */
-          dbl3_saxpy_inplace(isect.t, ray.dir, ray.org);
-
-          /* Update the current alpha and RGB value */
-          switch (robj_type) {
-          case ROBJ_MESH2_TRI:
-            alpha *= surf_alpha;
-            rgb = &surf_rgb[0];
-            break;
-          case ROBJ_BMESH33_CELL:
-            alpha *= eik_alpha;
-            rgb = &eik_rgb[0];
-            break;
-          default:
-            assert(false);
-          }
-
-          /* Get the surface normal and dot it with the eye vector for
-           * Lambertian shading */
-          switch (robj_type) {
-          case ROBJ_MESH2_TRI:
-            mesh2_tri_s const *mesh2_tri = robj_data;
-            mesh2_get_unit_surface_normal(surface_mesh, mesh2_tri->l, n);
-            break;
-          case ROBJ_BMESH33_CELL:
-            bmesh33_cell_s const *bmesh33_cell = robj_data;
-            bmesh33_cell_Df(bmesh33_cell, ray.org, n);
-            dbl3_normalize(n);
-            break;
-          default:
-            assert(false);
-          }
-          scale = fabs(dbl3_dot(n, ray.dir));
-
-          /* ... and accumulate */
-          dbl3_saxpy_inplace(scale*alpha, rgb, img[l]);
-
-          /* Advance the start of the ray and keep tracing */
-          rtree_intersect(rtree, &ray, &isect, isect.obj);
-        }
-      }
-    }
-
-    char filename[128];
-    snprintf(filename, 128, "image%04lu.bin", i);
-
-    FILE *fp = fopen(filename, "wb");
-    fwrite(img, sizeof(dbl4), npix, fp);
-    fclose(fp);
-
-    bmesh33_deinit(level_bmesh);
-    bmesh33_dealloc(&level_bmesh);
-
-    rtree_deinit(rtree);
-    rtree_dealloc(&rtree);
-  }
-
-  /** </RAYTRACING> */
-#endif
+  eik3hh_render_frames(hh, &camera, spec.t0, spec.t1, spec.frame_rate, true);
 
 cleanup:
-
-#if 0
-  mesh2_deinit(surface_mesh);
-  mesh2_dealloc(&surface_mesh);
-
-  bmesh33_deinit(bmesh);
-  bmesh33_dealloc(&bmesh);
-#endif
 
   grid2_to_mesh3_mapping_deinit(&mapping);
 
