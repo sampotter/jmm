@@ -24,6 +24,8 @@ static struct argp_option options[] = {
   {"maxvol", 'a', "VOLUME", OPTION_ARG_OPTIONAL,
    "Maximum tetrahedron volume (default: 0.01)", 0},
   {"xsrc", 'x', "POINT", OPTION_ARG_OPTIONAL,
+   "Point source location (format: \"x,y,z\")", 0},
+  {"Rcoef", 'R', "RCOEF", OPTION_ARG_OPTIONAL,
    "Sound-hard reflection coefficient (default: 1)", 0},
   {"rfac", 'r', "RADIUS", OPTION_ARG_OPTIONAL,
    "Factoring radius (default: 0.1)", 0},
@@ -69,6 +71,8 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
     strncpy(spec->off_path, arg, n + 1);
     break;
   case ARGP_KEY_END:
+    if (spec->off_path == NULL)
+      argp_usage(state);
     break;
   default:
     return ARGP_ERR_UNKNOWN;
@@ -135,6 +139,11 @@ int main(int argc, char *argv[]) {
 
   printf("Set up direct eikonal problem:\n");
   printf("- num. BC points: %lu\n", eik3hh_num_bc(hh));
+
+  if (eik3hh_num_bc(hh) == 0) {
+    printf("ERROR: didn't insert any TRIAL points!\n");
+    exit(EXIT_FAILURE);
+  }
 
   toc();
   eik3hh_solve(hh);
