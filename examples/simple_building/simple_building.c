@@ -8,6 +8,7 @@
 #include <camera.h>
 #include <eik3.h>
 #include <eik3hh.h>
+#include <eik3hh_branch.h>
 #include <util.h>
 
 const char *argp_program_version = "simple_building 0.0";
@@ -175,20 +176,23 @@ int main(int argc, char *argv[]) {
 
   eik3hh_s *hh;
   eik3hh_alloc(&hh);
-  eik3hh_init_pt_src(hh, mesh, spec.xsrc, spec.rfac, spec.c);
+  eik3hh_init_with_pt_src(hh, mesh, spec.c, spec.rfac, spec.xsrc);
+
+  eik3hh_branch_s *root_branch = eik3hh_get_root_branch(hh);
+  eik3_s *eik_direct = eik3hh_branch_get_eik(root_branch);
 
   printf("Set up direct eikonal problem:\n");
   printf("- number of points inside factoring radius: %lu\n",
-         eik3hh_num_valid(hh));
+         eik3_num_valid(eik_direct));
   printf("- number of TRIAL points adjacent to factored ball: %lu\n",
-         eik3hh_num_trial(hh));
-  if (eik3hh_num_trial(hh) == 0) {
+         eik3_num_trial(eik_direct));
+  if (eik3_num_trial(eik_direct) == 0) {
     printf("ERROR: didn't insert any TRIAL points!\n");
     exit(EXIT_FAILURE);
   }
 
   toc();
-  eik3hh_solve(hh);
+  eik3hh_branch_solve(root_branch);
   printf("Computed direct eikonal [%1.2gs]\n", toc());
 
   /* Set up the image grid for making 2D plots */
@@ -209,19 +213,22 @@ int main(int argc, char *argv[]) {
 
   /* Save T slice to disk */
   toc();
-  eik3hh_dump_xy_slice(hh, &mapping, FIELD_T, "T_slice.bin");
+  eik3hh_branch_dump_xy_slice(
+    root_branch, &mapping, FIELD_T, "T_slice.bin");
   printf("Saved xy-slice (z = %g) of the direct eikonal [%1.2gs]\n",
          spec.xsrc[2], toc());
 
   /* Save spreading factor slice to disk */
   toc();
-  eik3hh_dump_xy_slice(hh, &mapping, FIELD_SPREADING, "spread_slice.bin");
+  eik3hh_branch_dump_xy_slice(
+    root_branch, &mapping, FIELD_SPREADING, "spread_slice.bin");
   printf("Saved xy-slice (z = %g) of the direct spreading [%1.2gs]\n",
          spec.xsrc[2], toc());
 
   /* Save origin slice to disk */
   toc();
-  eik3hh_dump_xy_slice(hh, &mapping, FIELD_ORIGIN, "origin_slice.bin");
+  eik3hh_branch_dump_xy_slice(
+    root_branch, &mapping, FIELD_ORIGIN, "origin_slice.bin");
   printf("Saved xy-slice (z = %g) of the direct origin [%1.2gs]\n",
          spec.xsrc[2], toc());
 
