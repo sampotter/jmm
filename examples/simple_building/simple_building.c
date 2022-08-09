@@ -179,39 +179,24 @@ int main(int argc, char *argv[]) {
   eik3hh_init_with_pt_src(hh, mesh, spec.c, spec.rfac, spec.xsrc);
 
   eik3hh_branch_s *root_branch = eik3hh_get_root_branch(hh);
+  eik3hh_branch_solve(root_branch, spec.verbose);
 
-  eik3_s *eik_direct = eik3hh_branch_get_eik(root_branch);
-  printf("Set up direct eikonal problem:\n");
-  printf("- number of points inside factoring radius: %lu\n",
-         eik3_num_valid(eik_direct));
-  printf("- number of TRIAL points adjacent to factored ball: %lu\n",
-         eik3_num_trial(eik_direct));
-  if (eik3_num_trial(eik_direct) == 0) {
-    printf("ERROR: didn't insert any TRIAL points!\n");
-    exit(EXIT_FAILURE);
+  array_s *refl_inds = eik3hh_branch_get_visible_refls(root_branch);
+
+  // TODO: debugging
+  eik3hh_branch_s *refl_branch = eik3hh_branch_add_refl(root_branch,17);
+  eik3hh_branch_solve(refl_branch, spec.verbose);
+
+  for (size_t i = 0; i < array_size(refl_inds); ++i) {
+    size_t refl_ind;
+    array_get(refl_inds, i, &refl_ind);
+
+    eik3hh_branch_s *refl_branch = eik3hh_branch_add_refl(root_branch,refl_ind);
+    eik3hh_branch_solve(refl_branch, spec.verbose);
   }
 
-  toc();
-  eik3hh_branch_solve(root_branch);
-  printf("Computed direct eikonal [%1.2gs]\n", toc());
-
-  size_t refl_index = eik3hh_branch_get_earliest_refl(root_branch);
-  eik3hh_branch_s *refl_branch = eik3hh_branch_add_refl(root_branch, refl_index);
-
-  eik3_s *eik_refl = eik3hh_branch_get_eik(refl_branch);
-  printf("Set up reflected eikonal problem (refl_index = %lu):\n", refl_index);
-  printf("- number of points inside factoring radius: %lu\n",
-         eik3_num_valid(eik_refl));
-  printf("- number of TRIAL points adjacent to factored ball: %lu\n",
-         eik3_num_trial(eik_refl));
-  if (eik3_num_trial(eik_refl) == 0) {
-    printf("ERROR: didn't insert any TRIAL points!\n");
-    exit(EXIT_FAILURE);
-  }
-
-  toc();
-  eik3hh_branch_solve(refl_branch);
-  printf("Computed reflected eikonal [%1.2gs]\n", toc());
+  array_deinit(refl_inds);
+  array_dealloc(&refl_inds);
 
   /* Set up the image grid for making 2D plots */
   size_t ngrid = 1024 + 1;
@@ -229,7 +214,7 @@ int main(int argc, char *argv[]) {
   grid2_to_mesh3_mapping_init_xy(&mapping, &img_grid, mesh, spec.xsrc[2]);
   printf("Set up grid-to-mesh mapping [%1.2gs]\n", toc());
 
-  eik3hh_branch_s *slice_branch = refl_branch;
+  eik3hh_branch_s *slice_branch = root_branch;
 
   /* Save T slice to disk */
   toc();

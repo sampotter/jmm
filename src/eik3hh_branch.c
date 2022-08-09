@@ -9,6 +9,7 @@
 #include "eik3.h"
 #include "eik3hh.h"
 #include "mat.h"
+#include "util.h"
 
 struct eik3hh_branch {
   eik3hh_s const *hh;
@@ -488,13 +489,34 @@ static void prop_spread(eik3hh_branch_s *branch) {
   }
 }
 
-void eik3hh_branch_solve(eik3hh_branch_s *branch) {
-  eik3_solve(branch->eik);
+void eik3hh_branch_solve(eik3hh_branch_s *branch, bool verbose) {
+  if (verbose)
+    toc();
+
+  eik3_s *eik = branch->eik;
+
+  if (verbose) {
+    if (branch->type == EIK3HH_BRANCH_TYPE_PT_SRC)
+      printf("Set up point source problem:\n");
+    else if (branch->type == EIK3HH_BRANCH_TYPE_REFL)
+      printf("Solving reflection problem (refl_index = %lu):\n", branch->index);
+    printf("- number of points inside factoring radius: %lu\n",
+           eik3_num_valid(eik));
+    printf("- number of TRIAL points adjacent to factored nodes: %lu\n",
+           eik3_num_trial(eik));
+  }
+
+  if (eik3_num_trial(eik) == 0) {
+    printf("ERROR: didn't insert any TRIAL points!\n");
+    exit(EXIT_FAILURE);
+  }
+
+  eik3_solve(eik);
 
   if (branch->type == EIK3HH_BRANCH_TYPE_PT_SRC) {
     init_D2T_pt_src(branch);
     init_spread_pt_src(branch);
-    eik3_init_org_from_BCs(branch->eik, branch->origin);
+    eik3_init_org_from_BCs(eik, branch->origin);
   }
 
   else if (branch->type == EIK3HH_BRANCH_TYPE_REFL) {
@@ -502,13 +524,15 @@ void eik3hh_branch_solve(eik3hh_branch_s *branch) {
     assert(parent != NULL);
     init_D2T_refl(branch, parent->D2T);
     init_spread_refl(branch, parent->spread);
-    eik3_init_org_for_refl(
-      branch->eik, branch->origin, branch->index, parent->origin);
+    eik3_init_org_for_refl(eik, branch->origin, branch->index, parent->origin);
   }
 
   approx_D2T(branch);
   prop_spread(branch);
-  eik3_prop_org(branch->eik, branch->origin);
+  eik3_prop_org(eik, branch->origin);
+
+  if (verbose)
+    printf("- solved [%1.2gs]\n", toc());
 }
 
 static void dump_xy_T_slice(eik3hh_branch_s const *branch,
@@ -619,6 +643,50 @@ size_t eik3hh_branch_get_earliest_refl(eik3hh_branch_s const *branch) {
     free(lf);
   }
   return min_refl_index;
+}
+
+array_s *eik3hh_branch_get_visible_refls(eik3hh_branch_s const *branch) {
+  mesh3_s const *mesh = eik3_get_mesh(branch->eik);
+
+  dbl const *org_in = branch->origin;
+#if JMM_DEBUG
+  for (size_t l = 0; l < mesh3_nverts(mesh); ++l)
+    assert(isfinite(org_in[l]));
+#endif
+
+  array_s *refl_inds;
+  array_alloc(&refl_inds);
+  array_init(refl_inds, sizeof(size_t), ARRAY_DEFAULT_CAPACITY);
+
+  size_t num_refl = mesh3_get_num_reflectors(mesh);
+  for (size_t refl_ind = 0; refl_ind < num_refl; ++refl_ind) {
+    /* Don't repeat reflections */
+    if (branch->type == EIK3HH_BRANCH_TYPE_REFL && branch->index == refl_ind)
+      continue;
+
+    /* Get the faces of the current reflector */
+    size_t nf = mesh3_get_reflector_size(mesh, refl_ind);
+    uint3 *lf = malloc(nf*sizeof(uint3));
+    mesh3_get_reflector(mesh, refl_ind, lf);
+
+    /* This reflector is visible if any of the incident origins are
+     * greater than or equal to 1/2. */
+    bool visible = false;
+    for (size_t i = 0; i < nf; ++i) {
+      if (visible) break;
+      for (size_t j = 0; j < 3; ++j) {
+        if (org_in[lf[i][j]] >= 0.5 && !array_contains(refl_inds, &refl_ind)) {
+          array_append(refl_inds, &refl_ind);
+          visible = true;
+          break;
+        }
+      }
+    }
+
+    free(lf);
+  }
+
+  return refl_inds;
 }
 
 eik3hh_branch_s *
