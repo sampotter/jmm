@@ -369,6 +369,14 @@ void dbl33_mul(dbl33 const A, dbl33 const B, dbl33 C) {
         C[i][j] += A[i][k]*B[k][j];
 }
 
+void dbl33_conj(dbl33 const A, dbl33 const B, dbl33 C) {
+  dbl33 tmp;
+  dbl33_mul(A, B, tmp);
+  dbl33_transpose(tmp);
+  dbl33_mul(tmp, B, C);
+  dbl33_transpose(C);
+}
+
 void dbl33_nan(dbl33 A) {
   for (size_t i = 0; i < 3; ++i)
     for (size_t j = 0; j < 3; ++j)

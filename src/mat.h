@@ -52,6 +52,7 @@ void dbl33_get_column(dbl33 const A, int i, dbl3 a);
 void dbl33_invert(dbl33 A);
 void dbl33_make_axis_angle_rotation_matrix(dbl3 axis, dbl angle, dbl33 rot);
 void dbl33_mul(dbl33 const A, dbl33 const B, dbl33 C);
+void dbl33_conj(dbl33 const A, dbl33 const B, dbl33 C);
 void dbl33_nan(dbl33 A);
 void dbl33_saxpy(dbl a, dbl33 const X, dbl33 const Y, dbl33 Z);
 void dbl33_set_column(dbl33 A, int i, dbl3 const a);
