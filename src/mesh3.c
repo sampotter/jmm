@@ -2348,3 +2348,14 @@ size_t mesh3_get_vert_index(mesh3_s const *mesh, dbl3 const x) {
       return l;
   return (size_t)NO_INDEX;
 }
+
+dbl mesh3_linterp(mesh3_s const *mesh, dbl const *values, dbl3 const x) {
+  size_t lc = mesh3_find_cell_containing_point(mesh, x, (size_t)NO_INDEX);
+  tetra3 tetra = mesh3_get_tetra(mesh, lc);
+  dbl4 b; tetra3_get_bary_coords(&tetra, x, b);
+  size_t lv[4]; mesh3_cv(mesh, lc, lv);
+  dbl value = 0;
+  for (size_t i = 0; i < 4; ++i)
+    value += b[i]*values[lv[i]];
+  return value;
+}

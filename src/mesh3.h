@@ -149,6 +149,7 @@ void mesh3_dump_verts(mesh3_s const *mesh, char const *path);
 void mesh3_dump_cells(mesh3_s const *mesh, char const *path);
 bool mesh3_has_vertex(mesh3_s const *mesh, dbl3 const x);
 size_t mesh3_get_vert_index(mesh3_s const *mesh, dbl3 const x);
+dbl mesh3_linterp(mesh3_s const *mesh, dbl const *values, dbl3 const x);
 
 #ifdef __cplusplus
 }
