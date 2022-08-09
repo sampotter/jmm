@@ -289,6 +289,7 @@ bmesh33_s *bmesh33_restrict_to_level(bmesh33_s const *bmesh, dbl level) {
 bmesh33_cell_s bmesh33_get_cell(bmesh33_s const *bmesh, size_t l) {
   assert(l < bmesh->num_cells);
   return (bmesh33_cell_s) {
+    .bmesh = bmesh,
     .bb = &bmesh->bb[l],
     .mesh = bmesh->mesh,
     .l = l,

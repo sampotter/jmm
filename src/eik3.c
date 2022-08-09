@@ -1269,7 +1269,8 @@ void eik3_resolve_downwind_from_diff(eik3_s *eik, size_t diff_index, dbl rfac) {
 
   /* Get the origins */
   dbl *org = malloc(mesh3_nverts(mesh)*sizeof(dbl));
-  eik3_get_org(eik, org);
+  eik3_init_org_from_BCs(eik, org);
+  eik3_prop_org(eik, org);
 
   /* Array used to accumulate indices of nodes to be reset */
   array_s *l_reset;
@@ -1963,18 +1964,13 @@ static update_inds_s get_refl_update_inds(mesh2_s const *refl_mesh,
   return update_inds;
 }
 
-void eik3_add_refl_bcs(eik3_s *eik, eik3_s const *eik_in, size_t refl_index, dbl rfac) {
+void eik3_add_refl_trial_nodes(eik3_s *eik, eik3_s const *eik_in,
+                               size_t refl_index) {
   assert(eik->mesh == eik_in->mesh);
   mesh3_s const *mesh = eik->mesh;
 
-  /* The queue driving the BFS. We store the node to update along with
-   * a starting guess for a face to start with. */
-  array_s *queue;
-  array_alloc(&queue);
-  array_init(queue, sizeof(update_inds_s), ARRAY_DEFAULT_CAPACITY);
-
-  /* We get a mesh corresponding to the reflector. We'll use this to
-   * do a local search for updates to accelerate our BFS. */
+  /* Get the reflector mesh. We'll use this to do a local search for
+   * updates to accelerate our BFS. */
   mesh2_s *refl_mesh = mesh3_get_refl_mesh(mesh, refl_index);
 
   /* Add reflection BCs for each vertex on the reflector. We also go
@@ -1986,17 +1982,51 @@ void eik3_add_refl_bcs(eik3_s *eik, eik3_s const *eik_in, size_t refl_index, dbl
     uint3 l;
     mesh2_fv(refl_mesh, lf, l);
 
-    /* ... add the BCs... */
+    for (size_t i = 0; i < 3; ++i) {
+      if (eik3_is_trial(eik, l[i]))
+        continue;
+
+      jet31t jet = eik3_get_jet(eik_in, l[i]);
+      dbl33_dbl3_mul_inplace(R, jet.Df);
+      eik3_add_trial(eik, l[i], jet);
+    }
+  }
+}
+
+void eik3_add_refl_bcs(eik3_s *eik, eik3_s const *eik_in, size_t refl_index, dbl rfac) {
+  assert(eik->mesh == eik_in->mesh);
+  mesh3_s const *mesh = eik->mesh;
+
+  /* The queue driving the BFS. We store the node to update along with
+   * a starting guess for a face to start with. */
+  array_s *queue;
+  array_alloc(&queue);
+  array_init(queue, sizeof(update_inds_s), ARRAY_DEFAULT_CAPACITY);
+
+  /* Get the reflector mesh. We'll use this to do a local search for
+   * updates to accelerate our BFS. */
+  mesh2_s *refl_mesh = mesh3_get_refl_mesh(mesh, refl_index);
+
+  /* Add reflection BCs for each vertex on the reflector. We also go
+   * ahead and add the unique nodes into the BFS queue. */
+  for (size_t lf = 0; lf < mesh2_nfaces(refl_mesh); ++lf) {
+    dbl33 R;
+    mesh2_get_R_for_face(refl_mesh, lf, R);
+
+    uint3 l;
+    mesh2_fv(refl_mesh, lf, l);
+
+    /* Add BCs and insert each node into the update queue.*/
     for (size_t i = 0; i < 3; ++i) {
       if (eik3_has_BCs(eik, l[i]))
         continue;
+
+      /* ... add the BCs... */
       jet31t jet = eik3_get_jet(eik_in, l[i]);
       dbl33_dbl3_mul_inplace(R, jet.Df);
       eik3_add_bc(eik, l[i], jet);
-    }
 
-    /* ... add the queue entry... */
-    for (size_t i = 0; i < 3; ++i) {
+      /* ... add the queue entry... */
       update_inds_s update_inds = make_empty_update_inds(l[i]);
       if (!array_contains(queue, &update_inds))
         array_append(queue, &update_inds);
@@ -2035,9 +2065,9 @@ void eik3_add_refl_bcs(eik3_s *eik, eik3_s const *eik_in, size_t refl_index, dbl
     size_t *vv = malloc(nvv*sizeof(size_t));
     mesh3_vv(mesh, l, vv);
 
-    /* ... if we are, then add this node's neighbors to the queue,
-     * using the parent of `l` as a warm start for the reflector
-     * updates for each added node. */
+    /* Since we're in the "factoring tube" now, add this node's
+     * neighbors to the queue, using the parent of `l` as a warm start
+     * for the reflector updates for each added node. */
     for (size_t i = 0; i < nvv; ++i) {
       /* Skip this node if we've already updated it */
       if (isfinite(eik->jet[vv[i]].f))
@@ -2150,9 +2180,7 @@ dbl eik3_get_max_T(eik3_s const *eik) {
   return T_max;
 }
 
-void eik3_get_org(eik3_s const *eik, dbl *org) {
-  mesh3_s const *mesh = eik->mesh;
-
+static void init_org(mesh3_s const *mesh, dbl *org) {
   /* Initialize `org` to `NAN` */
   for (size_t l = 0; l < mesh3_nverts(mesh); ++l)
     org[l] = NAN;
@@ -2161,6 +2189,10 @@ void eik3_get_org(eik3_s const *eik, dbl *org) {
   for (size_t l = 0; l < mesh3_nverts(mesh); ++l)
     if (isnan(org[l]) && mesh3_vert_incident_on_diff_edge(mesh, l))
       org[l] = 0;
+}
+
+void eik3_init_org_from_BCs(eik3_s const *eik, dbl *org) {
+  init_org(eik->mesh, org);
 
   /* Set the origin of all BC nodes to 1 */
   for (size_t i = 0, l; i < array_size(eik->bc_inds); ++i) {
@@ -2168,6 +2200,28 @@ void eik3_get_org(eik3_s const *eik, dbl *org) {
     if (isnan(org[l]))
       org[l] = 1;
   }
+}
+
+void eik3_init_org_for_refl(eik3_s const *eik, dbl *org, size_t refl_index,
+                            dbl const *org_in) {
+  mesh3_s const *mesh = eik->mesh;
+
+  init_org(mesh, org);
+
+  size_t nf = mesh3_get_reflector_size(mesh, refl_index);
+  uint3 *lf = malloc(nf*sizeof(uint3));
+  mesh3_get_reflector(mesh, refl_index, lf);
+
+  for (size_t i = 0; i < nf; ++i)
+    for (size_t j = 0; j < 3; ++j)
+      if (isnan(org[lf[i][j]]))
+        org[lf[i][j]] = org_in[lf[i][j]];
+
+  free(lf);
+}
+
+void eik3_prop_org(eik3_s const *eik, dbl *org) {
+  mesh3_s const *mesh = eik->mesh;
 
   /* Now, transport the origins, skipping already set values */
   eik3_transport_dbl(eik, org, true);

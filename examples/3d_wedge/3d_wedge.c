@@ -438,7 +438,8 @@ static void solve_direct(jmm_3d_wedge_problem_s *wedge) {
 
   eik3_solve(wedge->eik_direct);
 
-  eik3_get_org(wedge->eik_direct, wedge->origin_direct);
+  eik3_init_org_from_BCs(wedge->eik_direct, wedge->origin_direct);
+  eik3_prop_org(wedge->eik_direct, wedge->origin_direct);
 
   if (wedge->spec.verbose) {
     puts("done");
@@ -497,7 +498,7 @@ static void solve_o_refl(jmm_3d_wedge_problem_s *wedge) {
   /** Set up BCs and solve o-refl problem: */
 
   eik3_add_refl_bcs(wedge->eik_o_refl, wedge->eik_direct, o_face_refl_index,
-    wedge->spec.rfac);
+                    wedge->spec.rfac);
 
   assert(!array_is_empty(eik3_get_bc_inds(wedge->eik_o_refl)));
 
@@ -539,7 +540,8 @@ static void solve_o_refl(jmm_3d_wedge_problem_s *wedge) {
 
   /** Get approximate origins: */
 
-  eik3_get_org(wedge->eik_o_refl, wedge->origin_o_refl);
+  eik3_init_org_from_BCs(wedge->eik_o_refl, wedge->origin_o_refl);
+  eik3_prop_org(wedge->eik_o_refl, wedge->origin_o_refl);
 
   /** Get t_in and t_out vector fields: */
 
@@ -594,7 +596,8 @@ static void solve_n_refl(jmm_3d_wedge_problem_s *wedge) {
 
   /** Compute "approximate origins": */
 
-  eik3_get_org(wedge->eik_n_refl, wedge->origin_n_refl);
+  eik3_init_org_from_BCs(wedge->eik_n_refl, wedge->origin_n_refl);
+  eik3_prop_org(wedge->eik_n_refl, wedge->origin_n_refl);
 
   /** Transport t_in and t_out vectors: */
 

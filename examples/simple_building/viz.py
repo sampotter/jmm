@@ -89,7 +89,7 @@ if __name__ == '__main__':
     points = pv.PolyData(verts)
     points['T'] = T
     plotter = pvqt.BackgroundPlotter()
-    plotter.background_color = 'white'
+    # plotter.background_color = 'white'
     plotter.add_mesh(grid, color='white', show_edges=False, opacity=0.1)
     plotter.add_mesh(points, scalars='T', cmap=cc.cm.gouldian, nan_opacity=0)
 

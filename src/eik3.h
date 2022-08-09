@@ -56,6 +56,7 @@ void eik3_add_bc(eik3_s *eik, size_t l, jet31t jet);
 void eik3_add_pt_src_bcs(eik3_s *eik, dbl3 const xsrc, dbl tau0);
 void eik3_add_diff_bcs(eik3_s *eik, eik3_s const *eik_in, size_t diff_index, dbl rfac);
 void eik3_add_refl_bcs(eik3_s *eik, eik3_s const *eik_in, size_t refl_index, dbl rfac);
+void eik3_add_refl_trial_nodes(eik3_s *eik, eik3_s const *eik_in, size_t refl_index);
 bool eik3_has_diff_bc(eik3_s const *eik, size_t const le[2]);
 void eik3_get_diff_bc(eik3_s const *eik, size_t const le[2], bb31 *T);
 void eik3_set_jet(eik3_s *eik, size_t l, jet31t jet);
@@ -65,7 +66,11 @@ bool eik3_updated_from_diff_edge(eik3_s const *eik, size_t l);
 
 dbl eik3_get_max_T(eik3_s const *eik);
 
-void eik3_get_org(eik3_s const *eik, dbl *org);
+void eik3_init_org_from_BCs(eik3_s const *eik, dbl *org);
+void eik3_init_org_for_refl(eik3_s const *eik, dbl *org, size_t refl_index,
+                            dbl const *org_in);
+void eik3_prop_org(eik3_s const *eik, dbl *org);
+
 void eik3_get_D2T(eik3_s const *eik, dbl33 *D2T);
 
 void eik3_init_A_pt_src(eik3_s const *eik, dbl3 const xsrc, dbl *A);

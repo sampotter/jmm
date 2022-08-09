@@ -11,6 +11,7 @@ extern "C" {
 
 struct bmesh33_cell {
   bb33 const *bb;
+  bmesh33_s const *bmesh;
   mesh3_s const *mesh;
   size_t l;
   dbl level;
@@ -32,7 +33,6 @@ bmesh33_s *bmesh33_restrict_to_level(bmesh33_s const *bmesh, dbl level);
 bmesh33_cell_s bmesh33_get_cell(bmesh33_s const *bmesh, size_t l);
 dbl bmesh33_f(bmesh33_s const *bmesh, dbl3 const x);
 bb33 *bmesh33_get_bb_ptr(bmesh33_s const *bmesh, size_t lc);
-
 
 #ifdef __cplusplus
 }

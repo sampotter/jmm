@@ -63,17 +63,31 @@ eik3hh_branch_s *eik3hh_get_root_branch(eik3hh_s *hh) {
   return hh->root;
 }
 
+dbl xfer(dbl x, size_t n) {
+  dbl y = x;
+  for (size_t i = 0; i < n; ++i)
+    y = (3*y - 2*y*y)*y;
+  return y;
+}
+
 void eik3hh_render_frames(eik3hh_s const *hh, camera_s const *camera,
                           dbl t0, dbl t1, dbl frame_rate,
                           bool verbose) {
   mesh2_s *surface_mesh = mesh3_get_surface_mesh(hh->mesh);
 
-  eik3_s const *eik_direct = eik3hh_branch_get_eik(hh->root);
-  jet31t const *jet_direct = eik3_get_jet_ptr(eik_direct);
+  eik3hh_branch_s *branch_direct = hh->root;
+  bmesh33_s *bmesh_direct;
+  bmesh33_alloc(&bmesh_direct);
+  bmesh33_init_from_mesh3_and_jets(
+    bmesh_direct, hh->mesh, eik3_get_jet_ptr(eik3hh_branch_get_eik(branch_direct)));
 
-  bmesh33_s *bmesh;
-  bmesh33_alloc(&bmesh);
-  bmesh33_init_from_mesh3_and_jets(bmesh, hh->mesh, jet_direct);
+  array_s *children = eik3hh_branch_get_children(branch_direct);
+  eik3hh_branch_s *branch_refl;
+  array_get(children, 0, &branch_refl);
+  bmesh33_s *bmesh_refl;
+  bmesh33_alloc(&bmesh_refl);
+  bmesh33_init_from_mesh3_and_jets(
+    bmesh_refl, hh->mesh, eik3_get_jet_ptr(eik3hh_branch_get_eik(branch_refl)));
 
   size_t num_frames = floor(frame_rate*(t1 - t0));
   if (verbose)
@@ -93,8 +107,13 @@ void eik3hh_render_frames(eik3hh_s const *hh, camera_s const *camera,
 
     rtree_insert_mesh2(rtree, surface_mesh);
 
-    bmesh33_s *level_bmesh = bmesh33_restrict_to_level(bmesh, hh->c*t[i]);
-    rtree_insert_bmesh33(rtree, level_bmesh);
+    dbl T = hh->c*t[i];
+
+    bmesh33_s *level_bmesh_direct = bmesh33_restrict_to_level(bmesh_direct, T);
+    rtree_insert_bmesh33(rtree, level_bmesh_direct);
+
+    bmesh33_s *level_bmesh_refl = bmesh33_restrict_to_level(bmesh_refl, T);
+    rtree_insert_bmesh33(rtree, level_bmesh_refl);
 
     rtree_build(rtree);
 
@@ -102,11 +121,11 @@ void eik3hh_render_frames(eik3hh_s const *hh, camera_s const *camera,
 
     dbl4 *img = malloc(npix*sizeof(dbl4));
 
-    dbl3 surf_rgb = {1.0, 1.0, 1.0};
+    dbl3 surf_rgb = {0.54, 0.54, 0.54};
     dbl3 eik_rgb = {1.0, 1.0, 1.0};
 
     dbl surf_alpha = 0.5;
-    dbl eik_alpha = 0.95;
+    dbl eik_alpha = 1;
 
     for (size_t i = 0, l = 0; i < camera->dim[0]; ++i) {
       for (size_t j = 0; j < camera->dim[1]; ++j, ++l) {
@@ -120,13 +139,15 @@ void eik3hh_render_frames(eik3hh_s const *hh, camera_s const *camera,
         img[l][2] = 0;
         img[l][3] = isfinite(isect.t) ? 1 : 0;
 
-        dbl alpha = 1, scale;
+        dbl transparency = 1;
         dbl const *rgb = NULL;
         dbl3 n;
 
         while (isfinite(isect.t)) {
           robj_type_e robj_type = robj_get_type(isect.obj);
           void const *robj_data = robj_get_data(isect.obj);
+
+          dbl alpha = 1, scale = 1;
 
           /* Increment the distance along the ray */
           dbl3_saxpy_inplace(isect.t, ray.dir, ray.org);
@@ -145,6 +166,30 @@ void eik3hh_render_frames(eik3hh_s const *hh, camera_s const *camera,
             assert(false);
           }
 
+          if (robj_type == ROBJ_BMESH33_CELL) {
+            bmesh33_cell_s const *bmesh33_cell = robj_data;
+            dbl spread_interp, org_interp;
+            if (bmesh33_cell->bmesh == level_bmesh_direct) {
+              spread_interp = mesh3_linterp(
+                hh->mesh, eik3hh_branch_get_spread(branch_direct), ray.org);
+              org_interp = mesh3_linterp(
+                hh->mesh, eik3hh_branch_get_org(branch_direct), ray.org);
+            } else if (bmesh33_cell->bmesh == level_bmesh_refl) {
+              spread_interp = mesh3_linterp(
+                hh->mesh, eik3hh_branch_get_spread(branch_refl), ray.org);
+              org_interp = mesh3_linterp(
+                hh->mesh, eik3hh_branch_get_org(branch_refl), ray.org);
+            } else {
+              assert(false);
+            }
+            /* Convert the interpolated spreading factor to dB */
+            dbl spread_dB = 20*log10(fmax(1e-16, spread_interp));
+            /* Clamp and map the range [-60 dB, 0 dB] to [0, 1] for
+             * use as a scaling factor */
+            dbl spread_mapped = fmax(0, fmin(1, 1 - spread_dB/(-90)));
+            alpha *= spread_mapped*xfer(org_interp, 2);
+          }
+
           /* Get the surface normal and dot it with the eye vector for
            * Lambertian shading */
           switch (robj_type) {
@@ -160,13 +205,26 @@ void eik3hh_render_frames(eik3hh_s const *hh, camera_s const *camera,
           default:
             assert(false);
           }
-          scale = fabs(dbl3_dot(n, ray.dir));
+          scale *= fabs(dbl3_dot(n, ray.dir));
 
-          /* ... and accumulate */
+          /* We're raymarching, so do backwards alpha blending */
           dbl3_saxpy_inplace(scale*alpha, rgb, img[l]);
 
-          /* Advance the start of the ray and keep tracing */
+          /* Update transparency for early stopping */
+          transparency *= 1 - alpha;
+          if (transparency < 1e-3)
+            break;
+
+          /* Advance the start of the ray and keep tracing.
+           *
+           * NOTE: if we have multiple overlapping intersections, we
+           * might trip them repeatedly, so we need to skip any
+           * intersections with a distance of zero here. */
           rtree_intersect(rtree, &ray, &isect, isect.obj);
+          while (isect.t < EPS) {
+            dbl3_saxpy_inplace(EPS, ray.dir, ray.org);
+            rtree_intersect(rtree, &ray, &isect, isect.obj);
+          }
         }
       }
     }
@@ -178,8 +236,11 @@ void eik3hh_render_frames(eik3hh_s const *hh, camera_s const *camera,
     fwrite(img, sizeof(dbl4), npix, fp);
     fclose(fp);
 
-    bmesh33_deinit(level_bmesh);
-    bmesh33_dealloc(&level_bmesh);
+    bmesh33_deinit(level_bmesh_direct);
+    bmesh33_dealloc(&level_bmesh_direct);
+
+    bmesh33_deinit(level_bmesh_refl);
+    bmesh33_dealloc(&level_bmesh_refl);
 
     rtree_deinit(rtree);
     rtree_dealloc(&rtree);
@@ -188,6 +249,9 @@ void eik3hh_render_frames(eik3hh_s const *hh, camera_s const *camera,
   mesh2_deinit(surface_mesh);
   mesh2_dealloc(&surface_mesh);
 
-  bmesh33_deinit(bmesh);
-  bmesh33_dealloc(&bmesh);
+  bmesh33_deinit(bmesh_direct);
+  bmesh33_dealloc(&bmesh_direct);
+
+  bmesh33_deinit(bmesh_refl);
+  bmesh33_dealloc(&bmesh_refl);
 }

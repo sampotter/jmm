@@ -7,6 +7,8 @@ plt.ion()
 
 from pathlib import Path
 
+m, n = 256, 256
+
 path = Path('../../build/examples/simple_building')
 
 T = [
@@ -24,9 +26,17 @@ T = [
     17.5111,
 ]
 
+plt.figure(figsize=(8, 8))
+img = np.fromfile(path/f'image0003.bin').reshape(m, n, 4)
+plt.imshow(img, interpolation='antialiased')
+plt.axis('off')
+plt.gca().set_aspect('equal')
+plt.tight_layout()
+plt.show()
+
 plt.figure(figsize=(8, 12))
 for i in range(12):
-    img = np.fromfile(path/f'image{i:04d}.bin').reshape(1024, 1024, 4)
+    img = np.fromfile(path/f'image{i:04d}.bin').reshape(m, n, 4)
     plt.subplot(3, 4, i + 1)
     plt.imshow(img, interpolation='antialiased')
     plt.axis('off')

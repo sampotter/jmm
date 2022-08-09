@@ -18,6 +18,7 @@ struct eik3hh_branch {
   dbl33 *D2T;
   dbl *spread;
   dbl *origin;
+  eik3hh_branch_s const *parent;
   array_s *children;
 };
 
@@ -26,7 +27,7 @@ void eik3hh_branch_alloc(eik3hh_branch_s **branch) {
 }
 
 static void init(eik3hh_branch_s *branch, eik3hh_s const *hh,
-                 eik3hh_branch_type_e type) {
+                 eik3hh_branch_s const *parent, eik3hh_branch_type_e type) {
   mesh3_s const *mesh = eik3hh_get_mesh(hh);
   size_t nverts = mesh3_nverts(mesh);
 
@@ -49,13 +50,17 @@ static void init(eik3hh_branch_s *branch, eik3hh_s const *hh,
   for (size_t l = 0; l < nverts; ++l)
     branch->origin[l] = NAN;
 
+  /* The parent of a point source branch should always be NULL */
+  assert(type != EIK3HH_BRANCH_TYPE_PT_SRC || parent == NULL);
+  branch->parent = parent;
+
   array_alloc(&branch->children);
-  array_init(branch->children, sizeof(eik3hh_branch_s), ARRAY_DEFAULT_CAPACITY);
+  array_init(branch->children, sizeof(eik3hh_branch_s *), ARRAY_DEFAULT_CAPACITY);
 }
 
 void eik3hh_branch_init_pt_src(eik3hh_branch_s *branch, eik3hh_s const *hh,
                                dbl3 const xsrc) {
-  init(branch, hh, EIK3HH_BRANCH_TYPE_PT_SRC);
+  init(branch, hh, NULL, EIK3HH_BRANCH_TYPE_PT_SRC);
 
   /* Set the branch index to be the index of the point source */
   branch->index = mesh3_get_vert_index(eik3hh_get_mesh(hh), xsrc);
@@ -63,6 +68,21 @@ void eik3hh_branch_init_pt_src(eik3hh_branch_s *branch, eik3hh_s const *hh,
 
   /* Set up the point source boundary conditions for eik */
   eik3_add_pt_src_bcs(branch->eik, xsrc, eik3hh_get_rfac(hh));
+}
+
+void eik3hh_branch_init_refl(eik3hh_branch_s *branch,
+                             eik3hh_branch_s const *parent,
+                             size_t refl_index) {
+  eik3hh_s const *hh = parent->hh;
+
+  init(branch, hh, parent, EIK3HH_BRANCH_TYPE_REFL);
+
+  /* Set the branch index to be the index of the reflector */
+  branch->index = refl_index;
+  assert(branch->type != parent->type || branch->index != parent->index);
+
+  /* Set up the reflection BCs */
+  eik3_add_refl_trial_nodes(branch->eik, parent->eik, refl_index);
 }
 
 void eik3hh_branch_deinit(eik3hh_branch_s *branch, bool free_children) {
@@ -98,35 +118,12 @@ void eik3hh_branch_dealloc(eik3hh_branch_s **hh) {
   *hh = NULL;
 }
 
-static void init_D2T_pt_src(eik3hh_branch_s *branch) {
-  mesh3_s const *mesh = eik3hh_get_mesh(branch->hh);
+static void init_D2T_downwind_from_diff_edges(eik3_s const *eik, dbl33 *D2T) {
+  mesh3_s const *mesh = eik3_get_mesh(eik);
   size_t nverts = mesh3_nverts(mesh);
 
-  size_t lsrc = branch->index;
-  dbl3 xsrc;
-  mesh3_copy_vert(mesh, lsrc, xsrc);
-
-  dbl rfac = eik3hh_get_rfac(branch->hh);
-
-  /* specially initialize D2T near the point source for the direct
-   * eikonal */
-  dbl3 x;
   for (size_t l = 0; l < nverts; ++l) {
-    mesh3_copy_vert(mesh, l, x);
-    if (dbl3_dist(x, xsrc) > rfac)
-      continue;
-    jet31t jet = eik3_get_jet(branch->eik, l);
-    dbl33 outer;
-    dbl3_outer(jet.Df, jet.Df, outer);
-    dbl33_eye(branch->D2T[l]);
-    dbl33_sub_inplace(branch->D2T[l], outer);
-    dbl33_dbl_div_inplace(branch->D2T[l], jet.f);
-  }
-
-  /* we also want to initialize D2T for points which are immediately
-   * downwind of the diffracting edge */
-  for (size_t l = 0; l < nverts; ++l) {
-    par3_s par = eik3_get_par(branch->eik, l);
+    par3_s par = eik3_get_par(eik, l);
 
     /* Get active update indices and skip if they don't correspond to
      * a diffracting edge */
@@ -155,7 +152,7 @@ static void init_D2T_pt_src(eik3hh_branch_s *branch) {
     dbl rho = dbl3_normalize(tf); // cylindrical radius for `xhat`
 
     /* Get eikonal jet at `xhat` */
-    jet31t J = eik3_get_jet(branch->eik, l);
+    jet31t J = eik3_get_jet(eik, l);
 
     /* Get the ray direction */
     /* Compute unit vector orthogonal to `te` and `tf` (this vector
@@ -180,8 +177,59 @@ static void init_D2T_pt_src(eik3hh_branch_s *branch) {
     dbl33_dbl_div_inplace(outer2, J.f);
 
     /* Sum them up to get the Hessian */
-    dbl33_add(outer1, outer2, branch->D2T[l]);
+    dbl33_add(outer1, outer2, D2T[l]);
   }
+}
+
+static void init_D2T_pt_src(eik3hh_branch_s *branch) {
+  mesh3_s const *mesh = eik3hh_get_mesh(branch->hh);
+  size_t nverts = mesh3_nverts(mesh);
+
+  /* Initialize D2T analytically in the factoring ball around the
+   * point source */
+  size_t lsrc = branch->index;
+  dbl3 xsrc; mesh3_copy_vert(mesh, lsrc, xsrc);
+  dbl rfac = eik3hh_get_rfac(branch->hh);
+  dbl3 x;
+  for (size_t l = 0; l < nverts; ++l) {
+    mesh3_copy_vert(mesh, l, x);
+    if (dbl3_dist(x, xsrc) > rfac)
+      continue;
+    jet31t jet = eik3_get_jet(branch->eik, l);
+    dbl33 outer;
+    dbl3_outer(jet.Df, jet.Df, outer);
+    dbl33_eye(branch->D2T[l]);
+    dbl33_sub_inplace(branch->D2T[l], outer);
+    dbl33_dbl_div_inplace(branch->D2T[l], jet.f);
+  }
+
+  init_D2T_downwind_from_diff_edges(branch->eik, branch->D2T);
+}
+
+static void init_D2T_refl(eik3hh_branch_s *branch, dbl33 const *D2T_in) {
+  mesh3_s const *mesh = eik3hh_get_mesh(branch->hh);
+
+  size_t refl_index = branch->index;
+  size_t nf = mesh3_get_reflector_size(mesh, refl_index);
+  uint3 *lf = malloc(nf*sizeof(uint3));
+  mesh3_get_reflector(mesh, refl_index, lf);
+
+  /* Reflect the incident Hessian across each face using the image
+   * method (since the speed of sound is constant). */
+  dbl33 *D2T = branch->D2T;
+  for (size_t i = 0; i < nf; ++i) {
+    dbl33 R; mesh3_get_R_for_face(mesh, lf[i], R);
+    for (size_t j = 0; j < 3; ++j) {
+      size_t l = lf[i][j];
+      if (dbl33_isfinite(D2T[l]))
+        continue;
+      dbl33_conj(D2T_in[l], R, D2T[l]);
+    }
+  }
+
+  free(lf);
+
+  init_D2T_downwind_from_diff_edges(branch->eik, branch->D2T);
 }
 
 static bool updated_from_diff_edge(eik3_s const *eik, size_t l) {
@@ -368,6 +416,24 @@ static void init_spread_pt_src(eik3hh_branch_s *branch) {
   }
 }
 
+static void init_spread_refl(eik3hh_branch_s *branch, dbl const *spread_in) {
+  mesh3_s const *mesh = eik3hh_get_mesh(branch->hh);
+
+  size_t refl_index = branch->index;
+  size_t nf = mesh3_get_reflector_size(mesh, refl_index);
+  uint3 *lf = malloc(nf*sizeof(uint3));
+  mesh3_get_reflector(mesh, refl_index, lf);
+
+  dbl *spread = branch->spread;
+  for (size_t i = 0; i < nf; ++i) {
+    for (size_t j = 0; j < 3; ++j) {
+      size_t l = lf[i][j];
+      if (isnan(spread[l]))
+        spread[l] = spread_in[l];
+    }
+  }
+}
+
 static void prop_spread(eik3hh_branch_s *branch) {
   mesh3_s const *mesh = eik3hh_get_mesh(branch->hh);
   size_t nverts = mesh3_nverts(mesh);
@@ -425,17 +491,26 @@ static void prop_spread(eik3hh_branch_s *branch) {
 void eik3hh_branch_solve(eik3hh_branch_s *branch) {
   eik3_solve(branch->eik);
 
-  assert(branch->type == EIK3HH_BRANCH_TYPE_PT_SRC);
-  init_D2T_pt_src(branch);
+  if (branch->type == EIK3HH_BRANCH_TYPE_PT_SRC) {
+    init_D2T_pt_src(branch);
+    init_spread_pt_src(branch);
+    eik3_init_org_from_BCs(branch->eik, branch->origin);
+  }
+
+  else if (branch->type == EIK3HH_BRANCH_TYPE_REFL) {
+    eik3hh_branch_s const *parent = branch->parent;
+    assert(parent != NULL);
+    init_D2T_refl(branch, parent->D2T);
+    init_spread_refl(branch, parent->spread);
+    eik3_init_org_for_refl(
+      branch->eik, branch->origin, branch->index, parent->origin);
+  }
+
   approx_D2T(branch);
-
-  assert(branch->type == EIK3HH_BRANCH_TYPE_PT_SRC);
-  init_spread_pt_src(branch);
   prop_spread(branch);
-
-  assert(branch->type == EIK3HH_BRANCH_TYPE_PT_SRC);
-  eik3_get_org(branch->eik, branch->origin);
+  eik3_prop_org(branch->eik, branch->origin);
 }
+
 static void dump_xy_T_slice(eik3hh_branch_s const *branch,
                             grid2_to_mesh3_mapping_s const *mapping,
                             char const *path) {
@@ -503,6 +578,72 @@ dump_xy_origin_slice(eik3hh_branch_s const *branch,
   fclose(fp);
 }
 
+eik3_s *eik3hh_branch_get_eik(eik3hh_branch_s *branch) {
+  return branch->eik;
+}
+
+array_s *eik3hh_branch_get_children(eik3hh_branch_s *branch) {
+  return branch->children;
+}
+
+dbl const *eik3hh_branch_get_spread(eik3hh_branch_s const *branch) {
+  return branch->spread;
+}
+
+dbl const *eik3hh_branch_get_org(eik3hh_branch_s const *branch) {
+  return branch->origin;
+}
+
+size_t eik3hh_branch_get_earliest_refl(eik3hh_branch_s const *branch) {
+  mesh3_s const *mesh = eik3hh_get_mesh(branch->hh);
+  size_t num_refl = mesh3_get_num_reflectors(mesh);
+  size_t min_refl_index = (size_t)NO_INDEX;
+  dbl min_T = INFINITY;
+  for (size_t refl_index = 0; refl_index < num_refl; ++refl_index) {
+    if (branch->type == EIK3HH_BRANCH_TYPE_REFL
+        && branch->index == refl_index) {
+      continue;
+    }
+    size_t nf = mesh3_get_reflector_size(mesh, refl_index);
+    uint3 *lf = malloc(nf*sizeof(uint3));
+    mesh3_get_reflector(mesh, refl_index, lf);
+    for (size_t i = 0; i < nf; ++i) {
+      for (size_t j = 0; j < 3; ++j) {
+        dbl T = eik3_get_T(branch->eik, lf[i][j]);
+        if (T < min_T) {
+          min_T = T;
+          min_refl_index = refl_index;
+        }
+      }
+    }
+    free(lf);
+  }
+  return min_refl_index;
+}
+
+eik3hh_branch_s *
+eik3hh_branch_add_refl(eik3hh_branch_s const *branch, size_t refl_index) {
+  /* Make sure this isn't the same reflection */
+  assert(branch->type != EIK3HH_BRANCH_TYPE_REFL
+         || branch->index != refl_index);
+
+  /* Make sure we haven't done this reflection already */
+  for (size_t i = 0; i < array_size(branch->children); ++i) {
+    eik3hh_branch_s const *child = array_get_ptr(branch->children, i);
+    if (child->type == EIK3HH_BRANCH_TYPE_REFL
+        && child->index == refl_index)
+      assert(false);
+  }
+
+  eik3hh_branch_s *refl;
+  eik3hh_branch_alloc(&refl);
+  eik3hh_branch_init_refl(refl, branch, refl_index);
+
+  array_append(branch->children, &refl);
+
+  return refl;
+}
+
 void eik3hh_branch_dump_xy_slice(eik3hh_branch_s const *branch,
                                  grid2_to_mesh3_mapping_s const *mapping,
                                  field_e field, char const *path) {
@@ -519,8 +660,4 @@ void eik3hh_branch_dump_xy_slice(eik3hh_branch_s const *branch,
   default:
     assert(false);
   }
-}
-
-eik3_s *eik3hh_branch_get_eik(eik3hh_branch_s *branch) {
-  return branch->eik;
 }
