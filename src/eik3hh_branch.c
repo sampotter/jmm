@@ -83,7 +83,7 @@ void eik3hh_branch_init_refl(eik3hh_branch_s *branch,
   assert(branch->type != parent->type || branch->index != parent->index);
 
   /* Set up the reflection BCs */
-  eik3_add_refl_trial_nodes(branch->eik, parent->eik, refl_index);
+  eik3_add_refl_bcs(branch->eik, parent->eik, refl_index);
 }
 
 void eik3hh_branch_deinit(eik3hh_branch_s *branch, bool free_children) {

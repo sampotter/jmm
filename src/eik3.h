@@ -55,8 +55,9 @@ void eik3_add_trial(eik3_s *eik, size_t l, jet31t jet);
 void eik3_add_bc(eik3_s *eik, size_t l, jet31t jet);
 void eik3_add_pt_src_bcs(eik3_s *eik, dbl3 const xsrc, dbl tau0);
 void eik3_add_diff_bcs(eik3_s *eik, eik3_s const *eik_in, size_t diff_index, dbl rfac);
-void eik3_add_refl_bcs(eik3_s *eik, eik3_s const *eik_in, size_t refl_index, dbl rfac);
-void eik3_add_refl_trial_nodes(eik3_s *eik, eik3_s const *eik_in, size_t refl_index);
+void eik3_add_refl_bcs(eik3_s *eik, eik3_s const *eik_in, size_t refl_index);
+void eik3_add_refl_bcs_with_fac(eik3_s *eik, eik3_s const *eik_in,
+                                size_t refl_index, dbl rfac);
 bool eik3_has_diff_bc(eik3_s const *eik, size_t const le[2]);
 void eik3_get_diff_bc(eik3_s const *eik, size_t const le[2], bb31 *T);
 void eik3_set_jet(eik3_s *eik, size_t l, jet31t jet);

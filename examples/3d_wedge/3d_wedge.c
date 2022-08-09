@@ -497,8 +497,8 @@ static void solve_o_refl(jmm_3d_wedge_problem_s *wedge) {
 
   /** Set up BCs and solve o-refl problem: */
 
-  eik3_add_refl_bcs(wedge->eik_o_refl, wedge->eik_direct, o_face_refl_index,
-                    wedge->spec.rfac);
+  eik3_add_refl_bcs_with_fac(wedge->eik_o_refl, wedge->eik_direct, o_face_refl_index,
+                             wedge->spec.rfac);
 
   assert(!array_is_empty(eik3_get_bc_inds(wedge->eik_o_refl)));
 

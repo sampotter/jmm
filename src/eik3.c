@@ -1964,8 +1964,11 @@ static update_inds_s get_refl_update_inds(mesh2_s const *refl_mesh,
   return update_inds;
 }
 
-void eik3_add_refl_trial_nodes(eik3_s *eik, eik3_s const *eik_in,
-                               size_t refl_index) {
+/* Setup routine common to both `eik3_add_refl_bcs` and
+ * `eik3_add_refl_bcs_with_fac`. */
+static mesh2_s *
+init_refl_bcs(eik3_s *eik, eik3_s const *eik_in, size_t refl_index) {
+  /* Both `eik` and `eik_in` should have the same domain. */
   assert(eik->mesh == eik_in->mesh);
   mesh3_s const *mesh = eik->mesh;
 
@@ -1973,42 +1976,7 @@ void eik3_add_refl_trial_nodes(eik3_s *eik, eik3_s const *eik_in,
    * updates to accelerate our BFS. */
   mesh2_s *refl_mesh = mesh3_get_refl_mesh(mesh, refl_index);
 
-  /* Add reflection BCs for each vertex on the reflector. We also go
-   * ahead and add the unique nodes into the BFS queue. */
-  for (size_t lf = 0; lf < mesh2_nfaces(refl_mesh); ++lf) {
-    dbl33 R;
-    mesh2_get_R_for_face(refl_mesh, lf, R);
-
-    uint3 l;
-    mesh2_fv(refl_mesh, lf, l);
-
-    for (size_t i = 0; i < 3; ++i) {
-      if (eik3_is_trial(eik, l[i]))
-        continue;
-
-      jet31t jet = eik3_get_jet(eik_in, l[i]);
-      dbl33_dbl3_mul_inplace(R, jet.Df);
-      eik3_add_trial(eik, l[i], jet);
-    }
-  }
-}
-
-void eik3_add_refl_bcs(eik3_s *eik, eik3_s const *eik_in, size_t refl_index, dbl rfac) {
-  assert(eik->mesh == eik_in->mesh);
-  mesh3_s const *mesh = eik->mesh;
-
-  /* The queue driving the BFS. We store the node to update along with
-   * a starting guess for a face to start with. */
-  array_s *queue;
-  array_alloc(&queue);
-  array_init(queue, sizeof(update_inds_s), ARRAY_DEFAULT_CAPACITY);
-
-  /* Get the reflector mesh. We'll use this to do a local search for
-   * updates to accelerate our BFS. */
-  mesh2_s *refl_mesh = mesh3_get_refl_mesh(mesh, refl_index);
-
-  /* Add reflection BCs for each vertex on the reflector. We also go
-   * ahead and add the unique nodes into the BFS queue. */
+  /* Add reflection BCs for each vertex on the reflector. */
   for (size_t lf = 0; lf < mesh2_nfaces(refl_mesh); ++lf) {
     dbl33 R;
     mesh2_get_R_for_face(refl_mesh, lf, R);
@@ -2025,11 +1993,6 @@ void eik3_add_refl_bcs(eik3_s *eik, eik3_s const *eik_in, size_t refl_index, dbl
       jet31t jet = eik3_get_jet(eik_in, l[i]);
       dbl33_dbl3_mul_inplace(R, jet.Df);
       eik3_add_bc(eik, l[i], jet);
-
-      /* ... add the queue entry... */
-      update_inds_s update_inds = make_empty_update_inds(l[i]);
-      if (!array_contains(queue, &update_inds))
-        array_append(queue, &update_inds);
     }
   }
 
@@ -2040,6 +2003,73 @@ void eik3_add_refl_bcs(eik3_s *eik, eik3_s const *eik_in, size_t refl_index, dbl
   for (size_t i = 0; i < num_diffractors; ++i)
     add_diff_bcs_for_diffractor(eik, eik_in, diff_index[i]);
   free(diff_index);
+
+  return refl_mesh;
+}
+
+void eik3_add_refl_bcs(eik3_s *eik, eik3_s const *eik_in, size_t refl_index) {
+  /* Add reflection BCs. */
+  mesh2_s *refl_mesh = init_refl_bcs(eik, eik_in, refl_index);
+
+  /* Iterate over each reflector face, assuming that all faces have
+   * BCs now. */
+  for (size_t lf = 0; lf < mesh2_nfaces(refl_mesh); ++lf) {
+    uint3 l;
+    mesh2_fv(refl_mesh, lf, l);
+
+    for (size_t i = 0; i < 3; ++i) {
+      assert(eik3_has_BCs(eik, l[i]));
+
+      size_t nvv = mesh3_nvv(eik->mesh, l[i]);
+      size_t *vv = malloc(nvv*sizeof(size_t));
+      mesh3_vv(eik->mesh, l[i], vv);
+
+      for (size_t j = 0; j < nvv; ++j) {
+        if (!eik3_is_far(eik, vv[j])) continue;
+        eik3_add_trial(eik, vv[j], jet31t_make_empty());
+        do_reflector_updates(eik, refl_mesh, vv[j], l);
+      }
+
+      free(vv);
+    }
+  }
+
+  /* Clean up */
+
+  mesh2_deinit(refl_mesh);
+  mesh2_dealloc(&refl_mesh);
+}
+
+/* Add reflection BCs using a factoring radius. Each node reachable by
+ * a ray of length at most `rfac` will be updated using a BFS-based
+ * update algorithm over the reflector itself.
+ *
+ * CAUTION: I have not looked into how this copes with visibility
+ * issues. If there are occluding obstacles inside the factoring
+ * region, bad things could happen. */
+void eik3_add_refl_bcs_with_fac(eik3_s *eik, eik3_s const *eik_in,
+                                size_t refl_index, dbl rfac) {
+  /* Add reflection BCs. */
+  mesh2_s *refl_mesh = init_refl_bcs(eik, eik_in, refl_index);
+
+  /* The queue driving the BFS. We store the node to update along with
+   * a starting guess for a face to start with. */
+  array_s *queue;
+  array_alloc(&queue);
+  array_init(queue, sizeof(update_inds_s), ARRAY_DEFAULT_CAPACITY);
+
+  /* Add the BC nodes into the queue backing the BFS. */
+  for (size_t lf = 0; lf < mesh2_nfaces(refl_mesh); ++lf) {
+    uint3 l;
+    mesh2_fv(refl_mesh, lf, l);
+    for (size_t i = 0; i < 3; ++i) {
+      if (eik3_has_BCs(eik, l[i])) {
+        update_inds_s update_inds = make_empty_update_inds(l[i]);
+        if (!array_contains(queue, &update_inds))
+          array_append(queue, &update_inds);
+      }
+    }
+  }
 
   /* Main BFS loop: */
   while (!array_is_empty(queue)) {
@@ -2061,9 +2091,9 @@ void eik3_add_refl_bcs(eik3_s *eik, eik3_s const *eik_in, size_t refl_index, dbl
       continue;
 
     /* Get `l`'s neighbors */
-    size_t nvv = mesh3_nvv(mesh, l);
+    size_t nvv = mesh3_nvv(eik->mesh, l);
     size_t *vv = malloc(nvv*sizeof(size_t));
-    mesh3_vv(mesh, l, vv);
+    mesh3_vv(eik->mesh, l, vv);
 
     /* Since we're in the "factoring tube" now, add this node's
      * neighbors to the queue, using the parent of `l` as a warm start
