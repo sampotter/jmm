@@ -712,6 +712,14 @@ eik3hh_branch_add_refl(eik3hh_branch_s const *branch, size_t refl_index) {
   return refl;
 }
 
+void eik3hh_branch_dump_org(eik3hh_branch_s const *branch, char const *path) {
+  size_t nverts = mesh3_nverts(eik3_get_mesh(branch->eik));
+
+  FILE *fp = fopen(path, "wb");
+  fwrite(branch->origin, sizeof(dbl), nverts, fp);
+  fclose(fp);
+}
+
 void eik3hh_branch_dump_xy_slice(eik3hh_branch_s const *branch,
                                  grid2_to_mesh3_mapping_s const *mapping,
                                  field_e field, char const *path) {

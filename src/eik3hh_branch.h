@@ -24,6 +24,7 @@ size_t eik3hh_branch_get_earliest_refl(eik3hh_branch_s const *branch);
 array_s *eik3hh_branch_get_visible_refls(eik3hh_branch_s const *branch);
 eik3hh_branch_s *eik3hh_branch_add_refl(eik3hh_branch_s const *branch,
                                         size_t refl_index);
+void eik3hh_branch_dump_org(eik3hh_branch_s const *branch, char const *path);
 void eik3hh_branch_dump_xy_slice(eik3hh_branch_s const *branch,
                                  grid2_to_mesh3_mapping_s const *mapping,
                                  field_e field, char const *path);
