@@ -14,20 +14,29 @@ static void transport_dbl(eik3_s const *eik, size_t l0, dbl *values) {
     return;
 
   size_t num_active = par3_num_active(&par);
-  size_t l[num_active];
-  dbl b[num_active];
+  uint3 l = {(size_t)NO_INDEX, (size_t)NO_INDEX, (size_t)NO_INDEX};
+  dbl3 b = {NAN, NAN, NAN};
   par3_get_active(&par, l, b);
+
+  dbl3 par_values;
+  dbl3_nan(par_values);
+  dbl3_gather(values, l, par_values);
 
   values[l0] = 0;
   for (size_t i = 0; i < num_active; ++i) {
-    assert(isfinite(values[l[i]]));
-    values[l0] += b[i]*values[l[i]];
+    assert(isfinite(par_values[i]));
+    values[l0] += b[i]*par_values[i];
   }
+
+  /* We want to be able to assert that values[l0] is contained in the
+   * closed interval determined by par_values afterwards. Floating
+   * point roundoff can mess this up. So we fix this here. */
+  dbl nanmin = dbl3_nanmin(par_values);
+  dbl nanmax = dbl3_nanmax(par_values);
+  values[l0] = clamp(values[l0], nanmin, nanmax);
 }
 
 void eik3_transport_dbl(eik3_s const *eik, dbl *values, bool skip_filled) {
-  assert(eik3_is_solved(eik));
-
   mesh3_s const *mesh = eik3_get_mesh(eik);
 
   size_t nverts = mesh3_nverts(mesh);
