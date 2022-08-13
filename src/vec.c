@@ -275,12 +275,12 @@ void dbl3_argsort(dbl3 const u, size_t perm[3]) {
     perm[0] = 1;
     perm[1] = 0;
     perm[2] = 2;
-    if (u[0] > u[2]) SWAP(perm[0], perm[2]);
+    if (u[0] > u[2]) SWAP(perm[1], perm[2]);
   } else {
-    perm[0] = 1;
-    perm[1] = 2;
-    perm[2] = 0;
-    if (u[0] > u[1]) SWAP(perm[0], perm[1]);
+    perm[0] = 2;
+    perm[1] = 0;
+    perm[2] = 1;
+    if (u[0] > u[1]) SWAP(perm[1], perm[2]);
   }
 }
 
