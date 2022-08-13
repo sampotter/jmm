@@ -1032,6 +1032,54 @@ jmm_error_e eik3_solve(eik3_s *eik) {
   return error;
 }
 
+bool eik3_brute_force_remaining(eik3_s *eik) {
+  array_s *queue;
+  array_alloc(&queue);
+  array_init(queue, sizeof(size_t), ARRAY_DEFAULT_CAPACITY);
+
+  for (size_t l = 0; l < mesh3_nverts(eik->mesh); ++l)
+    if (!eik3_is_valid(eik, l))
+      array_append(queue, &l);
+
+  size_t max_num_iter = array_size(queue);
+  max_num_iter *= max_num_iter;
+
+  size_t it = 0;
+  while (!array_is_empty(queue)) {
+    size_t l;
+    array_pop_front(queue, &l);
+
+    size_t nvf = mesh3_nvf(eik->mesh, l);
+    uint3 *vf = malloc(nvf*sizeof(uint3));
+    mesh3_vf(eik->mesh, l, vf);
+
+    purge_utetra(eik->old_utetra, l);
+
+    for (size_t i = 0; i < nvf; ++i)
+      if (eik->state[vf[i][0]] == VALID &&
+          eik->state[vf[i][1]] == VALID &&
+          eik->state[vf[i][2]] == VALID)
+        do_utetra(eik, l, vf[i], /* par: */ NULL);
+
+    if (isfinite(eik->jet[l].f)) {
+      eik->state[l] = VALID;
+      eik->accepted[eik->num_accepted++] = l;
+    } else {
+      array_append(queue, &l);
+    }
+
+    free(vf);
+
+    if (++it == max_num_iter)
+      break;
+  }
+
+  array_deinit(queue);
+  array_dealloc(&queue);
+
+  return eik->num_accepted == mesh3_nverts(eik->mesh);
+}
+
 bool eik3_is_solved(eik3_s const *eik) {
   return eik->num_accepted == mesh3_nverts(eik->mesh);
 }
