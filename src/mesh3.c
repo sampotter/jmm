@@ -90,6 +90,7 @@ struct mesh3 {
   dbl min_tetra_alt; // The minimum of all tetrahedron altitudes in the mesh.
   dbl min_edge_length;
   dbl mean_edge_length;
+  dbl diam;
 };
 
 tri3 mesh3_tetra_get_face(mesh3_tetra_s const *tetra, int f[3]) {
@@ -731,6 +732,9 @@ static void compute_geometric_quantities(mesh3_s *mesh) {
     mesh->mean_edge_length += h;
   }
   mesh->mean_edge_length /= mesh->nedges;
+
+  /* Approximate the diameter */
+  mesh->diam = mesh3_diam_2approx_rand(mesh, 100, NULL);
 }
 
 void mesh3_init(mesh3_s *mesh, mesh3_data_s const *data,
@@ -2358,4 +2362,51 @@ dbl mesh3_linterp(mesh3_s const *mesh, dbl const *values, dbl3 const x) {
   for (size_t i = 0; i < 4; ++i)
     value += b[i]*values[lv[i]];
   return value;
+}
+
+/* Approximate the diameter of the mesh to within a factor of two. For
+ * the vertex with index `l`, find the vertex with the maximum
+ * distance to `l`. The true diameter of the mesh is within a factor
+ * of two of one half this quantity. */
+dbl mesh3_diam_2approx(mesh3_s const *mesh, size_t l) {
+  dbl const *x = mesh3_get_vert_ptr(mesh, l);
+  dbl rmax = 0;
+  for (size_t m = 0; m < mesh3_nverts(mesh); ++m)
+    rmax = fmax(rmax, dbl3_dist(x, mesh3_get_vert_ptr(mesh, m)));
+  return 2*rmax;
+}
+
+/* Randomized algorithm for approximating the diameter of
+ * `mesh`. Applies the standard 2-approximation `trials` times and
+ * returns the minimum over the trials. If `seed` is passed, it is
+ * used to seed the random number generator first. */
+dbl mesh3_diam_2approx_rand(mesh3_s const *mesh, size_t trials, size_t const *seed) {
+  if (seed)
+    srandom(*seed);
+  dbl diam_min = INFINITY;
+  for (size_t _ = 0; _ < trials; ++_) {
+    size_t l = random() % mesh->nverts;
+    diam_min = fmin(diam_min, mesh3_diam_2approx(mesh, l));
+  }
+  return diam_min;
+}
+
+dbl mesh3_get_diam(mesh3_s const *mesh) {
+  return mesh->diam;
+}
+
+dbl mesh3_get_edge_tol(mesh3_s const *mesh, uint2 const le) {
+  assert(mesh3_is_edge(mesh, le));
+  dbl h = dbl3_dist(mesh->verts[le[0]], mesh->verts[le[1]]);
+  return pow(h/mesh->diam, 2);
+}
+
+dbl mesh3_get_face_tol(mesh3_s const *mesh, uint3 const lf) {
+  dbl h[3] = {
+    dbl3_dist(mesh->verts[lf[0]], mesh->verts[lf[1]]),
+    dbl3_dist(mesh->verts[lf[1]], mesh->verts[lf[2]]),
+    dbl3_dist(mesh->verts[lf[2]], mesh->verts[lf[0]])
+  };
+  dbl hmin = fmin(h[0], fmin(h[1], h[2]));
+  return pow(hmin/mesh->diam, 2);
 }

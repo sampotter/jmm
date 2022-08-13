@@ -150,6 +150,11 @@ void mesh3_dump_cells(mesh3_s const *mesh, char const *path);
 bool mesh3_has_vertex(mesh3_s const *mesh, dbl3 const x);
 size_t mesh3_get_vert_index(mesh3_s const *mesh, dbl3 const x);
 dbl mesh3_linterp(mesh3_s const *mesh, dbl const *values, dbl3 const x);
+dbl mesh3_diam_2approx(mesh3_s const *mesh, size_t l);
+dbl mesh3_diam_2approx_rand(mesh3_s const *mesh, size_t trials, size_t const *seed);
+dbl mesh3_get_diam(mesh3_s const *mesh);
+dbl mesh3_get_edge_tol(mesh3_s const *mesh, uint2 const le);
+dbl mesh3_get_face_tol(mesh3_s const *mesh, uint3 const lf);
 
 #ifdef __cplusplus
 }
