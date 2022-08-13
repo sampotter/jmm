@@ -193,6 +193,34 @@ dbl dbl3_minimum(dbl3 const u) {
   return fmin(u[0], fmin(u[1], u[2]));
 }
 
+dbl dbl3_nanmin(dbl3 const u) {
+  dbl nanmin = INFINITY;
+  for (size_t i = 0; i < 3; ++i)
+    if (!isnan(u[i]))
+      nanmin = fmin(nanmin, u[i]);
+  return isfinite(nanmin) ? nanmin : NAN;
+}
+
+dbl dbl3_nanmax(dbl3 const u) {
+  dbl nanmax = -INFINITY;
+  for (size_t i = 0; i < 3; ++i)
+    if (!isnan(u[i]))
+      nanmax = fmax(nanmax, u[i]);
+  return isfinite(nanmax) ? nanmax : NAN;
+}
+
+dbl dbl3_nanmean(dbl3 const u) {
+  size_t n = 0;
+  dbl sum;
+  for (size_t i = 0; i < 3; ++i) {
+    if (!isnan(u[i])) {
+      sum += u[i];
+      ++n;
+    }
+  }
+  return sum/n;
+}
+
 dbl dbl3_ndot(dbl3 const u, dbl3 const v) {
   dbl uv[3] = {u[0]*v[0], u[1]*v[1], u[2]*v[2]};
   return dbl3_nsum(uv);
@@ -403,6 +431,12 @@ void dbl3_normalized(dbl3 const u, dbl3 v) {
 
 void dbl3_one(dbl3 u) {
   u[0] = u[1] = u[2] = 1;
+}
+
+void dbl3_gather(dbl const *x, uint3 J, dbl3 xJ) {
+  for (size_t i = 0; i < 3; ++i)
+    if (J[i] != (size_t)NO_INDEX)
+      xJ[i] = x[J[i]];
 }
 
 void dbl3_saxpy(dbl a, dbl3 const x, dbl3 const y, dbl3 z) {
@@ -735,4 +769,32 @@ void int3_int_div(int3 const p, int q, int3 r) {
 
 bool uint3_equal(uint3 const i, uint3 const j) {
   return i[0] == j[0] && i[1] == j[1] && i[2] == j[2];
+}
+
+bool uint3_contains_uint2(uint3 const i, uint2 const j) {
+  return (j[0] == i[0] || j[0] == i[1] || j[0] == i[2])
+    && (j[1] == i[0] || j[1] == i[1] || j[1] == i[2]);
+}
+
+size_t uint3_diff_uint2(uint3 const i, uint2 const j, uint3 k) {
+  size_t n = 0;
+  for (size_t a = 0; a < 3; ++a)
+    if (i[a] != j[0] && i[a] != j[1])
+      k[n++] = i[a];
+  return n;
+}
+
+size_t uint3_find(uint3 const i, size_t j) {
+  for (size_t a = 0; a < 3; ++a)
+    if (i[a] == j)
+      return a;
+  return NO_INDEX;
+}
+
+bool uint3_is_sorted(uint3 const i) {
+  return i[0] <= i[1] && i[1] <= i[2];
+}
+
+void uint3_set(uint3 i, size_t value) {
+  i[0] = i[1] = i[2] = value;
 }

@@ -56,6 +56,9 @@ dbl dbl3_dot(dbl3 const u, dbl3 const v);
 dbl dbl3_maxdist(dbl3 const u, dbl3 const v);
 dbl dbl3_maxnorm(dbl3 const u);
 dbl dbl3_minimum(dbl3 const u);
+dbl dbl3_nanmin(dbl3 const u);
+dbl dbl3_nanmax(dbl3 const u);
+dbl dbl3_nanmean(dbl3 const u);
 dbl dbl3_ndot(dbl3 const u, dbl3 const v);
 dbl dbl3_norm(dbl3 const u);
 dbl dbl3_normalize(dbl3 u);
@@ -86,6 +89,7 @@ void dbl3_neginf(dbl3 u);
 void dbl3_normalize1(dbl3 x);
 void dbl3_normalized(dbl3 const u, dbl3 v);
 void dbl3_one(dbl3 u);
+void dbl3_gather(dbl const *x, uint3 J, dbl3 xJ);
 void dbl3_saxpy(dbl a, dbl3 const x, dbl3 const y, dbl3 z);
 void dbl3_saxpy_inplace(dbl a, dbl3 const x, dbl3 y);
 void dbl3_sort(dbl3 u);
@@ -134,6 +138,11 @@ void int3_dbl_mul(int3 const p, dbl a, dbl3 x);
 void int3_int_div(int3 const p, int q, int3 r);
 
 bool uint3_equal(uint3 const i, uint3 const j);
+bool uint3_contains_uint2(uint3 const i, uint2 const j);
+size_t uint3_diff_uint2(uint3 const i, uint2 const j, uint3 k);
+size_t uint3_find(uint3 const i, size_t j);
+bool uint3_is_sorted(uint3 const i);
+void uint3_set(uint3 i, size_t value);
 
 #ifdef __cplusplus
 }
