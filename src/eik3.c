@@ -442,7 +442,7 @@ static void
 do_utri(eik3_s *eik, size_t l, size_t l0, size_t l1, array_s *utri_cache,
         par3_s *par) {
   if (did_utri_already(utri_cache, l, (uint2) {l0, l1}))
-    goto cleanup;
+    return;
 
   utri_spec_s spec = utri_spec_from_eik(eik, l, l0, l1);
 
