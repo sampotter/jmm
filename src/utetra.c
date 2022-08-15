@@ -615,22 +615,23 @@ void utetra_get_x(utetra_s const *u, dbl x[3]) {
   dbl33_dbl3_mul(u->X, b, x);
 }
 
-size_t utetra_get_active_inds(utetra_s const *utetra, size_t l[3]) {
+size_t utetra_get_active_inds(utetra_s const *utetra, uint3 la) {
 #if JMM_DEBUG
   assert(update_inds_are_set(utetra));
 #endif
 
-  dbl const atol = 1e-14;
+  la[0] = la[1] = la[2] = (size_t)NO_INDEX;
 
-  dbl alpha[3];
-  get_lag_mults(utetra, alpha);
+  dbl3 b;
+  get_b(utetra, b);
 
-  size_t num_active = 0;
-  l[0] = l[1] = l[2] = (size_t)NO_INDEX;
-  for (int i = 0; i < 3; ++i)
-    if (fabs(alpha[i]) < atol)
-      l[num_active++] = utetra->l[i];
-  return num_active;
+  size_t na = 0;
+  for (size_t i = 0; i < 3; ++i)
+    if (b[i] > EPS)
+      la[na++] = utetra->l[i];
+  SORT_UINT3(la);
+
+  return na;
 }
 
 par3_s utetra_get_parent(utetra_s const *utetra) {

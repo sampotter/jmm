@@ -16,9 +16,8 @@ typedef struct utetra_spec {
   dbl xhat[3], x[3][3];
   jet31t jet[3];
 
-  /* Tolerance for SQP iteration. Method has converged if |p| <=
-   * tol*(1 + |p0|), where p is the constrained Newton step at each
-   * iteration. */
+  /* Tolerance for SQP iteration. Method has converged if |p| <= tol,
+   * where p is the constrained Newton step at each iteration. */
   dbl tol;
 } utetra_spec_s;
 
@@ -69,7 +68,7 @@ void utetra_get_other_inds(utetra_s const *utetra, size_t li, size_t l[2]);
 bool utetra_index_is_active(utetra_s const *utetra, size_t l);
 bool utetra_has_inds(utetra_s const *utetra, size_t lhat, uint3 const l);
 
-bool utetras_have_same_minimizer(utetra_s const *u1, utetra_s const *u2, dbl tol);
+bool utetras_have_same_minimizer(utetra_s const *u1, utetra_s const *u2, eik3_s const *eik);
 bool utetras_have_same_inds(utetra_s const *u1, utetra_s const *u2);
 
 #if JMM_TEST
