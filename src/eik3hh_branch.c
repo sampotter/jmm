@@ -670,12 +670,12 @@ array_s *eik3hh_branch_get_visible_refls(eik3hh_branch_s const *branch) {
     mesh3_get_reflector(mesh, refl_ind, lf);
 
     /* This reflector is visible if any of the incident origins are
-     * greater than or equal to 1/2. */
+     * greater than 1/2. */
     bool visible = false;
     for (size_t i = 0; i < nf; ++i) {
       if (visible) break;
       for (size_t j = 0; j < 3; ++j) {
-        if (org_in[lf[i][j]] >= 0.5 && !array_contains(refl_inds, &refl_ind)) {
+        if (org_in[lf[i][j]] > 0.5 && !array_contains(refl_inds, &refl_ind)) {
           array_append(refl_inds, &refl_ind);
           visible = true;
           break;
