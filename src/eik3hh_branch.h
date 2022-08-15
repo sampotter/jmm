@@ -1,6 +1,7 @@
 #pragma once
 
 #include "array.h"
+#include "camera.h"
 #include "grid2.h"
 
 typedef enum eik3hh_branch_type {
@@ -30,3 +31,7 @@ void eik3hh_branch_dump_spread(eik3hh_branch_s const *branch, char const *path);
 void eik3hh_branch_dump_xy_slice(eik3hh_branch_s const *branch,
                                  grid2_to_mesh3_mapping_s const *mapping,
                                  field_e field, char const *path);
+void eik3hh_branch_render_frames(eik3hh_branch_s const *branch,
+                                 camera_s const *camera,
+                                 dbl t0, dbl t1, dbl frame_rate,
+                                 bool verbose);
