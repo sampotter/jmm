@@ -43,9 +43,10 @@ cmake-build-debug
 compile_commands.json
 dist
 dists
+examples/3d_wedge/error-table.tex
+extra/tetgen1.6.0
 jmm.c
 scratch
 src/jmm/*.c
 srcs
 vgcore.*
-extra/tetgen1.6.0
