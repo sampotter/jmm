@@ -39,8 +39,6 @@ utetra_spec_s utetra_spec_empty() {
 
 utetra_spec_s utetra_spec_from_eik_and_inds(eik3_s const *eik, size_t l,
                                             size_t l0, size_t l1, size_t l2) {
-  dbl h = mesh3_get_min_edge_length(eik3_get_mesh(eik));
-
   state_e const *state = eik3_get_state_ptr(eik);
   return (utetra_spec_s) {
     .eik = eik,
@@ -58,14 +56,12 @@ utetra_spec_s utetra_spec_from_eik_and_inds(eik3_s const *eik, size_t l,
       {.f = INFINITY, .Df = {NAN, NAN, NAN}},
       {.f = INFINITY, .Df = {NAN, NAN, NAN}}
     },
-    .tol = pow(h, 4)
+    .tol = mesh3_get_face_tol(eik3_get_mesh(eik), (uint3) {l0, l1, l2})
   };
 }
 
 utetra_spec_s utetra_spec_from_eik_without_l(eik3_s const *eik, dbl const x[3],
                                              size_t l0, size_t l1, size_t l2) {
-  dbl h = mesh3_get_min_edge_length(eik3_get_mesh(eik));
-
   state_e const *state = eik3_get_state_ptr(eik);
   return (utetra_spec_s) {
     .eik = eik,
@@ -83,21 +79,19 @@ utetra_spec_s utetra_spec_from_eik_without_l(eik3_s const *eik, dbl const x[3],
       {.f = INFINITY, .Df = {NAN, NAN, NAN}},
       {.f = INFINITY, .Df = {NAN, NAN, NAN}}
     },
-    .tol = pow(h, 4)
+    .tol = mesh3_get_face_tol(eik3_get_mesh(eik), (uint3) {l0, l1, l2})
   };
 }
 
 utetra_spec_s utetra_spec_from_ptrs(mesh3_s const *mesh, jet31t const *jet,
                                     size_t l, size_t l0, size_t l1, size_t l2) {
-  dbl h = mesh3_get_min_edge_length(mesh);
-
   utetra_spec_s spec = {
     .eik = NULL,
     .lhat = NO_INDEX,
     .l = {NO_INDEX, NO_INDEX, NO_INDEX},
     .state = {UNKNOWN, UNKNOWN, UNKNOWN},
     .jet = {jet[l0], jet[l1], jet[l2]},
-    .tol = pow(h, 4)
+    .tol = mesh3_get_face_tol(mesh, (uint3) {l0, l1, l2})
   };
 
   mesh3_copy_vert(mesh, l, spec.xhat);
@@ -387,9 +381,8 @@ void utetra_solve(utetra_s *cf, dbl const *lam) {
     set_lambda(cf, lam);
 
   int const max_niter = 100;
-  dbl const tol = cf->tol*(1 + dbl2_norm(cf->p));
   for (int _ = 0; _ < max_niter; ++_) {
-    if (dbl2_norm(cf->p) <= tol)
+    if (dbl2_norm(cf->p) <= cf->tol)
       break;
     step(cf);
   }
@@ -710,12 +703,90 @@ bool utetra_has_inds(utetra_s const *u, size_t lhat, uint3 const l) {
   return u->lhat == lhat && uint3_equal(u->l, l);
 }
 
-bool utetras_have_same_minimizer(utetra_s const *u1, utetra_s const *u2, dbl tol) {
-  dbl x1[3], x2[3];
-  utetra_get_x(u1, x1);
-  utetra_get_x(u2, x2);
-  dbl r = dbl3_dist(x1, x2);
-  return r <= tol;
+static dbl get_edge_lam(utetra_s const *u, uint2 const le) {
+  assert(uint3_contains_uint2(u->l, le));
+
+  /* Get the barycentric coordinates of the optimum */
+  dbl3 b; get_b(u, b);
+
+#if JMM_DEBUG
+  { uint3 l_diff;
+    size_t n = uint3_diff_uint2(u->l, le, l_diff);
+    assert(n == 1);
+    assert(fabs(b[uint3_find(u->l, l_diff[0])]) < EPS); }
+#endif
+
+  /* Get the index of `le[0]` in `u->l` */
+  size_t i0 = uint3_find(u->l, le[0]);
+
+  /* Compute the convex coefficent `lam = 1 - b[i0]` such that `x_opt`
+   * is `(1 - lam)*x[le[0]] + lam*x[le[1]]`. */
+  dbl lam = 1 - b[i0];
+
+  return lam;
+}
+
+size_t get_common_inds(uint3 const la1, uint3 const la2, uint3 le) {
+  assert(uint3_is_sorted(la1));
+  assert(uint3_is_sorted(la2));
+
+  le[0] = le[1] = le[2] = (size_t)NO_INDEX;
+
+  size_t ne = 0;
+  while (la1[ne] == la2[ne] && la1[ne] != (size_t)NO_INDEX) {
+    le[ne] = la1[ne];
+    ++ne;
+  }
+  for (size_t i = ne; i < 3; ++i) {
+    if ((la1[ne] == (size_t)NO_INDEX) ^ (la2[ne] == (size_t)NO_INDEX)) {
+      le[ne] = la1[ne] == (size_t)NO_INDEX ? la2[ne] : la1[ne];
+      ++ne;
+    }
+  }
+
+  return ne;
+}
+
+bool utetras_have_same_minimizer(utetra_s const *u1, utetra_s const *u2,
+                                 eik3_s const *eik) {
+  uint3 la1, la2;
+  size_t na1 = utetra_get_active_inds(u1, la1);
+  size_t na2 = utetra_get_active_inds(u2, la2);
+  assert(na1 < 3 && na2 < 3);
+
+  if (na1 == 1 && na2 == 1)
+    return la1[0] == la2[0];
+
+  if (na1 == 2 && na2 == 2 && !uint3_equal(la1, la2))
+    return false;
+
+  uint3 le;
+  size_t ne = get_common_inds(la1, la2, le);
+  assert(ne <= 2);
+  if (ne == 0)
+    return false;
+
+  /* The effective tolerance used to check the closeness of the two
+   * minimizers. Its value depends on which indices are active for
+   * each tetrahedron update. */
+  dbl edge_tol = mesh3_get_edge_tol(eik3_get_mesh(eik), le);
+  edge_tol = fmax(edge_tol, fmax(u1->tol, u2->tol));
+
+  dbl lam1;
+  if (na1 == 2)
+    lam1 = get_edge_lam(u1, le);
+  else
+    lam1 = la1[0] == le[0] ? 0 : 1;
+
+  dbl lam2;
+  if (na2 == 2)
+    lam2 = get_edge_lam(u2, le);
+  else
+    lam2 = la2[0] == le[0] ? 0 : 1;
+
+  bool same = fabs(lam1 - lam2) <= edge_tol;
+
+  return same;
 }
 
 bool utetras_have_same_inds(utetra_s const *u1, utetra_s const *u2) {

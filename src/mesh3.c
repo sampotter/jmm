@@ -82,8 +82,7 @@ struct mesh3 {
   size_t *bde_label;
 
   /* "Mesh epsilon": a small parameter derived from the mesh, used to
-   * make geometric calculations a bit more robust. Right now, this is
-   * set by default to `min_edge_length^3`. */
+   * make geometric calculations a bit more robust. */
   dbl eps;
 
   // Geometric quantities
@@ -1630,7 +1629,7 @@ bool mesh3_cell_incident_on_diff_edge(mesh3_s const *mesh, size_t lc) {
   return false;
 }
 
-static bool local_ray_in_tetra_cone(mesh3_s const *mesh, dbl3 p, size_t lc, size_t lv) {
+static bool local_ray_in_tetra_cone(mesh3_s const *mesh, dbl3 const p, size_t lc, size_t lv) {
   dbl3 xhat;
   mesh3_copy_vert(mesh, lv, xhat);
 
@@ -1655,7 +1654,7 @@ static bool local_ray_in_tetra_cone(mesh3_s const *mesh, dbl3 p, size_t lc, size
   return alpha[0] >= -atol && alpha[1] >= -atol && alpha[2] >= -atol;
 }
 
-static bool local_ray_in_vertex_cone(mesh3_s const *mesh, dbl3 p, size_t lv) {
+bool mesh3_local_ray_in_vertex_cone(mesh3_s const *mesh, dbl3 const p, size_t lv) {
   size_t nvc = mesh3_nvc(mesh, lv);
   size_t *vc = malloc(mesh->nverts*sizeof(size_t));
   mesh3_vc(mesh, lv, vc);
@@ -1668,6 +1667,73 @@ static bool local_ray_in_vertex_cone(mesh3_s const *mesh, dbl3 p, size_t lv) {
   free(vc);
 
   return in_cone;
+}
+
+bool mesh3_ray_prop_from_edge_is_occluded(mesh3_s const *mesh, dbl3 const t,
+                                          uint2 const l) {
+  bool occluded = true;
+
+  /* gets cells incident on active edge */
+  size_t nec = mesh3_nec(mesh, l);
+  size_t *ec = malloc(nec*sizeof(size_t));
+  mesh3_ec(mesh, l, ec);
+
+  /* check whether `dxhat` points into a tetrahedron incident on the
+   * base of the active edge */
+  for (size_t i = 0, l_op[2]; i < nec; ++i) {
+    /* get the opposite edge */
+    mesh3_cee(mesh, ec[i], l, l_op);
+
+    dbl3 x[2];
+    mesh3_copy_vert(mesh, l[0], x[0]);
+    mesh3_copy_vert(mesh, l[1], x[1]);
+
+    dbl3 y[2];
+    mesh3_copy_vert(mesh, l_op[0], y[0]);
+    mesh3_copy_vert(mesh, l_op[1], y[1]);
+
+    dbl3 te;
+    dbl3_sub(x[1], x[0], te);
+    dbl3_normalize(te);
+
+    dbl3 yproj[2];
+    dbl3_saxpy(dbl3_dot(te, y[0]) - dbl3_dot(te, x[0]), te, x[0], yproj[0]);
+    dbl3_saxpy(dbl3_dot(te, y[1]) - dbl3_dot(te, x[0]), te, x[0], yproj[1]);
+
+    /* Compute the x-axis for the arctan2 computation */
+    dbl3 q1;
+    dbl3_sub(y[0], yproj[0], q1);
+    dbl3_normalize(q1);
+
+    /* Compute the y-axis for the arctan2 computation */
+    dbl3 q2;
+    dbl3_cross(te, q1, q2);
+
+    /* Check that q2 has the correct orientation (to ensure that we
+     * measure the angle using arctan2 consistently) */
+    dbl3 u;
+    dbl3_sub(y[1], yproj[1], u);
+    dbl3_normalize(u);
+    if (dbl3_dot(u, q2) < 0)
+      dbl3_negate(q2);
+
+    /* Compute the maximum angle */
+    dbl thetamax = atan2(dbl3_dot(q2, u), dbl3_dot(q1, u));
+
+    /* ... and compute the angle of interest */
+    dbl theta = atan2(dbl3_dot(q2, t), dbl3_dot(q1, t));
+
+    /* Check whether it's in the feasible range */
+    dbl const atol = 1e-13;
+    if (-atol <= theta && theta <= thetamax + atol) {
+      occluded = false;
+      break;
+    }
+  }
+
+  free(ec);
+
+  return occluded;
 }
 
 bool mesh3_local_ray_is_occluded(mesh3_s const *mesh, size_t lhat, par3_s const *par) {
@@ -1685,7 +1751,7 @@ bool mesh3_local_ray_is_occluded(mesh3_s const *mesh, size_t lhat, par3_s const 
   dbl3 dxlam; /* xhat -> xlam */
   dbl3_sub(xb, xhat, dxlam);
 
-  if (!local_ray_in_vertex_cone(mesh, dxlam, lhat))
+  if (!mesh3_local_ray_in_vertex_cone(mesh, dxlam, lhat))
     return true;
 
   /* Make sure the start of the update ray doesn't exit the domain */
@@ -1738,77 +1804,27 @@ bool mesh3_local_ray_is_occluded(mesh3_s const *mesh, size_t lhat, par3_s const 
 
   /* edge minimizer */
   else if (num_active_constraints == 1) {
-    /* gets cells incident on active edge */
-    size_t nec = mesh3_nec(mesh, l_active);
-    size_t *ec = malloc(nec*sizeof(size_t));
-    mesh3_ec(mesh, l_active, ec);
+    dbl3 x[2];
+    mesh3_copy_vert(mesh, l_active[0], x[0]);
+    mesh3_copy_vert(mesh, l_active[1], x[1]);
 
-    /* check whether `dxhat` points into a tetrahedron incident on the
-     * base of the active edge */
-    for (size_t i = 0, le[2]; i < nec; ++i) {
-      /* get the opposite edge */
-      mesh3_cee(mesh, ec[i], l_active, le);
+    dbl3 te;
+    dbl3_sub(x[1], x[0], te);
+    dbl3_normalize(te);
 
-      dbl3 x[2];
-      mesh3_copy_vert(mesh, l_active[0], x[0]);
-      mesh3_copy_vert(mesh, l_active[1], x[1]);
+    dbl3 xproj;
+    dbl3_saxpy(dbl3_dot(te, xhat) - dbl3_dot(te, x[0]), te, x[0], xproj);
 
-      dbl3 y[2];
-      mesh3_copy_vert(mesh, le[0], y[0]);
-      mesh3_copy_vert(mesh, le[1], y[1]);
+    dbl3 t;
+    dbl3_sub(xhat, xproj, t);
+    dbl3_normalize(t);
 
-      dbl3 te;
-      dbl3_sub(x[1], x[0], te);
-      dbl3_normalize(te);
-
-      dbl3 xproj;
-      dbl3_saxpy(dbl3_dot(te, xhat) - dbl3_dot(te, x[0]), te, x[0], xproj);
-
-      dbl3 t;
-      dbl3_sub(xhat, xproj, t);
-      dbl3_normalize(t);
-
-      dbl3 yproj[2];
-      dbl3_saxpy(dbl3_dot(te, y[0]) - dbl3_dot(te, x[0]), te, x[0], yproj[0]);
-      dbl3_saxpy(dbl3_dot(te, y[1]) - dbl3_dot(te, x[0]), te, x[0], yproj[1]);
-
-      /* Compute the x-axis for the arctan2 computation */
-      dbl3 q1;
-      dbl3_sub(y[0], yproj[0], q1);
-      dbl3_normalize(q1);
-
-      /* Compute the y-axis for the arctan2 computation */
-      dbl3 q2;
-      dbl3_cross(te, q1, q2);
-
-      /* Check that q2 has the correct orientation (to ensure that we
-       * measure the angle using arctan2 consistently) */
-      dbl3 u;
-      dbl3_sub(y[1], yproj[1], u);
-      dbl3_normalize(u);
-      if (dbl3_dot(u, q2) < 0)
-        dbl3_negate(q2);
-
-      /* Compute the maximum angle */
-      dbl thetamax = atan2(dbl3_dot(q2, u), dbl3_dot(q1, u));
-
-      /* ... and compute the angle of interest */
-      dbl theta = atan2(dbl3_dot(q2, t), dbl3_dot(q1, t));
-
-      /* Check whether it's in the feasible range */
-      dbl const atol = 1e-13;
-      if (-atol <= theta && theta <= thetamax + atol) {
-        ray_start_is_feasible = true;
-        break;
-      }
-    }
-
-    free(ec);
+    ray_start_is_feasible = !mesh3_ray_prop_from_edge_is_occluded(mesh, t, l_active);
   }
 
   /* corner minimizer */
   else if (num_active_constraints == 2)
-    ray_start_is_feasible = local_ray_in_vertex_cone(mesh, dxhat, l_active[0]);
+    ray_start_is_feasible = mesh3_local_ray_in_vertex_cone(mesh, dxhat, l_active[0]);
 
   else assert(false);
 
@@ -2121,34 +2137,6 @@ size_t mesh3_get_diff_index_for_bde(mesh3_s const *mesh, size_t const le[2]) {
 
 void mesh3_get_bde_inds(mesh3_s const *mesh, size_t l, size_t le[2]) {
   memcpy(le, mesh->bde[l].le, sizeof(size_t[2]));
-}
-
-void mesh3_set_bde(mesh3_s *mesh, size_t const le[2], bool diff) {
-  // TODO: this is done really inefficiently! We should implement a
-  // balanced binary tree (or interval tree?) to store the boundary
-  // edges, but this a low priority.
-
-  mesh->bdv[le[0]] = mesh->bdv[le[1]] = true;
-
-  bde_s bde = {.le = {le[0], le[1]}, .diff = diff};
-
-  /* Find bde */
-  int cmp;
-  size_t l = 0;
-  while ((cmp = bde_cmp(&bde, &mesh->bde[l])) >= 0)
-    ++l;
-
-  if (cmp == 0) {
-    mesh->bde[l].diff = diff;
-  } else if (cmp < 0) {
-    mesh->bde = realloc(mesh->bde, (mesh->nbde + 1)*sizeof(bde_s));
-    memmove(&mesh->bde[l + 1], &mesh->bde[l],
-            (mesh->nbde - l)*sizeof(bde_s));
-    mesh->bde[l] = bde;
-    ++mesh->nbde;
-  } else {
-    assert(false);
-  }
 }
 
 dbl mesh3_get_eps(mesh3_s const *mesh) {

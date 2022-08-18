@@ -13,6 +13,7 @@ void mesh3_data_from_off_file(mesh3_data_s *data, char const *path, dbl maxvol, 
   oss << "a" << maxvol
       << "p"
       << "q1.414"
+      << "T1e-13"
     ;
   if (!verbose)
     oss << "Q";

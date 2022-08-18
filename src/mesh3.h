@@ -107,6 +107,9 @@ bool mesh3_is_edge(mesh3_s const *mesh, size_t const l[2]);
 bool mesh3_is_diff_edge(mesh3_s const *mesh, size_t const l[2]);
 bool mesh3_vert_incident_on_diff_edge(mesh3_s const *mesh, size_t l);
 bool mesh3_vert_is_terminal_diff_edge_vert(mesh3_s const *mesh, size_t l);
+bool mesh3_local_ray_in_vertex_cone(mesh3_s const *mesh, dbl3 const p, size_t lv);
+bool mesh3_ray_prop_from_edge_is_occluded(mesh3_s const *mesh, dbl3 const t,
+                                          uint2 const le);
 bool mesh3_local_ray_is_occluded(mesh3_s const *mesh, size_t lhat, par3_s const *par);
 bool mesh3_cell_incident_on_diff_edge(mesh3_s const *mesh, size_t lc);
 dbl mesh3_get_min_tetra_alt(mesh3_s const *mesh);

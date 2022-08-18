@@ -9,6 +9,8 @@
 #include "eik3.h"
 #include "eik3hh.h"
 #include "mat.h"
+#include "mesh2.h"
+#include "rtree.h"
 #include "util.h"
 
 struct eik3hh_branch {
@@ -456,8 +458,10 @@ static void prop_spread(eik3hh_branch_s *branch) {
     dbl3 lam, abslam;
     size_t perm[3];
     dbl33_eigvals_sym(D2T[lhat], lam);
+    assert(dbl3_isfinite(lam));
     dbl3_abs(lam, abslam);
     dbl3_argsort(abslam, perm);
+    assert(abslam[perm[0]] <= abslam[perm[1]] && abslam[perm[1]] <= abslam[perm[2]]);
 
     dbl kappa1 = lam[perm[2]], kappa2 = lam[perm[1]];
 
@@ -490,10 +494,11 @@ static void prop_spread(eik3hh_branch_s *branch) {
 }
 
 void eik3hh_branch_solve(eik3hh_branch_s *branch, bool verbose) {
+  eik3_s *eik = branch->eik;
+  mesh3_s const *mesh = eik3_get_mesh(eik);
+
   if (verbose)
     toc();
-
-  eik3_s *eik = branch->eik;
 
   if (verbose) {
     if (branch->type == EIK3HH_BRANCH_TYPE_PT_SRC)
@@ -511,28 +516,41 @@ void eik3hh_branch_solve(eik3hh_branch_s *branch, bool verbose) {
     exit(EXIT_FAILURE);
   }
 
-  eik3_solve(eik);
+  if (eik3_solve(eik) == JMM_ERROR_RUNTIME_ERROR) {
+    size_t skipped = mesh3_nverts(mesh) - eik3_num_valid(eik);
+    printf("- WARNING: didn't relax all points (skipped %lu)\n", skipped);
+    if (!eik3_brute_force_remaining(eik))
+      printf("- WARNING: failed to brute force skipped points\n");
+  }
 
   if (branch->type == EIK3HH_BRANCH_TYPE_PT_SRC) {
+    eik3_init_org_from_BCs(eik, branch->origin);
     init_D2T_pt_src(branch);
     init_spread_pt_src(branch);
-    eik3_init_org_from_BCs(eik, branch->origin);
   }
 
   else if (branch->type == EIK3HH_BRANCH_TYPE_REFL) {
     eik3hh_branch_s const *parent = branch->parent;
     assert(parent != NULL);
+    eik3_init_org_for_refl(eik, branch->origin, branch->index, parent->origin);
     init_D2T_refl(branch, parent->D2T);
     init_spread_refl(branch, parent->spread);
-    eik3_init_org_for_refl(eik, branch->origin, branch->index, parent->origin);
   }
 
+  eik3_prop_org(eik, branch->origin);
   approx_D2T(branch);
   prop_spread(branch);
-  eik3_prop_org(eik, branch->origin);
 
-  if (verbose)
+  size_t num_viz_skipped = 0;
+  for (size_t l = 0; l < mesh3_nverts(mesh); ++l)
+    if (branch->origin[l] >= 0.5 && !eik3_is_valid(eik, l))
+      ++num_viz_skipped;
+
+  if (verbose) {
+    if (num_viz_skipped > 0)
+      printf("- WARNING: %lu visible nodes were skipped\n", num_viz_skipped);
     printf("- solved [%1.2gs]\n", toc());
+  }
 }
 
 static void dump_xy_T_slice(eik3hh_branch_s const *branch,

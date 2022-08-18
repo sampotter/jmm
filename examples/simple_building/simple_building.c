@@ -118,6 +118,43 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
 
 static struct argp argp = {options, parse_opt, args_doc, doc, 0, 0, 0};
 
+void save_bin_files_and_slices(problem_spec_s const *spec,
+                               eik3hh_branch_s const *branch,
+                               grid2_to_mesh3_mapping_s const *mapping,
+                               char const *name) {
+  char path[256];
+
+  sprintf(path, "%s_jet.bin", name);
+  eik3hh_branch_dump_jet(branch, path);
+
+  sprintf(path, "%s_org.bin", name);
+  eik3hh_branch_dump_org(branch, path);
+
+  sprintf(path, "%s_spread.bin", name);
+  eik3hh_branch_dump_spread(branch, path);
+
+  /* Save T slice to disk */
+  toc();
+  sprintf(path, "%s_T_slice.bin", name);
+  eik3hh_branch_dump_xy_slice(branch, mapping, FIELD_T, path);
+  printf("Saved xy-slice (z = %g) of the direct eikonal [%1.2gs]\n",
+         spec->xsrc[2], toc());
+
+  /* Save spreading factor slice to disk */
+  toc();
+  sprintf(path, "%s_spread_slice.bin", name);
+  eik3hh_branch_dump_xy_slice(branch, mapping, FIELD_SPREADING, path);
+  printf("Saved xy-slice (z = %g) of the direct spreading [%1.2gs]\n",
+         spec->xsrc[2], toc());
+
+  /* Save origin slice to disk */
+  toc();
+  sprintf(path, "%s_origin_slice.bin", name);
+  eik3hh_branch_dump_xy_slice(branch, mapping, FIELD_ORIGIN, path);
+  printf("Saved xy-slice (z = %g) of the direct origin [%1.2gs]\n",
+         spec->xsrc[2], toc());
+}
+
 int main(int argc, char *argv[]) {
   int code = EXIT_SUCCESS;
 
@@ -148,13 +185,18 @@ int main(int argc, char *argv[]) {
 
   toc();
 
+  dbl eps = 1e-5;
+
   mesh3_data_s data;
   mesh3_data_from_off_file(&data, spec.off_path, spec.maxvol, spec.verbose);
-  mesh3_data_insert_vert(&data, spec.xsrc, EPS);
+  mesh3_data_insert_vert(&data, spec.xsrc, eps);
 
   mesh3_s *mesh;
   mesh3_alloc(&mesh);
-  mesh3_init(mesh, &data, true, NULL);
+  mesh3_init(mesh, &data, true, &eps);
+
+  mesh3_dump_verts(mesh, "verts.bin");
+  mesh3_dump_cells(mesh, "cells.bin");
 
   rect3 bbox;
   mesh3_get_bbox(mesh, &bbox);
@@ -167,36 +209,14 @@ int main(int argc, char *argv[]) {
          bbox.min[1], bbox.max[1],
          bbox.min[2], bbox.max[2]);
   printf("- h: %g\n", mesh3_get_mean_edge_length(mesh));
+  printf("- wrote mesh vertices to verts.bin\n");
+  printf("- wrote mesh tetrahedra to cells.bins\n");
 
   if (!mesh3_contains_ball(mesh, spec.xsrc, spec.rfac)) {
     fprintf(stderr, "ERROR: mesh doesn't fully contain factoring ball\n");
     code = EXIT_FAILURE;
     goto cleanup;
   }
-
-  eik3hh_s *hh;
-  eik3hh_alloc(&hh);
-  eik3hh_init_with_pt_src(hh, mesh, spec.c, spec.rfac, spec.xsrc);
-
-  eik3hh_branch_s *root_branch = eik3hh_get_root_branch(hh);
-  eik3hh_branch_solve(root_branch, spec.verbose);
-
-  array_s *refl_inds = eik3hh_branch_get_visible_refls(root_branch);
-
-  // TODO: debugging
-  eik3hh_branch_s *refl_branch = eik3hh_branch_add_refl(root_branch,17);
-  eik3hh_branch_solve(refl_branch, spec.verbose);
-
-  for (size_t i = 0; i < array_size(refl_inds); ++i) {
-    size_t refl_ind;
-    array_get(refl_inds, i, &refl_ind);
-
-    eik3hh_branch_s *refl_branch = eik3hh_branch_add_refl(root_branch,refl_ind);
-    eik3hh_branch_solve(refl_branch, spec.verbose);
-  }
-
-  array_deinit(refl_inds);
-  array_dealloc(&refl_inds);
 
   /* Set up the image grid for making 2D plots */
   size_t ngrid = 1024 + 1;
@@ -214,46 +234,60 @@ int main(int argc, char *argv[]) {
   grid2_to_mesh3_mapping_init_xy(&mapping, &img_grid, mesh, spec.xsrc[2]);
   printf("Set up grid-to-mesh mapping [%1.2gs]\n", toc());
 
-  eik3hh_branch_s *slice_branch = root_branch;
+  /* Set up the Helmholtz data structure to manage the different
+   * branches as we solve eikonal problems. Initialize it with a point
+   * source whose location is passed on the command line. */
+  eik3hh_s *hh;
+  eik3hh_alloc(&hh);
+  eik3hh_init_with_pt_src(hh, mesh, spec.c, spec.rfac, spec.xsrc);
 
-  /* Save T slice to disk */
-  toc();
-  eik3hh_branch_dump_xy_slice(
-    slice_branch, &mapping, FIELD_T, "T_slice.bin");
-  printf("Saved xy-slice (z = %g) of the direct eikonal [%1.2gs]\n",
-         spec.xsrc[2], toc());
+  /* Solve the "root" eikonal problem (the original point source
+   * problem). */
+  eik3hh_branch_s *root_branch = eik3hh_get_root_branch(hh);
+  eik3hh_branch_solve(root_branch, spec.verbose);
 
-  /* Save spreading factor slice to disk */
-  toc();
-  eik3hh_branch_dump_xy_slice(
-    slice_branch, &mapping, FIELD_SPREADING, "spread_slice.bin");
-  printf("Saved xy-slice (z = %g) of the direct spreading [%1.2gs]\n",
-         spec.xsrc[2], toc());
+  save_bin_files_and_slices(&spec, root_branch, &mapping, "direct");
 
-  /* Save origin slice to disk */
-  toc();
-  eik3hh_branch_dump_xy_slice(
-    slice_branch, &mapping, FIELD_ORIGIN, "origin_slice.bin");
-  printf("Saved xy-slice (z = %g) of the direct origin [%1.2gs]\n",
-         spec.xsrc[2], toc());
+  /* Find visible reflecting boundaries */
+  array_s *refl_inds = eik3hh_branch_get_visible_refls(root_branch);
+  printf("Found %lu visible reflections\n", array_size(refl_inds));
+
+  /* Iterate over the reflecting boundaries and solve downwind eikonal
+   * problems. Write some stuff to disk for plotting. */
+  for (size_t i = 0; i < array_size(refl_inds); ++i) {
+    size_t refl_ind;
+    array_get(refl_inds, i, &refl_ind);
+
+    eik3hh_branch_s *refl_branch = eik3hh_branch_add_refl(root_branch,refl_ind);
+    eik3hh_branch_solve(refl_branch, spec.verbose);
+
+    char name[128];
+    sprintf(name, "refl%03d", (int)refl_ind);
+    save_bin_files_and_slices(&spec, refl_branch, &mapping, name);
+  }
+
+  array_deinit(refl_inds);
+  array_dealloc(&refl_inds);
 
   /** Render frames to disk */
-
-  /* TODO: read camera from file */
-  camera_s camera = {
-    // .type = CAMERA_TYPE_ORTHOGRAPHIC,
-    .type = CAMERA_TYPE_PERSPECTIVE,
-    .pos = {0, 0, 42},
-    .look = {0, 0, -1},
-    .left = {-1, 0, 0},
-    .up = {0, 1, 0},
-    // .width = 22.0,
-    // .height = 22.0/4,
-    .fovy = 30,
-    .aspect = 1,
-    .dim = {256, 256}
-  };
-  eik3hh_render_frames(hh, &camera, spec.t0, spec.t1, spec.frame_rate, true);
+  if (spec.render) {
+    /* TODO: read camera from file */
+    camera_s camera = {
+      // .type = CAMERA_TYPE_ORTHOGRAPHIC,
+      .type = CAMERA_TYPE_PERSPECTIVE,
+      .pos = {0, 0, 42},
+      .look = {0, 0, -1},
+      .left = {-1, 0, 0},
+      .up = {0, 1, 0},
+      // .width = 22.0,
+      // .height = 22.0/4,
+      .fovy = 30,
+      .aspect = 1,
+      .dim = {256, 256}
+    };
+    eik3hh_branch_render_frames(
+      root_branch, &camera, spec.t0, spec.t1, spec.frame_rate, true);
+  }
 
 cleanup:
 

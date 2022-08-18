@@ -704,9 +704,6 @@ find_and_delete_cached_utetra(eik3_s *eik, utetra_s const *utetra,
                               size_t *num_utetra_other) {
   size_t l = utetra_get_l(utetra);
 
-  // TODO: not 100% sure what the right way to set this is...
-  dbl const tol = 2*pow(mesh3_get_mean_edge_length(eik->mesh), 3);
-
   /* First, find the indices of the cached utetra which share the same
    * target node and have the same active indices as `utetra`. */
   array_s *i_arr;
@@ -719,7 +716,7 @@ find_and_delete_cached_utetra(eik3_s *eik, utetra_s const *utetra,
     if (l != utetra_get_l(utetra_other))
       continue;
 
-    if (!utetras_have_same_minimizer(utetra, utetra_other, tol))
+    if (!utetras_have_same_minimizer(utetra, utetra_other, eik))
       continue;
 
     /* Initially just append here so we can check whether we actually
@@ -804,7 +801,7 @@ void do_utetra(eik3_s *eik, size_t lhat, uint3 const l, par3_s *par) {
   if (did_utetra_already(eik, lhat, l))
     return;
 
-  utetra_spec_s spec = utetra_spec_from_eik_and_inds(eik, lhat, l[0], l[1], l[2]);
+  utetra_spec_s spec = utetra_spec_from_eik_and_inds(eik, lhat, l[0],l[1],l[2]);
 
   if (par != NULL)
     par3_init_empty(par);
@@ -882,6 +879,12 @@ static void do_utetra_fan(eik3_s *eik, size_t lhat, size_t l0) {
 
   size_t l[3] = {l0, (size_t)NO_INDEX, (size_t)NO_INDEX};
 
+  /* Array to track which vertices on the rim of the update fan are
+   * incident on `VALID` diffracting edges. */
+  array_s *l_diff;
+  array_alloc(&l_diff);
+  array_init(l_diff, sizeof(size_t), ARRAY_DEFAULT_CAPACITY);
+
   /* Do them all */
   for (size_t i = 0; i < array_size(le_arr); ++i) {
     array_get(le_arr, i, &l[1]);
@@ -890,6 +893,7 @@ static void do_utetra_fan(eik3_s *eik, size_t lhat, size_t l0) {
     if (lhat == l[1] || lhat == l[2])
       continue;
 
+    /* Prospectively do 1-point updates from point sources */
     for (size_t j = 1; j < 3; ++j) {
       if (jet31t_is_point_source(&eik->jet[l[j]])) {
         assert(array_contains(eik->bc_inds, &l[j]));
@@ -898,10 +902,27 @@ static void do_utetra_fan(eik3_s *eik, size_t lhat, size_t l0) {
       }
     }
 
+    /* Accumulate `VALID` vertices incident on diffracting edges */
+    for (size_t j = 1; j < 3; ++j)
+      if (mesh3_vert_incident_on_diff_edge(eik->mesh, l[j])
+          && !array_contains(l_diff, &l[j]))
+        array_append(l_diff, &l[j]);
+
     do_utetra(eik, lhat, l, /* par: */ NULL);
   }
 
+  /* Do 2-point diffraction updates */
+  for (size_t i = 0; i < array_size(l_diff); ++i) {
+    size_t l0;
+    array_get(l_diff, i, &l0);
+    do_utris_if(eik, lhat, l0, eik->old_diff_utri, is_diff_edge);
+  }
+
 cleanup:
+
+  array_deinit(l_diff);
+  array_dealloc(&l_diff);
+
   array_deinit(le_arr);
   array_dealloc(&le_arr);
 }
@@ -918,10 +939,8 @@ static void update(eik3_s *eik, size_t l, size_t l0) {
 
   /* If `l0` is incident on a diffracting edge, look for corresponding
    * two-point updates to do. Do not do any other types of updates! */
-  if (l0_is_on_diff_edge && !l_is_on_diff_edge) {
+  if (l0_is_on_diff_edge && !l_is_on_diff_edge)
     do_utris_if(eik, l, l0, eik->old_diff_utri, is_diff_edge);
-    return;
-  }
 
   /* Check whether l0 is a boundary vertex */
   bool l0_is_bdv = l0_is_on_diff_edge || mesh3_bdv(eik->mesh, l0);
@@ -996,20 +1015,20 @@ static void purge_utri(array_s *utri_cache, size_t l0) {
 }
 
 jmm_error_e eik3_step(eik3_s *eik, size_t *l0) {
-  /* Pop the first node from the front of the heap and set it to
-   * VALID. Do some basic sanity checks. */
+  /* Get the first node in the heap. It should be `TRIAL`. */
   *l0 = heap_front(eik->heap);
-  assert(isfinite(eik->jet[*l0].f));
   assert(eik->state[*l0] == TRIAL);
-  assert(!par3_is_empty(&eik->par[*l0]) || array_contains(eik->trial_inds, l0));
-  heap_pop(eik->heap);
-  eik->state[*l0] = VALID;
 
   /* If the eikonal of the newly VALID node isn't finite, something
-   * bad happened. */
+   * bad happened. Bail. */
   if (!isfinite(eik->jet[*l0].f))
     return JMM_ERROR_RUNTIME_ERROR;
 
+  /* Otherwise, we pop `l0` from the heap and mark it `VALID`. */
+  heap_pop(eik->heap);
+  eik->state[*l0] = VALID;
+
+  /* Purge cached updates to keep the cache size under control */
   purge_utetra(eik->old_utetra, *l0);
   purge_utri(eik->old_bd_utri, *l0);
   purge_utri(eik->old_diff_utri, *l0);
@@ -1912,13 +1931,19 @@ static void do_utri_and_add_inc(eik3_s *eik, mesh2_s const *refl_mesh,
 
 static void add_diff_utri_inc_on_utetra(eik3_s *eik, size_t lhat,
                                         uint3 const l, array_s *queue) {
+  mesh3_s const *mesh = eik->mesh;
   for (size_t i = 0; i < 3; ++i) {
-    uint3 le = {l[i], l[(i + 1) % 3], (size_t)NO_INDEX};
-    SORT_UINT2(le);
-    if (mesh3_is_diff_edge(eik->mesh, le)
-        && !array_contains(queue, &le)
-        && !did_utri_already(eik->old_diff_utri, lhat, le))
-      array_append(queue, &le);
+    size_t ne = mesh3_get_num_inc_diff_edges(mesh, l[i]);
+    uint2 *le_diff = malloc(ne*sizeof(uint2));
+    mesh3_get_inc_diff_edges(mesh, l[i], le_diff);
+    for (size_t j = 0; j < ne; ++j) {
+      uint3 le = {le_diff[j][0], le_diff[j][1], (size_t)NO_INDEX};
+      SORT_UINT2(le);
+      if (!array_contains(queue, &le)
+          && !did_utri_already(eik->old_diff_utri, lhat, le))
+        array_append(queue, &le);
+    }
+    free(le_diff);
   }
 }
 
@@ -1954,9 +1979,22 @@ static void do_utetra_and_add_inc(eik3_s *eik, mesh2_s const *refl_mesh,
       array_append(queue, &la_);
   }
 
+  /* This case should probably never happen... why?
+   *
+   * 1) this is the case where there's a single active index incident
+   * on a diffracting *VERTEX*, and we haven't added any new faces
+
+   * 2) but if this happens, then we should have already done the
+   * incident tetrahedron updates
+   *
+   * 3) ... in which case, we should be able to accept a "common
+   * vertex" update, but we failed to do so for some reason!
+   *
+   * TODO: if this happens, it's a bug, I think */
   if (num_added == 0
       && na == 1
-      && mesh3_vert_is_terminal_diff_edge_vert(eik->mesh, la[0]))
+      && mesh3_vert_is_terminal_diff_edge_vert(eik->mesh, la[0])
+      && mesh3_get_num_inc_diff_edges(eik->mesh, la[0]) > 1)
     assert(false); // TODO: handle
 }
 
@@ -1972,8 +2010,7 @@ static void do_reflector_updates(eik3_s *eik, mesh2_s const *refl_mesh,
   SORT3(l[0], l[1], l[2]);
   array_append(queue, &l);
 
-  while (isinf(eik->jet[lhat].f)) {
-    assert(!array_is_empty(queue));
+  while (isinf(eik->jet[lhat].f) && !array_is_empty(queue)) {
     array_pop_front(queue, &l);
 
     if (is_edge(l))
@@ -2056,36 +2093,30 @@ init_refl_bcs(eik3_s *eik, eik3_s const *eik_in, size_t refl_index) {
 }
 
 void eik3_add_refl_bcs(eik3_s *eik, eik3_s const *eik_in, size_t refl_index) {
-  /* Add reflection BCs. */
-  mesh2_s *refl_mesh = init_refl_bcs(eik, eik_in, refl_index);
+  /* Both `eik` and `eik_in` should have the same domain. */
+  assert(eik->mesh == eik_in->mesh);
+  mesh3_s const *mesh = eik->mesh;
 
-  /* Iterate over each reflector face, assuming that all faces have
-   * BCs now. */
+  /* Get the reflector mesh. We'll use this to do a local search for
+   * updates to accelerate our BFS. */
+  mesh2_s *refl_mesh = mesh3_get_refl_mesh(mesh, refl_index);
+
+  /* Add reflection BCs for each vertex on the reflector. */
   for (size_t lf = 0; lf < mesh2_nfaces(refl_mesh); ++lf) {
+    dbl33 R;
+    mesh2_get_R_for_face(refl_mesh, lf, R);
+
     uint3 l;
     mesh2_fv(refl_mesh, lf, l);
 
+    /* Add BCs and insert each node into the update queue.*/
     for (size_t i = 0; i < 3; ++i) {
-      assert(eik3_has_BCs(eik, l[i]));
-
-      size_t nvv = mesh3_nvv(eik->mesh, l[i]);
-      size_t *vv = malloc(nvv*sizeof(size_t));
-      mesh3_vv(eik->mesh, l[i], vv);
-
-      for (size_t j = 0; j < nvv; ++j) {
-        if (!eik3_is_far(eik, vv[j])) continue;
-        eik3_add_trial(eik, vv[j], jet31t_make_empty());
-        do_reflector_updates(eik, refl_mesh, vv[j], l);
-      }
-
-      free(vv);
+      if (!eik3_is_far(eik, l[i])) continue;
+      jet31t jet = eik3_get_jet(eik_in, l[i]);
+      dbl33_dbl3_mul_inplace(R, jet.Df);
+      eik3_add_trial(eik, l[i], jet);
     }
   }
-
-  /* Clean up */
-
-  mesh2_deinit(refl_mesh);
-  mesh2_dealloc(&refl_mesh);
 }
 
 /* Add reflection BCs using a factoring radius. Each node reachable by
@@ -2263,10 +2294,10 @@ static void init_org(mesh3_s const *mesh, dbl *org) {
   for (size_t l = 0; l < mesh3_nverts(mesh); ++l)
     org[l] = NAN;
 
-  /* Set the origin of all nodes on a diffracting edge to 0 */
-  for (size_t l = 0; l < mesh3_nverts(mesh); ++l)
-    if (isnan(org[l]) && mesh3_vert_incident_on_diff_edge(mesh, l))
-      org[l] = 0;
+  // /* Set the origin of all nodes on a diffracting edge to 0 */
+  // for (size_t l = 0; l < mesh3_nverts(mesh); ++l)
+  //   if (isnan(org[l]) && mesh3_vert_incident_on_diff_edge(mesh, l))
+  //     org[l] = 0;
 }
 
 void eik3_init_org_from_BCs(eik3_s const *eik, dbl *org) {
@@ -2299,33 +2330,109 @@ void eik3_init_org_for_refl(eik3_s const *eik, dbl *org, size_t refl_index,
 }
 
 void eik3_prop_org(eik3_s const *eik, dbl *org) {
-  mesh3_s const *mesh = eik->mesh;
+  // mesh3_s const *mesh = eik->mesh;
 
-  /* Now, transport the origins, skipping already set values */
+  // /* Now, transport the origins, skipping already set values */
+  // eik3_transport_dbl(eik, org, true);
+
+  // /* We set `org` to 0.5 for each vertex on a diffracting edge with
+  //  * BCs. */
+  // for (size_t l = 0; l < mesh3_nverts(mesh); ++l)
+  //   if (mesh3_vert_incident_on_diff_edge(mesh, l)
+  //       && array_contains(eik->bc_inds, &l))
+  //     org[l] = 0.5;
+
+  // /* We set `org` to 0.5 for each vertex on a diffracting edge that
+  //  * was updated from a node with an origin equal to 1. */
+  // for (size_t l = 0; l < mesh3_nverts(mesh); ++l) {
+  //   if (!mesh3_vert_incident_on_diff_edge(mesh, l))
+  //     continue;
+
+  //   par3_s const *par = &eik->par[l];
+
+  //   size_t l_active[3];
+  //   size_t num_active = par3_get_active_inds(par, l_active);
+
+  //   for (size_t i = 0; i < num_active; ++i)
+  //     if (org[l_active[i]] == 1)
+  //       org[l] = 0.5;
+  // }
+
+  mesh3_s const *mesh = eik->mesh;
+  size_t nverts = mesh3_nverts(mesh);
+
+  bool *diffracting = calloc(nverts, sizeof(bool));
+
+  // for (size_t l = 0; l < nverts; ++l) {
+  //   if (!isnan(org[l])) continue;
+
+  //   par3_s const *par = &eik->par[l];
+  //   assert(!par3_is_empty(par));
+
+  //   uint3 la;
+  //   dbl3 b;
+  //   size_t na = par3_get_active(par, la, b);
+
+  //   if (na == 1 && mesh3_vert_incident_on_diff_edge(mesh, la[0])) {
+  //     org[la[0]] = 0;
+  //     diffracting[la[0]] = true;
+  //   }
+
+  //   if (na == 2 && mesh3_is_diff_edge(mesh, la)) {
+  //     org[la[0]] = org[la[1]] = 0;
+  //     diffracting[la[0]] = diffracting[la[1]] = true;
+  //   }
+  // }
+
+  // for (size_t l = 0; l < nverts; ++l) {
+  //   if (!mesh3_vert_incident_on_diff_edge(mesh, l))
+  //     continue;
+
+  //   dbl const *DT = &eik->jet[l].Df[0];
+
+  //   if (!mesh3_local_ray_in_vertex_cone(mesh, DT, l))
+  //     continue;
+
+  //   diffracting[l] = true;
+  //   org[l] = 0.0;
+  // }
+
+  for (size_t l = 0; l < nverts; ++l) {
+    if (mesh3_vert_incident_on_diff_edge(mesh, l)) {
+      diffracting[l] = true;
+      org[l] = 0.0;
+    }
+  }
+
   eik3_transport_dbl(eik, org, true);
 
-  /* We set `org` to 0.5 for each vertex on a diffracting edge with
-   * BCs. */
-  for (size_t l = 0; l < mesh3_nverts(mesh); ++l)
-    if (mesh3_vert_incident_on_diff_edge(mesh, l)
-        && array_contains(eik->bc_inds, &l))
-      org[l] = 0.5;
+  for (size_t i = 0; i < nverts; ++i) {
+    size_t l = eik->accepted[i];
 
-  /* We set `org` to 0.5 for each vertex on a diffracting edge that
-   * was updated from a node with an origin equal to 1. */
-  for (size_t l = 0; l < mesh3_nverts(mesh); ++l) {
-    if (!mesh3_vert_incident_on_diff_edge(mesh, l))
-      continue;
+    if (!diffracting[l]) continue;
 
     par3_s const *par = &eik->par[l];
+    if (par3_is_empty(par))
+      continue;
 
-    size_t l_active[3];
-    size_t num_active = par3_get_active_inds(par, l_active);
+    uint3 la = {NO_INDEX, NO_INDEX, NO_INDEX};
+    dbl3 b = {NAN, NAN, NAN};
+    size_t na = par3_get_active(par, la, b);
+    (void)na;
 
-    for (size_t i = 0; i < num_active; ++i)
-      if (org[l_active[i]] == 1)
-        org[l] = 0.5;
+    for (size_t j = 0; j < na; ++j)
+      if (diffracting[la[j]])
+        la[j] = NO_INDEX;
+
+    dbl3 orgpar = {NAN, NAN, NAN};
+    dbl3_gather(org, la, orgpar);
+
+    dbl nanmin = dbl3_nanmin(orgpar);
+    if (nanmin > 0.5)
+      org[l] = 0.5;
   }
+
+  free(diffracting);
 }
 
 bool eik3_updated_from_diff_edge(eik3_s const *eik, size_t l) {
