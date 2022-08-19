@@ -17,7 +17,7 @@ typedef struct camera {
   camera_type_e type;
   dbl pos[3], look[3], left[3], up[3];
   dbl width, height; // parameters for orthographic camera
-  dbl near, fovy, aspect; // parameters for perspective camera
+  dbl fovy, aspect; // parameters for perspective camera
   size_t dim[2];
 } camera_s;
 

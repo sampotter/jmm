@@ -159,13 +159,12 @@ void heap_sink(heap_s *heap, int pos) {
 }
 
 void heap_pop(heap_s *heap) {
-#if SJS_DEBUG
-  heap->setpos(heap->context, heap->inds[0], NO_INDEX);
-#endif
+  size_t front_ind = heap->inds[0];
   heap_swap(heap, 0, heap->size - 1);
   if (--heap->size > 0) {
     heap_sink(heap, 0);
   }
+  heap->setpos(heap->context, front_ind, NO_INDEX);
 }
 
 int heap_size(heap_s *heap) {

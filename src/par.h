@@ -24,11 +24,13 @@ par3_s make_par3(size_t l[3], dbl b[3]);
 void par3_init_empty(par3_s *par);
 void par3_set(par3_s *par, size_t const *l, dbl const *b, int n);
 size_t par3_size(par3_s const *par);
-void par3_get_xb(par3_s const *par, eik3_s const *eik, dbl xb[3]);
+void par3_get_xb(par3_s const *par, mesh3_s const *mesh, dbl xb[3]);
 bool par3_is_empty(par3_s const *par);
 size_t par3_num_active(par3_s const *par);
-void par3_get_active(par3_s const *par, size_t *l, dbl *b);
-bool par3_is_on_BC_boundary(par3_s const *par, eik3_s const *eik);
+size_t par3_get_active_inds(par3_s const *par, size_t l[3]);
+size_t par3_get_active_and_inactive_inds(par3_s const *par, uint3 la, uint3 li);
+size_t par3_get_active(par3_s const *par, size_t *l, dbl *b);
+bool par3_has_active_parent(par3_s const *par, size_t l);
 
 #ifdef __cplusplus
 }

@@ -31,7 +31,7 @@ struct eik {
   int nb_dlc[NUM_NB_CELLS];
   int nearby_dlc[NUM_NEARBY_CELLS];
   bicubic_s *bicubics;
-  jet2 *jets;
+  jet21p *jets;
   state_e *states;
   int *positions;
   heap_s *heap;
@@ -563,7 +563,7 @@ static void tri(eik_s *eik, int l, int l0, int l1, int ic0) {
   /**
    * Commit new value if it's an improvement.
    */
-  jet2 *jet = &eik->jets[l];
+  jet21p *jet = &eik->jets[l];
   if (T < jet->f) {
     jet->f = T;
 
@@ -583,7 +583,7 @@ static bool can_build_cell(eik_s const *eik, int lc) {
     grid2_l2ind(eik->grid, l, ind);
     if (!grid2_isind(eik->grid, ind) ||
         eik->states[l] != VALID ||
-        jet2_is_point_source(&eik->jets[l]))
+        jet21p_is_point_source(&eik->jets[l]))
       return false;
   }
 
@@ -596,7 +596,7 @@ static bool can_build_cell(eik_s const *eik, int lc) {
 #if SJS_DEBUG
   for (int i = 0, l; i < NUM_CELL_VERTS; ++i) {
     l = grid2_lc2l(eik->grid, lc) + eik->vert_dl[i];
-    assert(jet2_is_finite(&eik->jets[l]));
+    assert(jet21p_is_finite(&eik->jets[l]));
   }
 #endif
 
@@ -701,7 +701,7 @@ static void build_cell(eik_s *eik, int lc) {
   }
 
   /* Get jet at each cell vertex */
-  jet2 *J[4];
+  jet21p *J[4];
   for (int i = 0; i < NUM_CELL_VERTS; ++i) {
     J[i] = &eik->jets[l[i]];
   }
@@ -809,7 +809,7 @@ void eik_init(eik_s *eik, field2_s const *slow, grid2_s const *grid) {
   eik->ncells = grid2_nindc(grid);
   eik->nnodes = grid2_nind(grid);
   eik->bicubics = malloc(eik->ncells*sizeof(bicubic_s));
-  eik->jets = malloc(eik->nnodes*sizeof(jet2));
+  eik->jets = malloc(eik->nnodes*sizeof(jet21p));
   eik->states = malloc(eik->nnodes*sizeof(state_e));
   eik->positions = malloc(eik->nnodes*sizeof(int));
 
@@ -1076,7 +1076,7 @@ void eik_solve(eik_s *eik) {
   }
 }
 
-void eik_add_trial(eik_s *eik, int2 ind, jet2 jet) {
+void eik_add_trial(eik_s *eik, int2 ind, jet21p jet) {
   int l = grid2_ind2l(eik->grid, ind);
   eik->jets[l] = jet;
   assert(eik->states[l] != TRIAL && eik->states[l] != VALID);
@@ -1084,7 +1084,7 @@ void eik_add_trial(eik_s *eik, int2 ind, jet2 jet) {
   heap_insert(eik->heap, l);
 }
 
-void eik_add_valid(eik_s *eik, int2 ind, jet2 jet) {
+void eik_add_valid(eik_s *eik, int2 ind, jet21p jet) {
   int l = grid2_ind2l(eik->grid, ind);
   eik->jets[l] = jet;
   assert(eik->states[l] != TRIAL && eik->states[l] != VALID);
@@ -1101,12 +1101,12 @@ void eik_get_shape(eik_s const *eik, int2 shape) {
   int2_copy(eik->grid->shape, shape);
 }
 
-jet2 eik_get_jet(eik_s *eik, int2 ind) {
+jet21p eik_get_jet(eik_s *eik, int2 ind) {
   int l = grid2_ind2l(eik->grid, ind);
   return eik->jets[l];
 }
 
-jet2 *eik_get_jets_ptr(eik_s const *eik) {
+jet21p *eik_get_jets_ptr(eik_s const *eik) {
   return eik->jets;
 }
 

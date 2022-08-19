@@ -10,48 +10,22 @@
 #include "index.h"
 #include "macros.h"
 #include "mat.h"
+#include "mesh1.h"
 #include "mesh2.h"
+#include "mesh_util.h"
 #include "util.h"
-
-bool face_in_cell(size_t const f[3], size_t const c[4]) {
-  return point_in_cell(f[0], c) && point_in_cell(f[1], c) &&
-    point_in_cell(f[2], c);
-}
-
-bool point_in_face(size_t l, size_t const f[3]) {
-  return f[0] == l || f[1] == l || f[2] == l;
-}
-
-bool point_in_cell(size_t l, size_t const c[4]) {
-  return c[0] == l || c[1] == l || c[2] == l || c[3] == l;
-}
-
-bool edge_in_face(size_t const le[2], size_t const lf[3]) {
-  assert(le[0] != le[1]);
-  assert(lf[0] != lf[1]);
-  assert(lf[1] != lf[2]);
-  assert(lf[2] != lf[0]);
-
-  return (le[0] == lf[0] || le[0] == lf[1] || le[0] == lf[2])
-      && (le[1] == lf[0] || le[1] == lf[1] || le[1] == lf[2]);
-}
 
 typedef struct {
   size_t le[2];
   bool diff;
-} diff_edge_s;
+} bde_s;
 
-diff_edge_s make_diff_edge(size_t l0, size_t l1) {
-  return (diff_edge_s) {.le = {MIN(l0, l1), MAX(l0, l1)}, .diff = false};
+bde_s make_bde(size_t l0, size_t l1) {
+  return (bde_s) {.le = {MIN(l0, l1), MAX(l0, l1)}, .diff = false};
 }
 
-int diff_edge_cmp(diff_edge_s const *e1, diff_edge_s const *e2) {
-  int cmp = compar_size_t(&e1->le[0], &e2->le[0]);
-  if (cmp != 0) {
-    return cmp;
-  } else {
-    return compar_size_t(&e1->le[1], &e2->le[1]);
-  }
+int bde_cmp(bde_s const *e1, bde_s const *e2) {
+  return edge_cmp(e1->le, e2->le);
 }
 
 typedef struct {
@@ -81,14 +55,17 @@ int bdf_cmp(bdf_s const *f1, bdf_s const *f2) {
 }
 
 struct mesh3 {
-  dbl (*verts)[3];
   size_t nverts;
+  dbl3 *verts;
 
-  size_t (*cells)[4];
   size_t ncells;
+  uint4 *cells;
 
   size_t *vc;
   size_t *vc_offsets;
+
+  size_t (*edges)[2];
+  size_t nedges;
 
   bool has_bd_info;
   bool *bdc;
@@ -96,7 +73,7 @@ struct mesh3 {
   size_t nbdf;
   bdf_s *bdf;
   size_t nbde;
-  diff_edge_s *bde;
+  bde_s *bde;
 
   size_t num_bdf_labels;
   size_t *bdf_label; // Labels for distinct reflecting surfaces
@@ -105,13 +82,14 @@ struct mesh3 {
   size_t *bde_label;
 
   /* "Mesh epsilon": a small parameter derived from the mesh, used to
-   * make geometric calculations a bit more robust. Right now, this is
-   * set by default to `min_edge_length^3`. */
+   * make geometric calculations a bit more robust. */
   dbl eps;
 
   // Geometric quantities
   dbl min_tetra_alt; // The minimum of all tetrahedron altitudes in the mesh.
   dbl min_edge_length;
+  dbl mean_edge_length;
+  dbl diam;
 };
 
 tri3 mesh3_tetra_get_face(mesh3_tetra_s const *tetra, int f[3]) {
@@ -122,6 +100,63 @@ tri3 mesh3_tetra_get_face(mesh3_tetra_s const *tetra, int f[3]) {
   memcpy(tri.v[1], verts[cv[f[1]]], sizeof(dbl[3]));
   memcpy(tri.v[2], verts[cv[f[2]]], sizeof(dbl[3]));
   return tri;
+}
+
+bool mesh3_tetra_equal(mesh3_tetra_s const *t1, mesh3_tetra_s const *t2) {
+  return t1->mesh == t2->mesh && t1->l == t2->l;
+}
+
+size_t mesh3_data_append_vert(mesh3_data_s *data, dbl3 const x) {
+  data->verts = reallocarray(data->verts, data->nverts + 1, sizeof(dbl3));
+  dbl3_copy(x, data->verts[data->nverts]);
+  return data->nverts++;
+}
+
+void mesh3_data_append_cells(mesh3_data_s *data, size_t n, uint4 const C[4]) {
+  data->cells = reallocarray(data->cells, data->ncells + n, sizeof(uint4));
+  memcpy(data->cells[data->ncells], C, n*sizeof(uint4));
+  data->ncells += n;
+}
+
+void mesh3_data_delete_cell(mesh3_data_s *data, size_t lc0) {
+  --data->ncells;
+  for (size_t lc = lc0; lc < data->ncells; ++lc)
+    memcpy(data->cells[lc], data->cells[lc + 1], sizeof(uint4));
+  data->cells = reallocarray(data->cells, data->ncells, sizeof(uint4));
+}
+
+bool mesh3_data_cell_contains_point(mesh3_data_s const *data, size_t lc,
+                                    dbl3 const x, dbl eps) {
+  tetra3 tetra;
+  for (size_t i = 0; i < 4; ++i)
+    dbl3_copy(data->verts[data->cells[lc][i]], tetra.v[i]);
+  return tetra3_contains_point(&tetra, x, &eps);
+}
+
+size_t mesh3_data_find_cell_containing_point(mesh3_data_s const *data, dbl3 const x, dbl eps) {
+  for (size_t lc = 0; lc < data->ncells; ++lc)
+    if (mesh3_data_cell_contains_point(data, lc, x, eps))
+      return lc;
+  return (size_t)NO_INDEX;
+}
+
+error_e mesh3_data_insert_vert(mesh3_data_s *data, dbl3 const x, dbl eps) {
+  size_t lc = mesh3_data_find_cell_containing_point(data, x, eps);
+  if (lc == (size_t)NO_INDEX)
+    return BAD_ARGUMENT;
+
+  size_t lv = mesh3_data_append_vert(data, x);
+
+  uint4 cells[4];
+  for (size_t i = 0; i < 4; ++i) {
+    memcpy(cells[i], data->cells[lc], sizeof(uint4));
+    cells[i][i] = lv;
+  }
+
+  mesh3_data_delete_cell(data, lc);
+  mesh3_data_append_cells(data, 4, cells);
+
+  return SUCCESS;
 }
 
 void mesh3_alloc(mesh3_s **mesh) {
@@ -175,6 +210,57 @@ static void init_vc(mesh3_s *mesh) {
   mesh->vc_offsets = vc_offsets;
 
   free(nvc);
+}
+
+static void init_edges(mesh3_s *mesh) {
+  array_s *edge_arr;
+  array_alloc(&edge_arr);
+  array_init(edge_arr, sizeof(size_t[2]), ARRAY_DEFAULT_CAPACITY);
+
+  /* Initially accumulate all the cell edges into one big array */
+  size_t ie[6][2] = {{0, 1}, {0, 2}, {0, 3}, {1, 2}, {1, 3}, {2, 3}};
+  for (size_t lc = 0; lc < mesh->ncells; ++lc) {
+    size_t const *cell = mesh->cells[lc];
+    for (size_t i = 0; i < 6; ++i) {
+      size_t le[2] = {cell[ie[i][0]], cell[ie[i][1]]};
+      SORT2(le[0], le[1]);
+      array_append(edge_arr, &le);
+    }
+  }
+
+  /* Sort the array */
+  array_sort(edge_arr, (compar_t)edge_cmp);
+
+  array_s *unique_edge_arr;
+  array_alloc(&unique_edge_arr);
+  array_init(unique_edge_arr, sizeof(size_t[2]), ARRAY_DEFAULT_CAPACITY);
+
+  /* Pull out the unique edges into a new array */
+  size_t n = array_size(edge_arr);
+  for (size_t i = 0, le[2]; i < n; ) {
+    array_get(edge_arr, i++, &le);
+    array_append(unique_edge_arr, &le);
+    while (i < n && !edge_cmp(le, array_get_ptr(edge_arr, i)))
+      ++i;
+  }
+
+  /* Copy the edges over */
+  mesh->nedges = array_size(unique_edge_arr);
+  size_t nbytes = mesh->nedges*sizeof(size_t[2]);
+  mesh->edges = malloc(nbytes);
+  memcpy(mesh->edges, array_get_ptr(unique_edge_arr, 0), nbytes);
+
+  /* Sanity check */
+#if JMM_DEBUG
+  for (size_t i = 1; i < mesh->nedges; ++i)
+    assert(edge_cmp(mesh->edges[i - 1], mesh->edges[i]));
+#endif
+
+  array_deinit(unique_edge_arr);
+  array_dealloc(&unique_edge_arr);
+
+  array_deinit(edge_arr);
+  array_dealloc(&edge_arr);
 }
 
 static void get_op_edge(mesh3_s const *mesh, size_t lc, size_t const le[2],
@@ -231,9 +317,9 @@ static dbl get_dihedral_angle(mesh3_s const *mesh, size_t lc, size_t const le[2]
  * the corresponding dihedral angles.
  */
 static bool edge_is_diff(mesh3_s const *mesh, size_t const le[2]) {
-  int nec = mesh3_nec(mesh, le[0], le[1]);
+  int nec = mesh3_nec(mesh, le);
   size_t *ec = malloc(nec*sizeof(size_t));
-  mesh3_ec(mesh, le[0], le[1], ec);
+  mesh3_ec(mesh, le, ec);
 
   dbl angle_sum = 0;
   for (int i = 0; i < nec; ++i)
@@ -241,7 +327,7 @@ static bool edge_is_diff(mesh3_s const *mesh, size_t const le[2]) {
 
   free(ec);
 
-  return angle_sum > PI + mesh->eps;
+  return angle_sum > JMM_PI + mesh->eps;
 }
 
 static size_t find_bdf(mesh3_s const *mesh, bdf_s const *bdf) {
@@ -365,16 +451,15 @@ static void init_bdf_labels(mesh3_s *mesh) {
     ++mesh->num_bdf_labels;
 }
 
-static size_t find_bde(mesh3_s const *mesh, diff_edge_s const *bde) {
-  diff_edge_s const *found = bsearch(
-    bde, mesh->bde, mesh->nbde, sizeof(diff_edge_s),
-    (compar_t)diff_edge_cmp);
+static size_t find_bde(mesh3_s const *mesh, bde_s const *bde) {
+  bde_s const *found = bsearch(
+    bde, mesh->bde, mesh->nbde, sizeof(bde_s), (compar_t)bde_cmp);
   return (size_t)(found ? found - mesh->bde : NO_INDEX);
 }
 
 static void get_diff_bde_nbs(mesh3_s const *mesh, size_t le, array_s *nb) {
-  diff_edge_s const *bde = &mesh->bde[le];
-  diff_edge_s nb_bde;
+  bde_s const *bde = &mesh->bde[le];
+  bde_s nb_bde;
 
   assert(bde->diff);
 
@@ -386,8 +471,8 @@ static void get_diff_bde_nbs(mesh3_s const *mesh, size_t le, array_s *nb) {
     mesh3_vv(mesh, l, vv);
 
     for (size_t j = 0, le_nb; j < nvv; ++j) {
-      nb_bde = make_diff_edge(l, vv[j]);
-      if (diff_edge_cmp(bde, &nb_bde) == 0)
+      nb_bde = make_bde(l, vv[j]);
+      if (bde_cmp(bde, &nb_bde) == 0)
         continue;
       le_nb = find_bde(mesh, &nb_bde);
       if (le_nb != (size_t)NO_INDEX
@@ -581,19 +666,19 @@ static void init_bd(mesh3_s *mesh) {
   // Build a sorted array of all of the boundary edges, which are just
   // the edges incident on the boundary faces. This array will have
   // duplicates, so we'll have to prune these next.
-  diff_edge_s *bde = malloc(3*mesh->nbdf*sizeof(diff_edge_s));
+  bde_s *bde = malloc(3*mesh->nbdf*sizeof(bde_s));
   for (size_t lf = 0, *l; lf < mesh->nbdf; ++lf) {
     l = mesh->bdf[lf].lf;
-    bde[3*lf] = make_diff_edge(l[0], l[1]);
-    bde[3*lf + 1] = make_diff_edge(l[1], l[2]);
-    bde[3*lf + 2] = make_diff_edge(l[2], l[0]);
+    bde[3*lf] = make_bde(l[0], l[1]);
+    bde[3*lf + 1] = make_bde(l[1], l[2]);
+    bde[3*lf + 2] = make_bde(l[2], l[0]);
   }
-  qsort(bde, 3*mesh->nbdf, sizeof(diff_edge_s), (compar_t)diff_edge_cmp);
+  qsort(bde, 3*mesh->nbdf, sizeof(bde_s), (compar_t)bde_cmp);
 
   // Now, let's count the number of distinct boundary edges.
   mesh->nbde = 1; // count the first edge (we assume nbdf > 0)
   for (size_t l = 0; l < 3*mesh->nbdf - 1; ++l)
-    if  (diff_edge_cmp(&bde[l], &bde[l + 1]))
+    if  (bde_cmp(&bde[l], &bde[l + 1]))
       ++mesh->nbde;
 
   size_t le = 0;
@@ -601,10 +686,10 @@ static void init_bd(mesh3_s *mesh) {
   // Traverse the array again, copying over distinct boundary
   // edges. Note: there's no need to sort mesh->bde, since it will
   // already be sorted.
-  mesh->bde = malloc(mesh->nbde*sizeof(diff_edge_s));
+  mesh->bde = malloc(mesh->nbde*sizeof(bde_s));
   mesh->bde[le++] = bde[0];
   for (size_t l = 0; l < 3*mesh->nbdf - 1; ++l)
-    if (diff_edge_cmp(&bde[l], &bde[l + 1]))
+    if (bde_cmp(&bde[l], &bde[l + 1]))
       mesh->bde[le++] = bde[l + 1];
 
   assert(le == mesh->nbde); // sanity
@@ -630,40 +715,40 @@ static void compute_geometric_quantities(mesh3_s *mesh) {
     mesh->min_tetra_alt = fmin(mesh->min_tetra_alt, h);
   }
 
+  /* Compute the minimum edge length */
   mesh->min_edge_length = INFINITY;
-  for (size_t l = 0, nvv, *vv; l < mesh->nverts; ++l) {
-    nvv = mesh3_nvv(mesh, l);
-    vv = malloc(nvv*sizeof(size_t));
-    mesh3_vv(mesh, l, vv);
-    for (size_t i = 0; i < nvv; ++i) {
-      dbl h = dbl3_dist(mesh->verts[l], mesh->verts[vv[i]]);
-      mesh->min_edge_length = fmin(mesh->min_edge_length, h);
-    }
-    free(vv);
+  for (size_t i = 0; i < mesh->nedges; ++i) {
+    size_t const *le = mesh->edges[i];
+    dbl h = dbl3_dist(mesh->verts[le[0]], mesh->verts[le[1]]);
+    mesh->min_edge_length = fmin(h, mesh->min_edge_length);
   }
+
+  /* Compute mean edge length */
+  mesh->mean_edge_length = 0;
+  for (size_t i = 0; i < mesh->nedges; ++i) {
+    size_t const *le = mesh->edges[i];
+    dbl h = dbl3_dist(mesh->verts[le[0]], mesh->verts[le[1]]);
+    mesh->mean_edge_length += h;
+  }
+  mesh->mean_edge_length /= mesh->nedges;
+
+  /* Approximate the diameter */
+  mesh->diam = mesh3_diam_2approx_rand(mesh, 100, NULL);
 }
 
-void mesh3_init(mesh3_s *mesh,
-                dbl const *verts, size_t nverts,
-                size_t const *cells, size_t ncells,
+void mesh3_init(mesh3_s *mesh, mesh3_data_s const *data,
                 bool compute_bd_info, dbl const *eps) {
-  size_t k = 0;
+  mesh->verts = malloc(data->nverts*sizeof(dbl3));
+  memcpy(mesh->verts, data->verts, data->nverts*sizeof(dbl3));
+  mesh->nverts = data->nverts;
 
-  mesh->verts = malloc(nverts*sizeof(dbl[3]));
-  for (size_t i = 0; i < nverts; ++i)
-    for (int j = 0; j < 3; ++j)
-      mesh->verts[i][j] = verts[k++];
-  mesh->nverts = nverts;
-
-  k = 0;
-
-  mesh->cells = malloc(ncells*sizeof(size_t[4]));
-  for (size_t i = 0; i < ncells; ++i)
-    for (int j = 0; j < 4; ++j)
-      mesh->cells[i][j] = cells[k++];
-  mesh->ncells = ncells;
+  mesh->cells = malloc(data->ncells*sizeof(uint4));
+  memcpy(mesh->cells, data->cells, data->ncells*sizeof(uint4));
+  mesh->ncells = data->ncells;
 
   init_vc(mesh);
+
+  init_edges(mesh);
 
   compute_geometric_quantities(mesh);
 
@@ -680,11 +765,13 @@ void mesh3_init(mesh3_s *mesh,
 void mesh3_deinit(mesh3_s *mesh) {
   free(mesh->verts);
   free(mesh->cells);
+  free(mesh->edges);
   free(mesh->vc);
   free(mesh->vc_offsets);
 
   mesh->verts = NULL;
   mesh->cells = NULL;
+  mesh->edges = NULL;
   mesh->vc = NULL;
   mesh->vc_offsets = NULL;
 
@@ -705,8 +792,8 @@ void mesh3_deinit(mesh3_s *mesh) {
   }
 }
 
-dbl const *mesh3_get_verts_ptr(mesh3_s const *mesh) {
-  return mesh->verts[0];
+dbl3 const *mesh3_get_verts_ptr(mesh3_s const *mesh) {
+  return mesh->verts;
 }
 
 size_t const *mesh3_get_cells_ptr(mesh3_s const *mesh) {
@@ -809,6 +896,38 @@ void mesh3_get_cell_bbox(mesh3_s const *mesh, size_t i, rect3 *bbox) {
 bool mesh3_cell_contains_point(mesh3_s const *mesh, size_t lc, dbl const x[3]) {
   tetra3 tetra = mesh3_get_tetra(mesh, lc);
   return tetra3_contains_point(&tetra, x, &mesh->eps);
+}
+
+size_t mesh3_find_cell_containing_point(mesh3_s const *mesh, dbl const x[3],
+                                        size_t lc) {
+  /* First, try the passed guess... */
+  if (lc != (size_t)NO_INDEX && mesh3_cell_contains_point(mesh, lc, x))
+    return lc;
+
+  /* ... otherwise, proceed as usual */
+  for (size_t lc = 0; lc < mesh->ncells; ++lc)
+    if (mesh3_cell_contains_point(mesh, lc, x))
+      return lc;
+  return (size_t)NO_INDEX;
+}
+
+bool mesh3_contains_point(mesh3_s const *mesh, dbl3 const x) {
+  size_t lc = mesh3_find_cell_containing_point(mesh, x, (size_t)NO_INDEX);
+  return lc != (size_t)NO_INDEX;
+}
+
+/* This function is inexact. Instead of checking containment to
+ * machine precision, we check the distance from `x` to each boundary
+ * vertex. If `x` is contained in the mesh and the distance to the
+ * nearest boundary vertex is greater than or equal to `r`, then we
+ * declare victory. */
+bool mesh3_contains_ball(mesh3_s const *mesh, dbl3 const x, dbl r) {
+  if (!mesh3_contains_point(mesh, x))
+    return false;
+  for (size_t l = 0; l < mesh->nverts; ++l)
+    if (mesh3_bdv(mesh, l) && dbl3_dist(x, mesh->verts[l]) < r)
+      return false;
+  return true;
 }
 
 int mesh3_nvc(mesh3_s const *mesh, size_t i) {
@@ -1082,12 +1201,10 @@ void mesh3_cv(mesh3_s const *mesh, size_t i, size_t *cv) {
   memcpy(cv, mesh->cells[i], 4*sizeof(size_t));
 }
 
-int mesh3_nec(mesh3_s const *mesh, size_t i, size_t j) {
-  // TODO: really horrible implementation! :-(
+int mesh3_nec(mesh3_s const *mesh, size_t const le[2]) {
+  assert(le[0] != le[1]);
 
-  if (i == j) {
-    return 0;
-  }
+  size_t i = le[0], j = le[1];
 
   int nvci = mesh3_nvc(mesh, i);
   size_t *vci = malloc(sizeof(size_t)*nvci);
@@ -1105,7 +1222,7 @@ int mesh3_nec(mesh3_s const *mesh, size_t i, size_t j) {
     for (int b = 0; b < nvcj; ++b) {
       if (c == vcj[b]) {
         ++nec;
-        continue;
+        break;
       }
     }
   }
@@ -1116,12 +1233,10 @@ int mesh3_nec(mesh3_s const *mesh, size_t i, size_t j) {
   return nec;
 }
 
-void mesh3_ec(mesh3_s const *mesh, size_t i, size_t j, size_t *ec) {
-  // TODO: really horrible implementation! :-(
+void mesh3_ec(mesh3_s const *mesh, size_t const le[2], size_t *lc) {
+  assert(le[0] != le[1]);
 
-  if (i == j) {
-    return;
-  }
+  size_t i = le[0], j = le[1];
 
   int nvci = mesh3_nvc(mesh, i);
   size_t *vci = malloc(sizeof(size_t)*nvci);
@@ -1138,8 +1253,8 @@ void mesh3_ec(mesh3_s const *mesh, size_t i, size_t j, size_t *ec) {
     c = vci[a];
     for (int b = 0; b < nvcj; ++b) {
       if (c == vcj[b]) {
-        ec[nec++] = c;
-        continue; // TODO: should be break? test later...
+        lc[nec++] = c;
+        break;
       }
     }
   }
@@ -1186,26 +1301,26 @@ static void orient_chains(size_t (*e)[2], int n) {
   }
 }
 
-int mesh3_nee(mesh3_s const *mesh, size_t const e[2]) {
-  return mesh3_nec(mesh, e[0], e[1]);
+int mesh3_nee(mesh3_s const *mesh, size_t const le[2]) {
+  return mesh3_nec(mesh, le);
 }
 
-void mesh3_ee(mesh3_s const *mesh, size_t const e[2], size_t (*ee)[2]) {
-  int nec = mesh3_nec(mesh, e[0], e[1]);
+void mesh3_ee(mesh3_s const *mesh, size_t const le[2], size_t (*ee)[2]) {
+  int nec = mesh3_nec(mesh, le);
   size_t *ec = malloc(nec*sizeof(size_t));
-  mesh3_ec(mesh, e[0], e[1], ec);
+  mesh3_ec(mesh, le, ec);
 
   for (int i = 0; i < nec; ++i)
-    mesh3_cee(mesh, ec[i], e, ee[i]);
+    mesh3_cee(mesh, ec[i], le, ee[i]);
   orient_chains(ee, nec);
 
   free(ec);
 }
 
-size_t mesh3_nev(mesh3_s const *mesh, size_t const e[2]) {
-  size_t nec = mesh3_nec(mesh, e[0], e[1]);
+size_t mesh3_nev(mesh3_s const *mesh, size_t const le[2]) {
+  size_t nec = mesh3_nec(mesh, le);
   size_t *ec = malloc(nec*sizeof(size_t));
-  mesh3_ec(mesh, e[0], e[1], ec);
+  mesh3_ec(mesh, le, ec);
 
   array_s *ev;
   array_alloc(&ev);
@@ -1217,7 +1332,7 @@ size_t mesh3_nev(mesh3_s const *mesh, size_t const e[2]) {
    * on `e`. We'll count the number of elements in `fev` to calculate
    * `nef`. */
   for (size_t i = 0; i < nec; ++i) {
-    mesh3_cee(mesh, ec[i], e, ee);
+    mesh3_cee(mesh, ec[i], le, ee);
     for (size_t j = 0; j < 2; ++j) {
       if (array_contains(ev, &ee[j]))
         continue;
@@ -1236,9 +1351,9 @@ size_t mesh3_nev(mesh3_s const *mesh, size_t const e[2]) {
 }
 
 void mesh3_ev(mesh3_s const *mesh, size_t const e[2], size_t *v) {
-  size_t nec = mesh3_nec(mesh, e[0], e[1]);
+  size_t nec = mesh3_nec(mesh, e);
   size_t *ec = malloc(nec*sizeof(size_t));
-  mesh3_ec(mesh, e[0], e[1], ec);
+  mesh3_ec(mesh, e, ec);
 
   array_s *ev;
   array_alloc(&ev);
@@ -1380,9 +1495,9 @@ size_t mesh3_nbde(mesh3_s const *mesh) {
 
 bool mesh3_bde(mesh3_s const *mesh, size_t const le[2]) {
   assert(mesh->has_bd_info);
-  diff_edge_s e = make_diff_edge(le[0], le[1]);
-  return bsearch(&e, mesh->bde, mesh->nbde, sizeof(diff_edge_s),
-                 (compar_t)diff_edge_cmp);
+  bde_s e = make_bde(le[0], le[1]);
+  return bsearch(&e, mesh->bde, mesh->nbde, sizeof(bde_s),
+                 (compar_t)bde_cmp);
 }
 
 size_t mesh3_nbdf(mesh3_s const *mesh) {
@@ -1445,18 +1560,10 @@ bool mesh3_is_edge(mesh3_s const *mesh, size_t const l[2]) {
 
 bool mesh3_is_diff_edge(mesh3_s const *mesh, size_t const le[2]) {
   assert(mesh->has_bd_info);
-  diff_edge_s q = make_diff_edge(le[0], le[1]);
-  diff_edge_s const *e = bsearch(
-    &q, mesh->bde, mesh->nbde, sizeof(diff_edge_s), (compar_t)diff_edge_cmp);
+  bde_s q = make_bde(le[0], le[1]);
+  bde_s const *e = bsearch(
+    &q, mesh->bde, mesh->nbde, sizeof(bde_s), (compar_t)bde_cmp);
   return e && e->diff;
-}
-
-bool mesh3_is_nondiff_boundary_edge(mesh3_s const *mesh, size_t const le[2]) {
-  assert(mesh->has_bd_info);
-  diff_edge_s q = make_diff_edge(le[0], le[1]);
-  diff_edge_s const *e = bsearch(
-    &q, mesh->bde, mesh->nbde, sizeof(diff_edge_s), (compar_t)diff_edge_cmp);
-  return e && !e->diff;
 }
 
 bool mesh3_vert_incident_on_diff_edge(mesh3_s const *mesh, size_t l) {
@@ -1476,12 +1583,264 @@ bool mesh3_vert_incident_on_diff_edge(mesh3_s const *mesh, size_t l) {
   return is_incident;
 }
 
+bool mesh3_vert_is_terminal_diff_edge_vert(mesh3_s const *mesh, size_t l) {
+  assert(mesh->has_bd_info);
+
+  if (!mesh3_vert_incident_on_diff_edge(mesh, l))
+    return false;
+
+  array_s *diff_labels_seen;
+  array_alloc(&diff_labels_seen);
+  array_init(diff_labels_seen, sizeof(size_t), ARRAY_DEFAULT_CAPACITY);
+
+  size_t nvv = mesh3_nvv(mesh, l);
+  size_t *vv = malloc(nvv*sizeof(size_t));
+  mesh3_vv(mesh, l, vv);
+
+  bool terminal = true;
+
+  for (size_t i = 0; i < nvv; ++i) {
+    if (!mesh3_is_diff_edge(mesh, (size_t[2]) {l, vv[i]}))
+      continue;
+    bde_s bde = make_bde(l, vv[i]);
+    size_t j = find_bde(mesh, &bde);
+    size_t bde_label = mesh->bde_label[j];
+    assert(bde_label != NO_LABEL);
+    if (array_contains(diff_labels_seen, &bde_label)) {
+      terminal = false;
+      break;
+    } else {
+      array_append(diff_labels_seen, &bde_label);
+    }
+  }
+
+  free(vv);
+
+  array_deinit(diff_labels_seen);
+  array_dealloc(&diff_labels_seen);
+
+  return terminal;
+}
+
+bool mesh3_cell_incident_on_diff_edge(mesh3_s const *mesh, size_t lc) {
+  for (size_t i = 0; i < 4; ++i)
+    if (mesh3_vert_incident_on_diff_edge(mesh, mesh->cells[lc][i]))
+      return true;
+  return false;
+}
+
+static bool local_ray_in_tetra_cone(mesh3_s const *mesh, dbl3 const p, size_t lc, size_t lv) {
+  dbl3 xhat;
+  mesh3_copy_vert(mesh, lv, xhat);
+
+  size_t l[3];
+  assert(mesh3_cvf(mesh, lc, lv, l));
+
+  dbl3 x[3];
+  for (size_t i = 0; i < 3; ++i)
+    mesh3_copy_vert(mesh, l[i], x[i]);
+
+  dbl33 dX;
+  for (size_t i = 0; i < 3; ++i) {
+    dbl3 dx;
+    dbl3_sub(x[i], xhat, dx);
+    dbl33_set_column(dX, i, dx);
+  }
+
+  dbl3 alpha;
+  dbl33_dbl3_solve(dX, p, alpha);
+
+  dbl const atol = 1e-13;
+  return alpha[0] >= -atol && alpha[1] >= -atol && alpha[2] >= -atol;
+}
+
+bool mesh3_local_ray_in_vertex_cone(mesh3_s const *mesh, dbl3 const p, size_t lv) {
+  size_t nvc = mesh3_nvc(mesh, lv);
+  size_t *vc = malloc(mesh->nverts*sizeof(size_t));
+  mesh3_vc(mesh, lv, vc);
+
+  bool in_cone = false;
+  for (size_t i = 0; i < nvc; ++i)
+    if ((in_cone = local_ray_in_tetra_cone(mesh, p, vc[i], lv)))
+      break;
+
+  free(vc);
+
+  return in_cone;
+}
+
+bool mesh3_ray_prop_from_edge_is_occluded(mesh3_s const *mesh, dbl3 const t,
+                                          uint2 const l) {
+  bool occluded = true;
+
+  /* gets cells incident on active edge */
+  size_t nec = mesh3_nec(mesh, l);
+  size_t *ec = malloc(nec*sizeof(size_t));
+  mesh3_ec(mesh, l, ec);
+
+  /* check whether `dxhat` points into a tetrahedron incident on the
+   * base of the active edge */
+  for (size_t i = 0, l_op[2]; i < nec; ++i) {
+    /* get the opposite edge */
+    mesh3_cee(mesh, ec[i], l, l_op);
+
+    dbl3 x[2];
+    mesh3_copy_vert(mesh, l[0], x[0]);
+    mesh3_copy_vert(mesh, l[1], x[1]);
+
+    dbl3 y[2];
+    mesh3_copy_vert(mesh, l_op[0], y[0]);
+    mesh3_copy_vert(mesh, l_op[1], y[1]);
+
+    dbl3 te;
+    dbl3_sub(x[1], x[0], te);
+    dbl3_normalize(te);
+
+    dbl3 yproj[2];
+    dbl3_saxpy(dbl3_dot(te, y[0]) - dbl3_dot(te, x[0]), te, x[0], yproj[0]);
+    dbl3_saxpy(dbl3_dot(te, y[1]) - dbl3_dot(te, x[0]), te, x[0], yproj[1]);
+
+    /* Compute the x-axis for the arctan2 computation */
+    dbl3 q1;
+    dbl3_sub(y[0], yproj[0], q1);
+    dbl3_normalize(q1);
+
+    /* Compute the y-axis for the arctan2 computation */
+    dbl3 q2;
+    dbl3_cross(te, q1, q2);
+
+    /* Check that q2 has the correct orientation (to ensure that we
+     * measure the angle using arctan2 consistently) */
+    dbl3 u;
+    dbl3_sub(y[1], yproj[1], u);
+    dbl3_normalize(u);
+    if (dbl3_dot(u, q2) < 0)
+      dbl3_negate(q2);
+
+    /* Compute the maximum angle */
+    dbl thetamax = atan2(dbl3_dot(q2, u), dbl3_dot(q1, u));
+
+    /* ... and compute the angle of interest */
+    dbl theta = atan2(dbl3_dot(q2, t), dbl3_dot(q1, t));
+
+    /* Check whether it's in the feasible range */
+    dbl const atol = 1e-13;
+    if (-atol <= theta && theta <= thetamax + atol) {
+      occluded = false;
+      break;
+    }
+  }
+
+  free(ec);
+
+  return occluded;
+}
+
+bool mesh3_local_ray_is_occluded(mesh3_s const *mesh, size_t lhat, par3_s const *par) {
+  dbl3 xb;
+  par3_get_xb(par, mesh, xb);
+
+  dbl const *xhat = mesh->verts[lhat];
+
+  dbl3 dxhat; /* xlam -> xhat */
+  dbl3_sub(xhat, xb, dxhat);
+
+  /* Check whether the update ray is contained in the cone spanned by
+   * the cells incident on `utetra->lhat`. */
+
+  dbl3 dxlam; /* xhat -> xlam */
+  dbl3_sub(xb, xhat, dxlam);
+
+  if (!mesh3_local_ray_in_vertex_cone(mesh, dxlam, lhat))
+    return true;
+
+  /* Make sure the start of the update ray doesn't exit the domain */
+
+  bool ray_start_is_feasible = false;
+
+  size_t l_active[3];
+  size_t num_active_constraints = par3_get_active_inds(par, l_active);
+  num_active_constraints = 3 - num_active_constraints; // TODO: fix this...
+
+  /* interior minimizer */
+  if (num_active_constraints == 0) {
+    /* get cells incident on base of update */
+    size_t nfc = mesh3_nfc(mesh, l_active);
+    size_t *fc = malloc(nfc*sizeof(size_t));
+    mesh3_fc(mesh, l_active, fc);
+
+    /* check whether the `dxhat` points into a tetrahedron incident on
+     * the base of the update */
+    for (size_t i = 0, lv; i < nfc; ++i) {
+      mesh3_cfv(mesh, fc[i], l_active, &lv);
+
+      size_t lf[3];
+      mesh3_cvf(mesh, fc[i], lv, lf);
+
+      dbl3 x[3];
+      for (size_t j = 0; j < 3; ++j)
+        mesh3_copy_vert(mesh, lf[j], x[j]);
+
+      dbl3 dx[3];
+      dbl3_sub(mesh3_get_vert_ptr(mesh, lv), x[0], dx[0]);
+      dbl3_sub(x[1], x[0], dx[1]);
+      dbl3_sub(x[2], x[0], dx[2]);
+
+      /* compute the face normal and orient it so that it points
+       * outside the tetrahedron */
+      dbl3 n;
+      dbl3_cross(dx[1], dx[2], n);
+      if (dbl3_dot(n, dx[0]) < 0)
+        dbl3_negate(n);
+
+      if (dbl3_dot(n, dxhat) > 0) {
+        ray_start_is_feasible = true;
+        break;
+      }
+    }
+
+    free(fc);
+  }
+
+  /* edge minimizer */
+  else if (num_active_constraints == 1) {
+    dbl3 x[2];
+    mesh3_copy_vert(mesh, l_active[0], x[0]);
+    mesh3_copy_vert(mesh, l_active[1], x[1]);
+
+    dbl3 te;
+    dbl3_sub(x[1], x[0], te);
+    dbl3_normalize(te);
+
+    dbl3 xproj;
+    dbl3_saxpy(dbl3_dot(te, xhat) - dbl3_dot(te, x[0]), te, x[0], xproj);
+
+    dbl3 t;
+    dbl3_sub(xhat, xproj, t);
+    dbl3_normalize(t);
+
+    ray_start_is_feasible = !mesh3_ray_prop_from_edge_is_occluded(mesh, t, l_active);
+  }
+
+  /* corner minimizer */
+  else if (num_active_constraints == 2)
+    ray_start_is_feasible = mesh3_local_ray_in_vertex_cone(mesh, dxhat, l_active[0]);
+
+  else assert(false);
+
+  return !ray_start_is_feasible;
+}
+
 dbl mesh3_get_min_tetra_alt(mesh3_s const *mesh) {
   return mesh->min_tetra_alt;
 }
 
 dbl mesh3_get_min_edge_length(mesh3_s const *mesh) {
   return mesh->min_edge_length;
+}
+
+dbl mesh3_get_mean_edge_length(mesh3_s const *mesh) {
+  return mesh->mean_edge_length;
 }
 
 /**
@@ -1501,29 +1860,52 @@ mesh2_s *mesh3_get_surface_mesh(mesh3_s const *mesh) {
 
   // Grab all of the referenced vertices and splat them into a new
   // array. There will be duplicate vertices!
-  dbl *verts = malloc(3*mesh->nbdf*sizeof(dbl[3]));
+  dbl3 *verts = malloc(3*mesh->nbdf*sizeof(dbl3));
   for (size_t lf = 0; lf < mesh->nbdf; ++lf) {
     bdf_s const *face = &mesh->bdf[lf];
     for (int i = 0; i < 3; ++i) {
       size_t lv = face->lf[i];
       for (int j = 0; j < 3; ++j)
-        verts[3*(3*lf + i) + j] = mesh->verts[lv][j];
+        verts[3*lf + i][j] = mesh->verts[lv][j];
     }
   }
 
   // The faces array is very easy to construct at this point---it's
   // just an array of 3*nbdf size_t's, filled with the values 0, ...,
   // 3*mesh->nbdf - 1.
-  size_t *faces = malloc(mesh->nbdf*sizeof(size_t[3]));
-  for (size_t lf = 0; lf < 3*mesh->nbdf; ++lf)
-    faces[lf] = lf;
+  uint3 *faces = malloc(mesh->nbdf*sizeof(uint3));
+  for (size_t lf = 0; lf < mesh->nbdf; ++lf)
+    for (size_t i = 0; i < 3; ++i)
+      faces[lf][i] = 3*lf + i;
+
+  /* Precompute the array of face normals. The face normal for the
+   * tetrahedron mesh is assumed to point *into* the interior of the
+   * domain, so to get an outward-facing normal, we need to negate it
+   * here. */
+  dbl3 *face_normals = malloc(mesh->nbdf*sizeof(dbl3));
+  for (size_t lf = 0; lf < mesh->nbdf; ++lf) {
+    mesh3_get_face_normal(mesh, mesh->bdf[lf].lf, face_normals[lf]);
+    dbl3_negate(face_normals[lf]);
+  }
 
   mesh2_s *surface_mesh;
   mesh2_alloc(&surface_mesh);
-  mesh2_init(surface_mesh, verts, 3*mesh->nbdf, faces, mesh->nbdf);
+  mesh2_init(surface_mesh,
+             verts, 3*mesh->nbdf, /* verts_policy: */ POLICY_XFER,
+             faces, mesh->nbdf, /* faces_policy: */ POLICY_XFER,
+             face_normals, /* face_normals_policy: */ POLICY_XFER);
 
-  free(faces);
-  free(verts);
+#if JMM_DEBUG
+  /* Make sure no faces have duplicate vertices */
+  for (size_t lf = 0; lf < mesh->nbdf; ++lf)
+    assert(faces[lf][0] != faces[lf][1] &&
+           faces[lf][1] != faces[lf][2] &&
+           faces[lf][2] != faces[lf][0]);
+#endif
+
+  /* Don't need to free `verts`, `faces`, or `face_normals` here since
+   * we've passed ownership to `surface_mesh`. They will be freed when
+   * `surface_mesh` is destructed. */
 
   return surface_mesh;
 }
@@ -1628,6 +2010,31 @@ void mesh3_get_reflector(mesh3_s const *mesh, size_t i, size_t (*lf)[3]) {
       memcpy(lf[nf++], mesh->bdf[l].lf, sizeof(size_t[3]));
 }
 
+/* Create a `mesh2_s` corresponding to the `i`th reflector. It is the
+ * caller's responsibility to clean up the returned mesh. */
+mesh2_s *mesh3_get_refl_mesh(mesh3_s const *mesh, size_t i) {
+  size_t nf = mesh3_get_reflector_size(mesh, i);
+  uint3 *lf = malloc(nf*sizeof(uint3));
+  mesh3_get_reflector(mesh, i, lf);
+
+  dbl3 *face_normals = malloc(nf*sizeof(dbl3));
+  for (size_t i = 0; i < nf; ++i)
+    mesh3_get_face_normal(mesh, lf[i], face_normals[i]);
+
+  mesh2_s *reflector_mesh;
+  mesh2_alloc(&reflector_mesh);
+  mesh2_init(
+    reflector_mesh,
+    mesh->verts, mesh->nverts, POLICY_VIEW,
+    lf, nf, POLICY_XFER,
+    face_normals, POLICY_XFER);
+
+  /* Don't need to free `lf` or `face_normals` here since we transfer
+   * ownership to `reflector_mesh`. */
+
+  return reflector_mesh;
+}
+
 size_t mesh3_get_num_diffractors(mesh3_s const *mesh) {
   return mesh->num_bde_labels;
 }
@@ -1646,35 +2053,90 @@ void mesh3_get_diffractor(mesh3_s const *mesh, size_t i, size_t (*le)[2]) {
       memcpy(le[k++], mesh->bde[l].le, sizeof(size_t[2]));
 }
 
-void mesh3_get_bde_inds(mesh3_s const *mesh, size_t l, size_t le[2]) {
-  memcpy(le, mesh->bde[l].le, sizeof(size_t[2]));
+mesh1_s *mesh3_get_diff_mesh(mesh3_s const *mesh, size_t diff_index) {
+  size_t nedges = mesh3_get_diffractor_size(mesh, diff_index);
+  uint2 *le = malloc(nedges*sizeof(uint2));
+  mesh3_get_diffractor(mesh, diff_index, le);
+
+  mesh1_s *diff_mesh;
+  mesh1_alloc(&diff_mesh);
+  mesh1_init(diff_mesh,
+             mesh->verts, mesh->nverts, POLICY_XFER,
+             le, nedges, POLICY_XFER);
+
+  /* Don't need to free `le` since we transfer ownership to
+   * `diff_mesh`. */
+
+  return diff_mesh;
 }
 
-void mesh3_set_bde(mesh3_s *mesh, size_t const le[2], bool diff) {
-  // TODO: this is done really inefficiently! We should implement a
-  // balanced binary tree (or interval tree?) to store the boundary
-  // edges, but this a low priority.
+size_t mesh3_get_num_diffs_inc_on_refl(mesh3_s const *mesh, size_t refl_index) {
+  size_t nf = mesh3_get_reflector_size(mesh, refl_index);
+  size_t (*lf)[3] = malloc(nf*sizeof(size_t[3]));
+  mesh3_get_reflector(mesh, refl_index, lf);
 
-  mesh->bdv[le[0]] = mesh->bdv[le[1]] = true;
+  array_s *diff_index_arr;
+  array_alloc(&diff_index_arr);
+  array_init(diff_index_arr, sizeof(size_t), ARRAY_DEFAULT_CAPACITY);
 
-  diff_edge_s bde = {.le = {le[0], le[1]}, .diff = diff};
-
-  int cmp;
-  size_t l = 0;
-  while ((cmp = diff_edge_cmp(&bde, &mesh->bde[l])) >= 0)
-    ++l;
-
-  if (cmp == 0) {
-    mesh->bde[l].diff = diff;
-  } else if (cmp < 0) {
-    mesh->bde = realloc(mesh->bde, (mesh->nbde + 1)*sizeof(diff_edge_s));
-    memmove(&mesh->bde[l + 1], &mesh->bde[l],
-            (mesh->nbde - l)*sizeof(diff_edge_s));
-    mesh->bde[l] = bde;
-    ++mesh->nbde;
-  } else {
-    assert(false);
+  for (size_t i = 0; i < nf; ++i) {
+    for (size_t j = 0; j < 3; ++j) {
+      bde_s bde = make_bde(lf[i][j], lf[i][(j + 1) % 3]);
+      size_t l = find_bde(mesh, &bde);
+      if (l != (size_t)NO_INDEX &&
+          mesh->bde[l].diff &&
+          !array_contains(diff_index_arr, &mesh->bde_label[l]))
+        array_append(diff_index_arr, &mesh->bde_label[l]);
+    }
   }
+
+  size_t num_diffs_inc_on_refl = array_size(diff_index_arr);
+
+  array_deinit(diff_index_arr);
+  array_dealloc(&diff_index_arr);
+
+  free(lf);
+
+  return num_diffs_inc_on_refl;
+}
+
+void mesh3_get_diffs_inc_on_refl(mesh3_s const *mesh, size_t refl_index, size_t *diff_index) {
+  size_t nf = mesh3_get_reflector_size(mesh, refl_index);
+  size_t (*lf)[3] = malloc(nf*sizeof(size_t[3]));
+  mesh3_get_reflector(mesh, refl_index, lf);
+
+  array_s *diff_index_arr;
+  array_alloc(&diff_index_arr);
+  array_init(diff_index_arr, sizeof(size_t), ARRAY_DEFAULT_CAPACITY);
+
+  for (size_t i = 0; i < nf; ++i) {
+    for (size_t j = 0; j < 3; ++j) {
+      bde_s bde = make_bde(lf[i][j], lf[i][(j + 1) % 3]);
+      size_t l = find_bde(mesh, &bde);
+      if (l != (size_t)NO_INDEX &&
+          mesh->bde[l].diff &&
+          !array_contains(diff_index_arr, &mesh->bde_label[l]))
+        array_append(diff_index_arr, &mesh->bde_label[l]);
+    }
+  }
+
+  for (size_t i = 0; i < array_size(diff_index_arr); ++i)
+    array_get(diff_index_arr, i, &diff_index[i]);
+
+  array_deinit(diff_index_arr);
+  array_dealloc(&diff_index_arr);
+
+  free(lf);
+}
+
+size_t mesh3_get_diff_index_for_bde(mesh3_s const *mesh, size_t const le[2]) {
+  bde_s bde = make_bde(le[0], le[1]);
+  size_t l = find_bde(mesh, &bde);
+  return mesh->bde_label[l];
+}
+
+void mesh3_get_bde_inds(mesh3_s const *mesh, size_t l, size_t le[2]) {
+  memcpy(le, mesh->bde[l].le, sizeof(size_t[2]));
 }
 
 dbl mesh3_get_eps(mesh3_s const *mesh) {
@@ -1712,6 +2174,44 @@ void mesh3_get_face_normal(mesh3_s const *mesh, size_t const lf[3], dbl normal[3
     dbl3_negate(normal);
 }
 
+void mesh3_get_R_for_face(mesh3_s const *mesh, size_t const lf[3], dbl33 R) {
+  dbl3 n;
+  mesh3_get_face_normal(mesh, lf, n);
+
+  R_from_n(n, R);
+}
+
+void mesh3_get_R_for_reflector(mesh3_s const *mesh, size_t refl_index, dbl33 R) {
+  /* Find a face that lies on the reflector, doesn't matter which */
+  size_t i = 0;
+  while (i < mesh->nbdf && mesh->bdf_label[i] != refl_index)
+    ++i;
+  assert(mesh->bdf_label[i] == refl_index);
+
+  /* Get the reflection matrix for that face */
+  mesh3_get_R_for_face(mesh, mesh->bdf[i].lf, R);
+}
+
+void mesh3_get_R_for_interior_reflector_vertex(mesh3_s const *mesh, size_t l, dbl33 R) {
+  /* Verify that this is a boundary vertex which is in the interior of
+   * a facet. */
+  assert(mesh3_bdv(mesh, l));
+  assert(!mesh3_vert_incident_on_diff_edge(mesh, l));
+
+  /* Get the boundary faces incident on `l`. */
+  size_t nbdf  = mesh3_get_num_inc_bdf(mesh, l);
+  assert(nbdf > 0);
+  size_t (*lf)[3] = malloc(nbdf*sizeof(size_t[3]));
+  mesh3_get_inc_bdf(mesh, l, lf);
+
+  /* All of the incident boundary faces lie on the same planar
+   * reflector, so which one we use to compute the reflection matrix
+   * `R` doesn't matter. */
+  mesh3_get_R_for_face(mesh, lf[0], R);
+
+  free(lf);
+}
+
 void mesh3_get_diff_edge_tangent(mesh3_s const *mesh, size_t const le[2],
                                  dbl t[3]) {
   dbl3_sub(mesh->verts[le[1]], mesh->verts[le[0]], t);
@@ -1719,11 +2219,11 @@ void mesh3_get_diff_edge_tangent(mesh3_s const *mesh, size_t const le[2],
 }
 
 dbl mesh3_get_edge_ext_angle(mesh3_s const *mesh, size_t const le[2]) {
-  int nec = mesh3_nec(mesh, le[0], le[1]);
+  int nec = mesh3_nec(mesh, le);
   size_t *ec = malloc(nec*sizeof(size_t));
-  mesh3_ec(mesh, le[0], le[1], ec);
+  mesh3_ec(mesh, le, ec);
 
-  dbl ext_angle = 2*PI;
+  dbl ext_angle = 2*JMM_PI;
   for (int i = 0; i < nec; ++i)
     ext_angle -= get_dihedral_angle(mesh, ec[i], le);
 
@@ -1813,4 +2313,88 @@ void mesh3_get_face_centroid(mesh3_s const *mesh, size_t const lf[3], dbl p[3]) 
   for (size_t i = 0; i < 3; ++i)
     dbl3_add_inplace(p, mesh->verts[lf[i]]);
   dbl3_dbl_div_inplace(p, 3);
+}
+
+void mesh3_dump_verts(mesh3_s const *mesh, char const *path) {
+  FILE *fp = fopen(path, "wb");
+  fwrite(mesh->verts, sizeof(dbl[3]), mesh->nverts, fp);
+  fclose(fp);
+}
+
+void mesh3_dump_cells(mesh3_s const *mesh, char const *path) {
+  FILE *fp = fopen(path, "wb");
+  fwrite(mesh->cells, sizeof(size_t[4]), mesh->ncells, fp);
+  fclose(fp);
+}
+
+bool mesh3_has_vertex(mesh3_s const *mesh, dbl3 const x) {
+  for (size_t l = 0; l < mesh->nverts; ++l)
+    if (dbl3_dist(x, mesh->verts[l]) < 1e-13)
+      return true;
+  return false;
+}
+
+size_t mesh3_get_vert_index(mesh3_s const *mesh, dbl3 const x) {
+  for (size_t l = 0; l < mesh->nverts; ++l)
+    if (dbl3_dist(x, mesh->verts[l]) < 1e-13)
+      return l;
+  return (size_t)NO_INDEX;
+}
+
+dbl mesh3_linterp(mesh3_s const *mesh, dbl const *values, dbl3 const x) {
+  size_t lc = mesh3_find_cell_containing_point(mesh, x, (size_t)NO_INDEX);
+  tetra3 tetra = mesh3_get_tetra(mesh, lc);
+  dbl4 b; tetra3_get_bary_coords(&tetra, x, b);
+  size_t lv[4]; mesh3_cv(mesh, lc, lv);
+  dbl value = 0;
+  for (size_t i = 0; i < 4; ++i)
+    value += b[i]*values[lv[i]];
+  return value;
+}
+
+/* Approximate the diameter of the mesh to within a factor of two. For
+ * the vertex with index `l`, find the vertex with the maximum
+ * distance to `l`. The true diameter of the mesh is within a factor
+ * of two of one half this quantity. */
+dbl mesh3_diam_2approx(mesh3_s const *mesh, size_t l) {
+  dbl const *x = mesh3_get_vert_ptr(mesh, l);
+  dbl rmax = 0;
+  for (size_t m = 0; m < mesh3_nverts(mesh); ++m)
+    rmax = fmax(rmax, dbl3_dist(x, mesh3_get_vert_ptr(mesh, m)));
+  return 2*rmax;
+}
+
+/* Randomized algorithm for approximating the diameter of
+ * `mesh`. Applies the standard 2-approximation `trials` times and
+ * returns the minimum over the trials. If `seed` is passed, it is
+ * used to seed the random number generator first. */
+dbl mesh3_diam_2approx_rand(mesh3_s const *mesh, size_t trials, size_t const *seed) {
+  if (seed)
+    srandom(*seed);
+  dbl diam_min = INFINITY;
+  for (size_t _ = 0; _ < trials; ++_) {
+    size_t l = random() % mesh->nverts;
+    diam_min = fmin(diam_min, mesh3_diam_2approx(mesh, l));
+  }
+  return diam_min;
+}
+
+dbl mesh3_get_diam(mesh3_s const *mesh) {
+  return mesh->diam;
+}
+
+dbl mesh3_get_edge_tol(mesh3_s const *mesh, uint2 const le) {
+  assert(mesh3_is_edge(mesh, le));
+  dbl h = dbl3_dist(mesh->verts[le[0]], mesh->verts[le[1]]);
+  return pow(h/mesh->diam, 2);
+}
+
+dbl mesh3_get_face_tol(mesh3_s const *mesh, uint3 const lf) {
+  dbl h[3] = {
+    dbl3_dist(mesh->verts[lf[0]], mesh->verts[lf[1]]),
+    dbl3_dist(mesh->verts[lf[1]], mesh->verts[lf[2]]),
+    dbl3_dist(mesh->verts[lf[2]], mesh->verts[lf[0]])
+  };
+  dbl hmin = fmin(h[0], fmin(h[1], h[2]));
+  return pow(hmin/mesh->diam, 2);
 }

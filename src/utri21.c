@@ -7,14 +7,14 @@
 #include "mat.h"
 
 void utri21_init(utri21_s *utri, dbl2 const xhat, dbl2 const x[2],
-                 jet22t const jet[2]) {
+                 jet21t const jet[2]) {
   dbl2_copy(xhat, utri->xhat);
   dbl2_copy(x[0], utri->x[0]);
   dbl2_copy(x[1], utri->x[1]);
 
   dbl2_sub(utri->x[1], utri->x[0], utri->dx);
 
-  bb31_init_from_jet22t(&utri->T, jet, utri->x);
+  bb31_init_from_jet21t(&utri->T, jet, utri->x);
 }
 
 dbl utri21_F(utri21_s const *wkspc, dbl lam) {
@@ -79,7 +79,7 @@ bool utri21_solve(utri21_s *utri, dbl *lam) {
   // if (T <= fmax(T0, T1))
   //   return false;
 
-  jet22t *jet = &utri->jet;
+  jet21t *jet = &utri->jet;
 
   jet->f = T;
 

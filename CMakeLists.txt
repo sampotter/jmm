@@ -3,7 +3,7 @@ cmake_minimum_required (VERSION 3.12)
 include (CheckIPOSupported)
 check_ipo_supported (RESULT IPO_SUPPORTED)
 
-project (jmm LANGUAGES C VERSION 0.1.1)
+project (jmm LANGUAGES C CXX VERSION 0.1.1)
 
 set (CMAKE_C_STANDARD 99)
 set (CMAKE_C_STANDARD_REQUIRED TRUE)
@@ -74,6 +74,8 @@ if (SANITIZE_UNDEFINED)
   set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${SANITIZE_UNDEFINED_CMAKE_C_FLAGS}")
 endif ()
 
+add_subdirectory (extra/tetgen1.6.0)
+
 set (JMM_PUBLIC_HEADERS
   src/def.h
   src/dial.h
@@ -98,6 +100,10 @@ set (JMM_SRCS
   src/eik_F4.c
   src/eik_S4.c
   src/eik3.c
+  src/eik3hh.c
+  src/eik3hh_branch.c
+  src/eik3_transport.c
+  src/error.c
   src/field.c
   src/geom.c
   src/grid2.c
@@ -108,9 +114,12 @@ set (JMM_SRCS
   src/jet.c
   src/log.c
   src/mat.c
+  src/mesh1.c
   src/mesh2.c
   src/mesh22.c
   src/mesh3.c
+  src/mesh3.cpp
+  src/mesh_util.c
   src/opt.c
   src/par.c
   src/pool.c
@@ -120,6 +129,7 @@ set (JMM_SRCS
   src/stats.c
   src/triBoxOverlap.c
   src/utetra.c
+  src/utd.c
   src/util.c
   src/utri.c
   src/utri21.c
@@ -140,6 +150,8 @@ endif ()
 if (UNIX)
   target_link_libraries (jmm PRIVATE m)
 endif ()
+target_link_libraries (jmm PRIVATE GSL::gsl)
+target_include_directories (jmm PRIVATE tet)
 target_include_directories (
   jmm INTERFACE
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>
@@ -149,33 +161,6 @@ target_include_directories (
 #
 # Examples
 #
-
-# basic_solve
-add_executable (basic_solve examples/basic_solve.c)
-target_link_libraries (basic_solve jmm)
-target_include_directories (basic_solve PRIVATE jmm)
-set_property (
-  TARGET basic_solve
-  PROPERTY XCODE_SCHEME_ARGUMENTS
-  "${CMAKE_CURRENT_BINARY_DIR}/sphere_verts.bin"
-  "${CMAKE_CURRENT_BINARY_DIR}/sphere_cells.bin"
-  "830"
-  "${CMAKE_CURRENT_BINARY_DIR}/sphere_jets.bin")
-
-# raytracing
-add_executable (raytracing examples/raytracing.c)
-target_link_libraries (raytracing jmm)
-target_include_directories (raytracing PRIVATE jmm)
-
-# transfer_solution
-add_executable (transfer_solution examples/transfer_solution.c)
-target_link_libraries (transfer_solution jmm)
-target_include_directories (transfer_solution PRIVATE jmm)
-
-# viz_error_using_raytracing
-add_executable (viz_error_using_raytracing examples/viz_error_using_raytracing.c)
-target_link_libraries (viz_error_using_raytracing jmm)
-target_include_directories (viz_error_using_raytracing PRIVATE jmm)
 
 # run_eik2g1
 add_executable (run_eik2g1 examples/na_plots/run_eik2g1.c)
@@ -235,51 +220,10 @@ if (BUILD_TESTS)
 endif ()
 
 #
-# Build documentation
+# Examples
 #
 
-if (BUILD_DOCS)
-  find_package (Doxygen REQUIRED)
-  find_package (Sphinx REQUIRED)
-
-  set (DOXYGEN_INDEX_FILE ${CMAKE_CURRENT_BINARY_DIR}/html/index.html)
-  set (DOXYFILE_IN ${CMAKE_CURRENT_SOURCE_DIR}/Doxyfile.in)
-  set (DOXYFILE_OUT ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile)
-
-  set (SPHINX_SOURCE ${CMAKE_CURRENT_SOURCE_DIR})
-  set (SPHINX_BUILD ${CMAKE_CURRENT_BINARY_DIR})
-
-  configure_file (${DOXYFILE_IN} ${DOXYFILE_OUT} @ONLY)
-
-  add_custom_command(
-    OUTPUT ${DOXYGEN_INDEX_FILE}
-    DEPENDS ${JMM_PUBLIC_HEADERS}
-    COMMAND ${DOXYGEN_EXECUTABLE} ${DOXYFILE_OUT}
-    MAIN_DEPENDENCY ${DOXYFILE_OUT} ${DOXYFILE_IN}
-    COMMENT "Generating Doxygen documentation"
-    VERBATIM
-    )
-
-  configure_file (
-    ${CMAKE_CURRENT_SOURCE_DIR}/conf.py.in
-    ${CMAKE_CURRENT_BINARY_DIR}/conf.py
-    @ONLY
-    )
-
-  add_custom_target (
-    Sphinx ALL
-    COMMAND
-    ${SPHINX_EXECUTABLE}
-    -b html -Dbreathe_projects.CatCutifier=${CMAKE_CURRENT_BINARY_DIR}
-	-c ${CMAKE_CURRENT_BINARY_DIR}
-    ${CMAKE_CURRENT_SOURCE_DIR} # sourcedir
-	${CMAKE_CURRENT_BINARY_DIR} # outputdir
-    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
-    COMMENT "Generating Sphinx documentation"
-    )
-
-  add_custom_target (Doxygen ALL DEPENDS ${DOXYGEN_INDEX_FILE})
-endif ()
+add_subdirectory (examples)
 
 #
 # Installation and packaging
@@ -320,7 +264,7 @@ install (FILES
   )
 
 include (InstallRequiredSystemLibraries)
-set (CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE.txt")
+set (CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE")
 set (CPACK_PACKAGE_VERSION_MAJOR "${jmm_VERSION_MAJOR}")
 set (CPACK_PACKAGE_VERSION_MINOR "${jmm_VERSION_MINOR}")
 include (CPack)

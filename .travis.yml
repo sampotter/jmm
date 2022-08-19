@@ -5,25 +5,16 @@ compiler:
   - gcc
 before_install:
   - sudo apt-get -y install libgsl0-dev
-  - sudo apt-get -y install python3-venv
 before_script:
-  # Set up cgreen manually
+  # Set up cgreen
   - git clone https://github.com/sampotter/cgreen
   - cd cgreen; make; sudo make install; cd -
   - sudo ldconfig # ...
-  # Set up tetgen manually
-  - wget https://www.umiacs.umd.edu/~sfp/tetgen1.6.0.zip
-  - unzip tetgen1.6.0.zip
-  - cd tetgen1.6.0; make -j; cd -
-  - PATH=`pwd`/tetgen1.6.0:$PATH export PATH
-  # Activate venv and install necessary Python packages
-  - python3 -m venv .
-  - source bin/activate
-  - pip install -r requirements-py36.txt
-  - pip install -r examples/requirements-py36.txt
+  # Set up tetgen
+  - cd extra; unzip tetgen1.6.0.zip; cd -
+  - cd extra/tetgen1.6.0; make -j; cd -
+  - PATH=`pwd`/extra/tetgen1.6.0:$PATH export PATH
 script:
   # Build everything and run the unit tests
   - ./quick_build.sh
   - ./quick_test.sh
-  # Run stress test
-  - REBUILD=1 ./stress_test.sh

@@ -5,38 +5,62 @@ extern "C" {
 #endif
 
 #include "def.h"
+#include "mat.h"
 
 typedef struct jet {
   dbl f;
   dbl2 Df;
   dbl fxy;
-} jet2;
+} jet21p;
 
-bool jet2_is_finite(jet2 const *jet);
-bool jet2_is_point_source(jet2 const *jet);
+bool jet21p_is_finite(jet21p const *jet);
+bool jet21p_is_point_source(jet21p const *jet);
 
+/* TODO: this is really jet22t... need to go through and fix this, and
+ * also define the real jet21t... */
 typedef struct {
   dbl f;
   dbl2 Df;
   dbl22 D2f;
-} jet22t;
+} jet21t;
+
+jet21t jet21t_make_empty();
+bool jet21t_is_point_source(jet21t const *jet);
+
+typedef jet21t jet22t;
 
 jet22t jet22t_make_empty();
 bool jet22t_is_finite(jet22t const *jet);
-bool jet22t_is_point_source(jet22t const *jet);
-jet22t jet22t_sub(jet22t const *J, jet22t const *K);
+void jet22t_sub(jet22t const *in1, jet22t const *in2, jet22t *out);
 
 typedef struct {
   dbl f;
   dbl3 Df;
-} jet3;
+} jet31t;
 
-jet3 jet3_make_empty();
-jet3 jet3_make_point_source(dbl tau);
-bool jet3_approx_eq(jet3 const *jet1, jet3 const *jet2, dbl atol);
-bool jet3_eq(jet3 const *jet1, jet3 const *jet2);
-bool jet3_is_finite(jet3 const *jet);
-bool jet3_is_point_source(jet3 const *jet);
+jet31t jet31t_make_empty();
+jet31t jet31t_make_point_source(dbl tau);
+bool jet31t_approx_eq(jet31t const *jet1, jet31t const *jet2, dbl atol);
+bool jet31t_eq(jet31t const *jet1, jet31t const *jet2);
+bool jet31t_is_finite(jet31t const *jet);
+bool jet31t_is_point_source(jet31t const *jet);
+void jet31t_sub(jet31t const *in1, jet31t const *in2, jet31t *out);
+
+typedef struct {
+  dbl f;
+  dbl3 Df;
+  dbl33 D2f;
+} jet32t;
+
+jet32t jet32t_make_empty();
+jet32t jet32t_make_point_source(dbl tau);
+bool jet32t_is_finite(jet32t const *jet);
+bool jet32t_is_point_source(jet32t const *jet);
+bool jet32t_is_singular(jet32t const *jet);
+
+// Conversions:
+
+jet31t jet31t_from_jet32t(jet32t jet);
 
 #ifdef __cplusplus
 }

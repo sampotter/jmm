@@ -164,10 +164,10 @@ void bb31_init_from_3d_data(bb31 *bb, dbl const f[2], dbl const Df[2][3], dbl co
   bb->c[2] = (bb->c[3] = f[1]) - dbl3_dot(dx, Df[1])/3;
 }
 
-void bb31_init_from_jets(bb31 *bb, jet3 const jet[2], dbl const x[2][3]) {
+void bb31_init_from_jets(bb31 *bb, jet31t const jet[2], dbl const x[2][3]) {
   bool is_pt_src[2] = {
-    jet3_is_point_source(&jet[0]),
-    jet3_is_point_source(&jet[1])
+    jet31t_is_point_source(&jet[0]),
+    jet31t_is_point_source(&jet[1])
   };
 
   assert(!is_pt_src[0] || !is_pt_src[1]);
@@ -193,10 +193,10 @@ void bb31_init_from_jets(bb31 *bb, jet3 const jet[2], dbl const x[2][3]) {
     bb->c[2] = is_pt_src[0] ? (2*c[3] + c[0])/3 : (c[3] + c[1])/2;
 }
 
-void bb31_init_from_jet22t(bb31 *bb, jet22t const jet[2], dbl2 const x[2]) {
+void bb31_init_from_jet21t(bb31 *bb, jet21t const jet[2], dbl2 const x[2]) {
   bool is_pt_src[2] = {
-    jet22t_is_point_source(&jet[0]),
-    jet22t_is_point_source(&jet[1])
+    jet21t_is_point_source(&jet[0]),
+    jet21t_is_point_source(&jet[1])
   };
 
   assert(!is_pt_src[0] || !is_pt_src[1]);
@@ -220,6 +220,12 @@ void bb31_init_from_jet22t(bb31 *bb, jet22t const jet[2], dbl2 const x[2]) {
 
   if (is_pt_src[1])
     c[2] = is_pt_src[0] ? (2*c[3] + c[0])/3 : (c[3] + c[1])/2;
+}
+
+void bb31_init_from_cubic(bb31 *bb, cubic_s const *cubic, dbl const x[2]) {
+  dbl f[2] = {cubic_f(cubic, x[0]), cubic_f(cubic, x[1])};
+  dbl Df[2] = {cubic_df(cubic, x[0]), cubic_df(cubic, x[1])};
+  bb31_init_from_1d_data(bb, f, Df, x);
 }
 
 dbl bb31_f(bb31 const *bb, dbl const *b) {
@@ -302,11 +308,11 @@ void bb32_init_from_3d_data(bb32 *bb, dbl const f[3], dbl const Df[3][3], dbl co
   c[TRI111] -= dbl3_nsum(tmp)/6;
 }
 
-void bb32_init_from_jets(bb32 *bb, jet3 const jet[3], dbl const x[3][3]) {
+void bb32_init_from_jets(bb32 *bb, jet31t const jet[3], dbl const x[3][3]) {
   bool is_point_source[3] = {
-    [TRI100] = jet3_is_point_source(&jet[TRI100]),
-    [TRI010] = jet3_is_point_source(&jet[TRI010]),
-    [TRI001] = jet3_is_point_source(&jet[TRI001])
+    [TRI100] = jet31t_is_point_source(&jet[TRI100]),
+    [TRI010] = jet31t_is_point_source(&jet[TRI010]),
+    [TRI001] = jet31t_is_point_source(&jet[TRI001])
   };
 
   /* Assume at least one of the jets has gradient information */
@@ -549,26 +555,26 @@ void bb33_init_from_3d_data(bb33 *bb, dbl const f[4], dbl const Df[4][3], dbl co
 /* Initialize `bb` from cell `lc` of `mesh`, and the corresponding
  * jets from `jet`, which is assumed to point to a block of memory
  * containing `mesh3_nverts(mesh)` jets. */
-void bb33_init_from_cell_and_jets(bb33 *bb, mesh3_s const *mesh, jet3 const *jet, size_t lc) {
+void bb33_init_from_cell_and_jets(bb33 *bb, mesh3_s const *mesh, jet31t const *jet, size_t lc) {
   size_t lv[4]; mesh3_cv(mesh, lc, lv);
 
   dbl3 x[4];
   for (size_t i = 0; i < 4; ++i)
     mesh3_copy_vert(mesh, lv[i], x[i]);
 
-  jet3 J[4];
+  jet31t J[4];
   for (size_t i = 0; i < 4; ++i)
     J[i] = jet[lv[i]];
 
   bb33_init_from_jets(bb, J, x);
 }
 
-void bb33_init_from_jets(bb33 *bb, jet3 const jet[4], dbl const x[4][3]) {
+void bb33_init_from_jets(bb33 *bb, jet31t const jet[4], dbl const x[4][3]) {
   bool is_point_source[4] = {
-    [TET1000] = jet3_is_point_source(&jet[TET1000]),
-    [TET0100] = jet3_is_point_source(&jet[TET0100]),
-    [TET0010] = jet3_is_point_source(&jet[TET0010]),
-    [TET0001] = jet3_is_point_source(&jet[TET0001])
+    [TET1000] = jet31t_is_point_source(&jet[TET1000]),
+    [TET0100] = jet31t_is_point_source(&jet[TET0100]),
+    [TET0010] = jet31t_is_point_source(&jet[TET0010]),
+    [TET0001] = jet31t_is_point_source(&jet[TET0001])
   };
 
   assert(!is_point_source[TET1000] || !is_point_source[TET0100] ||

@@ -59,7 +59,7 @@ static void xfer_tetra(int3 const subgrid_ind, xfer_tetra_wkspc_t *wkspc) {
   }
 }
 
-void xfer(mesh3_s const *mesh, jet3 const *jet, grid3_s const *grid, dbl *y) {
+void xfer(mesh3_s const *mesh, jet31t const *jet, grid3_s const *grid, dbl *y) {
   // Initialize values on grid to NaN.
   for (size_t i = 0; i < grid3_size(grid); ++i) {
     y[i] = NAN;

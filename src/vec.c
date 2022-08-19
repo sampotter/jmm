@@ -2,8 +2,10 @@
 
 #include <assert.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "macros.h"
+#include "stats.h"
 
 bool dbl2_bary(dbl2 const u) {
   dbl const atol = 1e-14;
@@ -41,6 +43,10 @@ dbl dbl2_norm(dbl2 const u) {
 
 dbl dbl2_normsq(dbl2 const u) {
   return u[0]*u[0] + u[1]*u[1];
+}
+
+dbl dbl2_prod(dbl2 const u) {
+  return u[0]*u[1];
 }
 
 dbl dbl2_sum(dbl2 const u) {
@@ -136,12 +142,20 @@ bool dbl3_equal(dbl3 const x, dbl3 const y) {
   return x[0] == y[0] && x[1] == y[1] && x[2] == y[2];
 }
 
+bool dbl3_is_normalized(dbl3 const u) {
+  return fabs(1 - dbl3_norm(u)) < 1e-13;
+}
+
 bool dbl3_is_zero(dbl3 const u) {
   return u[0] == 0 && u[1] == 0 && u[2] == 0;
 }
 
 bool dbl3_isfinite(dbl3 const x) {
   return isfinite(x[0]) && isfinite(x[1]) && isfinite(x[2]);
+}
+
+bool dbl3_nonneg(dbl3 const x) {
+  return x[0] >= 0 && x[1] >= 0 && x[2] >= 0;
 }
 
 bool dbl3_all_nan(dbl3 const x) {
@@ -178,6 +192,38 @@ dbl dbl3_maxnorm(dbl3 const u) {
   return fmax(fabs(u[0]),
               fmax(fabs(u[1]),
                    fabs(u[2])));
+}
+
+dbl dbl3_minimum(dbl3 const u) {
+  return fmin(u[0], fmin(u[1], u[2]));
+}
+
+dbl dbl3_nanmin(dbl3 const u) {
+  dbl nanmin = INFINITY;
+  for (size_t i = 0; i < 3; ++i)
+    if (!isnan(u[i]))
+      nanmin = fmin(nanmin, u[i]);
+  return isfinite(nanmin) ? nanmin : NAN;
+}
+
+dbl dbl3_nanmax(dbl3 const u) {
+  dbl nanmax = -INFINITY;
+  for (size_t i = 0; i < 3; ++i)
+    if (!isnan(u[i]))
+      nanmax = fmax(nanmax, u[i]);
+  return isfinite(nanmax) ? nanmax : NAN;
+}
+
+dbl dbl3_nanmean(dbl3 const u) {
+  size_t n = 0;
+  dbl sum;
+  for (size_t i = 0; i < 3; ++i) {
+    if (!isnan(u[i])) {
+      sum += u[i];
+      ++n;
+    }
+  }
+  return sum/n;
 }
 
 dbl dbl3_ndot(dbl3 const u, dbl3 const v) {
@@ -246,6 +292,31 @@ size_t dbl3_argmax(dbl3 const u) {
   return argmax;
 }
 
+void dbl3_abs(dbl3 const u, dbl3 v) {
+  v[0] = fabs(u[0]);
+  v[1] = fabs(u[1]);
+  v[2] = fabs(u[2]);
+}
+
+void dbl3_argsort(dbl3 const u, size_t perm[3]) {
+  if (u[0] < u[1] && u[0] < u[2]) {
+    perm[0] = 0;
+    perm[1] = 1;
+    perm[2] = 2;
+    if (u[1] > u[2]) SWAP(perm[1], perm[2]);
+  } else if (u[1] < u[0] && u[1] < u[2]) {
+    perm[0] = 1;
+    perm[1] = 0;
+    perm[2] = 2;
+    if (u[0] > u[2]) SWAP(perm[1], perm[2]);
+  } else {
+    perm[0] = 2;
+    perm[1] = 0;
+    perm[2] = 1;
+    if (u[0] > u[1]) SWAP(perm[1], perm[2]);
+  }
+}
+
 void dbl3_add(dbl3 const u, dbl3 const v, dbl3 w) {
   w[0] = u[0] + v[0];
   w[1] = u[1] + v[1];
@@ -256,6 +327,12 @@ void dbl3_add_inplace(dbl3 u, dbl3 const v) {
   u[0] += v[0];
   u[1] += v[1];
   u[2] += v[2];
+}
+
+void dbl3_avg(dbl3 const u, dbl3 const v, dbl3 w) {
+  w[0] = (u[0] + v[0])/2;
+  w[1] = (u[1] + v[1])/2;
+  w[2] = (u[2] + v[2])/2;
 }
 
 void dbl3_cc(dbl3 const u0, dbl3 const u1, dbl t0, dbl3 ut) {
@@ -361,10 +438,22 @@ void dbl3_one(dbl3 u) {
   u[0] = u[1] = u[2] = 1;
 }
 
+void dbl3_gather(dbl const *x, uint3 J, dbl3 xJ) {
+  for (size_t i = 0; i < 3; ++i)
+    if (J[i] != (size_t)NO_INDEX)
+      xJ[i] = x[J[i]];
+}
+
 void dbl3_saxpy(dbl a, dbl3 const x, dbl3 const y, dbl3 z) {
   z[0] = a*x[0] + y[0];
   z[1] = a*x[1] + y[1];
   z[2] = a*x[2] + y[2];
+}
+
+void dbl3_saxpy_inplace(dbl a, dbl3 const x, dbl3 y) {
+  y[0] += a*x[0];
+  y[1] += a*x[1];
+  y[2] += a*x[2];
 }
 
 void dbl3_sort(dbl3 u) {
@@ -399,6 +488,11 @@ void dbl3_sub_inplace(dbl3 u, dbl3 const v) {
 
 void dbl3_zero(dbl3 u) {
   u[0] = u[1] = u[2] = 0;
+}
+
+bool dbl4_is_rgba(dbl4 const u) {
+  return u[0] >= 0 && u[1] >= 0 && u[2] >= 0 && u[3] >= 0
+    && u[0] <= 1 && u[1] <= 1 && u[2] <= 1 && u[3] <= 1;
 }
 
 bool dbl4_nonneg(dbl4 const u) {
@@ -480,6 +574,11 @@ void dbl4_e1(dbl4 e1) {
   e1[1] = 0;
   e1[2] = 0;
   e1[3] = 0;
+}
+
+void dbl4_e(dbl4 e, size_t i) {
+  for (size_t j = 0; j < 4; ++j)
+    e[j] = i == j ? 1 : 0;
 }
 
 void dbl4_iota(dbl4 iota) {
@@ -575,6 +674,68 @@ void dblN_minmax(dbl const *x, size_t n, dbl *min, dbl *max) {
   }
 }
 
+int dbl_compar(dbl const *a, dbl const *b) {
+  if (*a < *b) {
+    return -1;
+  } else if (*a > *b) {
+    return 1;
+  } else {
+    return 0;
+  }
+}
+
+dbl dblN_median(size_t n, dbl const *x) {
+  dbl *x_sorted = malloc(n*sizeof(dbl));
+  memcpy(x_sorted, x, n*sizeof(dbl));
+  qsort(x_sorted, n, sizeof(dbl), (compar_t)dbl_compar);
+  dbl median = n % 2 == 0 ?
+    (x_sorted[n/2 - 1] + x_sorted[n/2])/2 :
+    x_sorted[n/2];
+  free(x_sorted);
+  return median;
+}
+
+dbl dblN_binmedian(size_t n, dbl const *x, size_t num_bins) {
+  // Compute the mean and standard deviation of the centroids
+  // components along the split direction.
+  runstd_s runstd;
+  runstd_init(&runstd);
+  for (size_t i = 0; i < n; ++i)
+    runstd_update(&runstd, x[i]);
+  dbl mu = runstd_get_mean(&runstd);
+  dbl sigma = runstd_get_std(&runstd);
+
+  // Compute a rough approximation of the median by binning (based on
+  // the ideas in R. Tibshirani's "Fast computation of the median by
+  // successive binning").
+  dbl binwidth = 2*sigma/num_bins;
+  size_t bincount = 0;
+  size_t *bins = malloc(num_bins*sizeof(size_t));
+  memset(bins, 0x0, num_bins*sizeof(size_t));
+  for (size_t i = 0; i < n; ++i) {
+    dbl c = x[i] - mu;
+    if (c < -sigma || c >= sigma)
+      continue;
+    int k = floor((c + sigma)/binwidth);
+    if (k < 0 || k >= (int)num_bins)
+      continue;
+    ++bins[k];
+    ++bincount;
+  }
+  dbl binmedian;
+  size_t cumsum = 0;
+  for (size_t k = 0; k < num_bins; ++k) {
+    cumsum += bins[k];
+    if (cumsum >= bincount/2) {
+      binmedian = mu - sigma + binwidth*(k + 0.5);
+      break;
+    }
+  }
+  free(bins);
+
+  return binmedian;
+}
+
 void int2_add(int2 const p, int2 const q, int2 r) {
   r[0] = p[0] + q[0];
   r[1] = p[1] + q[1];
@@ -609,4 +770,36 @@ void int3_int_div(int3 const p, int q, int3 r) {
   r[0] = p[0]/q;
   r[1] = p[1]/q;
   r[2] = p[2]/q;
+}
+
+bool uint3_equal(uint3 const i, uint3 const j) {
+  return i[0] == j[0] && i[1] == j[1] && i[2] == j[2];
+}
+
+bool uint3_contains_uint2(uint3 const i, uint2 const j) {
+  return (j[0] == i[0] || j[0] == i[1] || j[0] == i[2])
+    && (j[1] == i[0] || j[1] == i[1] || j[1] == i[2]);
+}
+
+size_t uint3_diff_uint2(uint3 const i, uint2 const j, uint3 k) {
+  size_t n = 0;
+  for (size_t a = 0; a < 3; ++a)
+    if (i[a] != j[0] && i[a] != j[1])
+      k[n++] = i[a];
+  return n;
+}
+
+size_t uint3_find(uint3 const i, size_t j) {
+  for (size_t a = 0; a < 3; ++a)
+    if (i[a] == j)
+      return a;
+  return NO_INDEX;
+}
+
+bool uint3_is_sorted(uint3 const i) {
+  return i[0] <= i[1] && i[1] <= i[2];
+}
+
+void uint3_set(uint3 i, size_t value) {
+  i[0] = i[1] = i[2] = value;
 }

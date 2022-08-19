@@ -18,7 +18,7 @@ extern "C" {
 #define ORDERING ROW_MAJOR_ORDERING
 
 #define EPS 1e-13
-#define PI 3.141592653589793
+#define JMM_PI 3.141592653589793
 #define PI_OVER_FOUR 0.7853981633974483
 #define SQRT2 1.414213562373095
 #define SQRT3 1.7320508075688772
@@ -31,6 +31,13 @@ extern "C" {
 #define NO_LABEL SIZE_MAX
 #define NO_PARENT SIZE_MAX
 
+typedef enum policy {
+  POLICY_INVALID,
+  POLICY_COPY,
+  POLICY_XFER,
+  POLICY_VIEW
+} policy_e;
+
 typedef enum state {
   FAR,
   TRIAL,
@@ -40,12 +47,6 @@ typedef enum state {
   NEW_VALID,
   UNKNOWN
 } state_e;
-
-typedef enum ftype {
-  FTYPE_POINT_SOURCE,
-  FTYPE_REFLECTION,
-  FTYPE_EDGE_DIFFRACTION
-} ftype_e;
 
 /**
  * An enum encoding the "type" of slowness function to be
@@ -58,6 +59,14 @@ typedef enum stype {
   CONSTANT,
   NUM_STYPE
 } stype_e;
+
+typedef enum field {
+  FIELD_A,
+  FIELD_T,
+  FIELD_E_T,
+  FIELD_ORIGIN,
+  FIELD_SPREADING
+} field_e;
 
 typedef enum order {
   ORDER_ROW_MAJOR,
@@ -84,6 +93,7 @@ typedef int int3[3];
 
 typedef size_t uint2[2];
 typedef size_t uint3[3];
+typedef size_t uint4[4];
 
 typedef enum error {
   SUCCESS,

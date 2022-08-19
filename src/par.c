@@ -59,16 +59,18 @@ size_t par3_size(par3_s const *par) {
   return size;
 }
 
-void par3_get_xb(par3_s const *par, eik3_s const *eik, dbl xb[3]) {
-  dbl const *x[3];
-  mesh3_get_vert_ptrs(eik3_get_mesh(eik), par->l, 3, x);
+void par3_get_xb(par3_s const *par, mesh3_s const *mesh, dbl xb[3]) {
+  size_t l[3];
+  dbl b[3];
+  size_t num_active = par3_get_active(par, l, b);
 
-  for (int i = 0; i < 3; ++i) {
-    xb[i] = 0;
-    for (int j = 0; j < 3; ++j) {
-      xb[i] += par->b[j]*x[j][i];
-    }
-  }
+  dbl const *x[3];
+  mesh3_get_vert_ptrs(mesh, l, num_active, x);
+
+  dbl3_zero(xb);
+  for (size_t i = 0; i < 3; ++i)
+    for (size_t j = 0; j < num_active; ++j)
+      xb[i] += b[j]*x[j][i];
 }
 
 bool par3_is_empty(par3_s const *par) {
@@ -83,119 +85,67 @@ size_t par3_num_active(par3_s const *par) {
   return num_active;
 }
 
-void par3_get_active(par3_s const *par, size_t *l, dbl *b) {
+size_t par3_get_active_inds(par3_s const *par, size_t l[3]) {
   dbl const atol = 1e-14;
-  size_t j = 0;
+  size_t num_active = 0;
+  for (size_t i = 0; i < 3; ++i)
+    if (par->l[i] != NO_PARENT && par->b[i] > atol)
+      l[num_active++] = par->l[i];
+  for (size_t i = num_active; i < 3; ++i)
+    l[i] = (size_t)NO_PARENT;
+  return num_active;
+}
+
+size_t par3_get_active_and_inactive_inds(par3_s const *par, uint3 la, uint3 li) {
+  dbl const atol = 1e-14;
+
+  bool active[3] = {false, false, false};
+
+  size_t num_active = 0;
+  for (size_t i = 0; i < 3; ++i) {
+    if (par->l[i] != NO_PARENT && par->b[i] > atol) {
+      active[i] = true;
+      la[num_active++] = par->l[i];
+    }
+  }
+  for (size_t i = num_active; i < 3; ++i)
+    la[i] = (size_t)NO_PARENT;
+
+  size_t num_inactive = 0;
+  for (size_t i = 0; i < 3; ++i)
+    if (!active[i])
+      li[num_inactive++] = par->l[i];
+  for (size_t i = num_inactive; i < 3; ++i)
+    li[i] = (size_t)NO_PARENT;
+
+  return num_active;
+}
+
+size_t par3_get_active(par3_s const *par, size_t *l, dbl *b) {
+  dbl const atol = 1e-14;
+  size_t num_active = 0;
   for (size_t i = 0; i < 3; ++i)
     if (par->l[i] != NO_PARENT && par->b[i] > atol) {
-      l[j] = par->l[i];
-      b[j++] = par->b[i];
+      l[num_active] = par->l[i];
+      b[num_active++] = par->b[i];
     }
 
   /* Normalize the active coefficients */
   dbl b_norm1 = 0;
-  for (size_t i = 0; i < j; ++i)
+  for (size_t i = 0; i < num_active; ++i)
     b_norm1 += fabs(b[i]);
-  for (size_t i = 0; i < j; ++i)
+  for (size_t i = 0; i < num_active; ++i)
     b[i] /= b_norm1;
+
+  return num_active;
 }
 
-bool par3_is_on_BC_boundary(par3_s const *par, eik3_s const *eik) {
-  ftype_e ftype = eik3_get_ftype(eik);
-  if (ftype == FTYPE_POINT_SOURCE)
+bool par3_has_active_parent(par3_s const *par, size_t l) {
+  if (l == (size_t)NO_PARENT)
     return false;
-
-  size_t num_active = par3_num_active(par);
-  size_t l[2];
-  dbl b[num_active];
-  par3_get_active(par, l, b);
-
-  mesh3_s const *mesh = eik3_get_mesh(eik);
-
-  for (size_t i = 0; i < num_active; ++i)
-    if (!mesh3_bdv(mesh, l[i]))
-      return false;
-
-  if (ftype == FTYPE_REFLECTION && num_active == 1) {
-    size_t num_inc_bdf = mesh3_get_num_inc_bdf(mesh, l[0]);
-    size_t (*lf)[3] = malloc(num_inc_bdf*sizeof(size_t[3]));
-    mesh3_get_inc_bdf(mesh, l[0], lf);
-
-    size_t num_inc_bdf_w_BCs = 0;
-    for (size_t i = 0; i < num_inc_bdf; ++i)
-      num_inc_bdf_w_BCs += eik3_has_BCs(eik, lf[i][0])
-        && eik3_has_BCs(eik, lf[i][1]) && eik3_has_BCs(eik, lf[i][2]);
-
-    free(lf);
-
-    assert(num_inc_bdf > 0);
-    assert(num_inc_bdf_w_BCs <= num_inc_bdf);
-
-    // TODO: this may not be totally correct... easy to imagine some
-    // corner cases where this may fail
-    return num_inc_bdf_w_BCs < num_inc_bdf;
-  }
-
-  if (ftype == FTYPE_REFLECTION && num_active == 2) {
-    if (!mesh3_bde(mesh, l))
-      return false;
-
-    size_t nlf = mesh3_get_num_inc_bdf(mesh, l[0]);
-    size_t (*lf)[3] = malloc(nlf*sizeof(size_t[3]));
-    mesh3_get_inc_bdf(mesh, l[0], lf);
-
-    size_t num_inc_bdf = 0;
-    size_t num_inc_bdf_w_BCs = 0;
-
-    for (size_t i = 0; i < nlf; ++i) {
-      if (!edge_in_face(l, lf[i]))
-        continue;
-
-      ++num_inc_bdf;
-
-      num_inc_bdf_w_BCs += eik3_has_BCs(eik, lf[i][0])
-        && eik3_has_BCs(eik, lf[i][1]) && eik3_has_BCs(eik, lf[i][2]);
-    }
-
-    free(lf);
-
-    assert(num_inc_bdf > 0);
-    assert(num_inc_bdf <= 2);
-    assert(num_inc_bdf_w_BCs <= num_inc_bdf);
-
-    // TODO: this may not be totally correct... easy to imagine some
-    // corner cases where this may fail
-    return num_inc_bdf_w_BCs < num_inc_bdf;
-  }
-
-  if (ftype == FTYPE_REFLECTION && num_active == 3)
-    return false;
-
-  if (ftype == FTYPE_EDGE_DIFFRACTION) {
-    if (num_active == 2)
-      return false;
-
-    assert(num_active == 1);
-
-    size_t num_inc_diff_edges = mesh3_get_num_inc_diff_edges(mesh, l[0]);
-    if (num_inc_diff_edges <= 1)
-      return false;
-
-    size_t nvv = mesh3_nvv(mesh, l[0]);
-    size_t *vv = malloc(nvv*sizeof(size_t));
-    mesh3_vv(mesh, l[0], vv);
-
-    size_t num_inc_diff_edges_w_BCs = 0;
-    for (size_t i = 0; i < nvv; ++i) {
-      l[1] = vv[i];
-      num_inc_diff_edges_w_BCs += eik3_has_bde_bc(eik, l);
-    }
-
-    free(vv);
-
-    return num_inc_diff_edges_w_BCs == 1;
-  }
-
-  assert(false);
-  return false;
+  size_t i;
+  for (i = 0; i < 3; ++i)
+    if (par->l[i] == l && fabs(par->b[i]) > EPS)
+      break;
+  return i < 3;
 }

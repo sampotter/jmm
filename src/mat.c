@@ -3,6 +3,9 @@
 #include <assert.h>
 #include <string.h>
 
+#include <gsl/gsl_eigen.h>
+#include <gsl/gsl_matrix.h>
+
 #include "macros.h"
 
 bool dbl22_isfinite(dbl22 const A) {
@@ -192,6 +195,12 @@ void dbl33_add(dbl33 const A, dbl33 const B, dbl33 C) {
   }
 }
 
+void dbl33_add_inplace(dbl33 A, dbl33 const B) {
+  for (size_t i = 0; i < 3; ++i)
+    for (size_t j = 0; j < 3; ++j)
+      A[i][j] += B[i][j];
+}
+
 void dbl33_copy(dbl33 const in, dbl33 out) {
   memcpy(out, in, sizeof(dbl33));
 }
@@ -215,17 +224,62 @@ void dbl33_dbl3_nmul(dbl33 const A, dbl3 const x, dbl3 b) {
 }
 
 void dbl33_dbl3_solve(dbl33 const A, dbl3 const b, dbl3 x) {
-  // TODO: bad---solving using Cramer's rule... need to implement
-  // pivoted LU instead
-  dbl det = dbl33_det(A);
-  dbl3 tmp;
-  dbl33 A_;
-  memcpy(A_, A, sizeof(dbl33));
-  for (int j = 0; j < 3; ++j) {
-    dbl33_get_column(A_, j, tmp);
-    dbl33_set_column(A_, j, b);
-    x[j] = dbl33_det(A_)/det;
-    dbl33_set_column(A_, j, tmp);
+  dbl33 LU;
+  memcpy(LU, A, 3*3*sizeof(dbl));
+
+  dbl const n = 3;
+
+  int perm[3] = {0, 1, 2};
+
+  // LU decomposition with partial pivoting
+  for (int k = 0; k < n - 1; ++k) {
+    // Find max |Ui:| for i >= k
+    int argi = k;
+    dbl absmax = fabs(LU[k][k]);
+    for (int i = k + 1; i < n; ++i) {
+      dbl tmp = fabs(LU[i][k]);
+      if (tmp > absmax) {
+        absmax = tmp;
+        argi = i;
+      }
+    }
+
+    if (argi != k) {
+      // Swap rows i and k of L and U
+      for (int j = 0; j < n; ++j)
+        SWAP(LU[k][j], LU[argi][j]);
+
+      // Swap entries i and k of permutation
+      SWAP(perm[k], perm[argi]);
+    }
+
+    if (fabs(LU[k][k]) < 1e-15)
+      continue;
+
+    // Normalize column k of L
+    for (int i = k + 1; i < n; ++i)
+      LU[i][k] /= LU[k][k];
+
+    // Subtract outer product
+    for (int i = k + 1; i < n; ++i)
+      for (int j = k + 1; j < n; ++j)
+        LU[i][j] -= LU[i][k]*LU[k][j];
+  }
+
+  // Solve Ly = Pb
+  for (int i = 0; i < n; ++i) {
+    x[i] = b[perm[i]];
+    for (int j = 0; j < i; ++j) {
+      x[i] -= LU[i][j]*x[j];
+    }
+  }
+
+  // Solve Ux = y
+  for (int i = n - 1; i >= 0; --i) {
+    for (int j = i + 1; j < n; ++j) {
+      x[i] -= LU[i][j]*x[j];
+    }
+    x[i] /= LU[i][i];
   }
 }
 
@@ -241,16 +295,48 @@ void dbl33_dbl_div_inplace(dbl33 A, dbl a) {
       A[i][j] /= a;
 }
 
+void dbl33_eigvals_sym(dbl33 const A, dbl3 lam) {
+  gsl_matrix *A_gsl = gsl_matrix_alloc(3, 3);
+  for (size_t i = 0; i < 3; ++i)
+    for (size_t j = 0; j < 3; ++j)
+      gsl_matrix_set(A_gsl, i, j, (A[i][j] + A[j][i])/2);
+
+  gsl_vector *lam_gsl = gsl_vector_alloc(3);
+
+  gsl_eigen_symm_workspace *w = gsl_eigen_symm_alloc(3);
+  gsl_eigen_symm(A_gsl, lam_gsl, w);
+
+  for (size_t i = 0; i < 3; ++i)
+    lam[i] = gsl_vector_get(lam_gsl, i);
+
+  gsl_eigen_symm_free(w);
+  gsl_vector_free(lam_gsl);
+  gsl_matrix_free(A_gsl);
+}
+
 void dbl33_eye(dbl33 A) {
   A[0][0] = 1; A[0][1] = 0; A[0][2] = 0;
   A[1][0] = 0; A[1][1] = 1; A[1][2] = 0;
   A[2][0] = 0; A[2][1] = 0; A[2][2] = 1;
 }
 
-void dbl33_get_column(dbl33 const A, int i, dbl3 x) {
+void dbl33_get_column( dbl33 const A, int i, dbl3 x) {
   x[0] = A[0][i];
   x[1] = A[1][i];
   x[2] = A[2][i];
+}
+
+void dbl33_invert(dbl33 A) {
+  dbl33 eye;
+  dbl33_eye(eye);
+
+  // TODO: very inefficient: should do LU with partial pivoting with
+  // multiple RHSs
+  dbl33 tmp;
+  for (size_t i = 0; i < 3; ++i)
+    dbl33_dbl3_solve(A, eye[i], tmp[i]);
+
+  dbl33_transposed(tmp, A);
 }
 
 void dbl33_make_axis_angle_rotation_matrix(dbl3 axis, dbl angle, dbl33 rot) {
@@ -283,10 +369,24 @@ void dbl33_mul(dbl33 const A, dbl33 const B, dbl33 C) {
         C[i][j] += A[i][k]*B[k][j];
 }
 
+void dbl33_conj(dbl33 const A, dbl33 const B, dbl33 C) {
+  dbl33 tmp;
+  dbl33_mul(A, B, tmp);
+  dbl33_transpose(tmp);
+  dbl33_mul(tmp, B, C);
+  dbl33_transpose(C);
+}
+
 void dbl33_nan(dbl33 A) {
   for (size_t i = 0; i < 3; ++i)
     for (size_t j = 0; j < 3; ++j)
       A[i][j] = NAN;
+}
+
+void dbl33_saxpy(dbl a, dbl33 const X, dbl33 const Y, dbl33 Z) {
+  for (size_t i = 0; i < 3; ++i)
+    for (size_t j = 0; j < 3; ++j)
+      Z[i][j] = a*X[i][j] + Y[i][j];
 }
 
 void dbl33_set_column(dbl33 A, int i, dbl3 const x) {
@@ -299,6 +399,12 @@ void dbl33_sub(dbl33 const A, dbl33 const B, dbl33 C) {
   for (int i = 0; i < 3; ++i)
     for (int j = 0; j < 3; ++j)
       C[i][j] = A[i][j] - B[i][j];
+}
+
+void dbl33_sub_inplace(dbl33 A, dbl33 const B) {
+  for (int i = 0; i < 3; ++i)
+    for (int j = 0; j < 3; ++j)
+      A[i][j] -= B[i][j];
 }
 
 void dbl33_symmetrize(dbl33 A) {
@@ -470,6 +576,10 @@ void dbl44_dbl4_solve(dbl44 const A, dbl4 const b, dbl4 x) {
   }
 }
 
+void dbl44_copy(dbl44 const A, dbl44 B) {
+  memcpy(B, A, sizeof(dbl44));
+}
+
 void dbl44_get_column(dbl44 const A, int j, dbl4 a) {
   for (int i = 0; i < 4; ++i) {
     a[i] = A[i][j];
@@ -499,4 +609,24 @@ void dbl4_dbl44_mul(dbl4 const x, dbl44 const A, dbl4 b) {
 
 void dbl44_zero(dbl44 A) {
   memset(A, 0x0, sizeof(dbl44));
+}
+
+void dbl44_invert(dbl44 A) {
+  dbl44 Ainv;
+  dbl4 e, a;
+  for (size_t j = 0; j < 4; ++j) {
+    dbl4_e(e, j);
+    dbl44_dbl4_solve(A, e, a);
+    dbl44_set_column(Ainv, j, a);
+  }
+  dbl44_copy(Ainv, A);
+}
+
+void dbl44_transpose(dbl44 A) {
+  SWAP(A[0][1], A[1][0]);
+  SWAP(A[0][2], A[2][0]);
+  SWAP(A[0][3], A[3][0]);
+  SWAP(A[1][2], A[2][1]);
+  SWAP(A[1][3], A[3][1]);
+  SWAP(A[2][3], A[3][2]);
 }
