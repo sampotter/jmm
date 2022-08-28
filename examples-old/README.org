@@ -1,5 +1,0 @@
-* Examples
-
-  This directory contains a variety of examples that either directly
-  use the C API or the high-level Python API and which show how the
-  library can be used.
