@@ -5,6 +5,10 @@
 This is a C library implementing a variety of *jet marching methods*
 (JMMs) for solving the eikonal equation in two and three dimensions.
 
+## Examples
+
+The `./examples` directory contains some examples of short programs which use this library to do different things. Each example contains its own `README.md` file explaining how to compile and run it. These examples can be used to quickly learn how to get going with this library.
+
 ## Tagged versions
 
 Some important versions are tagged (you can find these under the
