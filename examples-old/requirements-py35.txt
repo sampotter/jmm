@@ -4,7 +4,7 @@ colorcet
 matplotlib==3.0.0
 meshio
 meshzoo
-pillow==7.0.0
+pillow==9.0.1
 pyqt5==5.14
 pyvista
 pyvistaqt
