@@ -5,7 +5,7 @@
 #include <sstream>
 
 #define TETLIBRARY 1
-#include "../extra/tetgen1.6.0/tetgen.h"
+#include <tetgen.h>
 
 void mesh3_data_from_off_file(mesh3_data_s *data, char const *path, dbl maxvol, bool verbose) {
   /* Set up string of command-line switches for TetGen */

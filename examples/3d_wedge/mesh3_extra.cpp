@@ -6,7 +6,7 @@
 #include <sstream>
 
 #define TETLIBRARY 1
-#include "../extra/tetgen1.6.0/tetgen.h"
+#include <tetgen.h>
 
 /* Functions for building the PLC describing the boundary of the
  * domain. There are five cases to handle, shown in the following

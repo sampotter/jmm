@@ -74,7 +74,7 @@ if (SANITIZE_UNDEFINED)
   set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${SANITIZE_UNDEFINED_CMAKE_C_FLAGS}")
 endif ()
 
-add_subdirectory (extra/tetgen1.6.0)
+add_subdirectory (subprojects/tetgen)
 
 set (JMM_PUBLIC_HEADERS
   src/def.h
@@ -136,6 +136,8 @@ set (JMM_SRCS
   src/vec.c
   src/xfer.c
   )
+
+include_directories (subprojects/tetgen)
 
 add_library (jmm STATIC ${JMM_SRCS})
 if (BUILD_TESTS)
