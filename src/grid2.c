@@ -1,11 +1,11 @@
-#include "grid2.h"
+#include <jmm/grid2.h>
 
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
 
-#include "mesh3.h"
-#include "vec.h"
+#include <jmm/mesh3.h>
+#include <jmm/vec.h>
 
 void grid2_save(grid2_s const *grid, char const *path) {
   FILE *fp = fopen(path, "w");

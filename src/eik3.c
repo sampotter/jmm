@@ -1,4 +1,4 @@
-#include "eik3.h"
+#include <jmm/eik3.h>
 
 #include <assert.h>
 #include <stdbool.h>
@@ -7,22 +7,23 @@
 
 #include <stdio.h>
 
-#include "alist.h"
-#include "array.h"
-#include "bb.h"
-#include "edge.h"
-#include "eik3_transport.h"
-#include "heap.h"
+#include <jmm/alist.h>
+#include <jmm/array.h>
+#include <jmm/bb.h>
+#include <jmm/edge.h>
+#include <jmm/eik3_transport.h>
+#include <jmm/heap.h>
+#include <jmm/mat.h>
+#include <jmm/mesh1.h>
+#include <jmm/mesh2.h>
+#include <jmm/mesh3.h>
+#include <jmm/utetra.h>
+#include <jmm/utri.h>
+#include <jmm/vec.h>
+
 #include "log.h"
 #include "macros.h"
-#include "mat.h"
-#include "mesh1.h"
-#include "mesh2.h"
-#include "mesh3.h"
-#include "utetra.h"
 #include "util.h"
-#include "utri.h"
-#include "vec.h"
 
 static bool l_OK(size_t l) {
   return l != (size_t)NO_INDEX;

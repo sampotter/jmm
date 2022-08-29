@@ -1,9 +1,9 @@
-#include "bb.h"
+#include <jmm/bb.h>
 
 #include <assert.h>
 
-#include "mesh3.h"
-#include "vec.h"
+#include <jmm/mesh3.h>
+#include <jmm/vec.h>
 
 #define TRI000 0
 

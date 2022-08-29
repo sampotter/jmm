@@ -1,4 +1,4 @@
-#include "eik_S4.h"
+#include <jmm/eik_S4.h>
 
 void S4_compute(dbl th, S4_context *context) {
   dbl2 t = {cos(th), sin(th)};

@@ -1,9 +1,9 @@
 #pragma once
 
-#include <eik3.h>
-#include <error.h>
-#include <grid2.h>
-#include <mesh3.h>
+#include <jmm/eik3.h>
+#include <jmm/error.h>
+#include <jmm/grid2.h>
+#include <jmm/mesh3.h>
 
 /* A structure containing parameters which specify a 3D wedge
  * scattering problem. */

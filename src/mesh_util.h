@@ -1,6 +1,6 @@
 #pragma once
 
-#include "def.h"
+#include <jmm/def.h>
 
 bool face_in_cell(uint3 const f, uint4 const c);
 bool point_in_face(size_t l, uint3 const f);

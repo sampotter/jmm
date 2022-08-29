@@ -1,16 +1,17 @@
-#include "eik3hh_branch.h"
+#include <jmm/eik3hh_branch.h>
 
 #include <assert.h>
 #include <stdlib.h>
 #include <stdio.h>
 
-#include "array.h"
-#include "bmesh.h"
-#include "eik3.h"
-#include "eik3hh.h"
-#include "mat.h"
-#include "mesh2.h"
-#include "rtree.h"
+#include <jmm/array.h>
+#include <jmm/bmesh.h>
+#include <jmm/eik3.h>
+#include <jmm/eik3hh.h>
+#include <jmm/mat.h>
+#include <jmm/mesh2.h>
+#include <jmm/rtree.h>
+
 #include "util.h"
 
 struct eik3hh_branch {

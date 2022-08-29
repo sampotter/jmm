@@ -1,4 +1,4 @@
-#include "mesh2.h"
+#include <jmm/mesh2.h>
 
 #include <assert.h>
 #include <math.h>
@@ -6,11 +6,12 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "def.h"
+#include <jmm/def.h>
+#include <jmm/vec.h>
+
 #include "log.h"
 #include "macros.h"
 #include "mesh_util.h"
-#include "vec.h"
 
 bool mesh2_tri_equal(mesh2_tri_s const *t1, mesh2_tri_s const *t2) {
   return t1->mesh == t2->mesh && t1->l == t2->l;

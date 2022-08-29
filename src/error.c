@@ -1,4 +1,4 @@
-#include "error.h"
+#include <jmm/error.h>
 
 char const *jmm_error_to_string(jmm_error_e error) {
   static char const *error_strings[] = {

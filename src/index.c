@@ -1,9 +1,9 @@
-#include "index.h"
-
-#include "def.h"
+#include <jmm/index.h>
 
 #include <assert.h>
 #include <stddef.h>
+
+#include <jmm/def.h>
 
 int ind2l(int2 const shape, int2 const ind) {
 #if ORDERING == ROW_MAJOR_ORDERING

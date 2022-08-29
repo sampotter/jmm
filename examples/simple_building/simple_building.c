@@ -4,12 +4,11 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include <bmesh.h>
-#include <camera.h>
-#include <eik3.h>
-#include <eik3hh.h>
-#include <eik3hh_branch.h>
-#include <util.h>
+#include <jmm/bmesh.h>
+#include <jmm/camera.h>
+#include <jmm/eik3.h>
+#include <jmm/eik3hh.h>
+#include <jmm/eik3hh_branch.h>
 
 const char *argp_program_version = "simple_building 0.0";
 char const *argp_program_bug_address = "sfp@cims.nyu.edu";

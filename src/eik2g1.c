@@ -1,15 +1,16 @@
-#include "eik2g1.h"
+#include <jmm/eik2g1.h>
 
 #include <assert.h>
 #include <math.h>
 #include <stdlib.h>
 
-#include "bb.h"
-#include "heap.h"
-#include "mat.h"
+#include <jmm/bb.h>
+#include <jmm/heap.h>
+#include <jmm/mat.h>
+#include <jmm/utri21.h>
+#include <jmm/vec.h>
+
 #include "util.h"
-#include "utri21.h"
-#include "vec.h"
 
 struct eik2g1 {
   grid2_s const *grid;

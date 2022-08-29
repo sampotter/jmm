@@ -3,9 +3,10 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "eik2m1.h"
+#include <jmm/eik2m1.h>
+#include <jmm/vec.h>
+
 #include "log.h"
-#include "vec.h"
 
 jet22t get_jet_gt(dbl x, dbl y) {
   dbl r = sqrt(x*x + y*y);

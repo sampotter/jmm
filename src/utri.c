@@ -1,16 +1,16 @@
-#include "utri.h"
+#include <jmm/utri.h>
 
 #include <assert.h>
 #include <stdlib.h>
 #include <string.h>
 
-#include "array.h"
-#include "bb.h"
-#include "eik3.h"
-#include "hybrid.h"
-#include "mat.h"
-#include "mesh3.h"
-#include "slerp.h"
+#include <jmm/array.h>
+#include <jmm/bb.h>
+#include <jmm/eik3.h>
+#include <jmm/hybrid.h>
+#include <jmm/mat.h>
+#include <jmm/mesh3.h>
+#include <jmm/slerp.h>
 
 utri_spec_s utri_spec_empty() {
   return (utri_spec_s) {

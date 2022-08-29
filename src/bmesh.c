@@ -1,14 +1,15 @@
-#include "bmesh.h"
+#include <jmm/bmesh.h>
 
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "bb.h"
-#include "geom.h"
-#include "hybrid.h"
-#include "mat.h"
-#include "mesh3.h"
+#include <jmm/bb.h>
+#include <jmm/geom.h>
+#include <jmm/hybrid.h>
+#include <jmm/mat.h>
+#include <jmm/mesh3.h>
+
 #include "util.h"
 
 bool bmesh33_cell_intersect(bmesh33_cell_s const *cell, ray3 const *ray, dbl *t) {

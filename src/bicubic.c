@@ -1,4 +1,4 @@
-#include "bicubic.h"
+#include <jmm/bicubic.h>
 
 #include <stdio.h>
 #include <string.h>

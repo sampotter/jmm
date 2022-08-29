@@ -1,12 +1,13 @@
-#include "par.h"
+#include <jmm/par.h>
 
 #include <assert.h>
 #include <math.h>
 
-#include "array.h"
-#include "eik3.h"
+#include <jmm/array.h>
+#include <jmm/eik3.h>
+#include <jmm/mesh3.h>
+
 #include "macros.h"
-#include "mesh3.h"
 
 void par2_init_empty(par2_s *par) {
   par->l[0] = par->l[1] = NO_PARENT;

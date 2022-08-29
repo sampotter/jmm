@@ -1,10 +1,10 @@
-#include "jet.h"
+#include <jmm/jet.h>
 
 #include <assert.h>
 #include <math.h>
 #include <string.h>
 
-#include "mat.h"
+#include <jmm/mat.h>
 
 bool jet21p_is_finite(jet21p const *jet) {
   return isfinite(jet->f) && dbl2_isfinite(jet->Df) && isfinite(jet->fxy);

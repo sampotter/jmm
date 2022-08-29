@@ -1,11 +1,11 @@
-#include "eik3hh.h"
+#include <jmm/eik3hh.h>
 
 #include <assert.h>
 #include <stdio.h>
 
-#include "bmesh.h"
-#include "eik3.h"
-#include "eik3hh_branch.h"
+#include <jmm/bmesh.h>
+#include <jmm/eik3.h>
+#include <jmm/eik3hh_branch.h>
 
 struct eik3hh {
   mesh3_s const *mesh;

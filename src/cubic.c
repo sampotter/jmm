@@ -1,11 +1,11 @@
-#include "cubic.h"
+#include <jmm/cubic.h>
 
 #include <assert.h>
 #include <string.h>
 
 #include <gsl/gsl_poly.h>
 
-#include "mat.h"
+#include <jmm/mat.h>
 
 static dbl44 V_inv = {
   { 1,  0,  0,  0},

@@ -1,4 +1,4 @@
-#include "alist.h"
+#include <jmm/alist.h>
 
 #include <assert.h>
 #include <stdlib.h>

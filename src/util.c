@@ -4,8 +4,8 @@
 #include <string.h>
 #include <time.h>
 
-#include "mat.h"
-#include "vec.h"
+#include <jmm/mat.h>
+#include <jmm/vec.h>
 
 dbl clamp(dbl x, dbl a, dbl b) {
   return fmax(a, fmin(x, b));

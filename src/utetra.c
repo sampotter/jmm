@@ -1,17 +1,18 @@
-#include "utetra.h"
+#include <jmm/utetra.h>
 
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-#include "array.h"
-#include "bb.h"
-#include "eik3.h"
+#include <jmm/array.h>
+#include <jmm/bb.h>
+#include <jmm/eik3.h>
+#include <jmm/mat.h>
+#include <jmm/mesh3.h>
+#include <jmm/opt.h>
+
 #include "macros.h"
-#include "mat.h"
-#include "mesh3.h"
-#include "opt.h"
 #include "util.h"
 
 #define MAX_NITER 100

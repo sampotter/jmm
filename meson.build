@@ -68,10 +68,15 @@ jmm_lib_src = [
   'src/xfer.c'
 ]
 
+jmm_inc = include_directories('include')
+
 jmm_lib = library(
   'jmm',
   jmm_lib_src,
-  dependencies : [m_dep, gsl_dep, tetgen_dep]
+  dependencies : [m_dep, gsl_dep, tetgen_dep],
+  include_directories : jmm_inc
 )
+
+jmm_dep = declare_dependency(link_with : jmm_lib, include_directories : jmm_inc)
 
 subdir('examples')

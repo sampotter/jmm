@@ -1,10 +1,11 @@
-#include "utri21.h"
+#include <jmm/utri21.h>
 
 #include <assert.h>
 
-#include "hybrid.h"
+#include <jmm/hybrid.h>
+#include <jmm/mat.h>
+
 #include "log.h"
-#include "mat.h"
 
 void utri21_init(utri21_s *utri, dbl2 const xhat, dbl2 const x[2],
                  jet21t const jet[2]) {

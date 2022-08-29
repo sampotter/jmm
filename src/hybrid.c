@@ -1,4 +1,4 @@
-#include "hybrid.h"
+#include <jmm/hybrid.h>
 
 #include <math.h>
 

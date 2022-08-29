@@ -1,10 +1,11 @@
-#include "eik3_transport.h"
+#include <jmm/eik3_transport.h>
 
 #include <assert.h>
 #include <math.h>
 
+#include <jmm/mesh3.h>
+
 #include "log.h"
-#include "mesh3.h"
 #include "util.h"
 
 static void transport_dbl(eik3_s const *eik, size_t l0, dbl *values) {

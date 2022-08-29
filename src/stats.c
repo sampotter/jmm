@@ -1,4 +1,4 @@
-#include "stats.h"
+#include <jmm/stats.h>
 
 #include <math.h>
 

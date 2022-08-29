@@ -1,4 +1,4 @@
-#include "mesh22.h"
+#include <jmm/mesh22.h>
 
 #include <assert.h>
 #include <stdlib.h>

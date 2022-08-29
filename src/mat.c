@@ -1,4 +1,4 @@
-#include "mat.h"
+#include <jmm/mat.h>
 
 #include <assert.h>
 #include <string.h>

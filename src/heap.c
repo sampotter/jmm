@@ -1,4 +1,4 @@
-#include "heap.h"
+#include <jmm/heap.h>
 
 #include <assert.h>
 #include <math.h>

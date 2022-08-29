@@ -1,11 +1,12 @@
-#include "vec.h"
+#include <jmm/vec.h>
 
 #include <assert.h>
 #include <stdlib.h>
 #include <string.h>
 
+#include <jmm/stats.h>
+
 #include "macros.h"
-#include "stats.h"
 
 bool dbl2_bary(dbl2 const u) {
   dbl const atol = 1e-14;

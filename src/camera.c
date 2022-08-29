@@ -1,11 +1,12 @@
-#include "camera.h"
+#include <jmm/camera.h>
 
 #include <assert.h>
 #include <math.h>
 
+#include <jmm/mat.h>
+#include <jmm/vec.h>
+
 #include "macros.h"
-#include "mat.h"
-#include "vec.h"
 
 void camera_reset(camera_s *camera) {
   camera->type = CAMERA_TYPE_UNINITIALIZED;

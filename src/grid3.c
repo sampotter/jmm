@@ -1,4 +1,4 @@
-#include "grid3.h"
+#include <jmm/grid3.h>
 
 #include <assert.h>
 #include <math.h>

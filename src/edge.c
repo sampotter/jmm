@@ -1,10 +1,11 @@
-#include "edge.h"
+#include <jmm/edge.h>
 
 #include <assert.h>
 
-#include "eik3.h"
+#include <jmm/eik3.h>
+#include <jmm/mesh3.h>
+
 #include "macros.h"
-#include "mesh3.h"
 
 edge_s make_edge(size_t l0, size_t l1) {
   return (edge_s) {.l = {MIN(l0, l1), MAX(l0, l1)}};

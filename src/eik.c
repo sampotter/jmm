@@ -1,4 +1,4 @@
-#include "eik.h"
+#include <jmm/eik.h>
 
 #include <assert.h>
 #include <math.h>
@@ -6,10 +6,10 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "eik_F3.h"
-#include "eik_F4.h"
-#include "eik_S4.h"
-#include "hybrid.h"
+#include <jmm/eik_F3.h>
+#include <jmm/eik_F4.h>
+#include <jmm/eik_S4.h>
+#include <jmm/hybrid.h>
 
 #define NUM_CELL_VERTS 4
 #define NUM_CELL_NB_VERTS 9

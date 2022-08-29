@@ -1,13 +1,14 @@
-#include "eik2m1.h"
+#include <jmm/eik2m1.h>
 
 #include <assert.h>
 #include <math.h>
 #include <stdlib.h>
 
-#include "heap.h"
+#include <jmm/heap.h>
+#include <jmm/mat.h>
+#include <jmm/utri21.h>
+
 #include "log.h"
-#include "mat.h"
-#include "utri21.h"
 
 struct eik2m1 {
   mesh22_s const *mesh;

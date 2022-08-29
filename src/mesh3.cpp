@@ -1,4 +1,4 @@
-#include "mesh3.h"
+#include <jmm/mesh3.h>
 
 #include <assert.h>
 #include <iostream>

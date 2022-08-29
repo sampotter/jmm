@@ -1,12 +1,12 @@
-#include "xfer.h"
+#include <jmm/xfer.h>
 
 #include <assert.h>
 
-#include "bb.h"
-#include "grid3.h"
-#include "index.h"
-#include "mesh3.h"
-#include "vec.h"
+#include <jmm/bb.h>
+#include <jmm/grid3.h>
+#include <jmm/index.h>
+#include <jmm/mesh3.h>
+#include <jmm/vec.h>
 
 typedef struct {
   mesh3_s const *mesh;

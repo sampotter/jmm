@@ -1,9 +1,10 @@
-#include "opt.h"
+#include <jmm/opt.h>
 
 #include <assert.h>
 
+#include <jmm/mat.h>
+
 #include "macros.h"
-#include "mat.h"
 
 void triqp2_solve(triqp2_s *qp) {
   assert(dbl2_isfinite(qp->b));

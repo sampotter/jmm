@@ -1,4 +1,4 @@
-#include "array.h"
+#include <jmm/array.h>
 
 #include <assert.h>
 #include <stdlib.h>

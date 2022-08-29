@@ -1,4 +1,4 @@
-#include "utd.h"
+#include <jmm/utd.h>
 
 // NOTE: old code from utd.py. With any luck we should be able to
 // transliterate this more or less directly...

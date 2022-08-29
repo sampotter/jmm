@@ -3,7 +3,7 @@
 #include <assert.h>
 #include <stdlib.h>
 
-#include "array.h"
+#include <jmm/array.h>
 
 typedef struct block {
   void *ptr;

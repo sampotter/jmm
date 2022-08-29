@@ -1,17 +1,18 @@
-#include "mesh3.h"
+#include <jmm/mesh3.h>
 
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-#include "array.h"
-#include "edge.h"
-#include "index.h"
+#include <jmm/array.h>
+#include <jmm/edge.h>
+#include <jmm/index.h>
+#include <jmm/mat.h>
+#include <jmm/mesh1.h>
+#include <jmm/mesh2.h>
+
 #include "macros.h"
-#include "mat.h"
-#include "mesh1.h"
-#include "mesh2.h"
 #include "mesh_util.h"
 #include "util.h"
 

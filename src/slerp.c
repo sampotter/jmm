@@ -1,8 +1,9 @@
-#include "slerp.h"
+#include <jmm/slerp.h>
 
 #include <assert.h>
 
-#include "mat.h"
+#include <jmm/mat.h>
+
 #include "util.h"
 
 void nlerp3(dbl const p[3][3], dbl const w[3], dbl q[3]) {

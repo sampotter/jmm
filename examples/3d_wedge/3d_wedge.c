@@ -4,14 +4,13 @@
 #include <stdio.h>
 #include <string.h>
 
-#include <array.h>
-#include <bmesh.h>
-#include <eik3_transport.h>
-#include <error.h>
-#include <hybrid.h>
-#include <macros.h>
-#include <mat.h>
-#include <mesh2.h>
+#include <jmm/array.h>
+#include <jmm/bmesh.h>
+#include <jmm/eik3_transport.h>
+#include <jmm/error.h>
+#include <jmm/hybrid.h>
+#include <jmm/mat.h>
+#include <jmm/mesh2.h>
 
 #include "mesh3_extra.h"
 

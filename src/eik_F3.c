@@ -1,4 +1,4 @@
-#include "eik_F3.h"
+#include <jmm/eik_F3.h>
 
 // TODO: change naming conventions to make this take up less space:
 //

@@ -1,4 +1,4 @@
-#include "eik_F4.h"
+#include <jmm/eik_F4.h>
 
 #include <assert.h>
 #include <stdio.h>

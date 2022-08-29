@@ -1,19 +1,20 @@
-#include "rtree.h"
+#include <jmm/rtree.h>
 
 #include <assert.h>
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
 
-#include "bmesh.h"
-#include "def.h"
+#include <jmm/bmesh.h>
+#include <jmm/def.h>
+#include <jmm/mesh2.h>
+#include <jmm/mesh3.h>
+#include <jmm/stats.h>
+#include <jmm/vec.h>
+
 #include "log.h"
 #include "macros.h"
-#include "mesh2.h"
-#include "mesh3.h"
 #include "pool.h"
-#include "stats.h"
-#include "vec.h"
 
 // Section: robj_s
 
