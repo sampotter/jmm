@@ -30,6 +30,10 @@
 // #include <gsl/gsl_math.h>
 // #include <gsl/gsl_poly.h>
 
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
+
 #define SWAP(a,b) do { double tmp = b ; b = a ; a = tmp ; } while(0)
 
 int
