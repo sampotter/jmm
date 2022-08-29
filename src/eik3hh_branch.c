@@ -768,7 +768,7 @@ void eik3hh_branch_dump_xy_slice(eik3hh_branch_s const *branch,
   }
 }
 
-dbl xfer(dbl x, size_t n) {
+dbl squash(dbl x, size_t n) {
   dbl y = x;
   for (size_t i = 0; i < n; ++i)
     y = (3*y - 2*y*y)*y;
@@ -875,7 +875,7 @@ void eik3hh_branch_render_frames(eik3hh_branch_s const *branch,
             /* Clamp and map the range [-60 dB, 0 dB] to [0, 1] for
              * use as a scaling factor */
             dbl spread_mapped = fmax(0, fmin(1, 1 - spread_dB/(-90)));
-            alpha *= spread_mapped*xfer(org_interp, 2);
+            alpha *= spread_mapped*squash(org_interp, 2);
           }
 
           /* Get the surface normal and dot it with the eye vector for
