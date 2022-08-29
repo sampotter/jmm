@@ -15,7 +15,7 @@ The library currently depends on a fork of [TetGen](https://github.com/sampotter
 
 ## Documentation
 
-Until this library is officially released, there will not be any documentation. Instead, we recommend either taking a look at [the examples](#examples), or submitting an issue. Eventually, we will release tutorial-style documentation which gives an overview of the library, discusses some of the main entrypoints, and provides a roadmap.
+Until this library is officially released, **there is no official documentation**. Instead, we recommend either taking a look at [the examples](#examples), or submitting an issue. Eventually, we will release tutorial-style documentation which gives an overview of the library, discusses some of the main entrypoints, and provides a roadmap.
 
 In the meantime, individual functions in the library are documented, with the documentation comments preceding function definitions (i.e., the implementations are documented in the `.c` files). If you use something like [LSP Mode](https://emacs-lsp.github.io/lsp-mode/), it should be possible to look this documentation up on the fly. For this reason, it is unlikely that Doxygen-style documentation will be provided for this library.
 
