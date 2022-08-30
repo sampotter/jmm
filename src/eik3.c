@@ -18,12 +18,12 @@
 #include <jmm/mesh2.h>
 #include <jmm/mesh3.h>
 #include <jmm/utetra.h>
+#include <jmm/util.h>
 #include <jmm/utri.h>
 #include <jmm/vec.h>
 
 #include "log.h"
 #include "macros.h"
-#include "util.h"
 
 static bool l_OK(size_t l) {
   return l != (size_t)NO_INDEX;

@@ -11,10 +11,10 @@
 #include <jmm/mat.h>
 #include <jmm/mesh1.h>
 #include <jmm/mesh2.h>
+#include <jmm/util.h>
 
 #include "macros.h"
 #include "mesh_util.h"
-#include "util.h"
 
 typedef struct {
   size_t le[2];

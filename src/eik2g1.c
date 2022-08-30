@@ -10,7 +10,7 @@
 #include <jmm/utri21.h>
 #include <jmm/vec.h>
 
-#include "util.h"
+#include <jmm/util.h>
 
 struct eik2g1 {
   grid2_s const *grid;

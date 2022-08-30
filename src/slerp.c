@@ -3,8 +3,7 @@
 #include <assert.h>
 
 #include <jmm/mat.h>
-
-#include "util.h"
+#include <jmm/util.h>
 
 void nlerp3(dbl const p[3][3], dbl const w[3], dbl q[3]) {
   dbl3_dbl33_mul(w, p, q);

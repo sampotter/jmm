@@ -9,6 +9,7 @@
 #include <jmm/eik3.h>
 #include <jmm/eik3hh.h>
 #include <jmm/eik3hh_branch.h>
+#include <jmm/util.h>
 
 const char *argp_program_version = "simple_building 0.0";
 char const *argp_program_bug_address = "sfp@cims.nyu.edu";

@@ -12,7 +12,7 @@
 #include <jmm/mesh2.h>
 #include <jmm/rtree.h>
 
-#include "util.h"
+#include <jmm/util.h>
 
 struct eik3hh_branch {
   eik3hh_s const *hh;
