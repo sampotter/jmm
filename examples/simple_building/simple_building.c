@@ -201,16 +201,18 @@ int main(int argc, char *argv[]) {
   rect3 bbox;
   mesh3_get_bbox(mesh, &bbox);
 
-  printf("Built tetrahedron mesh [%1.2gs]:\n", toc());
-  printf("- %lu vertices\n", mesh3_nverts(mesh));
-  printf("- %lu cells.\n", mesh3_ncells(mesh));
-  printf("- bounding box: [%g, %g] x [%g, %g] x [%g, %g]\n",
-         bbox.min[0], bbox.max[0],
-         bbox.min[1], bbox.max[1],
-         bbox.min[2], bbox.max[2]);
-  printf("- h: %g\n", mesh3_get_mean_edge_length(mesh));
-  printf("- wrote mesh vertices to verts.bin\n");
-  printf("- wrote mesh tetrahedra to cells.bins\n");
+  if (spec.verbose) {
+    printf("Built tetrahedron mesh [%1.2gs]:\n", toc());
+    printf("- %lu vertices\n", mesh3_nverts(mesh));
+    printf("- %lu cells.\n", mesh3_ncells(mesh));
+    printf("- bounding box: [%g, %g] x [%g, %g] x [%g, %g]\n",
+           bbox.min[0], bbox.max[0],
+           bbox.min[1], bbox.max[1],
+           bbox.min[2], bbox.max[2]);
+    printf("- h: %g\n", mesh3_get_mean_edge_length(mesh));
+    printf("- wrote mesh vertices to verts.bin\n");
+    printf("- wrote mesh tetrahedra to cells.bins\n");
+  }
 
   if (!mesh3_contains_ball(mesh, spec.xsrc, spec.rfac)) {
     fprintf(stderr, "ERROR: mesh doesn't fully contain factoring ball\n");
@@ -232,7 +234,9 @@ int main(int argc, char *argv[]) {
   toc();
   grid2_to_mesh3_mapping_s mapping;
   grid2_to_mesh3_mapping_init_xy(&mapping, &img_grid, mesh, spec.xsrc[2]);
-  printf("Set up grid-to-mesh mapping [%1.2gs]\n", toc());
+  if (spec.verbose) {
+    printf("Set up grid-to-mesh mapping [%1.2gs]\n", toc());
+  }
 
   /* Set up the Helmholtz data structure to manage the different
    * branches as we solve eikonal problems. Initialize it with a point
