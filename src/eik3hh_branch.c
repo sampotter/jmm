@@ -12,7 +12,7 @@
 #include <jmm/mesh2.h>
 #include <jmm/rtree.h>
 
-#include "util.h"
+#include <jmm/util.h>
 
 struct eik3hh_branch {
   eik3hh_s const *hh;
@@ -767,13 +767,6 @@ void eik3hh_branch_dump_xy_slice(eik3hh_branch_s const *branch,
   default:
     assert(false);
   }
-}
-
-dbl squash(dbl x, size_t n) {
-  dbl y = x;
-  for (size_t i = 0; i < n; ++i)
-    y = (3*y - 2*y*y)*y;
-  return y;
 }
 
 void eik3hh_branch_render_frames(eik3hh_branch_s const *branch,

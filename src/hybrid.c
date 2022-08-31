@@ -2,7 +2,7 @@
 
 #include <math.h>
 
-#include "util.h"
+#include <jmm/util.h>
 
 bool hybrid(dbl (*f)(dbl, void *), dbl a, dbl b, void *context, dbl *t) {
   dbl c, d, fa, fb, fc, fd, dm, df, ds, dd, tmp;

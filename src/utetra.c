@@ -11,9 +11,9 @@
 #include <jmm/mat.h>
 #include <jmm/mesh3.h>
 #include <jmm/opt.h>
+#include <jmm/util.h>
 
 #include "macros.h"
-#include "util.h"
 
 #define MAX_NITER 100
 

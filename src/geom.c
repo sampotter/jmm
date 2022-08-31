@@ -7,9 +7,8 @@
 #include <jmm/mat.h>
 #include <jmm/mesh2.h>
 #include <jmm/mesh3.h>
+#include <jmm/util.h>
 #include <jmm/vec.h>
-
-#include "util.h"
 
 void line3_get_closest_point(line3 const *line, dbl const x[3], dbl y[3]) {
   dbl xy[3]; dbl3_sub(line->y, line->x, xy);

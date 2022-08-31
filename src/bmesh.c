@@ -9,8 +9,7 @@
 #include <jmm/hybrid.h>
 #include <jmm/mat.h>
 #include <jmm/mesh3.h>
-
-#include "util.h"
+#include <jmm/util.h>
 
 bool bmesh33_cell_intersect(bmesh33_cell_s const *cell, ray3 const *ray, dbl *t) {
   dbl const atol = 1e-13;

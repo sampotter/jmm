@@ -3,9 +3,8 @@
 #include <assert.h>
 
 #include <jmm/mat.h>
+#include <jmm/util.h>
 #include <jmm/vec.h>
-
-#include "util.h"
 
 bool face_in_cell(size_t const f[3], size_t const c[4]) {
   return point_in_cell(f[0], c) && point_in_cell(f[1], c) &&

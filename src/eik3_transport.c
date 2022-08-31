@@ -4,9 +4,9 @@
 #include <math.h>
 
 #include <jmm/mesh3.h>
+#include <jmm/util.h>
 
 #include "log.h"
-#include "util.h"
 
 static void transport_dbl(eik3_s const *eik, size_t l0, dbl *values) {
   par3_s par = eik3_get_par(eik, l0);

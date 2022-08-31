@@ -3,8 +3,9 @@
 #include <assert.h>
 #include <stdio.h>
 
+#include <jmm/util.h>
+
 #include "macros.h"
-#include "util.h"
 
 // TODO: change naming conventions to make this take up less space:
 //

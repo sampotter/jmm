@@ -4,8 +4,9 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include <jmm/util.h>
+
 #include "log.h"
-#include "util.h"
 
 struct mesh22 {
   dbl2 *verts;

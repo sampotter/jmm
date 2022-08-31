@@ -15,6 +15,7 @@ int signum(dbl x);
 dbl shrink(dbl x, dbl eps);
 bool contains(void const *arr, size_t len, void const *elt, size_t size);
 dbl toc();
+dbl squash(dbl x, size_t n);
 
 #ifdef __cplusplus
 }

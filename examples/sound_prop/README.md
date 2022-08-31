@@ -1,4 +1,14 @@
-# simple_building
+# sound_prop
+
+This example contains a simple sound propagation simulator using `libjmm`. It consists of a few command-line programs which can be run to propagate sound and process the output.
+
+## `mesh`
+
+## `simulate`
+
+## `render`
+
+## `slice`
 
 ## Debugging
 
