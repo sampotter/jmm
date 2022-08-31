@@ -127,6 +127,14 @@ void mesh3_data_init_from_bin(mesh3_data_s *data, char const *verts_path, char c
   fclose(fp);
 }
 
+void mesh3_data_deinit(mesh3_data_s *data) {
+  free(data->verts);
+  data->verts = NULL;
+
+  free(data->cells);
+  data->cells = NULL;
+}
+
 size_t mesh3_data_append_vert(mesh3_data_s *data, dbl3 const x) {
   data->verts = reallocarray(data->verts, data->nverts + 1, sizeof(dbl3));
   dbl3_copy(x, data->verts[data->nverts]);

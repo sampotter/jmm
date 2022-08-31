@@ -203,7 +203,7 @@ int main(int argc, char *argv[]) {
   camera_s camera = {
     // .type = CAMERA_TYPE_ORTHOGRAPHIC,
     .type = CAMERA_TYPE_PERSPECTIVE,
-    .pos = {-8, 8, 20},
+    .pos = {-6, 6, 15},
     .look = {0, 0, -1},
     .left = {-1, 0, 0},
     .up = {0, 1, 0},
