@@ -769,13 +769,6 @@ void eik3hh_branch_dump_xy_slice(eik3hh_branch_s const *branch,
   }
 }
 
-dbl squash(dbl x, size_t n) {
-  dbl y = x;
-  for (size_t i = 0; i < n; ++i)
-    y = (3*y - 2*y*y)*y;
-  return y;
-}
-
 void eik3hh_branch_render_frames(eik3hh_branch_s const *branch,
                                  camera_s const *camera,
                                  dbl T0, dbl T1, dbl frames_per_meter,

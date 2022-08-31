@@ -79,3 +79,10 @@ dbl toc() {
   t1 = clock();
   return ((double)t1 - (double)t0)/CLOCKS_PER_SEC;
 }
+
+dbl squash(dbl x, size_t n) {
+  dbl y = x;
+  for (size_t i = 0; i < n; ++i)
+    y = (3*y - 2*y*y)*y;
+  return y;
+}

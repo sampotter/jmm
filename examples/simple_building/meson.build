@@ -1,6 +1,6 @@
 executable(
-  'simple_building',
-  'simple_building.c',
+  'simulate',
+  'simulate.c',
   dependencies : jmm_dep
 )
 
