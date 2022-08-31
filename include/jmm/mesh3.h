@@ -42,7 +42,8 @@ typedef struct mesh3_data {
   uint4 *cells;
 } mesh3_data_s;
 
-void mesh3_data_from_off_file(mesh3_data_s *data, char const *path, dbl maxvol, bool verbose);
+void mesh3_data_init_from_bin(mesh3_data_s *data, char const *verts_path, char const *cells_path);
+void mesh3_data_init_from_off_file(mesh3_data_s *data, char const *path, dbl maxvol, bool verbose);
 error_e mesh3_data_insert_vert(mesh3_data_s *data, dbl3 const x, dbl eps);
 
 void mesh3_alloc(mesh3_s **mesh);

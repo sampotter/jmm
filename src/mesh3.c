@@ -107,6 +107,26 @@ bool mesh3_tetra_equal(mesh3_tetra_s const *t1, mesh3_tetra_s const *t2) {
   return t1->mesh == t2->mesh && t1->l == t2->l;
 }
 
+void mesh3_data_init_from_bin(mesh3_data_s *data, char const *verts_path, char const *cells_path) {
+  FILE *fp;
+
+  fp = fopen(verts_path, "r");
+  fseek(fp, 0, SEEK_END);
+  data->nverts = ftell(fp)/sizeof(dbl3);
+  fseek(fp, 0, SEEK_SET);
+  data->verts = malloc(data->nverts*sizeof(dbl3));
+  fread(data->verts, sizeof(dbl3), data->nverts, fp);
+  fclose(fp);
+
+  fp = fopen(cells_path, "r");
+  fseek(fp, 0, SEEK_END);
+  data->ncells = ftell(fp)/sizeof(uint4);
+  fseek(fp, 0, SEEK_SET);
+  data->cells = malloc(data->ncells*sizeof(uint4));
+  fread(data->cells, sizeof(uint4), data->ncells, fp);
+  fclose(fp);
+}
+
 size_t mesh3_data_append_vert(mesh3_data_s *data, dbl3 const x) {
   data->verts = reallocarray(data->verts, data->nverts + 1, sizeof(dbl3));
   dbl3_copy(x, data->verts[data->nverts]);
