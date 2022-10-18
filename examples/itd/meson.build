@@ -1,11 +1,6 @@
 executable('itd', 'itd.c', dependencies : jmm_dep)
 
-files = ['HUTUB_pp2_in_cube_50k_high_res_ear.off',
-         'HUTUB_pp2_in_cube_50k.off',
-         'HUTUB_pp2_in_cube_50k_origin_fixed.off',
-         'HUTUB_pp2_in_cube_50k_origin_fixed_bust_only_BROKEN.off',
-         'scratch.py',
-         'fliege64.txt']
+files = ['HUTUB_pp2_in_cube_50k.off', 'scratch.py']
 
 foreach file : files
   custom_target(

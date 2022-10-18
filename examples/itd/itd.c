@@ -5,63 +5,52 @@
 #include <jmm/eik3.h>
 #include <jmm/mesh3.h>
 
-int main(void) {
+static void
+get_evaluation_grid(size_t num_az, size_t num_el, dbl **phi, dbl **theta) {
+  *phi = malloc(num_az*sizeof(dbl));
+  for (size_t i = 0; i < num_az; ++i) {
+    dbl t = ((dbl)i)/((dbl)(num_az - 1));
+    (*phi)[i] = 2*JMM_PI*t;
+  }
+
+  *theta = malloc(num_el*sizeof(dbl));
+  for (size_t i = 0; i < num_el; ++i) {
+    dbl t = ((dbl)i)/((dbl)(num_el - 1));
+    (*theta)[i] = JMM_PI/2 + asin(-1 + 2*t);
+  }
+}
+
+int main(int argc, char const *argv[]) {
+  if (argc != 4) {
+    printf("usage: %s <n> <off_path>\n", argv[0]);
+  }
+
   dbl eps = 1e-5;
   dbl maxvol = 8e5;
   bool verbose = true;
   dbl c = 340.3e3; // mm/s
 
-  size_t num_el = 256;
+  size_t num_el = atoi(argv[1]);;
   size_t num_az = 2*num_el;
+  dbl r_grid = 500; // mm
+
+  char const *off_path = argv[2];
 
   /* NOTE: units in mm! */
 
-  dbl rfac = 4; // mm
-  dbl3 xsrc_R = {0.0, -69.910568, 0.0}; // right ear
-  dbl3 xsrc_L = {0.0, 69.821861, 0.0}; // left ear
+  /* For meshes in `./old_meshes`: */
+  // dbl rfac = 4; // mm
+  // dbl3 xsrc_R = {0.0, -69.910568, 0.0}; // right ear
+  // dbl3 xsrc_L = {0.0, 69.821861, 0.0}; // left ear
 
-  dbl fliege_grid_r = 500; // mm
+  /* For meshes in `./meshes`: */
+  dbl rfac = 3; // mm
+  dbl3 xsrc_R = {0.0, -74.5, 0.0}; // right ear
+  dbl3 xsrc_L = {0.0, 63.5, 0.0}; // left ear
 
-  char const *itd_bin_path = "itd.bin";
-
-  /* Load Fliege grid points */
-  char const *fliege_grid_txt_path = "fliege64.txt";
-  char const *fliege_grid_bin_path = "fliege64.bin";
-
-  array_s *fliege_grid_arr;
-  array_alloc(&fliege_grid_arr);
-  array_init(fliege_grid_arr, sizeof(dbl3), ARRAY_DEFAULT_CAPACITY);
-
-  /* Read CSV text file containing Fliege grid node elevation (first
-   * column) and azimuth (second column) */
-  FILE *fp = fopen(fliege_grid_txt_path, "r");
-  char *line = NULL;
-  size_t len = 0;
-  ssize_t read;
-  while ((read = getline(&line, &len, fp)) != -1) {
-    dbl el, az;
-    char *saveptr, *pc;
-    pc = strtok_r(line, " ", &saveptr);
-    el = atof(pc);
-    pc = strtok_r(NULL, " ", &saveptr);
-    az = atof(pc);
-    dbl3 point = {cos(az)*sin(el), sin(az)*sin(el), cos(el)};
-    dbl3_dbl_mul_inplace(point, fliege_grid_r);
-    array_append(fliege_grid_arr, &point);
-  }
-  fclose(fp);
-
-  /* Dump Cartesian coordinates of Fliege grid to a binary file */
-  fp = fopen(fliege_grid_bin_path, "wb");
-  for (size_t i = 0; i < array_size(fliege_grid_arr); ++i) {
-    dbl3 point;
-    array_get(fliege_grid_arr, i, &point);
-    fwrite(point, sizeof(dbl3), 1, fp);
-  }
-  fclose(fp);
-
-  /* Units are in mm */
-  char const *off_path = "HUTUB_pp2_in_cube_50k_origin_fixed.off";
+  /* Set up evaluation grid */
+  dbl *phi_grid, *theta_grid;
+  get_evaluation_grid(num_az, num_el, &phi_grid, &theta_grid);
 
   mesh3_data_s data;
   mesh3_data_init_from_off_file(&data, off_path, maxvol, verbose);
@@ -108,25 +97,15 @@ int main(void) {
   bmesh33_alloc(&tau_R);
   bmesh33_init_from_mesh3_and_jets(tau_R, mesh, jet_R);
 
-  /* Compute ITD at Fliege grid nodes and save to disk */
-  fp = fopen(itd_bin_path, "wb");
-  for (size_t i = 0; i < array_size(fliege_grid_arr); ++i) {
-    dbl3 point;
-    array_get(fliege_grid_arr, i, &point);
-    dbl T_L = bmesh33_f(tau_L, point)/c;
-    dbl T_R = bmesh33_f(tau_R, point)/c;
-    dbl itd = T_R - T_L;
-    fwrite(&itd, sizeof(dbl), 1, fp);
-  }
-  fclose(fp);
+  FILE *fp = NULL;
 
-  fp = fopen("itd_uniform.bin", "wb");
+  fp = fopen("itd_grid.bin", "wb");
   for (size_t i = 0; i < num_el; ++i) {
-    dbl el = JMM_PI*i/(dbl)num_el;
+    dbl el = theta_grid[i];
     for (size_t j = 0; j < num_az; ++j) {
-      dbl az = 2*JMM_PI*j/(dbl)num_az;
+      dbl az = phi_grid[j];
       dbl3 point = {cos(az)*sin(el), sin(az)*sin(el), cos(el)};
-      dbl3_dbl_mul_inplace(point, fliege_grid_r);
+      dbl3_dbl_mul_inplace(point, r_grid);
       dbl T_L = bmesh33_f(tau_L, point)/c;
       dbl T_R = bmesh33_f(tau_R, point)/c;
       dbl itd = T_R - T_L;
@@ -151,7 +130,4 @@ int main(void) {
   mesh3_dealloc(&mesh);
 
   mesh3_data_deinit(&data);
-
-  array_deinit(fliege_grid_arr);
-  array_dealloc(&fliege_grid_arr);
 }

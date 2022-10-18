@@ -11,7 +11,7 @@ plt.ion()
 
 itd_build_dir = Path('../../builddir/examples/itd')
 
-grid = pv.read(itd_build_dir/'HUTUB_pp2_in_cube_50k.off')
+grid = pv.read(itd_build_dir/'HUTUB_pp2_in_cube_50k_fixed.off')
 
 V = grid.points
 F = grid.cells.reshape(-1, 4)[:, 1:]
@@ -66,7 +66,8 @@ grid_tet['T_L'] = T_L
 grid_tet['T_R'] = T_R
 grid_tet['itd'] = itd
 
-bust = pv.read('HUTUB_pp2_in_cube_50k_origin_fixed_bust_only_BROKEN.off')
+# bust = pv.read('HUTUB_pp2_in_cube_50k_origin_fixed_bust_only_BROKEN.off')
+bust = pv.read('HUTUB_pp2_in_cube_50k_fixed.off')
 
 clipped = grid_tet.clip('z', origin=(0, 0, 0))
 contours = clipped.contour(scalars='T_L')
