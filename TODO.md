@@ -48,4 +48,8 @@ Probably would be good to get rid of `do_diff_edge_updates_and_adjust`.
 
 # Lessons learned
 
-* Explicitly error handling from the get-go
+* Explicit error handling from the get-go
+
+# JCP revision
+
+- [ ] introduce sfunc
