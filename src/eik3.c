@@ -20,6 +20,7 @@
 #include <jmm/utetra.h>
 #include <jmm/util.h>
 #include <jmm/utri.h>
+#include <jmm/utri_cache.h>
 #include <jmm/vec.h>
 
 #include "log.h"
@@ -73,8 +74,8 @@ struct eik3 {
   /* In some cases, we'll skip old updates that might be useful at a
    * later stage. We keep track of them here. */
   array_s *old_utetra;
-  array_s *old_bd_utri; // old two-point boundary `utri`
-  array_s *old_diff_utri; // old two-point updates from diff. edges
+  utri_cache_s *old_bd_utri; // old two-point boundary `utri`
+  utri_cache_s *old_diff_utri; // old two-point updates from diff. edges
 
   alist_s *T_diff;
 
@@ -194,11 +195,11 @@ void eik3_init(eik3_s *eik, mesh3_s const *mesh, sfunc_s const *sfunc) {
   array_alloc(&eik->old_utetra);
   array_init(eik->old_utetra, sizeof(utetra_s *), 16);
 
-  array_alloc(&eik->old_bd_utri);
-  array_init(eik->old_bd_utri, sizeof(utri_s *), 16);
+  utri_cache_alloc(&eik->old_bd_utri);
+  utri_cache_init(eik->old_bd_utri);
 
-  array_alloc(&eik->old_diff_utri);
-  array_init(eik->old_diff_utri, sizeof(utri_s *), 16);
+  utri_cache_alloc(&eik->old_diff_utri);
+  utri_cache_init(eik->old_diff_utri);
 
   array_alloc(&eik->bc_inds);
   array_init(eik->bc_inds, sizeof(size_t), ARRAY_DEFAULT_CAPACITY);
@@ -234,29 +235,19 @@ void eik3_deinit(eik3_s *eik) {
   /* release the "old update" data structures */
   {
     utetra_s *utetra;
-    utri_s *utri;
-
     for (size_t i = 0; i < array_size(eik->old_utetra); ++i) {
       array_get(eik->old_utetra, i, &utetra);
       utetra_dealloc(&utetra);
     }
     array_deinit(eik->old_utetra);
     array_dealloc(&eik->old_utetra);
-
-    for (size_t i = 0; i < array_size(eik->old_bd_utri); ++i) {
-      array_get(eik->old_bd_utri, i, &utri);
-      utri_dealloc(&utri);
-    }
-    array_deinit(eik->old_bd_utri);
-    array_dealloc(&eik->old_bd_utri);
-
-    for (size_t i = 0; i < array_size(eik->old_diff_utri); ++i) {
-      array_get(eik->old_diff_utri, i, &utri);
-      utri_dealloc(&utri);
-    }
-    array_deinit(eik->old_diff_utri);
-    array_dealloc(&eik->old_diff_utri);
   }
+
+  utri_cache_deinit(eik->old_bd_utri);
+  utri_cache_dealloc(&eik->old_bd_utri);
+
+  utri_cache_deinit(eik->old_diff_utri);
+  utri_cache_dealloc(&eik->old_diff_utri);
 
   array_deinit(eik->bc_inds);
   array_dealloc(&eik->bc_inds);
@@ -383,69 +374,10 @@ mesh3_s const *mesh = eik3_get_mesh(eik);
   free(vv);
 }
 
-/* Look through the cache of old edge-diffracted two-point updates for
- * an update which matches `utri` (is incident on it and which shares
- * the same active index). If we find one, delete it from the cache
- * and return it. */
-static utri_s *
-find_and_delete_cached_utri(array_s *utri_cache, utri_s const *utri) {
-  /* get indices of current `utri` */
-  size_t l = utri_get_l(utri);
-  size_t l_active = utri_get_active_ind(utri);
-  size_t l_inactive = utri_get_inactive_ind(utri);
-
-  utri_s *utri_other = NULL;
-
-  /* iterate over the other `utri` in the cache... */
-  for (size_t i = 0; i < array_size(utri_cache); ++i) {
-    array_get(utri_cache, i, &utri_other);
-
-    /* if this is a distinct `utri`, with the same target index and
-     * the same active index (so, the inactive index must be
-     * different!) ... */
-    if (l == utri_get_l(utri_other) &&
-        l_active == utri_get_active_ind(utri_other) &&
-        l_inactive != utri_get_inactive_ind(utri_other)) {
-      /* ... then delete it and break from the loop */
-      array_delete(utri_cache, i);
-      break;
-    }
-
-    /* make sure to set `utri_other` back to `NULL` here---if we don't
-     * end up breaking, on the last loop, we will return `NULL` to
-     * signal that we didn't find a matching `utri` to delete */
-    utri_other = NULL;
-  }
-
-  return utri_other;
-}
-
-/* Check whether `utri` has been stored in the cache for
- * edge-diffracted updates already. */
-static bool utri_is_cached(array_s const *utri_cache, utri_s const *utri) {
-  utri_s const *utri_other = NULL;
-  for (size_t i = 0; i < array_size(utri_cache); ++i) {
-    array_get(utri_cache, i, &utri_other);
-    if (utris_have_same_inds(utri, utri_other))
-      return true;
-  }
-  return false;
-}
-
-static bool did_utri_already(array_s const *utri_cache, size_t lhat, uint2 l) {
-  for (size_t j = 0; j < array_size(utri_cache); ++j) {
-    utri_s *utri;
-    array_get(utri_cache, j, &utri);
-    if (utri_has_inds(utri, lhat, l))
-      return true;
-  }
-  return false;
-}
-
 static void
-do_utri(eik3_s *eik, size_t l, size_t l0, size_t l1, array_s *utri_cache,
+do_utri(eik3_s *eik, size_t l, size_t l0, size_t l1, utri_cache_s *utri_cache,
         par3_s *par) {
-  if (did_utri_already(utri_cache, l, (uint2) {l0, l1}))
+  if (utri_cache_contains_inds(utri_cache, l, (uint2) {l0, l1}))
     return;
 
   if (par != NULL)
@@ -483,7 +415,7 @@ do_utri(eik3_s *eik, size_t l, size_t l0, size_t l1, array_s *utri_cache,
    * current one, and commit the update if we can
    *
    * (if successful, delete the old one!) */
-  utri_s *utri_other = find_and_delete_cached_utri(utri_cache, utri);
+  utri_s *utri_other = utri_cache_pop(utri_cache, utri);
   if (utri_other) {
     commit_utri(eik, l, utri);
     adjust(eik, l);
@@ -493,16 +425,14 @@ do_utri(eik3_s *eik, size_t l, size_t l0, size_t l1, array_s *utri_cache,
 
   /* if we failed, we cache this update for later (... if we
    * haven't already) */
-  if (!utri_is_cached(utri_cache, utri)) {
-    array_append(utri_cache, &utri);
+  if (utri_cache_try_add_unique(utri_cache, utri))
     return; /* don't dealloc in this case! */
-  }
 
 cleanup:
   utri_dealloc(&utri);
 }
 
-static void do_utris_if(eik3_s *eik, size_t l, size_t l0, array_s *utri_cache,
+static void do_utris_if(eik3_s *eik, size_t l, size_t l0, utri_cache_s *utri_cache,
                         bool (*pred)(eik3_s const *, size_t const[2])) {
   assert(l != l0);
 
@@ -1004,18 +934,6 @@ static void purge_utetra(array_s *utetra_cache, size_t l0) {
   }
 }
 
-/* Remove triangle updates targeting `l0` from `utri_cache`. */
-static void purge_utri(array_s *utri_cache, size_t l0) {
-  utri_s *utri;
-  for (size_t i = array_size(utri_cache); i > 0; --i) {
-    array_get(utri_cache, i - 1, &utri);
-    if (utri_get_l(utri) == l0) {
-      utri_dealloc(&utri);
-      array_delete(utri_cache, i - 1);
-    }
-  }
-}
-
 jmm_error_e eik3_step(eik3_s *eik, size_t *l0) {
   /* Get the first node in the heap. It should be `TRIAL`. */
   *l0 = heap_front(eik->heap);
@@ -1032,8 +950,8 @@ jmm_error_e eik3_step(eik3_s *eik, size_t *l0) {
 
   /* Purge cached updates to keep the cache size under control */
   purge_utetra(eik->old_utetra, *l0);
-  purge_utri(eik->old_bd_utri, *l0);
-  purge_utri(eik->old_diff_utri, *l0);
+  utri_cache_purge(eik->old_bd_utri, *l0);
+  utri_cache_purge(eik->old_diff_utri, *l0);
 
   update_neighbors(eik, *l0);
 
@@ -1127,8 +1045,8 @@ static void reset_nodes(eik3_s *eik, array_s const *l_arr) {
     par3_init_empty(&eik->par[l]);
 
     purge_utetra(eik->old_utetra, l);
-    purge_utri(eik->old_bd_utri, l);
-    purge_utri(eik->old_diff_utri, l);
+    utri_cache_purge(eik->old_bd_utri, l);
+    utri_cache_purge(eik->old_diff_utri, l);
   }
 
   unaccept_nodes(eik, l_arr);
@@ -1670,7 +1588,7 @@ static size_t add_next_edge_to_queue(eik3_s *eik, mesh1_s const *diff_mesh,
       continue;
 
     if (array_contains(queue, &ev) ||
-        did_utri_already(eik->old_diff_utri, lhat, ev))
+        utri_cache_contains_inds(eik->old_diff_utri, lhat, ev))
       continue;
 
     array_append(queue, &ev);
@@ -1701,7 +1619,7 @@ static void do_diffractor_updates(eik3_s *eik, mesh1_s const *diff_mesh,
     par3_s par;
 
     /* Do the current triangle update */
-    assert(!did_utri_already(eik->old_diff_utri, l, le));
+    assert(!utri_cache_contains_inds(eik->old_diff_utri, l, le));
     do_utri(eik, l, le[0], le[1], eik->old_diff_utri, &par);
 
     /* If we managed to update `l`, break early */
@@ -1923,7 +1841,7 @@ static void do_utri_and_add_inc(eik3_s *eik, mesh2_s const *refl_mesh,
         continue;
       if (mesh3_is_diff_edge(mesh, ve_)
           && !array_contains(queue, &ve_)
-          && !did_utri_already(eik->old_diff_utri, lhat, ve_))
+          && !utri_cache_contains_inds(eik->old_diff_utri, lhat, ve_))
         array_append(queue, &ve_);
     }
   }
@@ -1942,7 +1860,7 @@ static void add_diff_utri_inc_on_utetra(eik3_s *eik, size_t lhat,
       uint3 le = {le_diff[j][0], le_diff[j][1], (size_t)NO_INDEX};
       SORT_UINT2(le);
       if (!array_contains(queue, &le)
-          && !did_utri_already(eik->old_diff_utri, lhat, le))
+          && !utri_cache_contains_inds(eik->old_diff_utri, lhat, le))
         array_append(queue, &le);
     }
     free(le_diff);
@@ -1977,7 +1895,7 @@ static void do_utetra_and_add_inc(eik3_s *eik, mesh2_s const *refl_mesh,
   if (num_added == 0 && na == 2 && mesh3_is_diff_edge(eik->mesh, la)) {
     uint3 la_ = {la[0], la[1], (size_t)NO_INDEX};
     if (!array_contains(queue, &la_)
-        && !did_utri_already(eik->old_diff_utri, lhat, la_))
+        && !utri_cache_contains_inds(eik->old_diff_utri, lhat, la_))
       array_append(queue, &la_);
   }
 

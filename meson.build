@@ -64,6 +64,7 @@ jmm_lib_src = [
   'src/util.c',
   'src/utri.c',
   'src/utri21.c',
+  'src/utri_cache.c',
   'src/vec.c',
   'src/xfer.c'
 ]
