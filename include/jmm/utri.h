@@ -8,26 +8,11 @@ extern "C" {
 #include "jet.h"
 #include "par.h"
 
-typedef struct utri_spec {
-  eik3_s const *eik;
-  size_t lhat, l[2];
-  state_e state[2];
-  dbl xhat[3], x[2][3];
-  jet31t jet[2];
-  size_t orig_index;
-} utri_spec_s;
-
-utri_spec_s utri_spec_empty();
-utri_spec_s utri_spec_from_eik(eik3_s const *eik, size_t l, size_t l0, size_t l1);
-utri_spec_s utri_spec_from_eik_without_l(eik3_s const *eik, dbl const x[3],
-                                         size_t l0, size_t l1);
-utri_spec_s utri_spec_from_raw_data(dbl3 const x, dbl3 const Xt[2], jet31t const jet[2]);
-
 typedef struct utri utri_s;
 
 void utri_alloc(utri_s **utri);
 void utri_dealloc(utri_s **utri);
-void utri_init(utri_s *u, utri_spec_s const *spec);
+void utri_init(utri_s *u, eik3_s const *eik, size_t lhat, size_t const l[2]);
 void utri_solve(utri_s *utri);
 par3_s utri_get_par(utri_s const *u);
 dbl utri_get_value(utri_s const *utri);

@@ -12,79 +12,6 @@
 #include <jmm/mesh3.h>
 #include <jmm/slerp.h>
 
-utri_spec_s utri_spec_empty() {
-  return (utri_spec_s) {
-    .eik = NULL,
-    .lhat = (size_t)NO_INDEX,
-    .l = {(size_t)NO_INDEX, (size_t)NO_INDEX},
-    .state = {UNKNOWN, UNKNOWN},
-    .xhat = {NAN, NAN, NAN},
-    .x = {
-      {NAN, NAN, NAN},
-      {NAN, NAN, NAN}
-    },
-    .jet = {
-      {.f = INFINITY, .Df = {NAN, NAN, NAN}},
-      {.f = INFINITY, .Df = {NAN, NAN, NAN}}
-    },
-    .orig_index = (size_t)NO_INDEX
-  };
-}
-
-utri_spec_s utri_spec_from_eik(eik3_s const *eik, size_t l, size_t l0, size_t l1) {
-  state_e const *state = eik3_get_state_ptr(eik);
-  return (utri_spec_s) {
-    .eik = eik,
-    .lhat = l,
-    .l = {l0, l1},
-    .state = {state[l0], state[l1]},
-    .xhat = {NAN, NAN, NAN},
-    .x = {
-      {NAN, NAN, NAN},
-      {NAN, NAN, NAN}
-    },
-    .jet = {
-      {.f = INFINITY, .Df = {NAN, NAN, NAN}},
-      {.f = INFINITY, .Df = {NAN, NAN, NAN}}
-    }
-  };
-}
-
-utri_spec_s utri_spec_from_eik_without_l(eik3_s const *eik, dbl const x[3],
-                                         size_t l0, size_t l1) {
-  state_e const *state = eik3_get_state_ptr(eik);
-  return (utri_spec_s) {
-    .eik = eik,
-    .lhat = (size_t)NO_INDEX,
-    .l = {l0, l1},
-    .state = {state[l0], state[l1]},
-    .xhat = {x[0], x[1], x[2]},
-    .x = {
-      {NAN, NAN, NAN},
-      {NAN, NAN, NAN}
-    },
-    .jet = {
-      {.f = INFINITY, .Df = {NAN, NAN, NAN}},
-      {.f = INFINITY, .Df = {NAN, NAN, NAN}}
-    }
-  };
-}
-
-utri_spec_s utri_spec_from_raw_data(dbl3 const x, dbl3 const Xt[2], jet31t const jet[2]) {
-  return (utri_spec_s) {
-    .eik = NULL,
-    .lhat = NO_INDEX,
-    .l = {NO_INDEX, NO_INDEX},
-    .state = {UNKNOWN, UNKNOWN},
-    .xhat = {x[0], x[1], x[2]},
-    .x = {
-      {Xt[0][0], Xt[0][1], Xt[0][2]},
-      {Xt[1][0], Xt[1][1], Xt[1][2]}
-    },
-    .jet = {jet[0], jet[1]}
-  };
-}
-
 struct utri {
   dbl lam;
   dbl f;
@@ -97,10 +24,7 @@ struct utri {
   dbl x0[3];
   dbl x1[3];
   dbl x1_minus_x0[3];
-  state_e state[2];
   bb31 T;
-
-  size_t orig_index; // original index
 };
 
 void utri_alloc(utri_s **utri) {
@@ -188,46 +112,8 @@ rotate_jet_for_diffraction(mesh3_s const *mesh,
   free(le);
 }
 
-void utri_init(utri_s *u, utri_spec_s const *spec) {
-  bool passed_lhat = spec->lhat != (size_t)NO_INDEX;
-  bool passed_l0 = spec->l[0] != (size_t)NO_INDEX;
-  bool passed_l1 = spec->l[1] != (size_t)NO_INDEX;
-  bool passed_l = passed_l0 && passed_l1;
-
-  bool passed_jet0 = (spec->state[0] == VALID || spec->state[0] == UNKNOWN)
-    && jet31t_is_finite(&spec->jet[0]);
-  bool passed_jet1 = (spec->state[1] == VALID || spec->state[1] == UNKNOWN)
-    && jet31t_is_finite(&spec->jet[1]);
-  bool passed_jet = passed_jet0 && passed_jet1;
-
-#if JMM_DEBUG
-  /* Validate spec before doing anything else */
-
-  bool passed_xhat = dbl3_isfinite(spec->xhat);
-  assert(passed_lhat ^ passed_xhat); // exactly one of these
-
-  if (passed_l0 || passed_l1)
-    assert(passed_l);
-
-  bool passed_x0 = dbl3_isfinite(spec->x[0]);
-  bool passed_x1 = dbl3_isfinite(spec->x[1]);
-  bool passed_x = passed_x0 && passed_x1;
-  if (passed_x0 || passed_x1)
-    assert(passed_x);
-
-  assert(passed_l ^ passed_x); // pass exactly one of these
-
-  bool passed_state0 = spec->state[0] != UNKNOWN;
-  bool passed_state1 = spec->state[1] != UNKNOWN;
-  bool passed_state = passed_state0 && passed_state1;
-  if (passed_state0 || passed_state1)
-    assert(passed_state);
-
-  if (passed_jet0 || passed_jet1)
-    assert(passed_jet);
-
-  assert(passed_jet ^ passed_l); // exactly one of these
-#endif
+void utri_init(utri_s *u, eik3_s const *eik, size_t lhat, size_t const l[2]) {
+  mesh3_s const *mesh = eik3_get_mesh(eik);
 
   /* Initialize `u` */
 
@@ -236,48 +122,29 @@ void utri_init(utri_s *u, utri_spec_s const *spec) {
   u->lam = u->f = u->Df = u->L = NAN;
   u->x_minus_xb[0] = u->x_minus_xb[1] = u->x_minus_xb[2] = NAN;
 
-  mesh3_s const *mesh = spec->eik ? eik3_get_mesh(spec->eik) : NULL;
+  u->l = lhat;
+  u->l0 = l[0];
+  u->l1 = l[1];
 
-  u->l = spec->lhat;
-
-  if (passed_lhat) {
-    assert(mesh);
-    mesh3_copy_vert(mesh, u->l, u->x);
-  } else {
-    dbl3_copy(spec->xhat, u->x);
-  }
-
-  u->l0 = spec->l[0];
-  u->l1 = spec->l[1];
-
-  if (passed_l) {
-    mesh3_copy_vert(mesh, u->l0, u->x0);
-    mesh3_copy_vert(mesh, u->l1, u->x1);
-  } else { // passed_x
-    dbl3_copy(spec->x[0], u->x0);
-    dbl3_copy(spec->x[1], u->x1);
-  }
+  mesh3_copy_vert(mesh, u->l, u->x);
+  mesh3_copy_vert(mesh, u->l0, u->x0);
+  mesh3_copy_vert(mesh, u->l1, u->x1);
 
   dbl3_sub(u->x1, u->x0, u->x1_minus_x0);
 
-  memcpy(u->state, spec->state, sizeof(state_e[2]));
-
-  /* Grab the jets for interpolating over the base of the
-   * update. These will come from `eik` or `spec`, depending on if we
-   * passed them. */
   jet31t jet[2];
-  for (size_t i = 0; i < 2; ++i)
-    jet[i] = passed_jet ? spec->jet[i] : eik3_get_jet(spec->eik, spec->l[i]);
+  jet[0] = eik3_get_jet(eik, l[0]);
+  jet[1] = eik3_get_jet(eik, l[1]);
 
   bool l0_on_diff_edge = mesh3_vert_incident_on_diff_edge(mesh, u->l0);
   bool l1_on_diff_edge = mesh3_vert_incident_on_diff_edge(mesh, u->l1);
 
   if (l0_on_diff_edge &&
       l1_on_diff_edge &&
-      eik3_has_diff_bc(spec->eik, spec->l)) {
+      eik3_has_diff_bc(eik, l)) {
     /* If we're updating from a diffracting edge with BCs, then we
      * grab the cubic polynomial giving the BCs now */
-    eik3_get_diff_bc(spec->eik, spec->l, &u->T);
+    eik3_get_diff_bc(eik, l, &u->T);
   } else {
     /* If exactly one of x0 and x1 is incident on a diffracting edge,
      * this is a boundary triangle update, and we need to rotate the
@@ -297,8 +164,6 @@ void utri_init(utri_s *u, utri_spec_s const *spec) {
     dbl3_copy(u->x1, Xt[1]);
     bb31_init_from_jets(&u->T, jet, Xt);
   }
-
-  u->orig_index = spec->orig_index;
 }
 
 void utri_solve(utri_s *utri) {

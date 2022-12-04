@@ -448,14 +448,12 @@ do_utri(eik3_s *eik, size_t l, size_t l0, size_t l1, array_s *utri_cache,
   if (did_utri_already(utri_cache, l, (uint2) {l0, l1}))
     return;
 
-  utri_spec_s spec = utri_spec_from_eik(eik, l, l0, l1);
-
   if (par != NULL)
     par3_init_empty(par);
 
   utri_s *utri;
   utri_alloc(&utri);
-  utri_init(utri, &spec);
+  utri_init(utri, eik, l, (uint2) {l0, l1});
 
   if (utri_is_backwards(utri, eik))
     goto cleanup;
