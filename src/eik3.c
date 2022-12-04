@@ -297,6 +297,10 @@ void eik3_dump_accepted(eik3_s const *eik, char const *path) {
   fclose(fp);
 }
 
+size_t eik3_peek(eik3_s const *eik) {
+  return heap_front(eik->heap);
+}
+
 static void adjust(eik3_s *eik, size_t l) {
   assert(eik->state[l] == TRIAL);
   assert(l < mesh3_nverts(eik->mesh));
@@ -885,10 +889,6 @@ static void update(eik3_s *eik, size_t l, size_t l0) {
 
   /* Finally, do the fan of tetrahedron updates. */
   do_utetra_fan(eik, l, l0);
-}
-
-size_t eik3_peek(eik3_s const *eik) {
-  return heap_front(eik->heap);
 }
 
 void update_neighbors(eik3_s *eik, size_t l0) {
