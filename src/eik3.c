@@ -56,8 +56,8 @@ struct eik3 {
   /* In some cases, we'll skip old updates that might be useful at a
    * later stage. We keep track of them here. */
   array_s *old_utetra;
-  utri_cache_s *old_bd_utri; // old two-point boundary `utri`
-  utri_cache_s *old_diff_utri; // old two-point updates from diff. edges
+  utri_cache_s *bd_utri_cache; // old two-point boundary `utri`
+  utri_cache_s *diff_utri_cache; // old two-point updates from diff. edges
 
   alist_s *T_diff;
 
@@ -177,11 +177,11 @@ void eik3_init(eik3_s *eik, mesh3_s const *mesh, sfunc_s const *sfunc) {
   array_alloc(&eik->old_utetra);
   array_init(eik->old_utetra, sizeof(utetra_s *), 16);
 
-  utri_cache_alloc(&eik->old_bd_utri);
-  utri_cache_init(eik->old_bd_utri);
+  utri_cache_alloc(&eik->bd_utri_cache);
+  utri_cache_init(eik->bd_utri_cache);
 
-  utri_cache_alloc(&eik->old_diff_utri);
-  utri_cache_init(eik->old_diff_utri);
+  utri_cache_alloc(&eik->diff_utri_cache);
+  utri_cache_init(eik->diff_utri_cache);
 
   array_alloc(&eik->bc_inds);
   array_init(eik->bc_inds, sizeof(size_t), ARRAY_DEFAULT_CAPACITY);
@@ -225,11 +225,11 @@ void eik3_deinit(eik3_s *eik) {
     array_dealloc(&eik->old_utetra);
   }
 
-  utri_cache_deinit(eik->old_bd_utri);
-  utri_cache_dealloc(&eik->old_bd_utri);
+  utri_cache_deinit(eik->bd_utri_cache);
+  utri_cache_dealloc(&eik->bd_utri_cache);
 
-  utri_cache_deinit(eik->old_diff_utri);
-  utri_cache_dealloc(&eik->old_diff_utri);
+  utri_cache_deinit(eik->diff_utri_cache);
+  utri_cache_dealloc(&eik->diff_utri_cache);
 
   array_deinit(eik->bc_inds);
   array_dealloc(&eik->bc_inds);
@@ -833,7 +833,7 @@ static void do_utetra_fan(eik3_s *eik, size_t lhat, size_t l0) {
   for (size_t i = 0; i < array_size(l_diff); ++i) {
     size_t l0;
     array_get(l_diff, i, &l0);
-    do_utris_if(eik, lhat, l0, eik->old_diff_utri, is_diff_edge);
+    do_utris_if(eik, lhat, l0, eik->diff_utri_cache, is_diff_edge);
   }
 
 cleanup:
@@ -858,7 +858,7 @@ static void update(eik3_s *eik, size_t l, size_t l0) {
   /* If `l0` is incident on a diffracting edge, look for corresponding
    * two-point updates to do. Do not do any other types of updates! */
   if (l0_is_on_diff_edge && !l_is_on_diff_edge)
-    do_utris_if(eik, l, l0, eik->old_diff_utri, is_diff_edge);
+    do_utris_if(eik, l, l0, eik->diff_utri_cache, is_diff_edge);
 
   /* Check whether l0 is a boundary vertex */
   bool l0_is_bdv = l0_is_on_diff_edge || mesh3_bdv(eik->mesh, l0);
@@ -867,7 +867,7 @@ static void update(eik3_s *eik, size_t l, size_t l0) {
    * immersed in the boundary. These are updates that can yield
    * "creeping rays". */
   if (l0_is_bdv && mesh3_bdv(eik->mesh, l))
-    do_utris_if(eik, l, l0, eik->old_bd_utri, is_valid_front_bde);
+    do_utris_if(eik, l, l0, eik->bd_utri_cache, is_valid_front_bde);
 
   /* Finally, do the fan of tetrahedron updates. */
   do_utetra_fan(eik, l, l0);
@@ -932,8 +932,8 @@ jmm_error_e eik3_step(eik3_s *eik, size_t *l0) {
 
   /* Purge cached updates to keep the cache size under control */
   purge_utetra(eik->old_utetra, *l0);
-  utri_cache_purge(eik->old_bd_utri, *l0);
-  utri_cache_purge(eik->old_diff_utri, *l0);
+  utri_cache_purge(eik->bd_utri_cache, *l0);
+  utri_cache_purge(eik->diff_utri_cache, *l0);
 
   update_neighbors(eik, *l0);
 
@@ -1027,8 +1027,8 @@ static void reset_nodes(eik3_s *eik, array_s const *l_arr) {
     par3_init_empty(&eik->par[l]);
 
     purge_utetra(eik->old_utetra, l);
-    utri_cache_purge(eik->old_bd_utri, l);
-    utri_cache_purge(eik->old_diff_utri, l);
+    utri_cache_purge(eik->bd_utri_cache, l);
+    utri_cache_purge(eik->diff_utri_cache, l);
   }
 
   unaccept_nodes(eik, l_arr);
@@ -1570,7 +1570,7 @@ static size_t add_next_edge_to_queue(eik3_s *eik, mesh1_s const *diff_mesh,
       continue;
 
     if (array_contains(queue, &ev) ||
-        utri_cache_contains_inds(eik->old_diff_utri, lhat, ev))
+        utri_cache_contains_inds(eik->diff_utri_cache, lhat, ev))
       continue;
 
     array_append(queue, &ev);
@@ -1601,8 +1601,8 @@ static void do_diffractor_updates(eik3_s *eik, mesh1_s const *diff_mesh,
     par3_s par;
 
     /* Do the current triangle update */
-    assert(!utri_cache_contains_inds(eik->old_diff_utri, l, le));
-    do_utri(eik, l, le[0], le[1], eik->old_diff_utri, &par);
+    assert(!utri_cache_contains_inds(eik->diff_utri_cache, l, le));
+    do_utri(eik, l, le[0], le[1], eik->diff_utri_cache, &par);
 
     /* If we managed to update `l`, break early */
     if (isfinite(eik->jet[l].f))
@@ -1792,7 +1792,7 @@ static void do_utri_and_add_inc(eik3_s *eik, mesh2_s const *refl_mesh,
   assert(mesh3_is_diff_edge(mesh, l));
 
   par3_s par;
-  do_utri(eik, lhat, l[0], l[1], eik->old_diff_utri, &par);
+  do_utri(eik, lhat, l[0], l[1], eik->diff_utri_cache, &par);
   assert(!par3_is_empty(&par));
   if (isfinite(eik->jet[lhat].f))
     return;
@@ -1823,7 +1823,7 @@ static void do_utri_and_add_inc(eik3_s *eik, mesh2_s const *refl_mesh,
         continue;
       if (mesh3_is_diff_edge(mesh, ve_)
           && !array_contains(queue, &ve_)
-          && !utri_cache_contains_inds(eik->old_diff_utri, lhat, ve_))
+          && !utri_cache_contains_inds(eik->diff_utri_cache, lhat, ve_))
         array_append(queue, &ve_);
     }
   }
@@ -1842,7 +1842,7 @@ static void add_diff_utri_inc_on_utetra(eik3_s *eik, size_t lhat,
       uint3 le = {le_diff[j][0], le_diff[j][1], (size_t)NO_INDEX};
       SORT_UINT2(le);
       if (!array_contains(queue, &le)
-          && !utri_cache_contains_inds(eik->old_diff_utri, lhat, le))
+          && !utri_cache_contains_inds(eik->diff_utri_cache, lhat, le))
         array_append(queue, &le);
     }
     free(le_diff);
@@ -1877,7 +1877,7 @@ static void do_utetra_and_add_inc(eik3_s *eik, mesh2_s const *refl_mesh,
   if (num_added == 0 && na == 2 && mesh3_is_diff_edge(eik->mesh, la)) {
     uint3 la_ = {la[0], la[1], (size_t)NO_INDEX};
     if (!array_contains(queue, &la_)
-        && !utri_cache_contains_inds(eik->old_diff_utri, lhat, la_))
+        && !utri_cache_contains_inds(eik->diff_utri_cache, lhat, la_))
       array_append(queue, &la_);
   }
 
