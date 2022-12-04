@@ -2532,7 +2532,9 @@ void eik3_get_D2T(eik3_s const *eik, dbl33 *D2T) {
         continue;
 
       dbl33_add_inplace(D2T[cv[i]], D2T_cell[4*lc + i]);
-      ++N[cv[i]]; /* increment number of terms in average */
+
+      /* increment number of terms in average */
+      ++N[cv[i]];
     }
   }
 
