@@ -62,6 +62,7 @@ static bool is_face(uint3 const l) {
  * handle s != later. */
 struct eik3 {
   mesh3_s const *mesh;
+  sfunc_s const *sfunc;
 
   jet31t *jet;
   state_e *state;
@@ -145,8 +146,10 @@ static void setpos(void *ptr, int l, int pos) {
   eik->pos[l] = pos;
 }
 
-void eik3_init(eik3_s *eik, mesh3_s const *mesh) {
+void eik3_init(eik3_s *eik, mesh3_s const *mesh, sfunc_s const *sfunc) {
   eik->mesh = mesh;
+
+  eik->sfunc = sfunc;
 
   size_t nverts = mesh3_nverts(mesh);
 

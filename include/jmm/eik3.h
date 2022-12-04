@@ -10,12 +10,13 @@ extern "C" {
 #include "error.h"
 #include "jet.h"
 #include "par.h"
+#include "slow.h"
 
 // TODO: put functions we want to go in the "public API" here
 
 void eik3_alloc(eik3_s **eik);
 void eik3_dealloc(eik3_s **eik);
-void eik3_init(eik3_s *eik, mesh3_s const *mesh);
+void eik3_init(eik3_s *eik, mesh3_s const *mesh, sfunc_s const *sfunc);
 void eik3_deinit(eik3_s *eik);
 bool eik3_is_initialized(eik3_s const *eik);
 

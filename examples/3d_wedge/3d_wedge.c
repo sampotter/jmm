@@ -56,13 +56,13 @@ jmm_error_e jmm_3d_wedge_problem_init(jmm_3d_wedge_problem_s *wedge,
   size_t nverts = mesh3_nverts(wedge->mesh);
 
   eik3_alloc(&wedge->eik_direct);
-  eik3_init(wedge->eik_direct, wedge->mesh);
+  eik3_init(wedge->eik_direct, wedge->mesh, &SFUNC_CONSTANT);
 
   eik3_alloc(&wedge->eik_o_refl);
-  eik3_init(wedge->eik_o_refl, wedge->mesh);
+  eik3_init(wedge->eik_o_refl, wedge->mesh, &SFUNC_CONSTANT);
 
   eik3_alloc(&wedge->eik_n_refl);
-  eik3_init(wedge->eik_n_refl, wedge->mesh);
+  eik3_init(wedge->eik_n_refl, wedge->mesh, &SFUNC_CONSTANT);
 
   wedge->D2T_direct = malloc(nverts*sizeof(dbl33));
   wedge->D2T_o_refl = malloc(nverts*sizeof(dbl33));

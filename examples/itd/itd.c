@@ -71,7 +71,7 @@ int main(int argc, char const *argv[]) {
   /* Solve the eikonal equation for the left ear */
   eik3_s *eik_L;
   eik3_alloc(&eik_L);
-  eik3_init(eik_L, mesh);
+  eik3_init(eik_L, mesh, &SFUNC_CONSTANT);
   eik3_add_pt_src_bcs(eik_L, xsrc_L, rfac);
   eik3_solve(eik_L);
   eik3_dump_jet(eik_L, "jet_L.bin");
@@ -79,7 +79,7 @@ int main(int argc, char const *argv[]) {
   /* Solve the eikonal equation for the right ear */
   eik3_s *eik_R;
   eik3_alloc(&eik_R);
-  eik3_init(eik_R, mesh);
+  eik3_init(eik_R, mesh, &SFUNC_CONSTANT);
   eik3_add_pt_src_bcs(eik_R, xsrc_R, rfac);
   eik3_solve(eik_R);
   eik3_dump_jet(eik_R, "jet_R.bin");

@@ -38,7 +38,7 @@ static void init(eik3hh_branch_s *branch, eik3hh_s const *hh,
   branch->hh = hh;
 
   eik3_alloc(&branch->eik);
-  eik3_init(branch->eik, mesh);
+  eik3_init(branch->eik, mesh, &SFUNC_CONSTANT);
 
   branch->type = type;
 
