@@ -75,37 +75,6 @@ struct eik3 {
   bool is_initialized;
 };
 
-static char const *state_str[] = {
-  [FAR] = "FAR",
-  [TRIAL] = "TRIAL",
-  [VALID] = "VALID"
-};
-
-static void print_node(eik3_s const *eik, size_t l) {
-  printf("l = %lu: state = %s, T = %.3g, DT = {%.3g, %.3g, %.3g}\n",
-         l, state_str[eik->state[l]], eik->jet[l].f,
-         eik->jet[l].Df[0], eik->jet[l].Df[1], eik->jet[l].Df[2]);
-}
-
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wunused-function"
-static void print_node_and_nbs(eik3_s const *eik, size_t l) {
-  print_node(eik, l);
-
-  size_t nvv = mesh3_nvv(eik->mesh, l);
-  size_t *vv = malloc(nvv*sizeof(size_t));
-  mesh3_vv(eik->mesh, l, vv);
-
-  printf("neighbors:\n");
-  for (size_t i = 0; i < nvv; ++i) {
-    printf("  ");
-    print_node(eik, vv[i]);
-  }
-
-  free(vv);
-}
-#pragma GCC diagnostic pop
-
 void eik3_alloc(eik3_s **eik) {
   *eik = malloc(sizeof(eik3_s));
 
@@ -294,44 +263,10 @@ static void commit_utri(eik3_s *eik, size_t lhat, utri_s const *utri) {
   eik3_set_par(eik, lhat, utri_get_par(utri));
 }
 
-/* Check whether the edge indexed by `l` is:
- *   1) a boundary edge (a mesh edge that's  immersed in the boundary)
- *   2) on the `VALID` front (in this case, since we know that `l[0]`
- *   is newly `VALID`, this means that `l[1]` has at least one
- *   boundary vertex neighbor that's `TRIAL`) */
-static bool is_valid_front_bde(eik3_s const *eik, size_t const l[2]) {
-  mesh3_s const *mesh = eik->mesh;
-
-  if (!mesh3_bde(mesh, l))
-    return false;
-
-  size_t nvv = mesh3_nvv(mesh, l[1]);
-  size_t *vv = malloc(nvv*sizeof(size_t));
-  mesh3_vv(mesh, l[1], vv);
-
-  bool has_trial_nb = false;
-  for (size_t i = 0; i < nvv; ++i) {
-    if (vv[i] != l[0] &&
-        mesh3_bdv(mesh, vv[i]) &&
-        eik->state[vv[i]] == TRIAL) {
-      has_trial_nb = true;
-      break;
-    }
-  }
-
-  free(vv);
-
-  return has_trial_nb;
-}
-
-static bool is_diff_edge(eik3_s const *eik, size_t const l[2]) {
-  return mesh3_is_diff_edge(eik->mesh, l);
-}
-
 static void
 get_valid_inc_edges(eik3_s const *eik, size_t l0, array_s *l1,
                     bool (*pred)(eik3_s const *, size_t const[2])) {
-mesh3_s const *mesh = eik3_get_mesh(eik);
+  mesh3_s const *mesh = eik3_get_mesh(eik);
 
   int nvv = mesh3_nvv(mesh, l0);
   size_t *vv = malloc(nvv*sizeof(size_t));
@@ -577,6 +512,10 @@ static void do_1pt_update(eik3_s *eik, size_t l, size_t l0) {
   adjust(eik, l);
 }
 
+static bool is_diff_edge(eik3_s const *eik, size_t const l[2]) {
+  return mesh3_is_diff_edge(eik->mesh, l);
+}
+
 static void do_utetra_fan(eik3_s *eik, size_t lhat, size_t l0) {
   assert(lhat != l0);
 
@@ -634,6 +573,36 @@ cleanup:
 
   array_deinit(le_arr);
   array_dealloc(&le_arr);
+}
+
+/* Check whether the edge indexed by `l` is:
+ *   1) a boundary edge (a mesh edge that's  immersed in the boundary)
+ *   2) on the `VALID` front (in this case, since we know that `l[0]`
+ *   is newly `VALID`, this means that `l[1]` has at least one
+ *   boundary vertex neighbor that's `TRIAL`) */
+static bool is_valid_front_bde(eik3_s const *eik, size_t const l[2]) {
+  mesh3_s const *mesh = eik->mesh;
+
+  if (!mesh3_bde(mesh, l))
+    return false;
+
+  size_t nvv = mesh3_nvv(mesh, l[1]);
+  size_t *vv = malloc(nvv*sizeof(size_t));
+  mesh3_vv(mesh, l[1], vv);
+
+  bool has_trial_nb = false;
+  for (size_t i = 0; i < nvv; ++i) {
+    if (vv[i] != l[0] &&
+        mesh3_bdv(mesh, vv[i]) &&
+        eik->state[vv[i]] == TRIAL) {
+      has_trial_nb = true;
+      break;
+    }
+  }
+
+  free(vv);
+
+  return has_trial_nb;
 }
 
 static void update(eik3_s *eik, size_t l, size_t l0) {
@@ -2012,73 +1981,10 @@ void eik3_init_org_for_refl(eik3_s const *eik, dbl *org, size_t refl_index,
 }
 
 void eik3_prop_org(eik3_s const *eik, dbl *org) {
-  // mesh3_s const *mesh = eik->mesh;
-
-  // /* Now, transport the origins, skipping already set values */
-  // eik3_transport_dbl(eik, org, true);
-
-  // /* We set `org` to 0.5 for each vertex on a diffracting edge with
-  //  * BCs. */
-  // for (size_t l = 0; l < mesh3_nverts(mesh); ++l)
-  //   if (mesh3_vert_incident_on_diff_edge(mesh, l)
-  //       && array_contains(eik->bc_inds, &l))
-  //     org[l] = 0.5;
-
-  // /* We set `org` to 0.5 for each vertex on a diffracting edge that
-  //  * was updated from a node with an origin equal to 1. */
-  // for (size_t l = 0; l < mesh3_nverts(mesh); ++l) {
-  //   if (!mesh3_vert_incident_on_diff_edge(mesh, l))
-  //     continue;
-
-  //   par3_s const *par = &eik->par[l];
-
-  //   size_t l_active[3];
-  //   size_t num_active = par3_get_active_inds(par, l_active);
-
-  //   for (size_t i = 0; i < num_active; ++i)
-  //     if (org[l_active[i]] == 1)
-  //       org[l] = 0.5;
-  // }
-
   mesh3_s const *mesh = eik->mesh;
   size_t nverts = mesh3_nverts(mesh);
 
   bool *diffracting = calloc(nverts, sizeof(bool));
-
-  // for (size_t l = 0; l < nverts; ++l) {
-  //   if (!isnan(org[l])) continue;
-
-  //   par3_s const *par = &eik->par[l];
-  //   assert(!par3_is_empty(par));
-
-  //   uint3 la;
-  //   dbl3 b;
-  //   size_t na = par3_get_active(par, la, b);
-
-  //   if (na == 1 && mesh3_vert_incident_on_diff_edge(mesh, la[0])) {
-  //     org[la[0]] = 0;
-  //     diffracting[la[0]] = true;
-  //   }
-
-  //   if (na == 2 && mesh3_is_diff_edge(mesh, la)) {
-  //     org[la[0]] = org[la[1]] = 0;
-  //     diffracting[la[0]] = diffracting[la[1]] = true;
-  //   }
-  // }
-
-  // for (size_t l = 0; l < nverts; ++l) {
-  //   if (!mesh3_vert_incident_on_diff_edge(mesh, l))
-  //     continue;
-
-  //   dbl const *DT = &eik->jet[l].Df[0];
-
-  //   if (!mesh3_local_ray_in_vertex_cone(mesh, DT, l))
-  //     continue;
-
-  //   diffracting[l] = true;
-  //   org[l] = 0.0;
-  // }
-
   for (size_t l = 0; l < nverts; ++l) {
     if (mesh3_vert_incident_on_diff_edge(mesh, l)) {
       diffracting[l] = true;
