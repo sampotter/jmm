@@ -18,6 +18,7 @@
 #include <jmm/mesh2.h>
 #include <jmm/mesh3.h>
 #include <jmm/utetra.h>
+#include <jmm/utetra_cache.h>
 #include <jmm/util.h>
 #include <jmm/utri.h>
 #include <jmm/utri_cache.h>
@@ -55,7 +56,7 @@ struct eik3 {
 
   /* In some cases, we'll skip old updates that might be useful at a
    * later stage. We keep track of them here. */
-  array_s *old_utetra;
+  utetra_cache_s *old_utetra;
   utri_cache_s *bd_utri_cache; // old two-point boundary `utri`
   utri_cache_s *diff_utri_cache; // old two-point updates from diff. edges
 
@@ -174,8 +175,8 @@ void eik3_init(eik3_s *eik, mesh3_s const *mesh, sfunc_s const *sfunc) {
   for (size_t i = 0; i < nverts; ++i)
     eik->accepted[i] = (size_t)NO_INDEX;
 
-  array_alloc(&eik->old_utetra);
-  array_init(eik->old_utetra, sizeof(utetra_s *), 16);
+  utetra_cache_alloc(&eik->old_utetra);
+  utetra_cache_init(eik->old_utetra);
 
   utri_cache_alloc(&eik->bd_utri_cache);
   utri_cache_init(eik->bd_utri_cache);
@@ -214,16 +215,8 @@ void eik3_deinit(eik3_s *eik) {
   heap_deinit(eik->heap);
   heap_dealloc(&eik->heap);
 
-  /* release the "old update" data structures */
-  {
-    utetra_s *utetra;
-    for (size_t i = 0; i < array_size(eik->old_utetra); ++i) {
-      array_get(eik->old_utetra, i, &utetra);
-      utetra_dealloc(&utetra);
-    }
-    array_deinit(eik->old_utetra);
-    array_dealloc(&eik->old_utetra);
-  }
+  utetra_cache_deinit(eik->old_utetra);
+  utetra_cache_dealloc(&eik->old_utetra);
 
   utri_cache_deinit(eik->bd_utri_cache);
   utri_cache_dealloc(&eik->bd_utri_cache);
@@ -491,232 +484,34 @@ static void commit_utetra(eik3_s *eik, size_t l, utetra_s const *utetra) {
   eik3_set_par(eik, l, utetra_get_parent(utetra));
 }
 
-static bool
-utetras_bracket_ray_1(utetra_s const *utetra, size_t la,
-                      utetra_s **utetra_other, size_t num_utetra_other) {
-  (void)utetra;
-
-  size_t i_current = 0;
-
-  size_t l_other[2] = {NO_INDEX, NO_INDEX};
-  utetra_get_other_inds(utetra_other[i_current], la, l_other);
-
-  size_t l_start = l_other[0], l_current = l_other[1];
-
-  /* Next, we walk around the ring of utetra until we've visited all
-   * of them... */
-  size_t num_visited = 1;
-  while (num_visited++ < num_utetra_other) {
-    /* Search through the utetra for the one we should step to next */
-    for (size_t i = 0; i < num_utetra_other; ++i) {
-      if (i == i_current)
-        continue;
-
-      utetra_get_other_inds(utetra_other[i], la, l_other);
-      if (l_current != l_other[0] && l_current != l_other[1])
-        continue;
-
-      /* Update l_current and i_current and break */
-      l_current = l_current == l_other[0] ? l_other[1] : l_other[0];
-      i_current = i;
-      break;
-
-      /* TODO: actually check whether these vertices form a ring
-       * around the active index after projecting onto the normal
-       * plane */
-    }
-  }
-
-  /* We're done walking... check if we're back where we started */
-  return l_start == l_current;
-}
-
-static void get_unit_normal_for_verts_by_index(mesh3_s const *mesh,
-                                               uint3 const l, dbl3 n) {
-  dbl3 x0;
-  mesh3_copy_vert(mesh, l[0], x0);
-
-  dbl3 dx[2];
-  for (size_t i = 0; i < 2; ++i)
-    dbl3_sub(mesh3_get_vert_ptr(mesh, l[i + 1]), x0, dx[i]);
-
-  dbl3_cross(dx[0], dx[1], n);
-  dbl3_normalize(n);
-}
-
-static bool
-utetras_bracket_ray_2(eik3_s const *eik, utetra_s const *utetra,
-                      utetra_s **utetra_other, size_t num_utetra_other) {
-  mesh3_s const *mesh = eik->mesh;
-
-  size_t l = utetra_get_l(utetra);
-
-  par3_s par = utetra_get_parent(utetra);
-  uint3 la, li;
-  size_t na = par3_get_active_and_inactive_inds(&par, la, li);
-  assert(na == 2);
-  SORT_UINT3(la);
-  SORT_UINT3(li);
-
-  dbl3 xa, xi;
-  mesh3_copy_vert(mesh, la[0], xa);
-  mesh3_copy_vert(mesh, li[0], xi);
-
-  for (size_t i = 0; i < num_utetra_other; ++i) {
-    assert(l == utetra_get_l(utetra_other[i]));
-
-    par3_s par_ = utetra_get_parent(utetra_other[i]);
-
-    uint3 la_, li_;
-    size_t na_ = par3_get_active_and_inactive_inds(&par_, la_, li_);
-    SORT_UINT3(la_);
-    SORT_UINT3(li_);
-
-    /* Check if both `utetra` have the same active indices */
-    if (na_ != 2 && la_[0] != la[0] && la_[1] != la[1])
-      continue;
-
-    /* Get the unit normal for the plane determined by the update
-     * index and the active edge */
-    dbl3 n;
-    get_unit_normal_for_verts_by_index(mesh, (uint3) {l, la[0], la[1]}, n);
-
-    /* Get the inactive vertex for the current other utetra */
-    dbl3 xi_;
-    mesh3_copy_vert(mesh, li_[0], xi_);
-
-    /* Check whether the two inactive vertices lie on either side of
-     * the plane */
-    dbl n_dot_xa = dbl3_dot(n, xa);
-    dbl dp = dbl3_dot(n, xi) - n_dot_xa;
-    dbl dp_ = dbl3_dot(n, xi_) - n_dot_xa;
-    if (sgn(dp) != sgn(dp_))
-      return true;
-  }
-
-  return false;
-}
-
-static bool
-utetras_bracket_ray(eik3_s const *eik, utetra_s const *utetra,
-                    utetra_s **utetra_other, size_t num_utetra_other) {
-  if (num_utetra_other == 0)
-    return false;
-
-  par3_s par = utetra_get_parent(utetra);
-  uint3 la;
-  size_t na = par3_get_active_inds(&par, la);
-  assert(na == 1 || na == 2);
-
-  if (na == 1)
-    return utetras_bracket_ray_1(utetra, la[0], utetra_other, num_utetra_other);
-  else if (na == 2)
-    return utetras_bracket_ray_2(eik, utetra, utetra_other, num_utetra_other);
-  else
-    assert(false);
-}
-
-
-static utetra_s **
-find_and_delete_cached_utetra(eik3_s *eik, utetra_s const *utetra,
-                              size_t *num_utetra_other) {
-  size_t l = utetra_get_l(utetra);
-
-  /* First, find the indices of the cached utetra which share the same
-   * target node and have the same active indices as `utetra`. */
-  array_s *i_arr;
-  array_alloc(&i_arr);
-  array_init(i_arr, sizeof(size_t), ARRAY_DEFAULT_CAPACITY);
-  for (size_t i = 0; i < array_size(eik->old_utetra); ++i) {
-    utetra_s const *utetra_other;
-    array_get(eik->old_utetra, i, &utetra_other);
-
-    if (l != utetra_get_l(utetra_other))
-      continue;
-
-    if (!utetras_have_same_minimizer(utetra, utetra_other, eik))
-      continue;
-
-    /* Initially just append here so we can check whether we actually
-     * want to return these utetras! */
-    array_append(i_arr, &i);
-  }
-
-  /* Get the pointers to the utetra we found */
-  *num_utetra_other = array_size(i_arr);
-  utetra_s **utetra_found = malloc(*num_utetra_other*sizeof(utetra_s *));
-  for (size_t j = 0, i; j < array_size(i_arr); ++j) {
-    array_get(i_arr, j, &i);
-    array_get(eik->old_utetra, i, &utetra_found[j]);
-    assert(!utetras_have_same_inds(utetra, utetra_found[j]));
-  }
-
-  /* We're good if we've found at least one utetra, and either: 1)
-   * we're dealing with an optimum on the interior of an edge, or 2)
-   * we have an optimum on a corner and we can "walk" the ring of
-   * surrounding utetra */
-  bool found = *num_utetra_other > 0 &&
-    utetras_bracket_ray(eik, utetra, utetra_found, *num_utetra_other);
-  if (found) {
-    array_delete_all(eik->old_utetra, i_arr);
-  } else {
-    free(utetra_found);
-    *num_utetra_other = 0;
-    utetra_found = NULL;
-  }
-
-  array_deinit(i_arr);
-  array_dealloc(&i_arr);
-
-  return utetra_found;
-}
-
-static bool utetra_cached_already(eik3_s const *eik, utetra_s const *utetra) {
-  utetra_s const *utetra_other = NULL;
-  for (size_t i = 0; i < array_size(eik->old_utetra); ++i) {
-    array_get(eik->old_utetra, i, &utetra_other);
-    if (utetras_have_same_inds(utetra, utetra_other))
-      return true;
-  }
-  return false;
-}
-
-static bool did_utetra_already(eik3_s const *eik, size_t lhat, uint3 const l) {
-  for (size_t j = 0; j < array_size(eik->old_utetra); ++j) {
-    utetra_s *utetra;
-    array_get(eik->old_utetra, j, &utetra);
-    if (utetra_has_inds(utetra, lhat, l))
-      return true;
-  }
-  return false;
-}
-
-static bool find_and_do_matched_utetra(eik3_s *eik, size_t lhat,
-                                       utetra_s const *utetra) {
+static bool commit_utetra_if_bracketed(eik3_s *eik, utetra_s const *utetra) {
   size_t num_interior = utetra_get_num_interior_coefs(utetra);
   assert(num_interior == 0 || num_interior == 2);
 
-  size_t num_utetra_other = 0;
-  utetra_s **utetra_other =
-    find_and_delete_cached_utetra(eik, utetra, &num_utetra_other);
-
-  if (!utetra_other) {
-    assert(num_utetra_other == 0);
+  /* See if any cached utetra bracket `utetra` */
+  array_s *bracket = utetra_cache_pop_bracket(eik->old_utetra, utetra);
+  if (bracket == NULL)
     return false;
-  }
 
+  /* Commit the `utetra` if there is a bracket */
+  size_t lhat = utetra_get_l(utetra);
   commit_utetra(eik, lhat, utetra);
   adjust(eik, lhat);
 
-  for (size_t j = 0; j < num_utetra_other; ++j)
-    utetra_dealloc(&utetra_other[j]);
-  free(utetra_other);
+  /* Release all of the utetra in the bracket */
+  for (size_t i = 0; i < array_size(bracket); ++i) {
+    utetra_s *utetra_bracket;
+    array_get(bracket, i, &utetra_bracket);
+    utetra_dealloc(&utetra_bracket);
+  }
+  array_deinit(bracket);
+  array_dealloc(&bracket);
 
   return true;
 }
 
 void do_utetra(eik3_s *eik, size_t lhat, uint3 const l, par3_s *par) {
-  if (did_utetra_already(eik, lhat, l))
+  if (utetra_cache_contains_inds(eik->old_utetra, lhat, l))
     return;
 
   if (par != NULL)
@@ -749,13 +544,11 @@ void do_utetra(eik3_s *eik, size_t lhat, uint3 const l, par3_s *par) {
     goto cleanup;
   }
 
-  if (find_and_do_matched_utetra(eik, lhat, utetra))
+  if (commit_utetra_if_bracketed(eik, utetra))
     goto cleanup;
 
-  if (!utetra_cached_already(eik, utetra)) {
-    array_append(eik->old_utetra, &utetra);
+  if (utetra_cache_try_add_unique(eik->old_utetra, utetra))
     return; /* don't dealloc! */
-  }
 
 cleanup:
   utetra_dealloc(&utetra);
@@ -902,18 +695,6 @@ void update_neighbors(eik3_s *eik, size_t l0) {
   free(nb);
 }
 
-/* Remove tetrahedron updates targeting `l0` from `utetra_cache`. */
-static void purge_utetra(array_s *utetra_cache, size_t l0) {
-  utetra_s *utetra;
-  for (size_t i = array_size(utetra_cache); i > 0; --i) {
-    array_get(utetra_cache, i - 1, &utetra);
-    if (utetra_get_l(utetra) == l0) {
-      utetra_dealloc(&utetra);
-      array_delete(utetra_cache, i - 1);
-    }
-  }
-}
-
 jmm_error_e eik3_step(eik3_s *eik, size_t *l0) {
   /* Get the first node in the heap. It should be `TRIAL`. */
   *l0 = heap_front(eik->heap);
@@ -929,7 +710,7 @@ jmm_error_e eik3_step(eik3_s *eik, size_t *l0) {
   eik->state[*l0] = VALID;
 
   /* Purge cached updates to keep the cache size under control */
-  purge_utetra(eik->old_utetra, *l0);
+  utetra_cache_purge(eik->old_utetra, *l0);
   utri_cache_purge(eik->bd_utri_cache, *l0);
   utri_cache_purge(eik->diff_utri_cache, *l0);
 
@@ -972,7 +753,7 @@ bool eik3_brute_force_remaining(eik3_s *eik) {
     uint3 *vf = malloc(nvf*sizeof(uint3));
     mesh3_vf(eik->mesh, l, vf);
 
-    purge_utetra(eik->old_utetra, l);
+    utetra_cache_purge(eik->old_utetra, l);
 
     for (size_t i = 0; i < nvf; ++i)
       if (eik->state[vf[i][0]] == VALID &&
@@ -1024,7 +805,7 @@ static void reset_nodes(eik3_s *eik, array_s const *l_arr) {
     eik->state[l] = FAR;
     par3_init_empty(&eik->par[l]);
 
-    purge_utetra(eik->old_utetra, l);
+    utetra_cache_purge(eik->old_utetra, l);
     utri_cache_purge(eik->bd_utri_cache, l);
     utri_cache_purge(eik->diff_utri_cache, l);
   }
@@ -1739,7 +1520,7 @@ static bool add_face_to_queue(eik3_s const *eik, mesh2_s const *refl_mesh,
   mesh2_fv(refl_mesh, lf, l);
   SORT3(l[0], l[1], l[2]);
 
-  if (array_contains(queue, &l) || did_utetra_already(eik, lhat, l))
+  if (array_contains(queue, &l) || utetra_cache_contains_inds(eik->old_utetra, lhat, l))
     return false;
 
   array_append(queue, &l);
@@ -1807,7 +1588,8 @@ static void do_utri_and_add_inc(eik3_s *eik, mesh2_s const *refl_mesh,
     uint3 fv;
     mesh2_fv(refl_mesh, vf[i], fv);
     SORT_UINT3(fv);
-    if (!array_contains(queue, &fv) && !did_utetra_already(eik, lhat, fv))
+    if (!array_contains(queue, &fv) &&
+        !utetra_cache_contains_inds(eik->old_utetra, lhat, fv))
       array_append(queue, &fv);
   }
 

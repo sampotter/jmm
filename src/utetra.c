@@ -561,6 +561,138 @@ bool utetra_has_inds(utetra_s const *u, size_t lhat, uint3 const l) {
   return u->lhat == lhat && uint3_equal(u->l, l);
 }
 
+static void get_other_inds(array_s const *utetras, size_t la, size_t i, uint2 l_other) {
+  utetra_s const *utetra_other;
+  array_get(utetras, i, &utetra_other);
+  utetra_get_other_inds(utetra_other, la, l_other);
+}
+
+static bool
+utetras_bracket_ray_1(utetra_s const *utetra, size_t la, array_s const *utetras) {
+  size_t num_utetra_other = array_size(utetras);
+
+  size_t i_current = 0;
+
+  uint2 l_other = {NO_INDEX, NO_INDEX};;
+  get_other_inds(utetras, la, i_current, l_other);
+
+  size_t l_start = l_other[0];
+  size_t l_current = l_other[1];
+
+  /* Next, we walk around the ring of utetra until we've visited all
+   * of them... */
+  size_t num_visited = 1;
+  while (num_visited++ < num_utetra_other) {
+    /* Search through the utetra for the one we should step to next */
+    for (size_t i = 0; i < num_utetra_other; ++i) {
+      if (i == i_current)
+        continue;
+
+      get_other_inds(utetras, la, i, l_other);
+      if (l_current != l_other[0] && l_current != l_other[1])
+        continue;
+
+      /* Update l_current and i_current and break */
+      l_current = l_current == l_other[0] ? l_other[1] : l_other[0];
+      i_current = i;
+      break;
+
+      /* TODO: actually check whether these vertices form a ring
+       * around the active index after projecting onto the normal
+       * plane */
+      (void)utetra;
+    }
+  }
+
+  /* We're done walking... check if we're back where we started */
+  return l_start == l_current;
+}
+
+static void get_unit_normal_for_verts_by_index(mesh3_s const *mesh,
+                                               uint3 const l, dbl3 n) {
+  dbl3 x0;
+  mesh3_copy_vert(mesh, l[0], x0);
+
+  dbl3 dx[2];
+  for (size_t i = 0; i < 2; ++i)
+    dbl3_sub(mesh3_get_vert_ptr(mesh, l[i + 1]), x0, dx[i]);
+
+  dbl3_cross(dx[0], dx[1], n);
+  dbl3_normalize(n);
+}
+
+static bool
+utetras_bracket_ray_2(utetra_s const *utetra, array_s const *utetras) {
+  mesh3_s const *mesh = eik3_get_mesh(utetra->eik);
+
+  size_t l = utetra_get_l(utetra);
+
+  par3_s par = utetra_get_parent(utetra);
+  uint3 la, li;
+  size_t na = par3_get_active_and_inactive_inds(&par, la, li);
+  assert(na == 2);
+  SORT_UINT3(la);
+  SORT_UINT3(li);
+
+  dbl3 xa, xi;
+  mesh3_copy_vert(mesh, la[0], xa);
+  mesh3_copy_vert(mesh, li[0], xi);
+
+  for (size_t i = 0; i < array_size(utetras); ++i) {
+    utetra_s const *utetra_other;
+    array_get(utetras, i, &utetra_other);
+
+    assert(l == utetra_get_l(utetra_other));
+
+    par3_s par_ = utetra_get_parent(utetra_other);
+
+    uint3 la_, li_;
+    size_t na_ = par3_get_active_and_inactive_inds(&par_, la_, li_);
+    SORT_UINT3(la_);
+    SORT_UINT3(li_);
+
+    /* Check if both `utetra` have the same active indices */
+    if (na_ != 2 && la_[0] != la[0] && la_[1] != la[1])
+      continue;
+
+    /* Get the unit normal for the plane determined by the update
+     * index and the active edge */
+    dbl3 n;
+    get_unit_normal_for_verts_by_index(mesh, (uint3) {l, la[0], la[1]}, n);
+
+    /* Get the inactive vertex for the current other utetra */
+    dbl3 xi_;
+    mesh3_copy_vert(mesh, li_[0], xi_);
+
+    /* Check whether the two inactive vertices lie on either side of
+     * the plane */
+    dbl n_dot_xa = dbl3_dot(n, xa);
+    dbl dp = dbl3_dot(n, xi) - n_dot_xa;
+    dbl dp_ = dbl3_dot(n, xi_) - n_dot_xa;
+    if (sgn(dp) != sgn(dp_))
+      return true;
+  }
+
+  return false;
+}
+
+bool utetra_is_bracketed_by_utetras(utetra_s const *utetra, array_s const *utetras) {
+  if (array_is_empty(utetras))
+    return false;
+
+  par3_s par = utetra_get_parent(utetra);
+  uint3 la;
+  size_t na = par3_get_active_inds(&par, la);
+  assert(na == 1 || na == 2);
+
+  if (na == 1)
+    return utetras_bracket_ray_1(utetra, la[0], utetras);
+  else if (na == 2)
+    return utetras_bracket_ray_2(utetra, utetras);
+  else
+    assert(false);
+}
+
 static dbl get_edge_lam(utetra_s const *u, uint2 const le) {
   assert(uint3_contains_uint2(u->l, le));
 
@@ -605,8 +737,9 @@ size_t get_common_inds(uint3 const la1, uint3 const la2, uint3 le) {
   return ne;
 }
 
-bool utetras_have_same_minimizer(utetra_s const *u1, utetra_s const *u2,
-                                 eik3_s const *eik) {
+bool utetras_have_same_minimizer(utetra_s const *u1, utetra_s const *u2) {
+  assert(u1->eik == u2->eik);
+
   uint3 la1, la2;
   size_t na1 = utetra_get_active_inds(u1, la1);
   size_t na2 = utetra_get_active_inds(u2, la2);
@@ -627,7 +760,7 @@ bool utetras_have_same_minimizer(utetra_s const *u1, utetra_s const *u2,
   /* The effective tolerance used to check the closeness of the two
    * minimizers. Its value depends on which indices are active for
    * each tetrahedron update. */
-  dbl edge_tol = mesh3_get_edge_tol(eik3_get_mesh(eik), le);
+  dbl edge_tol = mesh3_get_edge_tol(eik3_get_mesh(u1->eik), le);
   edge_tol = fmax(edge_tol, fmax(u1->tol, u2->tol));
 
   dbl lam1;

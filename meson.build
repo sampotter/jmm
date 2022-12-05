@@ -60,6 +60,7 @@ jmm_lib_src = [
   'src/stats.c',
   'src/triBoxOverlap.c',
   'src/utetra.c',
+  'src/utetra_cache.c',
   'src/utd.c',
   'src/util.c',
   'src/utri.c',

@@ -4,6 +4,7 @@
 extern "C" {
 #endif
 
+#include "array.h"
 #include "common.h"
 #include "geom.h"
 #include "jet.h"
@@ -40,8 +41,9 @@ bool utetra_approx_hess(utetra_s const *u, dbl h, dbl33 hess);
 void utetra_get_other_inds(utetra_s const *utetra, size_t li, size_t l[2]);
 bool utetra_index_is_active(utetra_s const *utetra, size_t l);
 bool utetra_has_inds(utetra_s const *utetra, size_t lhat, uint3 const l);
+bool utetra_is_bracketed_by_utetras(utetra_s const *utetra, array_s const *utetras);
 
-bool utetras_have_same_minimizer(utetra_s const *u1, utetra_s const *u2, eik3_s const *eik);
+bool utetras_have_same_minimizer(utetra_s const *u1, utetra_s const *u2);
 bool utetras_have_same_inds(utetra_s const *u1, utetra_s const *u2);
 
 #if JMM_TEST
