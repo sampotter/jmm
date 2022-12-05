@@ -9,38 +9,11 @@ extern "C" {
 #include "jet.h"
 #include "par.h"
 
-typedef struct utetra_spec {
-  eik3_s const *eik;
-  size_t lhat, l[3];
-  state_e state[3];
-  dbl xhat[3], x[3][3];
-  jet31t jet[3];
-
-  /* Tolerance for SQP iteration. Method has converged if |p| <= tol,
-   * where p is the constrained Newton step at each iteration. */
-  dbl tol;
-} utetra_spec_s;
-
-utetra_spec_s utetra_spec_empty();
-utetra_spec_s utetra_spec_from_eik_and_inds(eik3_s const *eik, size_t l,
-                                            size_t l0, size_t l1, size_t l2);
-utetra_spec_s utetra_spec_from_eik_without_l(eik3_s const *eik, dbl const x[3],
-                                             size_t l0, size_t l1, size_t l2);
-utetra_spec_s utetra_spec_from_ptrs(mesh3_s const *mesh, jet31t const *jet,
-                                    size_t l, size_t l0, size_t l1, size_t l2);
-
-// TODO: we want to create a new module... "utetras"
-// maybe... basically, a complex of utetra updates. There's a bunch of
-// logic related to doing this updates in eik3 that makes eik3's
-// update logic really difficult to follow, but has nothing to do with
-// how we extract an update ray from a set of utetras or how to
-// prioritize them.
-
 typedef struct utetra utetra_s;
 
 void utetra_alloc(utetra_s **cf);
 void utetra_dealloc(utetra_s **cf);
-void utetra_init(utetra_s *u, utetra_spec_s const *spec);
+void utetra_init(utetra_s *u, eik3_s const *eik, size_t lhat, uint3 const l);
 bool utetra_is_degenerate(utetra_s const *u);
 void utetra_solve(utetra_s *cf, dbl const *lam);
 dbl utetra_get_value(utetra_s const *cf);

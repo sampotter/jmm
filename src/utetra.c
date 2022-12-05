@@ -17,93 +17,9 @@
 
 #define MAX_NITER 100
 
-utetra_spec_s utetra_spec_empty() {
-  return (utetra_spec_s) {
-    .eik = NULL,
-    .lhat = (size_t)NO_INDEX,
-    .l = {NO_INDEX, NO_INDEX, NO_INDEX},
-    .state = {UNKNOWN, UNKNOWN, UNKNOWN},
-    .xhat = {NAN, NAN, NAN},
-    .x = {
-      {NAN, NAN, NAN},
-      {NAN, NAN, NAN},
-      {NAN, NAN, NAN}
-    },
-    .jet = {
-      {.f = INFINITY, .Df = {NAN, NAN, NAN}},
-      {.f = INFINITY, .Df = {NAN, NAN, NAN}},
-      {.f = INFINITY, .Df = {NAN, NAN, NAN}}
-    },
-    .tol = NAN
-  };
-}
-
-utetra_spec_s utetra_spec_from_eik_and_inds(eik3_s const *eik, size_t l,
-                                            size_t l0, size_t l1, size_t l2) {
-  state_e const *state = eik3_get_state_ptr(eik);
-  return (utetra_spec_s) {
-    .eik = eik,
-    .lhat = l,
-    .l = {l0, l1, l2},
-    .state = {state[l0], state[l1], state[l2]},
-    .xhat = {NAN, NAN, NAN},
-    .x = {
-      {NAN, NAN, NAN},
-      {NAN, NAN, NAN},
-      {NAN, NAN, NAN}
-    },
-    .jet = {
-      {.f = INFINITY, .Df = {NAN, NAN, NAN}},
-      {.f = INFINITY, .Df = {NAN, NAN, NAN}},
-      {.f = INFINITY, .Df = {NAN, NAN, NAN}}
-    },
-    .tol = mesh3_get_face_tol(eik3_get_mesh(eik), (uint3) {l0, l1, l2})
-  };
-}
-
-utetra_spec_s utetra_spec_from_eik_without_l(eik3_s const *eik, dbl const x[3],
-                                             size_t l0, size_t l1, size_t l2) {
-  state_e const *state = eik3_get_state_ptr(eik);
-  return (utetra_spec_s) {
-    .eik = eik,
-    .lhat = (size_t)NO_INDEX,
-    .l = {l0, l1, l2},
-    .state = {state[l0], state[l1], state[l2]},
-    .xhat = {x[0], x[1], x[2]},
-    .x = {
-      {NAN, NAN, NAN},
-      {NAN, NAN, NAN},
-      {NAN, NAN, NAN}
-    },
-    .jet = {
-      {.f = INFINITY, .Df = {NAN, NAN, NAN}},
-      {.f = INFINITY, .Df = {NAN, NAN, NAN}},
-      {.f = INFINITY, .Df = {NAN, NAN, NAN}}
-    },
-    .tol = mesh3_get_face_tol(eik3_get_mesh(eik), (uint3) {l0, l1, l2})
-  };
-}
-
-utetra_spec_s utetra_spec_from_ptrs(mesh3_s const *mesh, jet31t const *jet,
-                                    size_t l, size_t l0, size_t l1, size_t l2) {
-  utetra_spec_s spec = {
-    .eik = NULL,
-    .lhat = NO_INDEX,
-    .l = {NO_INDEX, NO_INDEX, NO_INDEX},
-    .state = {UNKNOWN, UNKNOWN, UNKNOWN},
-    .jet = {jet[l0], jet[l1], jet[l2]},
-    .tol = mesh3_get_face_tol(mesh, (uint3) {l0, l1, l2})
-  };
-
-  mesh3_copy_vert(mesh, l, spec.xhat);
-  mesh3_copy_vert(mesh, l0, spec.x[0]);
-  mesh3_copy_vert(mesh, l1, spec.x[1]);
-  mesh3_copy_vert(mesh, l2, spec.x[2]);
-
-  return spec;
-}
-
 struct utetra {
+  eik3_s const *eik;
+
   dbl lam[2]; // Current iterate
   dbl f;
   dbl g[2];
@@ -116,10 +32,6 @@ struct utetra {
   int niter;
 
   size_t lhat, l[3];
-
-  /* The state of the vertices of the update base (i.e., `state[i]`
-   * goes with index `l[i]`). */
-  state_e state[3];
 
   dbl x[3]; // x[l]
   dbl X[3][3]; // X = [x[l0] x[l1] x[l2]]
@@ -139,49 +51,10 @@ void utetra_dealloc(utetra_s **utetra) {
   *utetra = NULL;
 }
 
-void utetra_init(utetra_s *u, utetra_spec_s const *spec) {
-  /* First, validate the spec */
+void utetra_init(utetra_s *u, eik3_s const *eik, size_t lhat, uint3 const l) {
+  u->eik = eik;
 
-  // TODO: previously I was returning true or false from this function
-  // to indicate whether the utetra was OK to do. I'm asserting false
-  // now, since I'd like to avoid doing this in this function...
-
-  bool passed_lhat = spec->lhat != (size_t)NO_INDEX;
-  bool passed_l0 = spec->l[0] != (size_t)NO_INDEX;
-  bool passed_l1 = spec->l[1] != (size_t)NO_INDEX;
-  bool passed_l2 = spec->l[2] != (size_t)NO_INDEX;
-  bool passed_l = passed_l0 && passed_l1 && passed_l2;
-
-  bool passed_jet0 = jet31t_is_finite(&spec->jet[0]);
-  bool passed_jet1 = jet31t_is_finite(&spec->jet[1]);
-  bool passed_jet2 = jet31t_is_finite(&spec->jet[2]);
-  bool passed_jet = passed_jet0 && passed_jet1 && passed_jet2;
-  if (passed_jet0 || passed_jet1 || passed_jet2)
-    assert(passed_jet);
-
-  bool passed_xhat = dbl3_isfinite(spec->xhat);
-  assert(passed_lhat ^ passed_xhat); // pass exactly one of these
-
-  if (passed_l0 || passed_l1 || passed_l2)
-    assert(passed_l);
-
-  bool passed_x0 = dbl3_isfinite(spec->x[0]);
-  bool passed_x1 = dbl3_isfinite(spec->x[1]);
-  bool passed_x2 = dbl3_isfinite(spec->x[2]);
-  bool passed_x = passed_x0 && passed_x1 && passed_x2;
-  if (passed_x0 || passed_x1 || passed_x2)
-    assert(passed_x);
-
-  assert(passed_l ^ passed_x); // pass exactly one of these
-
-  bool passed_state0 = spec->state[0] != UNKNOWN;
-  bool passed_state1 = spec->state[1] != UNKNOWN;
-  bool passed_state2 = spec->state[2] != UNKNOWN;
-  bool passed_state = passed_state0 && passed_state1 && passed_state2;
-  if (passed_state0 || passed_state1 || passed_state2)
-    assert(passed_state);
-
-  assert(passed_jet ^ passed_l); // exactly one of these
+  mesh3_s const *mesh = eik3_get_mesh(eik);
 
   /* Initialize f with INFINITY---this needs to be done so that `u`
    * `cmp`s correctly with initialized `utetra` (i.e., if we sort an
@@ -197,40 +70,24 @@ void utetra_init(utetra_s *u, utetra_spec_s const *spec) {
   u->x_minus_xb[0] = u->x_minus_xb[1] = u->x_minus_xb[2] = NAN;
   u->L = NAN;
 
-  u->tol = spec->tol;
+  u->tol = mesh3_get_face_tol(mesh, l);
 
-  mesh3_s const *mesh = spec->eik ? eik3_get_mesh(spec->eik) : NULL;
+  u->lhat = lhat;
 
-  u->lhat = spec->lhat;
+  memcpy(u->l, l, sizeof(size_t[3]));
 
-  /* Initialize x(hat) */
-  if (passed_lhat) {
-    assert(mesh);
-    mesh3_copy_vert(mesh, u->lhat, u->x);
-  } else { // passed_xhat
-    dbl3_copy(spec->xhat, u->x);
-  }
-
-  memcpy(u->l, spec->l, sizeof(size_t[3]));
-
-  if (passed_l)
-    for (size_t i = 0; i < 3; ++i)
-      mesh3_copy_vert(mesh, u->l[i], u->Xt[i]);
-  else  // passed_x
-    for (size_t i = 0; i < 3; ++i)
-      dbl3_copy(spec->x[i], u->Xt[i]);
+  mesh3_copy_vert(mesh, u->lhat, u->x);
+  for (size_t i = 0; i < 3; ++i)
+    mesh3_copy_vert(mesh, u->l[i], u->Xt[i]);
 
   dbl33_transposed(u->Xt, u->X);
   dbl33_mul(u->Xt, u->X, u->XtX);
 
-  memcpy(u->state, spec->state, sizeof(state_e[3]));
-
   /* init jets, depending on how they've been specified */
   jet31t jet[3];
   for (size_t i = 0; i < 3; ++i) {
-    jet[i] = passed_jet ? spec->jet[i] : eik3_get_jet(spec->eik, spec->l[i]);
-    /* none of them should be singular! */
-    assert(jet31t_is_finite(&jet[i]));
+    jet[i] = eik3_get_jet(eik, l[i]);
+    assert(jet31t_is_finite(&jet[i])); /* shouldn't be singular! */
   }
 
   /* Do BB interpolation to set up the coefficients of T. */

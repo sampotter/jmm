@@ -719,14 +719,12 @@ void do_utetra(eik3_s *eik, size_t lhat, uint3 const l, par3_s *par) {
   if (did_utetra_already(eik, lhat, l))
     return;
 
-  utetra_spec_s spec = utetra_spec_from_eik_and_inds(eik, lhat, l[0],l[1],l[2]);
-
   if (par != NULL)
     par3_init_empty(par);
 
   utetra_s *utetra;
   utetra_alloc(&utetra);
-  utetra_init(utetra, &spec);
+  utetra_init(utetra, eik, lhat, l);
 
   if (utetra_is_backwards(utetra, eik))
     goto cleanup;
