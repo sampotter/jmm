@@ -52,4 +52,5 @@ Probably would be good to get rid of `do_diff_edge_updates_and_adjust`.
 
 # JCP revision
 
+- [X] factor out caches
 - [ ] introduce sfunc

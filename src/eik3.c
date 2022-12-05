@@ -56,7 +56,7 @@ struct eik3 {
 
   /* In some cases, we'll skip old updates that might be useful at a
    * later stage. We keep track of them here. */
-  utetra_cache_s *old_utetra;
+  utetra_cache_s *utetra_cache;
   utri_cache_s *bd_utri_cache; // old two-point boundary `utri`
   utri_cache_s *diff_utri_cache; // old two-point updates from diff. edges
 
@@ -175,8 +175,8 @@ void eik3_init(eik3_s *eik, mesh3_s const *mesh, sfunc_s const *sfunc) {
   for (size_t i = 0; i < nverts; ++i)
     eik->accepted[i] = (size_t)NO_INDEX;
 
-  utetra_cache_alloc(&eik->old_utetra);
-  utetra_cache_init(eik->old_utetra);
+  utetra_cache_alloc(&eik->utetra_cache);
+  utetra_cache_init(eik->utetra_cache);
 
   utri_cache_alloc(&eik->bd_utri_cache);
   utri_cache_init(eik->bd_utri_cache);
@@ -215,8 +215,8 @@ void eik3_deinit(eik3_s *eik) {
   heap_deinit(eik->heap);
   heap_dealloc(&eik->heap);
 
-  utetra_cache_deinit(eik->old_utetra);
-  utetra_cache_dealloc(&eik->old_utetra);
+  utetra_cache_deinit(eik->utetra_cache);
+  utetra_cache_dealloc(&eik->utetra_cache);
 
   utri_cache_deinit(eik->bd_utri_cache);
   utri_cache_dealloc(&eik->bd_utri_cache);
@@ -489,7 +489,7 @@ static bool commit_utetra_if_bracketed(eik3_s *eik, utetra_s const *utetra) {
   assert(num_interior == 0 || num_interior == 2);
 
   /* See if any cached utetra bracket `utetra` */
-  array_s *bracket = utetra_cache_pop_bracket(eik->old_utetra, utetra);
+  array_s *bracket = utetra_cache_pop_bracket(eik->utetra_cache, utetra);
   if (bracket == NULL)
     return false;
 
@@ -511,7 +511,7 @@ static bool commit_utetra_if_bracketed(eik3_s *eik, utetra_s const *utetra) {
 }
 
 void do_utetra(eik3_s *eik, size_t lhat, uint3 const l, par3_s *par) {
-  if (utetra_cache_contains_inds(eik->old_utetra, lhat, l))
+  if (utetra_cache_contains_inds(eik->utetra_cache, lhat, l))
     return;
 
   if (par != NULL)
@@ -547,7 +547,7 @@ void do_utetra(eik3_s *eik, size_t lhat, uint3 const l, par3_s *par) {
   if (commit_utetra_if_bracketed(eik, utetra))
     goto cleanup;
 
-  if (utetra_cache_try_add_unique(eik->old_utetra, utetra))
+  if (utetra_cache_try_add_unique(eik->utetra_cache, utetra))
     return; /* don't dealloc! */
 
 cleanup:
@@ -710,7 +710,7 @@ jmm_error_e eik3_step(eik3_s *eik, size_t *l0) {
   eik->state[*l0] = VALID;
 
   /* Purge cached updates to keep the cache size under control */
-  utetra_cache_purge(eik->old_utetra, *l0);
+  utetra_cache_purge(eik->utetra_cache, *l0);
   utri_cache_purge(eik->bd_utri_cache, *l0);
   utri_cache_purge(eik->diff_utri_cache, *l0);
 
@@ -753,7 +753,7 @@ bool eik3_brute_force_remaining(eik3_s *eik) {
     uint3 *vf = malloc(nvf*sizeof(uint3));
     mesh3_vf(eik->mesh, l, vf);
 
-    utetra_cache_purge(eik->old_utetra, l);
+    utetra_cache_purge(eik->utetra_cache, l);
 
     for (size_t i = 0; i < nvf; ++i)
       if (eik->state[vf[i][0]] == VALID &&
@@ -805,7 +805,7 @@ static void reset_nodes(eik3_s *eik, array_s const *l_arr) {
     eik->state[l] = FAR;
     par3_init_empty(&eik->par[l]);
 
-    utetra_cache_purge(eik->old_utetra, l);
+    utetra_cache_purge(eik->utetra_cache, l);
     utri_cache_purge(eik->bd_utri_cache, l);
     utri_cache_purge(eik->diff_utri_cache, l);
   }
@@ -1520,7 +1520,7 @@ static bool add_face_to_queue(eik3_s const *eik, mesh2_s const *refl_mesh,
   mesh2_fv(refl_mesh, lf, l);
   SORT3(l[0], l[1], l[2]);
 
-  if (array_contains(queue, &l) || utetra_cache_contains_inds(eik->old_utetra, lhat, l))
+  if (array_contains(queue, &l) || utetra_cache_contains_inds(eik->utetra_cache, lhat, l))
     return false;
 
   array_append(queue, &l);
@@ -1589,7 +1589,7 @@ static void do_utri_and_add_inc(eik3_s *eik, mesh2_s const *refl_mesh,
     mesh2_fv(refl_mesh, vf[i], fv);
     SORT_UINT3(fv);
     if (!array_contains(queue, &fv) &&
-        !utetra_cache_contains_inds(eik->old_utetra, lhat, fv))
+        !utetra_cache_contains_inds(eik->utetra_cache, lhat, fv))
       array_append(queue, &fv);
   }
 
