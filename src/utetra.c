@@ -106,7 +106,7 @@ bool utetra_is_degenerate(utetra_s const *u) {
   return points_are_coplanar(x);
 }
 
-static void set_lambda(utetra_s *cf, dbl const lam[2]) {
+static void set_lambda_stype_constant(utetra_s *cf, dbl const lam[2]) {
   // TODO: question... would it make more sense to use different
   // vectors for a1 and a2? This choice seems to result in a lot of
   // numerical instability. For now I'm fixing this by replacing sums
@@ -201,6 +201,16 @@ static void set_lambda(utetra_s *cf, dbl const lam[2]) {
   dbl2_sub(qp.x, lam, cf->p);
 }
 
+static void set_lambda(utetra_s *utetra, dbl2 const lam) {
+  switch(eik3_get_stype(utetra->eik)) {
+  case STYPE_CONSTANT:
+    set_lambda_stype_constant(utetra, lam);
+    break;
+  default:
+    assert(false);
+  }
+}
+
 static void step(utetra_s *cf) {
   dbl const atol = 1e-15, c1 = 1e-4;
 
@@ -257,14 +267,24 @@ dbl utetra_get_value(utetra_s const *cf) {
   return cf->f;
 }
 
-void utetra_get_t(utetra_s const *u, dbl t[3]) {
-  dbl3_normalized(u->x_minus_xb, t);
+void get_that_stype_constant(utetra_s const *u, dbl that[3]) {
+  dbl3_normalized(u->x_minus_xb, that);
+}
+
+static void get_that(utetra_s const *u, dbl that[3]) {
+  switch(eik3_get_stype(u->eik)) {
+  case STYPE_CONSTANT:
+    get_that_stype_constant(u, that);
+    break;
+  default:
+    assert(false);
+  }
 }
 
 void utetra_get_jet31t(utetra_s const *cf, jet31t *jet) {
   jet->f = cf->f;
 
-  utetra_get_t(cf, jet->Df);
+  get_that(cf, jet->Df);
 }
 
 /**

@@ -28,7 +28,6 @@ int utetra_get_num_interior_coefs(utetra_s const *utetra);
 size_t utetra_get_l(utetra_s const *utetra);
 size_t utetra_get_active_inds(utetra_s const *utetra, size_t l[3]);
 par3_s utetra_get_parent(utetra_s const *utetra);
-void utetra_get_t(utetra_s const *u, dbl t[3]);
 dbl utetra_get_L(utetra_s const *u);
 void utetra_get_other_inds(utetra_s const *utetra, size_t li, size_t l[2]);
 bool utetra_index_is_active(utetra_s const *utetra, size_t l);
