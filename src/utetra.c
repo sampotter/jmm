@@ -338,61 +338,6 @@ bool utetra_is_backwards(utetra_s const *utetra, eik3_s const *eik) {
   return false;
 }
 
-bool utetra_ray_start_in_update_cone(utetra_s const *utetra, eik3_s const *eik){
-  mesh3_s const *mesh = eik3_get_mesh(eik);
-
-  dbl3 xhat;
-  mesh3_copy_vert(mesh, utetra->lhat, xhat);
-
-  dbl3 xlam;
-  utetra_get_x(utetra, xlam);
-
-  dbl3 tlam;
-  dbl3_sub(xhat, xlam, tlam);
-  dbl3_normalize(tlam);
-
-  jet31t const *jet = eik3_get_jet_ptr(eik);
-
-  dbl33 T;
-  for (size_t i = 0; i < 3; ++i)
-    dbl33_set_column(T, i, jet[utetra->l[i]].Df);
-
-  dbl3 alpha;
-  dbl33_dbl3_solve(T, tlam, alpha);
-
-  return dbl3_minimum(alpha) > -1e-15;
-}
-
-int utetra_cmp(utetra_s const **h1, utetra_s const **h2) {
-  utetra_s const *u1 = *h1;
-  utetra_s const *u2 = *h2;
-  if (u1 == NULL && u2 == NULL) {
-    return 0;
-  } else if (u2 == NULL) {
-    return -1;
-  } else if (u1 == NULL) {
-    return 1;
-  } else {
-    dbl f1 = utetra_get_value(u1), f2 = utetra_get_value(u2);
-    if (f1 < f2) {
-      return -1;
-    } else if (f1 > f2) {
-      return 1;
-    } else {
-      return 0;
-    }
-  }
-}
-
-bool utetra_adj_are_optimal(utetra_s const *u1, utetra_s const *u2) {
-  dbl const atol = 1e-15;
-
-  return fabs(u1->lam[0] - u2->lam[0]) <= atol
-    && fabs(u1->lam[1]) <= atol
-    && fabs(u2->lam[1]) <= atol
-    && fabs(utetra_get_value(u1) - utetra_get_value(u2)) <= atol;
-}
-
 #if JMM_DEBUG
 static bool update_inds_are_set(utetra_s const *utetra) {
   return !(
@@ -431,14 +376,6 @@ size_t utetra_get_l(utetra_s const *utetra) {
   return utetra->lhat;
 }
 
-void utetra_get_update_inds(utetra_s const *utetra, size_t l[3]) {
-  memcpy(l, utetra->l, sizeof(size_t[3]));
-}
-
-void utetra_set_update_inds(utetra_s *utetra, size_t const l[3]) {
-  memcpy(utetra->l, l, sizeof(size_t[3]));
-}
-
 /* Get the triangle of `u`. If `u` is split, this does *not* return
  * the triangle of the split updates (since that would not be
  * well-defined!). */
@@ -446,24 +383,6 @@ static tri3 get_tri(utetra_s const *u) {
   tri3 tri;
   memcpy(tri.v, u->Xt, sizeof(dbl[3][3]));
   return tri;
-}
-
-/**
- * Check whether the optimum of `u` is incident on the base of
- * `u_other`.
- */
-bool utetra_opt_inc_on_other_utetra(utetra_s const *u, utetra_s const *u_other) {
-  dbl const atol = 1e-14;
-  dbl xb[3];
-  utetra_get_x(u, xb);
-  tri3 tri = get_tri(u_other);
-  return tri3_dist(&tri, xb) < atol;
-}
-
-void utetra_get_x(utetra_s const *u, dbl x[3]) {
-  dbl b[3];
-  get_b(u, b);
-  dbl33_dbl3_mul(u->X, b, x);
 }
 
 size_t utetra_get_active_inds(utetra_s const *utetra, uint3 la) {
@@ -490,48 +409,6 @@ par3_s utetra_get_parent(utetra_s const *utetra) {
   assert(dbl3_valid_bary_coord(par.b));
   memcpy(par.l, utetra->l, sizeof(size_t[3]));
   return par;
-}
-
-bool utetra_approx_hess(utetra_s const *u, dbl h, dbl33 hess) {
-  dbl const atol = 1e-14;
-
-  if (h < atol)
-    return false;
-
-  utetra_s u_ = *u;
-
-  dbl dx[3], t[3], lam[2] = {u->lam[0], u->lam[1]};
-
-  dbl33_zero(hess);
-
-  /* Approximate the Hessian using central differences. For each i,
-   * compute (t(x + h*e_i) - t(x - h*e_i))/(2*h) and store in the ith
-   * row of hess */
-  for (size_t i = 0; i < 3; ++i) {
-    dbl3_zero(dx);
-
-    /* Compute t(x + h*e_i) */
-    dx[i] = h;
-    dbl3_add(u->x, dx, u_.x);
-    utetra_solve(&u_, lam);
-    utetra_get_t(&u_, t);
-    dbl3_add_inplace(hess[i], t);
-
-    /* Compute t(x - h*e_i) */
-    dx[i] = -h;
-    dbl3_add(u->x, dx, u_.x);
-    utetra_solve(&u_, lam);
-    utetra_get_t(&u_, t);
-    dbl3_sub_inplace(hess[i], t);
-
-    /* Set H[i, :] = (t(x + h*e_i) - t(x - h*e_i))/(2*h) */
-    dbl3_dbl_div_inplace(hess[i], 2*h);
-  }
-
-  /* Make sure the Hessian is symmetric */
-  dbl33_symmetrize(hess);
-
-  return true;
 }
 
 void utetra_get_other_inds(utetra_s const *utetra, size_t li, size_t l[2]) {
