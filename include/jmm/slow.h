@@ -12,19 +12,19 @@ extern "C" {
  * just the function values are provided on a grid, etc.).
  */
 typedef enum stype {
-  CONSTANT,
-  JET31T,
-  NUM_STYPE
+  STYPE_CONSTANT,
+  STYPE_JET31T,
+  STYPE_NUM_STYPE
 } stype_e;
 
 typedef struct sfunc {
   stype_e stype;
   union {
-    jet31t s_jet31t;
+    jet31t *data_jet31t;
   };
 } sfunc_s;
 
-static sfunc_s const SFUNC_CONSTANT = {.stype = CONSTANT};
+static sfunc_s const SFUNC_CONSTANT = {.stype = STYPE_CONSTANT};
 
 #ifdef __cplusplus
 }
