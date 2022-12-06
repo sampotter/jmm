@@ -13,6 +13,8 @@
 #include <jmm/slerp.h>
 
 struct utri {
+  eik3_s const *eik;
+
   dbl lam;
   dbl f;
   dbl Df;
@@ -36,7 +38,7 @@ void utri_dealloc(utri_s **utri) {
   *utri = NULL;
 }
 
-static void set_lambda(utri_s *utri, dbl lam) {
+static void set_lambda_stype_constant(utri_s *utri, dbl lam) {
   utri->lam = lam;
 
   dbl xb[3];
@@ -55,6 +57,16 @@ static void set_lambda(utri_s *utri, dbl lam) {
   dbl dT_dlam = bb31_df(&utri->T, b, a);
 
   utri->Df = dT_dlam + dL_dlam;
+}
+
+static void set_lambda(utri_s *utri, dbl lam) {
+  switch(eik3_get_stype(utri->eik)) {
+  case STYPE_CONSTANT:
+    set_lambda_stype_constant(utri, lam);
+    break;
+  default:
+    assert(false);
+  }
 }
 
 static dbl hybrid_f(dbl lam, utri_s *utri) {
@@ -113,6 +125,8 @@ rotate_jet_for_diffraction(mesh3_s const *mesh,
 }
 
 void utri_init(utri_s *u, eik3_s const *eik, size_t lhat, size_t const l[2]) {
+  u->eik = eik;
+
   mesh3_s const *mesh = eik3_get_mesh(eik);
 
   /* Initialize `u` */
