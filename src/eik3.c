@@ -1055,6 +1055,14 @@ void eik3_resolve_downwind_from_diff(eik3_s *eik, size_t diff_index, dbl rfac) {
   array_dealloc(&l_diff);
 }
 
+stype_e eik3_get_stype(eik3_s const *eik) {
+  return eik->sfunc->stype;
+}
+
+sfunc_s const *eik3_get_s(eik3_s const *eik) {
+  return eik->sfunc;
+}
+
 void eik3_add_trial(eik3_s *eik, size_t l, jet31t jet) {
   if (eik->state[l] == VALID) {
     log_warn("failed to add TRIAL node %lu (already VALID)", l);
