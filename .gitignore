@@ -49,4 +49,5 @@ jmm.c
 scratch
 src/jmm/*.c
 srcs
+subprojects/tetgen
 vgcore.*
