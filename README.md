@@ -7,11 +7,21 @@ This is a C library implementing a variety of *jet marching methods*
 
 ## Building
 
-This library can be built in the usual way with [Meson](https://mesonbuild.com/) or [CMake](https://cmake.org/).
+This library can be built using [Meson](https://mesonbuild.com/).
 
-Initially only CMake was supported, but we are switching to use Meson as the primary build system. The only `CMakeLists.txt` files will be kept for now.
+To build, run the following:
 
-The library currently depends on a fork of [TetGen](https://github.com/sampotter/tetgen), which we maintain. If you're using Meson to build libjmm, this dependency will be picked up automatically, and there is nothing extra that needs to be done. For CMake, you must clone a copy of this repository to `./subprojects/tetgen`.
+``` sh
+git clone https://github.com/sampotter/jmm
+cd jmm
+meson configure --warnlevel=3 --werror --buildtype=release builddir
+cd builddir
+meson compile
+```
+
+## Dependencies
+
+The library currently depends on a fork of [TetGen](https://github.com/sampotter/tetgen), which we maintain. This dependency will be picked up and built automatically by Meson.
 
 ## Documentation
 
