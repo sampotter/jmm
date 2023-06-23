@@ -1,6 +1,6 @@
 project(
   'jmm',
-  'c', 'cpp',
+  'c', 'cpp', 'cython',
   license : 'BSD-3-Clause',
   meson_version : '>=0.62.2',
   version : '0.1.1',
@@ -83,3 +83,4 @@ jmm_lib = library(
 jmm_dep = declare_dependency(link_with : jmm_lib, include_directories : jmm_inc)
 
 subdir('examples')
+subdir('wrappers')
