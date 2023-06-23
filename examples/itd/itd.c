@@ -30,7 +30,7 @@ int main(int argc, char const *argv[]) {
   bool verbose = true;
   dbl c = 340.3e3; // mm/s
 
-  size_t num_el = atoi(argv[1]);;
+  size_t num_el = atoi(argv[1]);
   size_t num_az = 2*num_el;
   dbl r_grid = 500; // mm
 
