@@ -123,9 +123,6 @@ int main(int argc, char *argv[]) {
   mesh3_alloc(&mesh);
   mesh3_init(mesh, &data, true, &eps);
 
-  mesh3_dump_verts(mesh, "verts.bin");
-  mesh3_dump_cells(mesh, "cells.bin");
-
   if (!mesh3_contains_ball(mesh, spec.xsrc, spec.rfac)) {
     fprintf(stderr, "ERROR: mesh doesn't fully contain factoring ball\n");
     code = EXIT_FAILURE;
