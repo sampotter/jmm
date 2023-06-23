@@ -389,6 +389,12 @@ void dbl33_saxpy(dbl a, dbl33 const X, dbl33 const Y, dbl33 Z) {
       Z[i][j] = a*X[i][j] + Y[i][j];
 }
 
+void dbl33_saxpy_inplace(dbl a, dbl33 const X, dbl33 Y) {
+  for (size_t i = 0; i < 3; ++i)
+    for (size_t j = 0; j < 3; ++j)
+      Y[i][j] += a*X[i][j];
+}
+
 void dbl33_set_column(dbl33 A, int i, dbl3 const x) {
   A[0][i] = x[0];
   A[1][i] = x[1];

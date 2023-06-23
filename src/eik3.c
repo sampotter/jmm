@@ -17,6 +17,7 @@
 #include <jmm/mesh1.h>
 #include <jmm/mesh2.h>
 #include <jmm/mesh3.h>
+#include <jmm/uline.h>
 #include <jmm/utetra.h>
 #include <jmm/utetra_cache.h>
 #include <jmm/util.h>
@@ -370,6 +371,60 @@ static void do_utris_if(eik3_s *eik, size_t l, size_t l0, utri_cache_s *utri_cac
 
 /** Functions for `do_freespace_utetra`: */
 
+static bool face_is_on_valid_front(eik3_s const *eik, uint3 const lf) {
+  mesh3_s const *mesh = eik3_get_mesh(eik);
+
+  /* If there's only one incident cell, `lf` isn't on the front */
+  size_t nfc = mesh3_nfc(mesh, lf);
+  if (nfc == 1)
+    return false;
+
+  size_t fc[2];
+  mesh3_fc(mesh, lf, fc);
+
+  state_e state[2][4];
+  for (size_t i = 0; i < 2; ++i) {
+    size_t cv[4];
+    mesh3_cv(mesh, fc[i], cv);
+    for (size_t j = 0; j < 4; ++j)
+      state[i][j] = eik->state[cv[j]];
+  }
+
+  size_t num_valid[2] = {0, 0};
+  for (size_t i = 0; i < 2; ++i)
+    for (size_t j = 0; j < 4; ++j)
+      num_valid[i] += state[i][j] == VALID;
+
+  assert(num_valid[0] >= 3);
+  assert(num_valid[1] >= 3);
+
+  state_e other_state[2] = {VALID, VALID};
+  for (size_t i = 0; i < 2; ++i)
+    for (size_t j = 0; j < 4; ++j)
+      if (state[i][j] != VALID)
+        other_state[i] = state[i][j];
+
+  assert(other_state[0] == TRIAL || other_state[0] == VALID);
+  assert(other_state[1] == TRIAL || other_state[1] == VALID);
+
+  if (num_valid[0] == 4 && num_valid[1] == 4)
+    return false;
+
+  if (num_valid[0] == 3 && num_valid[1] == 3)
+    return false;
+
+  if (num_valid[0] == 3 && other_state[0] == TRIAL &&
+      num_valid[1] == 4 && other_state[1] == VALID)
+    return true;
+
+  if (num_valid[0] == 4 && other_state[0] == VALID &&
+      num_valid[1] == 3 && other_state[1] == TRIAL)
+    return true;
+
+  // TODO: handle some weird case?
+  assert(false);
+}
+
 static void get_update_fan(eik3_s const *eik, size_t l0, array_s *l_arr) {
   /* Find all of the cells incident on `l0` */
   size_t nvc = mesh3_nvc(eik->mesh, l0);
@@ -397,6 +452,11 @@ static void get_update_fan(eik3_s const *eik, size_t l0, array_s *l_arr) {
       if (l_valid[j] != l0)
         l[k++] = l_valid[j];
     SORT2(l[0], l[1]);
+
+    /* Check if this face is *actually* on the VALID front */
+    size_t lf[3] = {l0, l[0], l[1]};
+    if (!face_is_on_valid_front(eik, lf))
+      continue;
 
     if (array_contains(l_arr, &l))
       continue;
@@ -490,16 +550,12 @@ cleanup:
 }
 
 static void do_1pt_update(eik3_s *eik, size_t l, size_t l0) {
-  mesh3_s const *mesh = eik->mesh;
+  uline_s *u;
+  uline_alloc(&u);
+  uline_init(u, eik, l, l0);
+  uline_solve(u);
 
-  dbl3 x, x0;
-  mesh3_copy_vert(mesh, l, x);
-  mesh3_copy_vert(mesh, l0, x0);
-
-  jet31t jet;
-  dbl3_sub(x, x0, jet.Df);
-  jet.f = eik->jet[l0].f + dbl3_normalize(jet.Df);
-
+  jet31t jet = uline_get_jet(u);
   if (jet.f >= eik->jet[l].f)
     return;
 
@@ -617,8 +673,9 @@ static void update(eik3_s *eik, size_t l, size_t l0) {
 
   /* If `l0` is incident on a diffracting edge, look for corresponding
    * two-point updates to do. Do not do any other types of updates! */
-  if (l0_is_on_diff_edge && !l_is_on_diff_edge)
+  if (l0_is_on_diff_edge && !l_is_on_diff_edge) {
     do_utris_if(eik, l, l0, eik->diff_utri_cache, is_diff_edge);
+  }
 
   /* Check whether l0 is a boundary vertex */
   bool l0_is_bdv = l0_is_on_diff_edge || mesh3_bdv(eik->mesh, l0);
@@ -626,8 +683,9 @@ static void update(eik3_s *eik, size_t l, size_t l0) {
   /* If `l` is a boundary point, do two-point updates that are
    * immersed in the boundary. These are updates that can yield
    * "creeping rays". */
-  if (l0_is_bdv && mesh3_bdv(eik->mesh, l))
+  if (l0_is_bdv && mesh3_bdv(eik->mesh, l)) {
     do_utris_if(eik, l, l0, eik->bd_utri_cache, is_valid_front_bde);
+  }
 
   /* Finally, do the fan of tetrahedron updates. */
   do_utetra_fan(eik, l, l0);
@@ -1059,7 +1117,7 @@ stype_e eik3_get_stype(eik3_s const *eik) {
   return eik->sfunc->stype;
 }
 
-sfunc_s const *eik3_get_s(eik3_s const *eik) {
+sfunc_s const *eik3_get_sfunc(eik3_s const *eik) {
   return eik->sfunc;
 }
 

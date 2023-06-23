@@ -1432,11 +1432,17 @@ int mesh3_nfc(mesh3_s const *mesh, size_t const f[3]) {
   return nfc;
 }
 
-void mesh3_fc(mesh3_s const *mesh, size_t const f[3], size_t *fc) {
+void mesh3_fc(mesh3_s const *mesh, size_t const f[3], uint2 fc) {
+  fc[0] = fc[1] = (size_t)NO_INDEX;
+
+  /* Find all of the cells which are incident on one of the faces */
   int nvc = mesh3_nvc(mesh, f[0]);
   size_t *vc = malloc(nvc*sizeof(size_t)), cv[4];
   mesh3_vc(mesh, f[0], vc);
 
+  /* Iterate over each cell, accumulating the cells which contain the
+     target face `f`. There can be at most two of these. If there's
+     only one, the face is a boundary face. */
   int nfc = 0;
   for (int i = 0; i < nvc; ++i) {
     mesh3_cv(mesh, vc[i], cv);
@@ -1844,9 +1850,16 @@ bool mesh3_local_ray_is_occluded(mesh3_s const *mesh, size_t lhat, par3_s const 
     dbl3 xproj;
     dbl3_saxpy(dbl3_dot(te, xhat) - dbl3_dot(te, x[0]), te, x[0], xproj);
 
+    /* When we compute t, if xhat == xproj, then xhat lies on the line
+     * spanned by x1 - x0. So, we can just use te for t. */
     dbl3 t;
     dbl3_sub(xhat, xproj, t);
-    dbl3_normalize(t);
+    dbl t_norm = dbl3_norm(t);
+    if (t_norm == 0) {
+      dbl3_copy(te, t);
+    } else {
+      dbl3_dbl_div_inplace(t, t_norm);
+    }
 
     ray_start_is_feasible = !mesh3_ray_prop_from_edge_is_occluded(mesh, t, l_active);
   }
@@ -2188,12 +2201,13 @@ void mesh3_get_face_normal(mesh3_s const *mesh, size_t const lf[3], dbl normal[3
 
   // Get the cell which `lf` is incident on. There should only be one...
   assert(mesh3_nfc(mesh, lf) == 1);
-  size_t lc;
-  mesh3_fc(mesh, lf, &lc);
+  size_t lc[2];
+  mesh3_fc(mesh, lf, lc);
+  assert(lc[1] == (size_t)NO_INDEX);
 
   // Get the cell vertex which isn't one of the face vertices
   size_t l3;
-  assert(mesh3_cfv(mesh, lc, lf, &l3));
+  assert(mesh3_cfv(mesh, lc[0], lf, &l3));
 
   dbl const *x3 = mesh3_get_vert_ptr(mesh, l3);
   dbl dx3[3]; dbl3_sub(x3, x0, dx3);
@@ -2410,6 +2424,24 @@ dbl mesh3_diam_2approx_rand(mesh3_s const *mesh, size_t trials, size_t const *se
 
 dbl mesh3_get_diam(mesh3_s const *mesh) {
   return mesh->diam;
+}
+
+dbl mesh3_get_vertex_tol(mesh3_s const *mesh, size_t lv) {
+  size_t nvv = mesh3_nvv(mesh, lv);
+  size_t *vv = malloc(nvv*sizeof(size_t));
+  mesh3_vv(mesh, lv, vv);
+
+  dbl hmin = INFINITY;
+  for (size_t i = 0; i < nvv; ++i) {
+    dbl h = dbl3_dist(mesh->verts[lv], mesh->verts[vv[i]]);
+    hmin = fmin(hmin, h);
+  }
+
+  free(vv);
+
+  dbl tol = pow(hmin/mesh->diam, 2);
+
+  return tol;
 }
 
 dbl mesh3_get_edge_tol(mesh3_s const *mesh, uint2 const le) {

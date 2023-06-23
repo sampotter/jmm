@@ -59,6 +59,7 @@ jmm_lib_src = [
   'src/solve_cubic.c',
   'src/stats.c',
   'src/triBoxOverlap.c',
+  'src/uline.c',
   'src/utetra.c',
   'src/utetra_cache.c',
   'src/utd.c',

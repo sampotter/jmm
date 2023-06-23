@@ -55,6 +55,7 @@ void dbl33_mul(dbl33 const A, dbl33 const B, dbl33 C);
 void dbl33_conj(dbl33 const A, dbl33 const B, dbl33 C);
 void dbl33_nan(dbl33 A);
 void dbl33_saxpy(dbl a, dbl33 const X, dbl33 const Y, dbl33 Z);
+void dbl33_saxpy_inplace(dbl a, dbl33 const X, dbl33 Y);
 void dbl33_set_column(dbl33 A, int i, dbl3 const a);
 void dbl33_sub(dbl33 const A, dbl33 const B, dbl33 C);
 void dbl33_sub_inplace(dbl33 A, dbl33 const B);

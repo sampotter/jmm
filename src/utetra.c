@@ -11,8 +11,10 @@
 #include <jmm/mat.h>
 #include <jmm/mesh3.h>
 #include <jmm/opt.h>
+#include <jmm/uline.h>
 #include <jmm/util.h>
 
+#include "log.h"
 #include "macros.h"
 
 #define MAX_NITER 100
@@ -20,16 +22,29 @@
 struct utetra {
   eik3_s const *eik;
 
+  stype_e stype;
+  sfunc_s const *sfunc;
+
   dbl lam[2]; // Current iterate
   dbl f;
   dbl g[2];
   dbl H[2][2];
   dbl p[2]; // Newton step
+  dbl3 xb;
   dbl x_minus_xb[3];
   dbl L;
+  dbl3 topt;
 
   dbl tol;
   int niter;
+
+  /* The cell index of the *valid* cell we use to approximate T. This
+   * cell is inside the valid front. */
+  size_t T_lc;
+
+  /* TODO: we'll eventually want to use this for stype ==
+   * JET31T... but we're not there yet... */
+  size_t s_lc;
 
   size_t lhat, l[3];
 
@@ -51,8 +66,68 @@ void utetra_dealloc(utetra_s **utetra) {
   *utetra = NULL;
 }
 
+static void set_s_and_T_cell_inds(utetra_s *u) {
+  static int CALL_NUMBER = 0;
+
+  if (u->stype == STYPE_CONSTANT)
+    return;
+
+  mesh3_s const *mesh = eik3_get_mesh(u->eik);
+
+  u->s_lc = (size_t)NO_INDEX;
+  u->T_lc = (size_t)NO_INDEX;
+
+  uint2 fc;
+  mesh3_fc(mesh, u->l, fc);
+  assert(fc[0] != (size_t)NO_INDEX && fc[1] != (size_t)NO_INDEX);
+
+  for (size_t i = 0; i < 2; ++i) {
+    if (fc[i] == (size_t)NO_INDEX)
+      break;
+
+    uint4 cv;
+    mesh3_cv(mesh, fc[i], cv);
+
+    bool all_valid = true;
+    for (size_t j = 0; j < 4; ++j)
+      all_valid = all_valid && eik3_is_valid(u->eik, cv[j]);
+
+    if (all_valid) {
+      u->T_lc = fc[i];
+
+      if (u->stype == STYPE_JET31T)
+        u->s_lc = fc[1 - i];
+
+      break;
+    }
+  }
+
+  if (u->stype == STYPE_JET31T)
+    assert(u->s_lc != (size_t)NO_INDEX);
+
+  assert(u->T_lc != (size_t)NO_INDEX);
+
+#if JMM_DEBUG
+  uint4 cv;
+  mesh3_cv(eik->mesh, *s_lc, cv);
+
+  size_t num_valid = 0, num_trial = 0;
+  for (size_t i = 0; i < 4; ++i) {
+    num_valid += eik3_is_valid(eik, cv[i]);
+    num_trial ++ eik3_is_trial(eik, cv[i]);
+  }
+
+  assert(num_valid == 3);
+  assert(num_trial == 1);
+#endif
+
+  ++CALL_NUMBER;
+}
+
 void utetra_init(utetra_s *u, eik3_s const *eik, size_t lhat, uint3 const l) {
   u->eik = eik;
+  u->stype = eik3_get_stype(u->eik);
+  u->sfunc = eik3_get_sfunc(u->eik);
 
   mesh3_s const *mesh = eik3_get_mesh(eik);
 
@@ -67,14 +142,17 @@ void utetra_init(utetra_s *u, eik3_s const *eik, size_t lhat, uint3 const l) {
   u->g[0] = u->g[1] = NAN;
   u->H[0][0] = u->H[1][0] = u->H[0][1] = u->H[1][1] = NAN;
   u->p[0] = u->p[1] = NAN;
+  u->xb[0] = u->xb[1] = u->xb[2] = NAN;
   u->x_minus_xb[0] = u->x_minus_xb[1] = u->x_minus_xb[2] = NAN;
   u->L = NAN;
+  dbl3_nan(u->topt);
 
   u->tol = mesh3_get_face_tol(mesh, l);
 
   u->lhat = lhat;
-
   memcpy(u->l, l, sizeof(size_t[3]));
+
+  set_s_and_T_cell_inds(u);
 
   mesh3_copy_vert(mesh, u->lhat, u->x);
   for (size_t i = 0; i < 3; ++i)
@@ -106,133 +184,648 @@ bool utetra_is_degenerate(utetra_s const *u) {
   return points_are_coplanar(x);
 }
 
-static void set_lambda_stype_constant(utetra_s *cf, dbl const lam[2]) {
-  // TODO: question... would it make more sense to use different
-  // vectors for a1 and a2? This choice seems to result in a lot of
-  // numerical instability. For now I'm fixing this by replacing sums
-  // and dot products involving a1 or a2 with the Neumaier equivalent.
-  static dbl a1[3] = {-1, 1, 0};
-  static dbl a2[3] = {-1, 0, 1};
+// static void perturb_hessian_if_necessary(dbl22 H) {
+//   // Compute the trace and determinant of the Hessian
+//   dbl tr = H[0][0] + H[1][1];
+//   dbl det = H[0][0]*H[1][1] - H[0][1]*H[1][0];
+//   assert(tr != 0 && det != 0);
 
-  dbl b[3], xb[3], tmp1[3], tmp2[3][3], DL[2], D2L[2][2], DT[2], D2T[2][2];
-  dbl tmp3[2];
+//   // Conditionally perturb the Hessian
+//   dbl min_eig_doubled = tr - sqrt(tr*tr - 4*det);
+//   if (min_eig_doubled < 0) {
+//     H[0][0] -= min_eig_doubled;
+//     H[1][1] -= min_eig_doubled;
+//   }
+// }
 
-  cf->lam[0] = lam[0];
-  cf->lam[1] = lam[1];
+// static void get_p(dbl22 const H, dbl2 const g, dbl2 const lam, dbl2 p) {
+//   dbl2 tmp;
 
-  b[1] = lam[0];
-  b[2] = lam[1];
-  b[0] = 1 - b[1] - b[2];
+//   // Set up QP for next iterate
+//   triqp2_s qp;
+//   dbl22_dbl2_mul(H, lam, tmp);
+//   dbl2_sub(g, tmp, qp.b);
+//   memcpy(qp.A, H, sizeof(dbl22));
 
-  assert(dbl3_valid_bary_coord(b));
+//   // ... solve it
+//   triqp2_solve(&qp, EPS);
 
-  dbl33_dbl3_mul(cf->X, b, xb);
-  dbl3_sub(cf->x, xb, cf->x_minus_xb);
-  cf->L = dbl3_norm(cf->x_minus_xb);
-  assert(cf->L > 0);
+//   // Compute the projected Newton step
+//   dbl2_sub(qp.x, lam, p);
+// }
 
-  dbl33_dbl3_mul(cf->Xt, cf->x_minus_xb, tmp1);
-  dbl3_dbl_div(tmp1, -cf->L, tmp1);
+// // TODO: question... would it make more sense to use different
+// // vectors for a1 and a2? This choice seems to result in a lot of
+// // numerical instability. For now I'm fixing this by replacing sums
+// // and dot products involving a1 or a2 with the Neumaier equivalent.
+// static dbl const a1[3] = {-1, 1, 0};
+// static dbl const a2[3] = {-1, 0, 1};
 
-  DL[0] = dbl3_ndot(a1, tmp1);
-  DL[1] = dbl3_ndot(a2, tmp1);
-  assert(dbl2_isfinite(DL));
+// static void set_L_and_x_minus_xb(utetra_s *u, dbl3 const b) {
+//   dbl33_dbl3_mul(u->X, b, u->xb);
+//   dbl3_sub(u->x, u->xb, u->x_minus_xb);
+//   u->L = dbl3_norm(u->x_minus_xb);
+//   assert(u->L > 0);
+// }
 
-  dbl3_outer(tmp1, tmp1, tmp2);
-  dbl33_sub(cf->XtX, tmp2, tmp2);
-  dbl33_dbl_div(tmp2, cf->L, tmp2);
+// static void set_f_g_and_H_stype_constant(utetra_s *u, dbl3 const b) {
+//   dbl3 tmp1;
+//   dbl33 tmp2;
+//   dbl2 DL, DT;
+//   dbl22 D2L, D2T;
 
-  dbl33_dbl3_nmul(tmp2, a1, tmp1);
-  D2L[0][0] = dbl3_ndot(tmp1, a1);
-  D2L[1][0] = D2L[0][1] = dbl3_ndot(tmp1, a2);
-  dbl33_dbl3_nmul(tmp2, a2, tmp1);
-  D2L[1][1] = dbl3_ndot(tmp1, a2);
-  assert(dbl22_isfinite(D2L));
+//   dbl33_dbl3_mul(u->Xt, u->x_minus_xb, tmp1);
+//   dbl3_dbl_div(tmp1, -u->L, tmp1);
 
-  DT[0] = bb32_df(&cf->T, b, a1);
-  DT[1] = bb32_df(&cf->T, b, a2);
+//   DL[0] = dbl3_ndot(a1, tmp1);
+//   DL[1] = dbl3_ndot(a2, tmp1);
+//   assert(dbl2_isfinite(DL));
 
-  D2T[0][0] = bb32_d2f(&cf->T, b, a1, a1);
-  D2T[1][0] = D2T[0][1] = bb32_d2f(&cf->T, b, a1, a2);
-  D2T[1][1] = bb32_d2f(&cf->T, b, a2, a2);
+//   dbl3_outer(tmp1, tmp1, tmp2);
+//   dbl33_sub(u->XtX, tmp2, tmp2);
+//   dbl33_dbl_div(tmp2, u->L, tmp2);
 
-  cf->f = cf->L + bb32_f(&cf->T, b);
-  assert(isfinite(cf->f));
+//   dbl33_dbl3_nmul(tmp2, a1, tmp1);
+//   D2L[0][0] = dbl3_ndot(tmp1, a1);
+//   D2L[1][0] = D2L[0][1] = dbl3_ndot(tmp1, a2);
+//   dbl33_dbl3_nmul(tmp2, a2, tmp1);
+//   D2L[1][1] = dbl3_ndot(tmp1, a2);
+//   assert(dbl22_isfinite(D2L));
 
-  dbl2_add(DL, DT, cf->g);
-  assert(dbl2_isfinite(cf->g));
+//   DT[0] = bb32_df(&u->T, b, a1);
+//   DT[1] = bb32_df(&u->T, b, a2);
 
-  dbl22_add(D2L, D2T, cf->H);
-  assert(dbl22_isfinite(cf->H));
+//   D2T[0][0] = bb32_d2f(&u->T, b, a1, a1);
+//   D2T[1][0] = D2T[0][1] = bb32_d2f(&u->T, b, a1, a2);
+//   D2T[1][1] = bb32_d2f(&u->T, b, a2, a2);
 
-  /**
-   * Finally, compute Newton step solving the minimization problem:
-   *
-   *     minimize  y’*H*y/2 + [g - H*x]’*y + [x’*H*x/2 - g’*x + f(x)]
-   *   subject to  x >= 0
-   *               sum(x) <= 1
-   *
-   * perturbing the Hessian below should ensure a descent
-   * direction. (It would be interesting to see if we can remove the
-   * perturbation entirely.)
-   */
+//   u->f = u->L + bb32_f(&u->T, b);
+//   assert(isfinite(u->f));
 
-  // Compute the trace and determinant of the Hessian
-  dbl tr = cf->H[0][0] + cf->H[1][1];
-  dbl det = cf->H[0][0]*cf->H[1][1] - cf->H[0][1]*cf->H[1][0];
-  assert(tr != 0 && det != 0);
+//   dbl2_add(DL, DT, u->g);
+//   assert(dbl2_isfinite(u->g));
 
-  // Conditionally perturb the Hessian
-  dbl min_eig_doubled = tr - sqrt(tr*tr - 4*det);
-  if (min_eig_doubled < 0) {
-    cf->H[0][0] -= min_eig_doubled;
-    cf->H[1][1] -= min_eig_doubled;
-  }
+//   dbl22_add(D2L, D2T, u->H);
+//   assert(dbl22_isfinite(u->H));
+// }
 
-  // Solve a quadratic program to find the next iterate.
-  triqp2_s qp;
-  dbl22_dbl2_mul(cf->H, lam, tmp3);
-  dbl2_sub(cf->g, tmp3, qp.b);
-  memcpy((void *)qp.A, (void *)cf->H, sizeof(dbl)*2*2);
-  triqp2_solve(&qp);
+// static void lift_b_from_face_to_cell(uint3 const lf, dbl3 const bf, uint4 lc, dbl4 bc) {
+//   dbl4_zero(bc);
+//   for (uint i = 0; i < 4; ++i)
+//     for (uint j = 0; j < 3; ++j)
+//       if (lc[i] == lf[j])
+//         bc[i] = bf[j];
+// }
 
-  // Compute the projected Newton step from the current iterate and
-  // next iterate.
-  dbl2_sub(qp.x, lam, cf->p);
+// static void get_tb(utetra_s const *u, dbl3 const bf, dbl3 tb, dbl33 hessT, dbl *gradTnorm) {
+//   mesh3_s const *mesh = eik3_get_mesh(u->eik);
+
+//   /** Set up BB poly approximating T: */
+
+//   size_t cv[4];
+//   mesh3_cv(mesh, u->T_lc, cv);
+
+//   dbl4 bc;
+//   lift_b_from_face_to_cell(u->l, bf, cv, bc);
+
+//   jet31t jet[4];
+//   for (uint i = 0; i < 4; ++i)
+//     jet[i] = eik3_get_jet(u->eik, cv[i]);
+
+//   dbl3 x[4];
+//   for (uint i = 0; i < 4; ++i)
+//     mesh3_copy_vert(mesh, cv[i], x[i]);
+
+//   bb33 T;
+//   bb33_init_from_jets(&T, jet, x);
+
+//   /** Evaluate in Cartesian coordinates: */
+
+//   dbl4 A[3];
+//   for (size_t i = 0; i < 3; ++i) {
+//     dbl4_zero(A[i]);
+//     A[i][i] = 1;
+//     A[i][3] = -1;
+//   }
+
+//   /* set up dX */
+//   dbl33 dX;
+//   for (size_t i = 0; i < 3; ++i)
+//     dbl3_sub(x[i], x[3], dX[i]);
+
+//   dbl33 dXinv, dXinvT;
+//   dbl33_copy(dX, dXinv);
+//   dbl33_invert(dXinv);
+//   dbl33_transposed(dXinv, dXinvT);
+
+//   /* compute gradient in affine space */
+//   dbl3 gradTaff;
+//   for (size_t i = 0; i < 3; ++i)
+//     gradTaff[i] = bb33_df(&T, bc, A[i]);
+
+//   /* transform gradient back to Cartesian */
+//   dbl3 gradT;
+//   dbl33_dbl3_mul(dXinv, gradTaff, gradT);
+
+//   if (hessT != NULL) {
+//     /* compute Hessian in affine space */
+//     dbl33 hessTaff;
+//     for (size_t i = 0; i < 3; ++i) {
+//       for (size_t j = 0; j < 3; ++j) {
+//         dbl4 a[2];
+//         dbl4_copy(A[i], a[0]);
+//         dbl4_copy(A[j], a[1]);
+//         hessTaff[i][j] = bb33_d2f(&T, bc, a);
+//       }
+//     }
+
+//     /* transform Hessian back to Cartesian */
+//     dbl33 tmp;
+//     dbl33_mul(dXinv, hessTaff, tmp);
+//     dbl33_mul(tmp, dXinvT, hessT);
+//   }
+
+//   /** Normalize to get t */
+
+//   if (gradTnorm == NULL) {
+//     dbl3_normalized(gradT, tb);
+//   } else {
+//     *gradTnorm = dbl3_norm(gradT);
+//     dbl3_dbl_div(gradT, *gradTnorm, tb);
+//   }
+// }
+
+// static void get_D2T(utetra_s const *u, dbl3 const bf, dbl33 D2T) {
+//   mesh3_s const *mesh = eik3_get_mesh(u->eik);
+
+//   size_t cv[4];
+//   mesh3_cv(mesh, u->T_lc, cv);
+
+//   dbl4 bc;
+//   lift_b_from_face_to_cell(u->l, bf, cv, bc);
+
+//   jet31t jet[4];
+//   for (uint i = 0; i < 4; ++i)
+//     jet[i] = eik3_get_jet(u->eik, cv[i]);
+
+//   dbl3 x[4];
+//   for (uint i = 0; i < 4; ++i)
+//     mesh3_copy_vert(mesh, cv[i], x[i]);
+
+//   bb33 T;
+//   bb33_init_from_jets(&T, jet, x);
+
+//   static dbl44 A;
+//   for (size_t i = 0; i < 4; ++i) {
+//     for (size_t j = 0; j < 3; ++j)
+//       A[j][i] = x[i][j];
+//     A[3][i] = 1;
+//   }
+//   dbl44_invert(A);
+//   dbl44_transpose(A);
+
+//   dbl4 a[2];
+//   for (uint i = 0; i < 3; ++i) {
+//     dbl4_copy(A[i], a[0]);
+//     for (uint j = 0; j < 3; ++j) {
+//       dbl4_copy(A[j], a[1]);
+//       D2T[i][j] = bb33_d2f(&T, bc, a);
+//     }
+//   }
+// }
+
+// static void get_phim_and_phipm(utetra_s const *u, dbl3 const tb, dbl3 phim, dbl3 phipm) {
+//   for (size_t i = 0; i < 3; ++i)
+//     phim[i] = (u->xb[i] + u->x[i])/2 - u->L*(u->topt[i] - tb[i])/8;
+
+//   for (size_t i = 0; i < 3; ++i)
+//     phipm[i] = 1.5*u->x_minus_xb[i]/u->L - (tb[i] + u->topt[i])/4;
+// }
+
+// static void set_f_g_and_H_stype_func_ptr(utetra_s *u, dbl3 const bf) {
+//   /** Compute intermediate quantities: */
+
+//   dbl3 tb;
+//   dbl33 hessTb;
+//   dbl gradTnorm;
+//   get_tb(u, bf, tb, hessTb, &gradTnorm);
+
+//   dbl3 phim, phipm;
+//   get_phim_and_phipm(u, tb, phim, phipm);
+
+//   dbl phipmnorm = dbl3_norm(phipm);
+
+//   dbl3 gradL; {
+//     dbl3_sub(u->xb, u->x, gradL);
+//     dbl3_dbl_div_inplace(gradL, u->L); }
+
+//   dbl3 ellp; /* ellp = -gradL... no real real to compute this... */
+//   dbl3_copy(gradL, ellp);
+//   dbl3_negate(ellp);
+
+//   dbl33 gradellp; {
+//     for (size_t i = 0; i < 3; ++i) {
+//       for (size_t j = 0; j < 3; ++j) {
+//         dbl delta = i == j ? 1 : 0;
+//         gradellp[i][j] = -(delta - ellp[i]*ellp[j])/u->L; } } }
+
+//   dbl33 gradtb; {
+//     for (size_t i = 0; i < 3; ++i) {
+//       for (size_t j = 0; j < 3; ++j) {
+//         dbl delta = i == j ? 1 : 0;
+//         gradtb[i][j] = (delta - tb[i]*tb[j])*hessTb[i][j]/gradTnorm; } } }
+
+//   dbl33 gradphim; {
+//     dbl33_eye(gradphim);
+//     dbl33_dbl_div_inplace(gradphim, 2);
+//     for (size_t i = 0; i < 3; ++i)
+//       for (size_t j = 0; j < 3; ++j)
+//         gradphim[i][j] -= ((u->topt[i] - tb[i])*gradL[j] - u->L*gradtb[i][j])/8; }
+
+//   dbl33 gradphipm; {
+//     dbl33_zero(gradphipm);
+//     dbl33_saxpy_inplace(3./2, gradellp, gradphipm);
+//     dbl33_saxpy_inplace(-1./4, gradtb, gradphipm); }
+
+//   /** Compute s and grads at each point: */
+
+//   dbl sb, sm, shat;
+//   dbl3 gradsb, gradsm;
+
+//   sb = u->sfunc->funcs.s(u->xb);
+//   sm = u->sfunc->funcs.s(phim);
+//   shat = u->sfunc->funcs.s(u->x);
+
+//   u->sfunc->funcs.Ds(u->xb, gradsb);
+//   u->sfunc->funcs.Ds(phim, gradsm);
+
+//   /** Quick sanity check: */
+
+//   dbl3 tmp;
+//   dbl33_dbl3_mul(hessTb, tb, tmp);
+
+//   /** Compute Q: */
+
+//   dbl Q = u->L*(sb + 4*sm*phipmnorm + shat)/6;
+
+//   /** Compute gradQ: */
+
+//   dbl3 gradQ = {0, 0, 0};
+
+//   // + Q*gradL/L
+//   dbl3_saxpy_inplace(Q/u->L, gradL, gradQ);
+
+//   // + (L/6)*gradsb
+//   dbl3_saxpy_inplace(u->L/6, gradsb, gradQ);
+
+//   // + (2*L/3)*phipmnorm*dot(gradphipm, gradsm)
+//   { dbl3 tmp;
+//     dbl33 gradphimT;
+//     dbl33_transposed(gradphim, gradphimT);
+//     dbl33_dbl3_mul(gradphimT, gradsm, tmp);
+//     dbl3_saxpy_inplace(2*u->L*phipmnorm/3, tmp, gradQ); }
+
+//   // + (2*L/3)*s(phim)*dot(gradphipm, phipm)/phipmnorm
+//   { dbl3 tmp;
+//     dbl33 gradphipmT;
+//     dbl33_transposed(gradphipm, gradphipmT);
+//     dbl33_dbl3_mul(gradphipmT, phipm, tmp);
+//     dbl3_saxpy_inplace(2*u->L*sm/(3*phipmnorm), tmp, gradQ); }
+
+//   /** Compute T and DT: */
+
+//   dbl T = bb32_f(&u->T, bf);
+//   dbl2 DT = {bb32_df(&u->T, bf, a1), bb32_df(&u->T, bf, a2)};
+
+//   /** Compute f: */
+
+//   u->f = T + Q;
+
+//   /** Compute Df (a.k.a. "g"): */
+
+//   dbl2 DQ; {
+//     dbl3 tmp;
+//     dbl33_dbl3_mul(u->Xt, gradQ, tmp);
+//     DQ[0] = dbl3_ndot(a1, tmp);
+//     DQ[1] = dbl3_ndot(a2, tmp); }
+
+//   dbl2_add(DT, DQ, u->g);
+
+//   /** Compute D2f (a.k.a. "H"): */
+
+//   // dbl22_add(D2T, D2Q, u->H);
+
+//   // TODO: for now, we just set the Hessian to I, reducing this to
+//   // projected gradient descent... just want to test this for now
+//   dbl22_eye(u->H);
+// }
+
+// static void get_s_and_Ds(utetra_s const *u, uint4 const cv, dbl4 const bc, dbl *s, dbl3 Ds) {
+//   // TODO: can't remember why I'm requiring this here...
+//   assert(u->stype == STYPE_JET31T);
+
+//   mesh3_s const *mesh = eik3_get_mesh(u->eik);
+
+//   jet31t jet[4];
+//   for (uint i = 0; i < 4; ++i)
+//     jet[i] = u->sfunc->data_jet31t[cv[i]];
+
+//   dbl3 x[4];
+//   for (uint i = 0; i < 4; ++i)
+//     mesh3_copy_vert(mesh, cv[i], x[i]);
+
+//   bb33 s_bb;
+//   bb33_init_from_jets(&s_bb, jet, x);
+
+//   static dbl44 A;
+//   for (size_t i = 0; i < 4; ++i) {
+//     for (size_t j = 0; j < 3; ++j)
+//       A[j][i] = x[i][j];
+//     A[3][i] = 1;
+//   }
+//   dbl44_invert(A);
+//   dbl44_transpose(A);
+
+//   *s = bb33_f(&s_bb, bc);
+
+//   for (uint i = 0; i < 3; ++i)
+//     Ds[i] = bb33_df(&s_bb, bc, A[i]);
+// }
+
+// static void set_f_g_and_H_stype_jet31t(utetra_s *u, dbl3 const bf) {
+//   assert(false); // TODO: this is just a rough draft and hasn't been
+//                   // tested! probably doesn't work!
+
+//   mesh3_s const *mesh = eik3_get_mesh(u->eik);
+
+//   dbl T = bb32_f(&u->T, bf);
+
+//   dbl3 tb;
+//   dbl gradTnorm;
+//   get_tb(u, bf, tb, NULL, &gradTnorm);
+
+//   dbl3 phim, phipm;
+//   get_phim_and_phipm(u, tb, phim, phipm);
+
+//   dbl phipmnorm = dbl3_norm(phipm);
+
+//   dbl2 Dphipmnorm;
+//   { dbl3 ellp;
+//     for (size_t i = 0; i < 3; ++i)
+//       ellp[i] = u->x_minus_xb[i]/u->L;
+
+//     dbl33 Dx_ellp;
+//     for (size_t i = 0; i < 3; ++i)
+//       for (size_t j = 0; j < 3; ++j)
+//         Dx_ellp[i][j] = -(i == j ? 1 : 0 - ellp[i]*ellp[j])/u->L;
+
+//     dbl33 Dx_tb;
+//     { dbl33 D2T;
+//       get_D2T(u, bf, D2T);
+
+//       dbl33 tmp;
+//       for (size_t i = 0; i < 3; ++i)
+//         for (size_t j = 0; j < 3; ++j)
+//           Dx_tb[i][j] = (i == j ? 1 : 0 - tb[i]*tb[j])/gradTnorm;
+
+//       dbl33_mul(tmp, D2T, Dx_tb); }
+
+//     dbl33 Dx_phipm;
+//     for (size_t i = 0; i < 3; ++i)
+//       for (size_t j = 0; j < 3; ++j)
+//         Dx_phipm[i][j] = 3*Dx_ellp[i][j]/2 - Dx_tb[i][j]/4;
+
+//     dbl3 Dx_phipmnorm;
+//     dbl33_dbl3_mul(Dx_phipm, phipm, Dx_phipmnorm);
+//     dbl3_dbl_div_inplace(Dx_phipmnorm, phipmnorm);
+
+//     dbl3 tmp;
+//     dbl33_dbl3_mul(u->Xt, Dx_phipmnorm, tmp);
+
+//     Dphipmnorm[0] = dbl3_ndot(a1, tmp);
+//     Dphipmnorm[1] = dbl3_ndot(a2, tmp); }
+
+//   uint4 s_cv;
+//   mesh3_cv(mesh, u->s_lc, s_cv);
+
+//   dbl4 bc;
+//   lift_b_from_face_to_cell(u->l, bf, s_cv, bc);
+
+//   dbl4 bcm;
+//   { tetra3 s_tetra = mesh3_get_tetra(mesh, u->s_lc);
+//     tetra3_get_bary_coords(&s_tetra, phim, bcm); }
+
+//   dbl s, sm;
+//   dbl3 Ds, Dsm;
+//   get_s_and_Ds(u, s_cv, bc, &s, Ds);
+//   get_s_and_Ds(u, s_cv, bcm, &sm, Dsm);
+
+//   dbl shat = u->sfunc->data_jet31t[u->lhat].f;
+
+//   dbl Q = u->L*(s + 4*sm*phipmnorm + shat)/6;
+
+//   dbl3 tmp1;
+//   dbl33_dbl3_mul(u->Xt, u->x_minus_xb, tmp1);
+//   dbl3_dbl_div(tmp1, -u->L, tmp1);
+
+//   dbl2 DL;
+//   DL[0] = dbl3_ndot(a1, tmp1);
+//   DL[1] = dbl3_ndot(a2, tmp1);
+//   assert(dbl2_isfinite(DL));
+
+//   dbl2 DT = {bb32_df(&u->T, bf, a1), bb32_df(&u->T, bf, a2)};
+
+//   dbl L_over_6 = u->L/6;
+
+//   dbl2 DQ = {0, 0};
+//   dbl2_saxpy_inplace(Q/u->L, DL, DQ);
+//   dbl2_saxpy_inplace(L_over_6, Ds, DQ);
+//   dbl2_saxpy_inplace(L_over_6*(4*phipmnorm), Dsm, DQ);
+//   dbl2_saxpy_inplace(L_over_6*(4*sm), Dphipmnorm, DQ);
+
+//   // dbl22 D2Q;
+
+//   // dbl22 D2T;
+//   // D2T[0][0] = bb32_d2f(&u->T, b, a1, a1);
+//   // D2T[1][0] = D2T[0][1] = bb32_d2f(&u->T, b, a1, a2);
+//   // D2T[1][1] = bb32_d2f(&u->T, b, a2, a2);
+
+//   u->f = T + Q;
+//   dbl2_add(DT, DQ, u->g);
+//   // dbl22_add(D2T, D2Q, u->H);
+
+//   // TODO: for now, we just set the Hessian to I, reducing this to
+//   // projected gradient descent... just want to test this for now
+//   dbl22_eye(u->H);
+// }
+
+// static void set_f_g_and_H(utetra_s *u, dbl3 const bf) {
+//   switch(u->stype) {
+//   case STYPE_CONSTANT:
+//     set_f_g_and_H_stype_constant(u, bf);
+//     break;
+//   case STYPE_FUNC_PTR:
+//     set_f_g_and_H_stype_func_ptr(u, bf);
+//     break;
+//   case STYPE_JET31T:
+//     set_f_g_and_H_stype_jet31t(u, bf);
+//     break;
+//   default:
+//     assert(false);
+//   }
+// }
+
+// static void get_dGdt_stype_func_ptr(utetra_s const *u, dbl3 const bf, dbl3 dGdt) {
+//   dbl3 tb;
+//   get_tb(u, bf, tb, NULL, NULL);
+
+//   dbl3 phim, phipm;
+//   get_phim_and_phipm(u, tb, phim, phipm);
+
+//   dbl sm = u->sfunc->funcs.s(phim);
+//   dbl3 Dsm; u->sfunc->funcs.Ds(phim, Dsm);
+
+//   dbl phipmnorm = dbl3_norm(phipm);
+
+//   dbl3_zero(dGdt);
+//   dbl3_saxpy_inplace(u->L*phipmnorm/2, Dsm, dGdt);
+//   dbl3_saxpy_inplace(sm/phipmnorm, phipm, dGdt);
+// }
+
+// static void get_dGdt_stype_jet31t(utetra_s const *u, dbl3 const bf, dbl3 dGdt) {
+//   mesh3_s const *mesh = eik3_get_mesh(u->eik);
+
+//   dbl3 tb;
+//   get_tb(u, bf, tb, NULL, NULL);
+
+//   dbl3 phim, phipm;
+//   get_phim_and_phipm(u, tb, phim, phipm);
+
+//   dbl4 bcm;
+//   { tetra3 s_tetra = mesh3_get_tetra(mesh, u->s_lc);
+//     tetra3_get_bary_coords(&s_tetra, phim, bcm); }
+
+//   dbl sm;
+//   dbl3 Dsm;
+//   { uint4 s_cv;
+//     mesh3_cv(mesh, u->s_lc, s_cv);
+//     get_s_and_Ds(u, s_cv, bcm, &sm, Dsm); }
+
+//   dbl phipmnorm = dbl3_norm(phipm);
+
+//   dbl3_zero(dGdt);
+//   dbl3_saxpy_inplace(u->L*phipmnorm/2, Dsm, dGdt);
+//   dbl3_saxpy_inplace(sm/phipmnorm, phipm, dGdt);
+// }
+
+// static void get_dGdt(utetra_s const *u, dbl3 const bf, dbl3 dGdt) {
+//   assert(u->stype != STYPE_CONSTANT);
+//   switch (u->stype) {
+//   case STYPE_FUNC_PTR:
+//     get_dGdt_stype_func_ptr(u, bf, dGdt);
+//     break;
+//   case STYPE_JET31T:
+//     get_dGdt_stype_jet31t(u, bf, dGdt);
+//     break;
+//   default:
+//     assert(false);
+//   }
+// }
+
+// static void set_topt(utetra_s *u, dbl3 const b) {
+//   assert(u->stype == STYPE_CONSTANT);
+
+//   /* Initialize topt to tangent vector of straight line connecting xb
+//    * and xhat the first time this is called */
+//   if (!dbl3_isfinite(u->topt))
+//     dbl3_normalized(u->x_minus_xb, u->topt);
+
+//   /* Just use a fixed point iteration here to find optimal topt */
+//   dbl angle;
+//   do {
+//     dbl3 dGdt;
+//     get_dGdt(u, b, dGdt);
+//     dbl3_normalize(dGdt);
+//     angle = fabs(dbl3_angle(u->topt, dGdt));
+//     dbl3_copy(dGdt, u->topt);
+//   } while (angle > u->tol);
+
+//   /* TODO: Not sure what a good tolerance here is, but they hopefully
+//    * shouldn't deviate too much! */
+//   assert(dbl3_angle(u->x_minus_xb, u->topt) < JMM_PI/2);
+// }
+
+// static void set_lambda(utetra_s *u, dbl2 const lam) {
+//   assert(u->stype == STYPE_CONSTANT);
+
+//   u->lam[0] = lam[0];
+//   u->lam[1] = lam[1];
+
+//   dbl3 b = {1 - lam[0] - lam[1], lam[0], lam[1]};
+//   assert(dbl3_valid_bary_coord(b));
+//   dbl33_dbl3_mul(u->X, b, u->xb);
+
+//   set_L_and_x_minus_xb(u, b);
+
+//   /* Set topt before updating f, g, and H */
+//   set_topt(u, b);
+
+//   /* Set the cost function value, its gradient, and its Hessian */
+//   set_f_g_and_H(u, b);
+
+//   /* Now, compute Newton step solving the minimization problem:
+//    *
+//    *     minimize  y’*H*y/2 + [g - H*x]’*y + [x’*H*x/2 - g’*x + f(x)]
+//    *   subject to  x >= 0
+//    *               sum(x) <= 1
+//    *
+//    * perturbing the Hessian below should ensure a descent
+//    * direction. (It would be interesting to see if we can remove the
+//    * perturbation entirely.) */
+
+//   // Possibly perturb the Hessian to make it positive definite
+//   perturb_hessian_if_necessary(u->H);
+
+//   // Compute the projected Newton step from the current iterate to the
+//   // next iterate
+//   get_p(u->H, u->g, lam, u->p);
+// }
+
+// static void step(utetra_s *u) {
+//   assert(u->stype == STYPE_CONSTANT);
+
+//   dbl const atol = 1e-15, c1 = 1e-4;
+
+//   dbl lam1[2], f, c1_times_g_dot_p, beta;
+
+//   // Get values for current iterate
+//   dbl lam[2] = {u->lam[0], u->lam[1]};
+//   dbl p[2] = {u->p[0], u->p[1]};
+//   f = u->f;
+
+//   // Do backtracking line search
+//   beta = 1;
+//   c1_times_g_dot_p = c1*dbl2_dot(p, u->g);
+//   dbl2_saxpy(beta, p, lam, lam1);
+//   set_lambda(u, lam1);
+//   while (u->f > f + beta*c1_times_g_dot_p + atol) {
+//     beta *= 0.9;
+//     assert(beta > 1e-16);
+//     dbl2_saxpy(beta, p, lam, lam1);
+//     set_lambda(u, lam1);
+//   }
+
+//   ++u->niter;
+// }
+
+dbl eval_poly(dbl const *a, dbl const *lam) {
+  dbl x = lam[0], y = lam[1];
+  return a[0] + a[1]*x + a[2]*y + a[3]*x*x + a[4]*x*y + a[5]*y*y;
 }
 
-static void set_lambda(utetra_s *utetra, dbl2 const lam) {
-  switch(eik3_get_stype(utetra->eik)) {
-  case STYPE_CONSTANT:
-    set_lambda_stype_constant(utetra, lam);
-    break;
-  default:
-    assert(false);
-  }
-}
-
-static void step(utetra_s *cf) {
-  dbl const atol = 1e-15, c1 = 1e-4;
-
-  dbl lam1[2], f, c1_times_g_dot_p, beta;
-
-  // Get values for current iterate
-  dbl lam[2] = {cf->lam[0], cf->lam[1]};
-  dbl p[2] = {cf->p[0], cf->p[1]};
-  f = cf->f;
-
-  // Do backtracking line search
-  beta = 1;
-  c1_times_g_dot_p = c1*dbl2_dot(p, cf->g);
-  dbl2_saxpy(beta, p, lam, lam1);
-  set_lambda(cf, lam1);
-  while (cf->f > f + beta*c1_times_g_dot_p + atol) {
-    beta *= 0.9;
-    dbl2_saxpy(beta, p, lam, lam1);
-    set_lambda(cf, lam1);
-  }
-
-  ++cf->niter;
+void contract(dbl2 const lam_center, dbl factor, dbl2 lam) {
+  for (size_t i = 0; i < 2; ++i)
+    lam[i] = (lam[i] - lam_center[i])/factor + lam_center[i];
 }
 
 /**
@@ -240,86 +833,276 @@ static void step(utetra_s *cf) {
  * `jet`. If `lam` is `NULL`, then the first iterate will be selected
  * automatically.
  */
-void utetra_solve(utetra_s *cf, dbl const *lam) {
-  cf->niter = 0;
+void utetra_solve(utetra_s *u, dbl const *lam) {
+  static int CALL_NUMBER = 0;
 
-  if (lam == NULL)
-    set_lambda(cf, (dbl[2]) {0, 0}); // see, automatically!
-  else
-    set_lambda(cf, lam);
 
-  int const max_niter = 100;
-  for (int _ = 0; _ < max_niter; ++_) {
-    if (dbl2_norm(cf->p) <= cf->tol)
-      break;
-    step(cf);
-  }
+  // DEBUGGING
+
+
+  // FILE *fp = fopen("f.bin", "wb");
+  // for (size_t i = 0; i <= 100; ++i) {
+  //   for (size_t j = 0; j <= 100; ++j) {
+  //     dbl2 lam = {i/100., j/100.};
+  //     dbl f = NAN;
+  //     if (lam[0] + lam[1] <= 1) {
+  //       set_lambda(u, lam);
+  //       f = u->f;
+  //     }
+  //     fwrite(&f, sizeof(dbl), 1, fp);
+  //   }
+  // }
+  // fclose(fp);
+
+
+  // if (u->stype == STYPE_FUNC_PTR) {
+
+    dbl2 lam_prev = {NAN, NAN}, lam_opt = {NAN, NAN};
+
+    dbl2 lam_node[6] = {
+      {0, 0},   {0.5, 0},   {1, 0},
+      {0, 0.5}, {0.5, 0.5},
+      {0, 1}
+    };
+
+    dbl beta = 10.0;
+    dbl factor = (beta + 1)/beta;
+    dbl prev_error = NAN;
+
+    size_t num_iter = 0;
+
+    // printf("DOING S != 1 UTETRA #%d\n", CALL_NUMBER);
+
+    while (true) {
+
+      // printf("* it = %lu\n", num_iter);
+
+      dbl f[6] = {NAN, NAN, NAN, NAN, NAN, NAN};
+      for (size_t i = 0; i < 6; ++i) {
+        dbl const *lam_ = lam_node[i];
+        dbl3 x_node;
+        dbl3 b = {1 - lam_[0] - lam_[1], lam_[0], lam_[1]};
+        dbl33_dbl3_mul(u->X, b, x_node);
+
+        dbl T = bb32_f(&u->T, b);
+
+        uline_s *uline;
+        uline_alloc(&uline);
+        uline_init_from_points(uline, u->eik, u->x, x_node, u->tol, T);
+        uline_solve(uline);
+
+        f[i] = uline_get_value(uline);
+
+        uline_dealloc(&uline);
+      }
+
+      dbl const invV[6][6] = {
+        { 1,  0,  0,  0,  0,  0},
+        {-3,  4, -1,  0,  0,  0},
+        {-3,  0,  0,  4,  0, -1},
+        { 2, -4,  2,  0,  0,  0},
+        { 4, -4,  0, -4,  4,  0},
+        { 2,  0,  0, -4,  0,  2}
+      };
+
+      dbl a[6];
+      for (size_t i = 0; i < 6; ++i) {
+        a[i] = 0;
+        for (size_t j = 0; j < 6; ++j) {
+          a[i] += invV[i][j]*f[j];
+        }
+      }
+
+      /* Check that everything is correct at the nodal values... */
+      dbl2 const lam_node_orig[6] = {
+        {0, 0},   {0.5, 0},   {1, 0},
+        {0, 0.5}, {0.5, 0.5},
+        {0, 1}
+      };
+      for (size_t i = 0; i < 6; ++i)
+        assert(fabs(eval_poly(a, lam_node_orig[i]) - f[i]) < 1e-12);
+
+      // /* Write to disk... */
+      // FILE *fp = fopen("f_poly.bin", "w");
+      // for (size_t i = 0; i <= 100; ++i) {
+      //   for (size_t j = 0; j <= 100; ++j) {
+      //     dbl2 lam = {i/100., j/100.};
+      //     dbl f = NAN;
+      //     if (lam[0] + lam[1] <= 1) {
+      //       f = eval_poly(a, lam);
+      //     }
+      //     fwrite(&f, sizeof(dbl), 1, fp);
+      //   }
+      // }
+      // fclose(fp);
+
+      triqp2_s qp = {
+        .b = {a[1], a[2]},
+        .A = {{2*a[3], a[4]}, {a[4], 2*a[5]}},
+        .x = {NAN, NAN}
+      };
+
+      triqp2_solve(&qp, pow(u->tol, 2));
+
+      // printf("  - lam_node = np.array([[%g, %g]", lam_node[0][0], lam_node[0][1]);
+      // for (size_t i = 1; i < 6; ++i)
+      //   printf(", [%g, %g]", lam_node[i][0], lam_node[i][1]);
+      // printf("])\n");
+      // printf("  - lam = np.array([%g, %g]), error = %g\n", qp.x[0], qp.x[1], dbl2_dist(qp.x, lam_prev));
+
+      lam = &qp.x[0];
+      dbl error = dbl2_dist(lam, lam_prev);
+      if (error <= u->tol) {
+        dbl2_copy(lam, lam_opt);
+        break;
+      } else {
+        dbl2_copy(lam, lam_prev);
+      }
+
+      if (error > 2*prev_error) {
+        beta += 1;
+        factor = (beta + 1)/beta;
+        // printf("  ! reduced factor to %g\n", factor);
+      }
+
+      for (size_t i = 0; i < 6; ++i) {
+        contract(lam_prev, factor, lam_node[i]);
+        assert(lam_node[i][0] >= -EPS);
+        assert(lam_node[i][1] >= -EPS);
+        assert(lam_node[i][0] + lam_node[i][1] <= 1 + EPS);
+      }
+
+      prev_error = error;
+      ++num_iter;
+
+      if (num_iter == MAX_NITER) {
+        log_warn("utetra_solve: reached max no. iters");
+        dbl2_copy(lam, lam_opt);
+        break;
+      }
+    }
+
+    /* make sure to set u->lam now */
+    dbl2_copy(lam_opt, u->lam);
+
+    /** Set f and topt now */
+
+    assert(isinf(u->f));
+    assert(dbl3_all_nan(u->topt));
+
+    dbl3 bopt = {1 - lam_opt[0] - lam_opt[1], lam_opt[0], lam_opt[1]};
+    dbl Topt = bb32_f(&u->T, bopt);
+
+    dbl3 xopt;
+    dbl33_dbl3_mul(u->X, bopt, xopt);
+
+    uline_s *uline;
+    uline_alloc(&uline);
+    uline_init_from_points(uline, u->eik, u->x, xopt, u->tol, Topt);
+    uline_solve(uline);
+
+    u->f = uline_get_value(uline);
+    uline_get_topt(uline, u->topt);
+
+    uline_dealloc(&uline);
+  // }
+
+  // /////
+
+  // else if (u->stype == STYPE_CONSTANT) {
+  //   u->niter = 0;
+
+  //   if (lam == NULL)
+  //     set_lambda(u, (dbl[2]) {1./3, 1./3});
+  //   else
+  //     set_lambda(u, lam);
+
+  //   int const max_niter = 100;
+  //   for (int _ = 0; _ < max_niter; ++_) {
+  //     if (dbl2_norm(u->p) <= u->tol)
+  //       break;
+  //     step(u);
+  //   }
+  //   if (dbl2_norm(u->p) > u->tol)
+  //     log_warn("utetra_solve: exceeded max no. of iters.");
+  // }
+
+  // else { assert(false); } // TODO: stype not implemented
+
+  ++CALL_NUMBER;
 }
 
-static void get_b(utetra_s const *cf, dbl b[3]) {
-  assert(!isnan(cf->lam[0]) && !isnan(cf->lam[1]));
-  b[0] = 1 - cf->lam[0] - cf->lam[1];
-  b[1] = cf->lam[0];
-  b[2] = cf->lam[1];
+static void get_b(utetra_s const *u, dbl b[3]) {
+  assert(!isnan(u->lam[0]) && !isnan(u->lam[1]));
+  b[0] = 1 - u->lam[0] - u->lam[1];
+  b[1] = u->lam[0];
+  b[2] = u->lam[1];
 }
 
-dbl utetra_get_value(utetra_s const *cf) {
-  return cf->f;
+dbl utetra_get_value(utetra_s const *u) {
+  return u->f;
 }
 
-void get_that_stype_constant(utetra_s const *u, dbl that[3]) {
-  dbl3_normalized(u->x_minus_xb, that);
-}
+// void get_that_stype_constant(utetra_s const *u, dbl that[3]) {
+//   dbl3_normalized(u->x_minus_xb, that);
+// }
 
-static void get_that(utetra_s const *u, dbl that[3]) {
-  switch(eik3_get_stype(u->eik)) {
-  case STYPE_CONSTANT:
-    get_that_stype_constant(u, that);
-    break;
-  default:
-    assert(false);
-  }
-}
+// void get_that_stype_func_ptr(utetra_s const *u, dbl that[3]) {
+//   dbl shat = u->sfunc->funcs.s((dbl *)u->x);
+//   dbl3_dbl_mul(u->topt, shat, that);
+// }
 
-void utetra_get_jet31t(utetra_s const *cf, jet31t *jet) {
-  jet->f = cf->f;
+// static void get_that(utetra_s const *u, dbl that[3]) {
+//   switch(u->stype) {
+//   case STYPE_CONSTANT:
+//     get_that_stype_constant(u, that);
+//     break;
+//   case STYPE_FUNC_PTR:
+//     get_that_stype_func_ptr(u, that);
+//     break;
+//   default:
+//     assert(false); // TODO: implement remaining stypes
+//   }
+// }
 
-  get_that(cf, jet->Df);
+void utetra_get_jet31t(utetra_s const *u, jet31t *jet) {
+  jet->f = u->f;
+  dbl3_copy(u->topt, jet->Df);
 }
 
 /**
  * Compute the Lagrange multipliers for the constraint optimization
  * problem corresponding to this type of update
  */
-static void get_lag_mults(utetra_s const *cf, dbl alpha[3]) {
+static void get_lag_mults(utetra_s const *u, dbl alpha[3]) {
   dbl const atol = 5e-15;
-  dbl b[3] = {1 - dbl2_sum(cf->lam), cf->lam[0], cf->lam[1]};
+  dbl b[3] = {1 - dbl2_sum(u->lam), u->lam[0], u->lam[1]};
   alpha[0] = alpha[1] = alpha[2] = 0;
   // TODO: optimize this
   if (fabs(b[0] - 1) < atol) {
     alpha[0] = 0;
-    alpha[1] = -cf->g[0];
-    alpha[2] = -cf->g[1];
+    alpha[1] = -u->g[0];
+    alpha[2] = -u->g[1];
   } else if (fabs(b[1] - 1) < atol) {
-    alpha[0] = cf->g[0];
+    alpha[0] = u->g[0];
     alpha[1] = 0;
-    alpha[2] = cf->g[0] - cf->g[1];
+    alpha[2] = u->g[0] - u->g[1];
   } else if (fabs(b[2] - 1) < atol) {
-    alpha[0] = cf->g[0];
-    alpha[1] = cf->g[0] - cf->g[1];
+    alpha[0] = u->g[0];
+    alpha[1] = u->g[0] - u->g[1];
     alpha[2] = 0;
   } else if (fabs(b[0]) < atol) { // b[1] != 0 && b[2] != 0
-    alpha[0] = dbl2_sum(cf->g)/2;
+    alpha[0] = dbl2_sum(u->g)/2;
     alpha[1] = 0;
     alpha[2] = 0;
   } else if (fabs(b[1]) < atol) { // b[0] != 0 && b[2] != 0
     alpha[0] = 0;
-    alpha[1] = -cf->g[0];
+    alpha[1] = -u->g[0];
     alpha[2] = 0;
   } else if (fabs(b[2]) < atol) { // b[0] != 0 && b[1] != 0
     alpha[0] = 0;
     alpha[1] = 0;
-    alpha[2] = -cf->g[1];
+    alpha[2] = -u->g[1];
   } else {
     assert(dbl3_valid_bary_coord(b));
   }
@@ -394,15 +1177,6 @@ int utetra_get_num_interior_coefs(utetra_s const *utetra) {
 size_t utetra_get_l(utetra_s const *utetra) {
   assert(utetra->lhat != (size_t)NO_INDEX);
   return utetra->lhat;
-}
-
-/* Get the triangle of `u`. If `u` is split, this does *not* return
- * the triangle of the split updates (since that would not be
- * well-defined!). */
-static tri3 get_tri(utetra_s const *u) {
-  tri3 tri;
-  memcpy(tri.v, u->Xt, sizeof(dbl[3][3]));
-  return tri;
 }
 
 size_t utetra_get_active_inds(utetra_s const *utetra, uint3 la) {

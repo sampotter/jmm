@@ -96,6 +96,16 @@ int cubic_get_real_roots(cubic_s const *cubic, dbl lam[3]) {
                      &lam[0], &lam[1], &lam[2]);
 }
 
+int cubic_real_roots_in_interval(cubic_s const *cubic, dbl lam[3], dbl a, dbl b) {
+  dbl lam_[3];
+  size_t num_real_roots = cubic_get_real_roots(cubic, lam_);
+  size_t num_real_roots_in_interval = 0;
+  for (size_t i = 0; i < num_real_roots; ++i)
+    if (a <= lam_[i] && lam_[i] <= b)
+      lam[num_real_roots_in_interval++] = lam_[i];
+  return num_real_roots_in_interval;
+}
+
 void cubic_add_constant(cubic_s *cubic, dbl f) {
   cubic->a[0] += f;
 }

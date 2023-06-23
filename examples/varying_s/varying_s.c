@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 
+#include <jmm/bmesh.h>
 #include <jmm/eik3.h>
 #include <jmm/mesh3.h>
 #include <jmm/util.h>
@@ -51,6 +52,60 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
 
 static struct argp argp = {options, parse_opt, args_doc, doc, 0, 0, 0};
 
+// dbl const dtheta_dy = 1;
+
+// dbl s(dbl3 x) {
+//   return 1/(331.3 + 0.606*dtheta_dy*x[1]);
+// }
+
+// void Ds(dbl3 x, dbl3 Ds) {
+//   // grad_c = 0.606 *grad_theta
+//   // grad_theta = [0, dtheta_dy, 0]
+//   // dtheta_dy = 1
+//   // grad_s = -grad_c/c^2
+//   dbl tmp = s(x);
+//   Ds[0] = Ds[2] = 0;
+//   Ds[1] = -0.606*dtheta_dy*tmp*tmp;
+// }
+
+// void D2s(dbl3 x, dbl33 D2s) {
+//   dbl33_zero(D2s);
+//   dbl tmp = -0.606*dtheta_dy*s(x);
+//   D2s[1][1] = -2*tmp*tmp;
+// }
+
+static dbl const v0 = 1;
+static dbl3 const v = {0.025, -0.025, 0.05};
+
+static dbl const s0 = 1/v0;
+static dbl const vnormsq = v[0]*v[0] + v[1]*v[1] + v[2]*v[2];
+
+dbl c(dbl3 x) {
+  return v0 + dbl3_dot(v, x);
+}
+
+dbl s(dbl3 x) {
+  return 1/c(x);
+}
+
+void Ds(dbl3 x, dbl3 Ds) {
+  dbl s_squared = s(x)*s(x);
+  for (size_t i = 0; i < 3; ++i)
+    Ds[i] = -s_squared*v[i];
+}
+
+void D2s(dbl3 x, dbl33 D2s) {
+  dbl s_cubed = pow(s(x), 3);
+  for (size_t i = 0; i < 3; ++i)
+    for (size_t j = 0; j < 3; ++j)
+      D2s[i][j] = -2*s_cubed*v[i]*v[j];
+}
+
+/* Analytic solution for a linear speed of sound */
+dbl tau(dbl3 x) {
+  return acosh(1 + s0*s(x)*vnormsq*dbl3_normsq(x)/2)/sqrt(vnormsq);
+}
+
 int main(int argc, char *argv[]) {
   int code = EXIT_SUCCESS;
 
@@ -80,31 +135,72 @@ int main(int argc, char *argv[]) {
   mesh3_alloc(&mesh);
   mesh3_init(mesh, &data, true, &eps);
 
+  printf("average edge length = %g\n", mesh3_get_mean_edge_length(mesh));
+
   if (!mesh3_contains_ball(mesh, spec.xsrc, spec.rfac)) {
     fprintf(stderr, "ERROR: mesh doesn't fully contain factoring ball\n");
     code = EXIT_FAILURE;
     goto cleanup;
   }
 
-  /* Read the jet data for the slowness functions */
-  jet31t *s_data = malloc(mesh3_nverts(mesh)*sizeof(jet31t));
-  FILE *fp = fopen("s_data.bin", "r");
-  fread(s_data, sizeof(jet31t), mesh3_nverts(mesh), fp);
-  fclose(fp);
-
   /* Set up the slowness functions */
-  sfunc_s s = {
-    .stype = STYPE_JET31T,
-    .data_jet31t = s_data
+  sfunc_s sfunc = {
+    .stype = STYPE_FUNC_PTR,
+    .funcs = {.s = s, .Ds = Ds, .D2s = D2s}
   };
 
-  /* Solve the eikonal equation for the left ear */
+  /* Solve the eikonal equation */
   eik3_s *eik;
   eik3_alloc(&eik);
-  eik3_init(eik, mesh, &s);
+  eik3_init(eik, mesh, &sfunc);
   eik3_add_pt_src_bcs(eik, spec.xsrc, spec.rfac);
   eik3_solve(eik);
   eik3_dump_jet(eik, "jet_T.bin");
+
+  printf("wrote jet_T.bin\n");
+
+  /** Just dump the solution now for error checking... */
+
+  jet31t const *jet = eik3_get_jet_ptr(eik);
+
+  bmesh33_s *bmesh;
+  bmesh33_alloc(&bmesh);
+  bmesh33_init_from_mesh3_and_jets(bmesh, mesh, jet);
+
+  size_t N = 256;
+
+  dbl *value = malloc(N*N*sizeof(dbl));
+
+  size_t k = 0;
+  for (size_t i = 0; i < N; ++i) {
+    for (size_t j = 0; j < N; ++j) {
+      dbl3 x = {(2.0/N)*i - 1.0, (2.0/N)*j - 1.0, 0.5};
+      value[k++] = bmesh33_f(bmesh, x);
+    }
+  }
+
+  FILE *fp = fopen("T_grid.bin", "w");
+  fwrite(value, sizeof(dbl), N*N, fp);
+  fclose(fp);
+
+  bmesh33_deinit(bmesh);
+  bmesh33_dealloc(&bmesh);
+
+  printf("wrote T_grid.bin\n");
+
+  k = 0;
+  for (size_t i = 0; i < N; ++i) {
+    for (size_t j = 0; j < N; ++j) {
+      dbl3 x = {(2.0/N)*i - 1.0, (2.0/N)*j - 1.0, 0.5};
+      value[k++] = tau(x);
+    }
+  }
+
+  fp = fopen("tau_grid.bin", "w");
+  fwrite(value, sizeof(dbl), N*N, fp);
+  fclose(fp);
+
+  printf("wrote tau_grid.bin\n");
 
 cleanup:
 

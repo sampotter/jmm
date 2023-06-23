@@ -34,7 +34,7 @@ bool eik3_is_solved(eik3_s const *eik);
 void eik3_resolve_downwind_from_diff(eik3_s *eik, size_t diff_index, dbl rfac);
 
 stype_e eik3_get_stype(eik3_s const *eik);
-sfunc_s const *eik3_get_s(eik3_s const *eik);
+sfunc_s const *eik3_get_sfunc(eik3_s const *eik);
 
 bool eik3_is_far(eik3_s const *eik, size_t ind);
 bool eik3_is_trial(eik3_s const *eik, size_t ind);

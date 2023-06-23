@@ -3,124 +3,171 @@
 #include <assert.h>
 
 #include <jmm/mat.h>
+#include <jmm/util.h>
 
 #include "macros.h"
 
-void triqp2_solve(triqp2_s *qp) {
-  assert(dbl2_isfinite(qp->b));
-  assert(dbl2_isfinite(qp->A[0]));
-  assert(dbl2_isfinite(qp->A[1]));
+void triqp2_solve(triqp2_s *qp, dbl tol) {
+  dbl2 const *A = qp->A;
+  dbl const *b = &qp->b[0];
+  dbl *x = &qp->x[0];
 
-  dbl const atol = 1e-15;
+  assert(dbl2_isfinite(b));
+  assert(dbl2_isfinite(A[0]));
+  assert(dbl2_isfinite(A[1]));
 
-  dbl x[2], lam[2]; // Temporary variables used below
+  bool quadratic_part_is_zero =
+    fabs(A[0][0]) < tol && fabs(A[0][1]) < tol &&
+    fabs(A[1][0]) < tol && fabs(A[1][1]) < tol;
 
-  /**
-   * First, try to compute global minimizer. If it satifies the
-   * constraints, we're done.
-   */
-  dbl22_dbl2_solve(qp->A, qp->b, qp->x);
-  dbl2_negate(qp->x);
-  if (qp->x[0] >= 0 && qp->x[1] >= 0 && qp->x[0] + qp->x[1] <= 1) {
+  bool linear_part_is_zero = fabs(b[0]) < tol && fabs(b[1]) < tol;
+
+  /* If both the quadratic and linear parts are zero, we just set the
+   * optimum to be the centroid and return... this may not be the most
+   * sensible thing to do. */
+  if (quadratic_part_is_zero && linear_part_is_zero) {
+    x[0] = 1./3;
+    x[1] = 1./3;
     return;
   }
 
-  // TODO: if this implementation works, I can simplify what follows
-  // quite a bit by looking at b *first*.
-
-  /**
-   * Try to minimize over x[0].
-   */
-  if (qp->x[1] <= 0) {
-    x[0] = -qp->b[0]/qp->A[0][0];
-    if (0 <= x[0] && x[0] <= 1) {
-      // Check Lagrange multiplier
-      if (qp->A[1][0]*x[0] + qp->b[1] >= 0) {
-        qp->x[0] = x[0];
-        qp->x[1] = 0;
-        return;
-      }
+  /* If the quadratic part is zero, return the optimum value at the
+   * vertex for the linear part */
+  if (quadratic_part_is_zero) {
+    dbl p00 = 0, p10 = b[0], p01 = b[1];
+    if (p00 < p10 && p00 < p01) {
+      x[0] = 0;
+      x[1] = 0;
+    } else if (p10 < p00 && p10 < p01) {
+      x[0] = 1;
+      x[1] = 0;
+    } else if (p01 < p00 && p01 < p10) {
+      x[0] = 0;
+      x[1] = 1;
+    } else if (p00 == p10 && p10 == p01) {
+      x[0] = x[1] = 1./3;
+    } else if (p00 == p01) {
+      x[0] = 0;
+      x[1] = 1./2;
+    } else if (p01 == p10) {
+      x[0] = 1./2;
+      x[1] = 1./2;
+    } else if (p10 == p00) {
+      x[0] = 1./2;
+      x[1] = 1;
+    } else {
+      assert(false);
     }
-  }
-
-  /**
-   * Try to minimize over x[1].
-   */
-  if (qp->x[0] <= 0) {
-    x[1] = -qp->b[1]/qp->A[1][1];
-    if (0 <= x[1] && x[1] <= 1) {
-      // Check Lagrange multiplier
-      if (qp->A[0][1]*x[1] + qp->b[0] >= 0) {
-        qp->x[0] = 0;
-        qp->x[1] = x[1];
-        return;
-      }
-    }
-  }
-
-  /**
-   * Try to minimize over 1 - x[0] - x[1].
-   */
-  if (dbl2_sum(qp->x) >= 1) {
-    dbl s = qp->A[0][0] - qp->A[1][0] + qp->b[0] - qp->b[1];
-    s /= qp->A[0][0] - qp->A[1][0] - qp->A[0][1] + qp->A[1][1];
-    if (-atol <= s && s <= 1 + atol) {
-      s = fmax(0, fmin(1, s));
-      x[0] = 1 - s;
-      x[1] = s;
-      // Check Lagrange multiplier
-      if (dbl2_dot(qp->A[0], x) + dbl2_dot(qp->A[1], x)
-          + dbl2_sum(qp->b) <= atol) {
-        qp->x[0] = x[0];
-        qp->x[1] = x[1];
-        return;
-      }
-    }
-  }
-
-  /**
-   * Check if (0, 0) is optimal.
-   */
-  if (qp->b[0] >= 0 && qp->b[1] >= 0) {
-    qp->x[0] = qp->x[1] = 0;
     return;
   }
 
-  // TODO: we should be able to simplify these both significantly and
-  // remove the lambda variable entirely... but let's do that later
+  /* If the linear part is zero, then the optimum is the origin */
+  if (linear_part_is_zero) {
+    x[0] = 0;
+    x[1] = 0;
+    return;
+  }
 
-  /**
-   * Check if (1, 0) is optimal.
-   */
-  {
-    lam[0] = qp->A[0][0] + qp->b[0];
-    if (lam[0] <= 0) {
-      lam[1] = lam[0] - qp->A[1][0] - qp->b[1];
-      if (lam[1] <= 0) {
-        qp->x[0] = 1;
-        qp->x[1] = 0;
-        return;
-      }
+  /** Next, try to compute the global minimizer: */
+
+  dbl22_dbl2_solve(A, b, x);
+  dbl2_negate(x);
+  if (x[0] >= 0 && x[1] >= 0 && x[0] + x[1] <= 1) {
+    /* If it's in the interior, we're done. */
+    return;
+  }
+
+  /** If that failed, minimize the quadratic over each edge: */
+
+  /* We parametrize the edge [1, 0] x {0} using x -> (x, 0) with 0 <=
+   * x <= 1. The constrained optimum is x10_opt.
+   *
+   * The edge {0} x [0, 1] is parametrized y -> (0, y), likewise with
+   * 0 <= y <= 1. Optimum is y01_opt.
+   *
+   * The diagonal edge is parametrized x -> (x, 1 - x), with the
+   * optimum x value being x11_opt.
+   *
+   * We compute these below. We're just minimizing quadratics, so
+   * minima are available analytically over RR. Afterwards we project
+   * each back to the unit interval [0, 1].
+   *
+   * Note: when we compute these, we need to check and see if these
+   * are linear functions we're trying to minimize. If they are, we
+   * need to manually find the endpoint. */
+
+  dbl x10_opt = NAN, y01_opt = NAN, x11_opt = NAN;
+
+  dbl p_x10_opt = NAN, p_y01_opt = NAN, p_x11_opt = NAN;
+
+  if (A[0][0] == 0) {
+    x10_opt = b[0] >= 0 ? 1 : 0;
+  } else {
+    x10_opt = clamp(-b[0]/A[0][0], 0, 1);
+  }
+  p_x10_opt = (b[0] + A[0][0]*x10_opt/2)*x10_opt;
+
+  if (A[1][1] == 0) {
+    y01_opt = b[1] >= 0 ? 1 : 0;
+  } else {
+    y01_opt = clamp(-b[1]/A[1][1], 0, 1);
+  }
+  p_y01_opt = (b[1] + A[1][1]*y01_opt/2)*y01_opt;
+
+  /* coefficients in x for polynomial on diagonal
+   * (i.e., p(x) = q(x, 1 - x)) */
+  dbl p_x11_c[3] = {
+    A[1][1]/2 + b[1],                // x^0
+    A[0][1] - A[1][1] + b[0] - b[1], // x^1
+    A[0][0]/2 - A[0][1] + A[1][1]/2  // x^2
+  };
+
+  if (p_x11_c[2] == 0) {
+    x11_opt = p_x11_c[1] >= 0 ? 1 : 0;
+  } else {
+    x11_opt = clamp(-p_x11_c[1]/(2*p_x11_c[2]), 0, 1);
+  }
+  p_x11_opt = p_x11_c[0] + p_x11_c[1]*x11_opt + p_x11_c[2]*x11_opt*x11_opt;
+
+  if (p_x10_opt < p_y01_opt && p_x10_opt < p_x11_opt) {
+    x[0] = x10_opt;
+    x[1] = 0;
+  }
+
+  else if (p_y01_opt < p_x10_opt && p_y01_opt < p_x11_opt) {
+    x[0] = 0;
+    x[1] = y01_opt;
+  }
+
+  else if (p_x11_opt < p_x10_opt && p_x11_opt < p_y01_opt) {
+    x[0] = x11_opt;
+    x[1] = 1 - x11_opt;
+  }
+
+  else if (p_x10_opt == p_y01_opt) {
+    assert(x10_opt == 0 && y01_opt == 0);
+    x[0] = 0;
+    x[1] = 0;
+  }
+
+  else if (p_x10_opt == p_x11_opt) {
+    assert(fabs(1 - x10_opt) < tol && x11_opt == 1);
+    x[0] = 1;
+    x[1] = 0;
+  }
+
+  else if (p_y01_opt == p_x11_opt) {
+    if (x11_opt == 0 && y01_opt == 1) {
+      x[0] = 0;
+      x[1] = 1;
+    } else if (x11_opt == 1 && y01_opt == 0) {
+      assert(x10_opt == 0.5);
+      x[0] = 0.5;
+      x[1] = 0;
     }
   }
 
-  /**
-   * Check if (0, 1) is optimal.
-   */
-  {
-    lam[0] = qp->A[1][1] + qp->b[1];
-    if (lam[0] <= 0) {
-      lam[1] = lam[0] - qp->A[0][1] - qp->b[0];
-      if (lam[1] <= 0) {
-        qp->x[0] = 0;
-        qp->x[1] = 1;
-        return;
-      }
-    }
-  }
+  else assert(false);
 
-  // We shouldn't reach this point! We want to different conditionals
-  // above to exhaust every case and positively identify an argmin for
-  // the quadratic.
-  die();
+  return;
 }

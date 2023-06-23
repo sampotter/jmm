@@ -13,6 +13,7 @@ extern "C" {
  */
 typedef enum stype {
   STYPE_CONSTANT,
+  STYPE_FUNC_PTR,
   STYPE_JET31T,
   STYPE_NUM_STYPE
 } stype_e;
@@ -20,11 +21,23 @@ typedef enum stype {
 typedef struct sfunc {
   stype_e stype;
   union {
+    struct {
+      dbl (*s)(dbl3 x);
+      void (*Ds)(dbl3 x, dbl3 Ds);
+      void (*D2s)(dbl3 x, dbl33 D2s);
+    } funcs;
     jet31t *data_jet31t;
   };
 } sfunc_s;
 
-static sfunc_s const SFUNC_CONSTANT = {.stype = STYPE_CONSTANT};
+static sfunc_s const SFUNC_CONSTANT = {
+  .stype = STYPE_CONSTANT,
+  .funcs = {
+    .s = NULL,
+    .Ds = NULL,
+    .D2s = NULL
+  }
+};
 
 #ifdef __cplusplus
 }

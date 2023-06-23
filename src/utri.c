@@ -2,6 +2,7 @@
 
 #include <assert.h>
 #include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
 
 #include <jmm/array.h>
@@ -11,12 +12,18 @@
 #include <jmm/mat.h>
 #include <jmm/mesh3.h>
 #include <jmm/slerp.h>
+#include <jmm/uline.h>
 
 struct utri {
   eik3_s const *eik;
+  stype_e stype;
+  sfunc_s const *sfunc;
+  dbl tol;
 
   dbl lam;
   dbl f;
+  dbl3 topt;
+
   dbl Df;
   dbl x_minus_xb[3];
   dbl L;
@@ -60,7 +67,7 @@ static void set_lambda_stype_constant(utri_s *utri, dbl lam) {
 }
 
 static void set_lambda(utri_s *utri, dbl lam) {
-  switch(eik3_get_stype(utri->eik)) {
+  switch (utri->stype) {
   case STYPE_CONSTANT:
     set_lambda_stype_constant(utri, lam);
     break;
@@ -125,15 +132,19 @@ rotate_jet_for_diffraction(mesh3_s const *mesh,
 }
 
 void utri_init(utri_s *u, eik3_s const *eik, size_t lhat, size_t const l[2]) {
-  u->eik = eik;
-
   mesh3_s const *mesh = eik3_get_mesh(eik);
+
+  u->eik = eik;
+  u->stype = eik3_get_stype(eik);
+  u->sfunc = eik3_get_sfunc(eik);
+  u->tol = mesh3_get_edge_tol(mesh, l);
 
   /* Initialize `u` */
 
   u->f = INFINITY;
-
   u->lam = u->f = u->Df = u->L = NAN;
+  dbl3_nan(u->topt);
+
   u->x_minus_xb[0] = u->x_minus_xb[1] = u->x_minus_xb[2] = NAN;
 
   u->l = lhat;
@@ -180,24 +191,135 @@ void utri_init(utri_s *u, eik3_s const *eik, size_t lhat, size_t const l[2]) {
   }
 }
 
+static dbl hybrid_Dp(dbl lam, cubic_s const *p) {
+  return cubic_df(p, lam);
+}
+
 void utri_solve(utri_s *utri) {
-  dbl lam, f[2];
+  static int CALL_NUMBER = 0;
 
-  if (hybrid((hybrid_cost_func_t)hybrid_f, 0, 1, utri, &lam))
-    return;
+  if (utri->stype == STYPE_CONSTANT) {
+    dbl lam, f[2];
 
-  set_lambda(utri, 0);
-  f[0] = utri->f;
+    if (hybrid((hybrid_cost_func_t)hybrid_f, 0, 1, utri, &lam))
+      return;
 
-  set_lambda(utri, 1);
-  f[1] = utri->f;
-
-  assert(f[0] != f[1]);
-
-  if (f[0] < f[1])
     set_lambda(utri, 0);
-  else
+    f[0] = utri->f;
+
     set_lambda(utri, 1);
+    f[1] = utri->f;
+
+    assert(f[0] != f[1]);
+
+    if (f[0] < f[1])
+      set_lambda(utri, 0);
+    else
+      set_lambda(utri, 1);
+  }
+
+  else if (utri->stype == STYPE_FUNC_PTR) {
+
+    dbl lam_prev = NAN, lam_opt = NAN;
+    // dbl lam_node_orig[4] = {0, 1./3, 2./3, 1}; // just for debugging
+    dbl lam_node[4] = {0, 1./3, 2./3, 1};
+
+    dbl beta = 3;
+    dbl factor = (beta + 1)/beta;
+
+    dbl prev_error = NAN;
+
+    size_t num_iter = 0;
+
+    // printf("DOING S != 1 UTRI #%d\n", CALL_NUMBER);
+
+    while (true) {
+      // printf("* it = %lu\n", num_iter);
+
+      dbl f[4] = {NAN, NAN, NAN, NAN};
+      for (size_t i = 0; i < 4; ++i) {
+        dbl3 x_node;
+        dbl3_saxpy(lam_node[i], utri->x1_minus_x0, utri->x0, x_node);
+
+        dbl T = bb31_f(&utri->T, (dbl2) {1 - lam_node[i], lam_node[i]});
+
+        uline_s *uline;
+        uline_alloc(&uline);
+        uline_init_from_points(uline,utri->eik,utri->x,x_node,utri->tol,T);
+        uline_solve(uline);
+
+        f[i] = uline_get_value(uline);
+
+        uline_dealloc(&uline);
+      }
+
+      cubic_s p = cubic_from_lagrange_data(f);
+      // for (size_t i = 0; i < 4; ++i)
+      //   assert(fabs(cubic_f(&p, lam_node_orig[i]) - f[i]) < EPS);
+
+      dbl lam = NAN;
+      if (!hybrid((hybrid_cost_func_t)hybrid_Dp, 0, 1, &p, &lam)) {
+        /* TODO: If the hybrid method failed to do its thing, we've
+         * found a boundary minimizer. For now we'll just do a stupid
+         * hack: assume this is the correct solution and bail! In many
+         * cases this will be the right thing to do. Only very
+         * occasionally should we get the other weird corner
+         * case... */
+        lam_opt = cubic_f(&p, 0) < cubic_f(&p, 1) ? 0 : 1;
+        break;
+      }
+
+      dbl error = fabs(lam - lam_prev);
+      if (error <= utri->tol) {
+        lam_opt = lam;
+        break;
+      } else {
+        lam_prev = lam;
+      }
+
+      if (error > 2*prev_error) {
+        beta += 1;
+        factor = (beta + 1)/beta;
+        // printf("  ! reduced factor to %g\n", factor);
+      }
+
+      for (size_t i = 0; i < 4; ++i) {
+        lam_node[i] = (lam_node[i] - lam_prev)/factor + lam_prev;
+        assert(lam_node[i] >= -EPS);
+        assert(lam_node[i] <= 1 + EPS);
+      }
+
+      prev_error = error;
+      ++num_iter;
+    }
+
+    /** Set lam, f, and topt */
+
+    assert(isnan(utri->lam));
+    assert(isnan(utri->f));
+    assert(dbl3_all_nan(utri->topt));
+
+    utri->lam = lam_opt;
+
+    dbl T_opt = bb31_f(&utri->T, (dbl2) {1 - lam_opt, lam_opt});
+
+    dbl3 x_opt;
+    dbl3_saxpy(lam_opt, utri->x1_minus_x0, utri->x0, x_opt);
+
+    uline_s *uline;
+    uline_alloc(&uline);
+    uline_init_from_points(uline,utri->eik,utri->x,x_opt,utri->tol,T_opt);
+    uline_solve(uline);
+
+    utri->f = uline_get_value(uline);
+    uline_get_topt(uline, utri->topt);
+
+    uline_dealloc(&uline);
+  }
+
+  else assert(false);
+
+  ++CALL_NUMBER;
 }
 
 static void get_update_inds(utri_s const *utri, size_t l[2]) {
@@ -223,7 +345,19 @@ dbl utri_get_value(utri_s const *u) {
 
 void utri_get_jet31t(utri_s const *utri, jet31t *jet) {
   jet->f = utri->f;
-  dbl3_dbl_div(utri->x_minus_xb, utri->L, jet->Df);
+
+  if (utri->stype == STYPE_CONSTANT) {
+    dbl3_dbl_div(utri->x_minus_xb, utri->L, jet->Df);
+  }
+
+  else if (utri->stype == STYPE_FUNC_PTR) {
+    dbl3 x_lam;
+    dbl3_saxpy(utri->lam, utri->x1_minus_x0, utri->x0, x_lam);
+    dbl shat = utri->sfunc->funcs.s(x_lam);
+    dbl3_dbl_mul(utri->topt, shat, jet->Df);
+  }
+
+  else assert(false);
 }
 
 static dbl get_lag_mult(utri_s const *utri) {

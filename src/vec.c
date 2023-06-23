@@ -120,6 +120,11 @@ void dbl2_saxpy(dbl a, dbl2 const x, dbl2 const y, dbl2 z) {
   z[1] = a*x[1] + y[1];
 }
 
+void dbl2_saxpy_inplace(dbl a, dbl2 const x, dbl2 y) {
+  y[0] += a*x[0];
+  y[1] += a*x[1];
+}
+
 void dbl2_sub(dbl2 const u, dbl2 const v, dbl2 w) {
   w[0] = u[0] - v[0];
   w[1] = u[1] - v[1];
@@ -167,6 +172,22 @@ bool dbl3_valid_bary_coord(dbl3 const b) {
   dbl const atol = 1e-14;
   return b[0] > -atol && b[1] > -atol && b[2] > -atol
     && fabs(1 - dbl3_sum(b)) < atol;
+}
+
+dbl dbl3_angle(dbl3 const u, dbl3 const v) {
+  // Note that arccos is very poorly conditioned if the angle between
+  // u and v is small. We use the formula based on arctan instead,
+  // since it's well-conditioned for all angles. See, e.g.:
+  //
+  //   https://en.wikipedia.org/wiki/Great-circle_distance#Formulas
+  //
+
+  dbl3 n1, n2;
+  dbl3_normalized(u, n1);
+  dbl3_normalized(v, n2);
+  dbl3 n1_cross_n2;
+  dbl3_cross(n1, n2, n1_cross_n2);
+  return atan(dbl3_norm(n1_cross_n2)/dbl3_dot(n1, n2));
 }
 
 dbl dbl3_dist(dbl3 const u, dbl3 const v) {

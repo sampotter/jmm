@@ -87,7 +87,7 @@ void mesh3_ee(mesh3_s const *mesh, size_t const e[2], size_t (*ee)[2]);
 size_t mesh3_nev(mesh3_s const *mesh, size_t const e[2]);
 void mesh3_ev(mesh3_s const *mesh, size_t const e[2], size_t *v);
 int mesh3_nfc(mesh3_s const *mesh, size_t const f[3]);
-void mesh3_fc(mesh3_s const *mesh, size_t const f[3], size_t *fc);
+void mesh3_fc(mesh3_s const *mesh, size_t const f[3], uint2 fc);
 bool mesh3_cee(mesh3_s const *mesh, size_t c, size_t const e[2],
                size_t e_out[2]);
 bool mesh3_cfv(mesh3_s const *mesh, size_t lc, size_t const lf[3], size_t *lv);
@@ -158,8 +158,10 @@ dbl mesh3_linterp(mesh3_s const *mesh, dbl const *values, dbl3 const x);
 dbl mesh3_diam_2approx(mesh3_s const *mesh, size_t l);
 dbl mesh3_diam_2approx_rand(mesh3_s const *mesh, size_t trials, size_t const *seed);
 dbl mesh3_get_diam(mesh3_s const *mesh);
+dbl mesh3_get_vertex_tol(mesh3_s const *mesh, size_t lv);
 dbl mesh3_get_edge_tol(mesh3_s const *mesh, uint2 const le);
 dbl mesh3_get_face_tol(mesh3_s const *mesh, uint3 const lf);
+dbl mesh3_get_point_tol(mesh3_s const *mesh, dbl3 const x);
 
 #ifdef __cplusplus
 }
