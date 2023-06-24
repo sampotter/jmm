@@ -16,3 +16,10 @@ custom_target('render_bin_to_img.py',
   command : ['cp', '@INPUT@', '@OUTPUT@'],
   install : false,
   build_by_default : true)
+
+custom_target('simulate.py',
+  input : 'simulate.py',
+  output : 'simulate.py',
+  command : ['cp', '@INPUT@', '@OUTPUT@'],
+  install : false,
+  build_by_default : true)
