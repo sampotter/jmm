@@ -1,4 +1,5 @@
 subdir('3d_wedge')
+subdir('curvy')
 subdir('itd')
 subdir('na_plots')
 subdir('sound_prop')
