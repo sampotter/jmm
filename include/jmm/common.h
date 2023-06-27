@@ -11,6 +11,7 @@ typedef struct bmesh33_cell bmesh33_cell_s;
 typedef struct edgemap edgemap_s;
 typedef struct eik2g1 eik2g1_s;
 typedef struct eik2m1 eik2m1_s;
+typedef struct eik2mp eik2mp_s;
 typedef struct eik3 eik3_s;
 typedef struct eik31m eik31m_s;
 typedef struct eik3hh eik3hh_s;
