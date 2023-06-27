@@ -1,17 +1,35 @@
-# Generate test geometry but just its base (i.e. just the circle) specifying h# Generation of test geometry and producing its triangular mesh
-# I also generated a triangular mesh in a square because I'm going to 
-# first test my fmm method here (very naivly)
-import matplotlib.pyplot as plt
-import numpy as np
-from numpy.linalg import norm
-from math import pi, sqrt, floor, ceil
-import meshpy.triangle as triangle
-from matplotlib.patches import Arc
-import numpy.linalg as la
-from matplotlib.colors import ListedColormap
+#!/usr/bin/env python
+
+'''
+
+Generate test geometry but just its base (i.e. just the circle) specifying h
+Generation of test geometry and producing its triangular mesh
+I also generated a triangular mesh in a square because I'm going to
+first test my fmm method here (very naivly)
+
+'''
+
+import argparse
 import colorcet as cc
+import matplotlib.pyplot as plt
+import meshpy.triangle as triangle
+import numpy as np
+import numpy.linalg as la
 
+from math import pi, sqrt, floor, ceil
+from matplotlib.colors import ListedColormap
+from matplotlib.patches import Arc
+from numpy.linalg import norm
+from pathlib import Path
 
+parser = argparse.ArgumentParser()
+
+parser.add_argument('h', type=float)
+parser.add_argument('currentH')
+parser.add_argument('path_figures')
+parser.add_argument('path_info')
+
+args = parser.parse_args()
 
 colormap2 = "cet_linear_worb_100_25_c53_r"
 colormap2_r = "cet_linear_worb_100_25_c53"
@@ -21,13 +39,16 @@ colormap2_r = "cet_linear_worb_100_25_c53"
 
 plt.ion()
 
-h =  0.01
+h = args.h
 h_string = str(h)
 eta1 = 1.0
 eta2 = 1.45
-currentH = "H9"
-path_figures = "/Users/marianamartinez/Documents/Documents - Mariana’s MacBook Pro/NYU-Courant/FMM-bib/Figures/TestBaseSnow/"
-path_info = '/Users/marianamartinez/Documents/Curvy-JMM/JMM/'
+currentH = args.currentH
+path_figures = Path(args.path_figures)/currentH
+path_info = Path(args.path_info)/currentH
+
+path_figures.mkdir(parents=True, exist_ok=True)
+path_info.mkdir(parents=True, exist_ok=True)
 
 ############# Generate the two circles
 
@@ -37,7 +58,7 @@ def circ_base(t):
     '''
     Parametrization of the base cirlce (base of the snowman) for the test geometry.
     t can be a number or an array or numbers. If t is a number the output are the
-    coordinates [x, y]. If t is an array the output is a n, 2 array, the first 
+    coordinates [x, y]. If t is an array the output is a n, 2 array, the first
     column corresponds to the coordinates of x, the second to the coordinates of y.
     '''
     points = np.zeros((len(t), 2))
@@ -74,13 +95,13 @@ def connect(start, end):
 def needs_refinement(vertices, area):
     max_area = h
     return bool(area > max_area)
-    
+
 def nPoints(h):
     '''
     With this function we know how many points we need in the top of the snowman and in the bottom, depending on which h we want
     WE ASSUME THAT WE ARE DISTRIBUTING UNIFORMLY THESE POINTS
     '''
-    nBottom = ceil(15*pi/h) 
+    nBottom = ceil(15*pi/h)
     return nBottom
 
 Nbase = nPoints(h)
@@ -90,7 +111,7 @@ t = np.multiply(t, pi)
 
 points_base, tan_base = circ_base(t)
 hc = [norm( points_base[0, :] - points_base[1, :] )]*len(points_base) # All are the same because the points are equispaced on the circle
-    
+
 
 # The points on the outline of the snowman and the tangent
 points =  [(-15, -10)] # start with x0 so that in each mesh we know its index
@@ -111,10 +132,10 @@ mesh_square_boundaryCurve = np.array(mesh_square_boundaryCurve)
 
 edges_square = [(-18, -18), (18, -18), (18, 24), (-18, 24)]
 
-# Add them to the points 
+# Add them to the points
 points_square = points + edges_square
 # Add the facets
-facets_square = facets + round_trip_connect(len(points), len(points_square)-1) 
+facets_square = facets + round_trip_connect(len(points), len(points_square)-1)
 
 # Add them to the triangulation (this is a new triangulation)
 info_square = triangle.MeshInfo()
@@ -225,7 +246,7 @@ for i in range(len(mesh_square_boundaryCurve)):
 mesh_square_boundaryCurve = mesh_square_boundaryCurve[:, 1:]
 print(" Mesh square boundary organized")
 
-    
+
 # Create the labels per face
 
 
@@ -261,7 +282,7 @@ plt.triplot(mesh_square_points[:, 0], mesh_square_points[:, 1], mesh_square_tris
 circle_b = plt.Circle((0, 0), 10, color="#000536",fill=False)
 ax.add_patch(circle_b)
 plt.title('Delaunay triangulation of test geometry, H = '+h_string)
-plt.savefig(path_figures + currentH + '/'+ currentH + '_TriangulationWhite.png', dpi=my_dpi * 10)
+plt.savefig(path_figures/f'{currentH}_TriangulationWhite.png', dpi=my_dpi * 10)
 plt.xlim([-18, 18])
 plt.ylim([-18, 24])
 plt.show(block=False)
@@ -286,7 +307,7 @@ plt.title('Delaunay triangulation of test geometry, H = '+h_string)
 plt.xlim([-18, 18])
 plt.ylim([-18, 24])
 plt.show(block = False)
-plt.savefig(path_figures + currentH + '/'+ currentH + '_Triangulation.png', dpi=my_dpi * 10)
+plt.savefig(path_figures/f'{currentH}_Triangulation.png', dpi=my_dpi * 10)
 
 
 # With the tangents
@@ -301,39 +322,39 @@ plt.title('Delaunay triangulation of test geometry, H = '+h_string)
 plt.xlim([-18, 18])
 plt.ylim([-18, 24])
 plt.show(block = False)
-plt.savefig(path_figures + currentH + '/'+ currentH + '_TriangulationTangents.png', dpi=my_dpi * 10)
+plt.savefig(path_figures/f'{currentH}_TriangulationTangents.png', dpi=my_dpi * 10)
 
 
 ## Save them as well
 
-np.savetxt(path_info + currentH + '/'+ currentH +'_Edges.txt', mesh_square_facets.astype(int), delimiter =', ', fmt ='%.0f' )
+np.savetxt(path_info/f'{currentH}_Edges.txt', mesh_square_facets.astype(int), delimiter =', ', fmt ='%.0f' )
 
-np.savetxt(path_info + currentH + '/'+ currentH +'_MeshPoints.txt', mesh_square_points, delimiter =', ', fmt = '%.8f' )
+np.savetxt(path_info/f'{currentH}_MeshPoints.txt', mesh_square_points, delimiter =', ', fmt = '%.8f' )
 
-np.savetxt(path_info + currentH + '/'+ currentH +'_Faces.txt', mesh_square_tris.astype(int), delimiter =', ', fmt ='%.0f' )
+np.savetxt(path_info/f'{currentH}_Faces.txt', mesh_square_tris.astype(int), delimiter =', ', fmt ='%.0f' )
 
-np.savetxt(path_info + currentH + '/'+ currentH +'_NeighTriangles.txt', mesh_square_neigTriangles.astype(int), delimiter =', ', fmt ='%.0f')
+np.savetxt(path_info/f'{currentH}_NeighTriangles.txt', mesh_square_neigTriangles.astype(int), delimiter =', ', fmt ='%.0f')
 
 
 # Sort mesh_square_boundaryCurve
 IndOrg = np.argsort( mesh_square_boundaryCurve[:,0] ) # Order according to zeroth column (i.e. edge number)
 mesh_square_boundaryCurve = mesh_square_boundaryCurve[IndOrg]
-np.savetxt(path_info + currentH + '/'+ currentH +'_BoundaryCurve.txt', mesh_square_boundaryCurve, delimiter =', ', fmt = '%.8f' )
+np.savetxt(path_info/f'{currentH}_BoundaryCurve.txt', mesh_square_boundaryCurve, delimiter =', ', fmt = '%.8f' )
 
-np.savetxt(path_info + currentH + '/'+ currentH +'_Indices.txt', np.array(faces_label), delimiter =', ', fmt = '%.8f' )
+np.savetxt(path_info/f'{currentH}_Indices.txt', np.array(faces_label), delimiter =', ', fmt = '%.8f' )
 
-np.savetxt(path_info + currentH + '/'+ currentH +'_EdgesInFace.txt', edgesInFaces.astype(int), delimiter =', ', fmt ='%.0f' )
+np.savetxt(path_info/f'{currentH}_EdgesInFace.txt', edgesInFaces.astype(int), delimiter =', ', fmt ='%.0f' )
 
-separator = "," 
+separator = ","
 
-with open(path_info + currentH + '/'+ currentH + "_Neigh.txt", "w") as out_file:
+with open(path_info/f'{currentH}_Neigh.txt', "w") as out_file:
     for l in mesh_square_neigh:
         out_string = separator.join(str(x) for x in l) + "\n"
         out_file.write(out_string)
-        
-with open(path_info + currentH + '/'+ currentH + "_IncidentFaces.txt", "w") as out_file:
+
+with open(path_info/f'{currentH}_IncidentFaces.txt', "w") as out_file:
     for l in mesh_IncidentFaces_sq:
         out_string = separator.join(str(x) for x in l) + "\n"
         out_file.write(out_string)
-        
+
 plt.show()
