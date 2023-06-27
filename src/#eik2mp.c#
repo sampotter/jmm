@@ -102,7 +102,7 @@ static void tri(eik2mp_s *eik, size_t l, size_t l0, size_t l1) {
     return;
 
   // check if tangent vector of ray lies in cone spanned by DT0 and DT1
-  // MAYBE DO THIS AFTER CONSIDERING DT0 AND DT1 USING SNELLS???
+  // UPDATE THIS - FREE SPACE USE LAGRANGE MULTIPLIERS, FIGURE OUT FOR TRIANGLE FAN
 
   dbl22 DT0_and_DT1;
   dbl2_copy(eik->jet[l0].Df, DT0_and_DT1[0]);
@@ -165,9 +165,9 @@ size_t eik2mp_step(eik2mp_s *eik) {
 
   for (size_t i = 0; i < nvv; ++i) {
     size_t l = vv[i]; // neighbor of x0
-    if (eik->state[l] == FAR) { 
+    if (eik->state[l] == FAR) { // if this neighbor was far
       eik->state[l] = TRIAL;
-      heap_insert(eik->heap, l);
+      heap_insert(eik->heap, l); // insert it to the heap
     }
   }
 

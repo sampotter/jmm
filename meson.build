@@ -5,11 +5,13 @@ project(
   meson_version : '>=0.62.2',
   version : '0.1.1',
   default_options : [
-    'c_std=gnu99'
+    'c_std=gnu99',
+    'cpp_std=c++11'
   ]
 )
 
 m_dep = meson.get_compiler('c').find_library('m', required : false)
+argp_dep = meson.get_compiler('c').find_library('argp', required : true)
 gsl_dep = dependency('gsl')
 tetgen_dep = dependency('tetgen')
 
