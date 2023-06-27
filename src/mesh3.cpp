@@ -1,6 +1,6 @@
 #include <jmm/mesh3.h>
 
-#include <assert.h>
+#include <cassert>
 #include <iostream>
 #include <sstream>
 

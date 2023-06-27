@@ -136,13 +136,13 @@ void mesh3_data_deinit(mesh3_data_s *data) {
 }
 
 size_t mesh3_data_append_vert(mesh3_data_s *data, dbl3 const x) {
-  data->verts = reallocarray(data->verts, data->nverts + 1, sizeof(dbl3));
+  data->verts = realloc(data->verts, (data->nverts + 1)*sizeof(dbl3));
   dbl3_copy(x, data->verts[data->nverts]);
   return data->nverts++;
 }
 
 void mesh3_data_append_cells(mesh3_data_s *data, size_t n, uint4 const C[4]) {
-  data->cells = reallocarray(data->cells, data->ncells + n, sizeof(uint4));
+  data->cells = realloc(data->cells, (data->ncells + n)*sizeof(uint4));
   memcpy(data->cells[data->ncells], C, n*sizeof(uint4));
   data->ncells += n;
 }
@@ -151,7 +151,7 @@ void mesh3_data_delete_cell(mesh3_data_s *data, size_t lc0) {
   --data->ncells;
   for (size_t lc = lc0; lc < data->ncells; ++lc)
     memcpy(data->cells[lc], data->cells[lc + 1], sizeof(uint4));
-  data->cells = reallocarray(data->cells, data->ncells, sizeof(uint4));
+  data->cells = realloc(data->cells, data->ncells*sizeof(uint4));
 }
 
 bool mesh3_data_cell_contains_point(mesh3_data_s const *data, size_t lc,
