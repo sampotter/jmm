@@ -1,9 +1,5 @@
 #pragma once
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include "common.h"
 #include "jet.h"
 
@@ -17,7 +13,3 @@ void uline_solve(uline_s *u);
 dbl uline_get_value(uline_s const *u);
 void uline_get_topt(uline_s const *u, dbl3 topt);
 jet31t uline_get_jet(uline_s const *u);
-
-#ifdef __cplusplus
-}
-#endif

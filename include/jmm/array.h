@@ -1,9 +1,5 @@
 #pragma once
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include "def.h"
 
 #define ARRAY_DEFAULT_CAPACITY 32
@@ -25,7 +21,3 @@ void array_delete(array_s *arr, size_t i);
 void array_delete_all(array_s *arr, array_s const *i_arr);
 void array_pop_front(array_s *arr, void *elt);
 void array_sort(array_s *arr, compar_t cmp);
-
-#ifdef __cplusplus
-}
-#endif

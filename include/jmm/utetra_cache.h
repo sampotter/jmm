@@ -3,10 +3,6 @@
 #include "array.h"
 #include "utetra.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 typedef struct utetra_cache utetra_cache_s;
 
 void utetra_cache_alloc(utetra_cache_s **cache);
@@ -18,7 +14,3 @@ bool utetra_cache_contains_inds(utetra_cache_s const *cache, size_t lhat, uint3 
 array_s *utetra_cache_pop_bracket(utetra_cache_s *cache, utetra_s const *utetra);
 void utetra_cache_purge(utetra_cache_s *cache, size_t l);
 bool utetra_cache_try_add_unique(utetra_cache_s *cache, utetra_s *utetra);
-
-#ifdef __cplusplus
-}
-#endif

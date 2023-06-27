@@ -1,9 +1,5 @@
 #pragma once
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include "vec.h"
 
 #define DBL22(a00, a01, a10, a11) (dbl22) {{a00, a01}, {a10, a11}}
@@ -81,7 +77,3 @@ void dbl4_dbl44_mul(dbl4 const x, dbl44 const A, dbl4 b);
 void dbl44_zero(dbl44 A);
 void dbl44_invert(dbl44 A);
 void dbl44_transpose(dbl44 A);
-
-#ifdef __cplusplus
-}
-#endif

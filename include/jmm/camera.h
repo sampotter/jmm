@@ -1,9 +1,5 @@
 #pragma once
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include "def.h"
 #include "geom.h"
 
@@ -23,7 +19,3 @@ typedef struct camera {
 
 void camera_reset(camera_s *camera);
 ray3 camera_get_ray_for_index(camera_s const *camera, int i, int j);
-
-#ifdef __cplusplus
-}
-#endif

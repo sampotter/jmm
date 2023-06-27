@@ -1,9 +1,5 @@
 #pragma once
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include "common.h"
 #include "def.h"
 #include "vec.h"
@@ -25,7 +21,3 @@ size_t mesh22_nvf(mesh22_s const *mesh, size_t l);
 void mesh22_vf(mesh22_s const *mesh, size_t l, size_t *vf);
 size_t mesh22_nvv(mesh22_s const *mesh, size_t l);
 void mesh22_vv(mesh22_s const *mesh, size_t l, size_t *vv);
-
-#ifdef __cplusplus
-}
-#endif

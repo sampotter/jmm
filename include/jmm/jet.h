@@ -1,9 +1,5 @@
 #pragma once
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include "def.h"
 #include "mat.h"
 
@@ -61,7 +57,3 @@ bool jet32t_is_singular(jet32t const *jet);
 // Conversions:
 
 jet31t jet31t_from_jet32t(jet32t jet);
-
-#ifdef __cplusplus
-}
-#endif

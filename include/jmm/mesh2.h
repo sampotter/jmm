@@ -1,9 +1,5 @@
 #pragma once
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include "common.h"
 #include "geom.h"
 
@@ -48,7 +44,3 @@ bool mesh2_tri_bbox_overlap(mesh2_s const *mesh, size_t i, rect3 const *bbox);
 tri3 mesh2_get_tri(mesh2_s const *mesh, size_t i);
 void mesh2_get_unit_surface_normal(mesh2_s const *mesh, size_t lf, dbl3 n);
 void mesh2_get_R_for_face(mesh2_s const *mesh, size_t lf, dbl33 R);
-
-#ifdef __cplusplus
-}
-#endif

@@ -1,9 +1,5 @@
 #pragma once
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include "array.h"
 #include "bb.h"
 #include "common.h"
@@ -14,13 +10,13 @@ extern "C" {
 
 // TODO: put functions we want to go in the "public API" here
 
-void eik3_alloc(eik3_s **eik);
-void eik3_dealloc(eik3_s **eik);
-void eik3_init(eik3_s *eik, mesh3_s const *mesh, sfunc_s const *sfunc);
-void eik3_deinit(eik3_s *eik);
+JMM_LINKAGE void eik3_alloc(eik3_s **eik);
+JMM_LINKAGE void eik3_dealloc(eik3_s **eik);
+JMM_LINKAGE void eik3_init(eik3_s *eik, mesh3_s const *mesh, sfunc_s const *sfunc);
+JMM_LINKAGE void eik3_deinit(eik3_s *eik);
 bool eik3_is_initialized(eik3_s const *eik);
 
-void eik3_dump_jet(eik3_s const *eik, char const *path);
+JMM_LINKAGE void eik3_dump_jet(eik3_s const *eik, char const *path);
 void eik3_dump_state(eik3_s const *eik, char const *path);
 void eik3_dump_par_l(eik3_s const *eik, char const *path);
 void eik3_dump_par_b(eik3_s const *eik, char const *path);
@@ -28,7 +24,7 @@ void eik3_dump_accepted(eik3_s const *eik, char const *path);
 
 size_t eik3_peek(eik3_s const *eik);
 jmm_error_e eik3_step(eik3_s *eik, size_t *l0);
-jmm_error_e eik3_solve(eik3_s *eik);
+JMM_LINKAGE jmm_error_e eik3_solve(eik3_s *eik);
 bool eik3_brute_force_remaining(eik3_s *eik);
 bool eik3_is_solved(eik3_s const *eik);
 void eik3_resolve_downwind_from_diff(eik3_s *eik, size_t diff_index, dbl rfac);
@@ -58,7 +54,7 @@ size_t eik3_num_bc(eik3_s const *eik);
 
 void eik3_add_trial(eik3_s *eik, size_t l, jet31t jet);
 void eik3_add_bc(eik3_s *eik, size_t l, jet31t jet);
-void eik3_add_pt_src_bcs(eik3_s *eik, dbl3 const xsrc, dbl tau0);
+JMM_LINKAGE void eik3_add_pt_src_bcs(eik3_s *eik, dbl3 const xsrc, dbl tau0);
 void eik3_add_diff_bcs(eik3_s *eik, eik3_s const *eik_in, size_t diff_index, dbl rfac);
 void eik3_add_refl_bcs(eik3_s *eik, eik3_s const *eik_in, size_t refl_index);
 void eik3_add_refl_bcs_with_fac(eik3_s *eik, eik3_s const *eik_in,
@@ -86,7 +82,3 @@ void eik3_prop_A(eik3_s const *eik, dbl33 const *D2T, dbl *A);
 
 void eik3_get_t_in(eik3_s const *eik, dbl3 *t_in);
 void eik3_get_t_out(eik3_s const *eik, dbl3 *t_out);
-
-#ifdef __cplusplus
-}
-#endif

@@ -1,9 +1,5 @@
 #pragma once
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include "field.h"
 
 typedef struct {
@@ -18,7 +14,3 @@ typedef struct {
 } S4_context;
 
 void S4_compute(dbl th, S4_context *context);
-
-#ifdef __cplusplus
-}
-#endif

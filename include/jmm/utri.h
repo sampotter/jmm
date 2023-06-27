@@ -1,9 +1,5 @@
 #pragma once
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include "common.h"
 #include "jet.h"
 #include "par.h"
@@ -32,8 +28,4 @@ bool utris_have_same_inds(utri_s const *u1, utri_s const *u2);
 #if JMM_TEST
 bool utri_is_causal(utri_s const *utri);
 dbl utri_get_lambda(utri_s const *utri);
-#endif
-
-#ifdef __cplusplus
-}
 #endif

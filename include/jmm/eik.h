@@ -1,9 +1,5 @@
 #pragma once
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include <stdbool.h>
 
 #include "bicubic.h"
@@ -45,7 +41,3 @@ heap_s *eik_get_heap(eik_s const *eik);
 par2_s eik_get_par(eik_s const *eik, int2 ind);
 bool eik_has_par(eik_s const *eik, int2 ind);
 size_t const *eik_get_accepted_ptr(eik_s const *eik);
-
-#ifdef __cplusplus
-}
-#endif

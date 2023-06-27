@@ -1,9 +1,5 @@
 #pragma once
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include "def.h"
 
 typedef struct bmesh33 bmesh33_s;
@@ -25,7 +21,3 @@ typedef struct mesh2_tri mesh2_tri_s;
 typedef struct mesh3 mesh3_s;
 typedef struct mesh3_tetra mesh3_tetra_s;
 typedef struct mesh22 mesh22_s;
-
-#ifdef __cplusplus
-}
-#endif

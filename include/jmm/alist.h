@@ -1,9 +1,5 @@
 #pragma once
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include <stdbool.h>
 #include <stddef.h>
 
@@ -26,7 +22,3 @@ bool alist_remove_by_key(alist_s *lst, void const *key);
 bool alist_get_key(alist_s const *lst, size_t i, void *key);
 bool alist_get_pair(alist_s const *lst, size_t i, void *key, void *elt);
 void alist_clear(alist_s *lst);
-
-#ifdef __cplusplus
-}
-#endif
