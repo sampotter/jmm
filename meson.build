@@ -11,7 +11,7 @@ project(
 )
 
 m_dep = meson.get_compiler('c').find_library('m', required : false)
-argp_dep = meson.get_compiler('c').find_library('argp', required : true)
+argp_dep = meson.get_compiler('c').find_library('argp', required : false)
 gsl_dep = dependency('gsl')
 tetgen_dep = dependency('tetgen')
 
