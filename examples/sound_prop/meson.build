@@ -1,7 +1,7 @@
-executable('mesh', 'mesh.c', dependencies : jmm_dep)
-executable('simulate', 'simulate.c', dependencies : jmm_dep)
-executable('render', 'render.c', dependencies : jmm_dep)
-executable('slice', 'slice.c', dependencies : jmm_dep)
+executable('mesh', 'mesh.c', dependencies : [argp_dep, jmm_dep])
+executable('simulate', 'simulate.c', dependencies : [argp_dep, jmm_dep])
+executable('render', 'render.c', dependencies : [argp_dep, jmm_dep])
+executable('slice', 'slice.c', dependencies : [argp_dep, jmm_dep])
 
 custom_target('room.off',
   input : 'room.off',

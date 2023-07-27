@@ -1,9 +1,5 @@
 #pragma once
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include "vec.h"
 
 int ind2l(int2 const shape, int2 const ind);
@@ -21,7 +17,3 @@ int xy_to_lc_and_cc(int2 const shape, dbl2 const xymin, dbl h, dbl2 const xy,
 
 int ind2l3(int3 const shape, int3 const ind);
 void l2ind3(int3 const shape, int l, int3 ind);
-
-#ifdef __cplusplus
-}
-#endif

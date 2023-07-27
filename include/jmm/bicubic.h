@@ -1,9 +1,5 @@
 #pragma once
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include <stdbool.h>
 
 #include "cubic.h"
@@ -31,7 +27,3 @@ dbl bicubic_fyy(bicubic_s const *bicubic, dbl2 cc);
 void interpolate_fxy_at_verts(dbl4 const fx, dbl4 const fy, dbl h, dbl4 fxy);
 bool bicubic_valid(bicubic_s const *bicubic);
 void bicubic_invalidate(bicubic_s *bicubic);
-
-#ifdef __cplusplus
-}
-#endif

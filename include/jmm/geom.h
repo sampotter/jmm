@@ -1,9 +1,5 @@
 #pragma once
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include "common.h"
 #include "def.h"
 #include "grid2.h"
@@ -122,7 +118,3 @@ dbl min_tetra_altitude(dbl const x[4][3]);
 // Defined in triBoxOverlap.c. Code by Tomas Akenine-Moller. Checks
 // for an overlap between a box and a triangle.
 int triBoxOverlap(dbl const center[3], dbl const half[3], dbl const v[3][3]);
-
-#ifdef __cplusplus
-}
-#endif

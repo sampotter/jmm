@@ -74,11 +74,16 @@ static struct argp argp = {options, parse_opt, args_doc, doc, 0, 0, 0};
 //   D2s[1][1] = -2*tmp*tmp;
 // }
 
-static dbl const v0 = 1;
-static dbl3 const v = {0.025, -0.025, 0.05};
+#define V0 1
+#define V_0 0.025
+#define V_1 -0.025
+#define V_2 0.05
 
-static dbl const s0 = 1/v0;
-static dbl const vnormsq = v[0]*v[0] + v[1]*v[1] + v[2]*v[2];
+static dbl const v0 = V0;
+static dbl3 const v = {V_0, V_1, V_2};
+
+static dbl const s0 = 1/V0;
+static dbl const vnormsq = V_0*V_0 + V_1*V_1 + V_2*V_2;
 
 dbl c(dbl3 x) {
   return v0 + dbl3_dot(v, x);

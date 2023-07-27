@@ -1,9 +1,5 @@
 #pragma once
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include "common.h"
 #include "vec.h"
 
@@ -24,7 +20,3 @@ struct field3 {
 
 dbl field3_f(field3_s const *field, dbl3 const x);
 void field3_grad_f(field3_s const *field, dbl3 const x, dbl3 Df);
-
-#ifdef __cplusplus
-}
-#endif

@@ -1,9 +1,5 @@
 #pragma once
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include "def.h"
 
 #include <immintrin.h>
@@ -55,7 +51,7 @@ bool dbl3_valid_bary_coord(dbl3 const b);
 dbl dbl3_angle(dbl3 const u, dbl3 const v);
 dbl dbl3_dist(dbl3 const u, dbl3 const v);
 dbl dbl3_dist_sq(dbl3 const u, dbl3 const v);
-dbl dbl3_dot(dbl3 const u, dbl3 const v);
+JMM_LINKAGE dbl dbl3_dot(dbl3 const u, dbl3 const v);
 dbl dbl3_maxdist(dbl3 const u, dbl3 const v);
 dbl dbl3_maxnorm(dbl3 const u);
 dbl dbl3_minimum(dbl3 const u);
@@ -146,7 +142,3 @@ size_t uint3_diff_uint2(uint3 const i, uint2 const j, uint3 k);
 size_t uint3_find(uint3 const i, size_t j);
 bool uint3_is_sorted(uint3 const i);
 void uint3_set(uint3 i, size_t value);
-
-#ifdef __cplusplus
-}
-#endif

@@ -1,9 +1,5 @@
 #pragma once
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include "def.h"
 
 /**
@@ -32,7 +28,3 @@ typedef struct triqp2 {
  * argument will be stored in `x`. The minimum value is not computed.
  */
 void triqp2_solve(triqp2_s *qp, dbl tol);
-
-#ifdef __cplusplus
-}
-#endif

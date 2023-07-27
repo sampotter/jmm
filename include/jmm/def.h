@@ -1,7 +1,9 @@
 #pragma once
 
 #ifdef __cplusplus
-extern "C" {
+#define JMM_LINKAGE extern "C"
+#else
+#define JMM_LINKAGE
 #endif
 
 #include <complex.h>
@@ -89,7 +91,3 @@ typedef enum error {
 } error_e;
 
 typedef int (*compar_t)(void const *, void const *);
-
-#ifdef __cplusplus
-}
-#endif

@@ -1,9 +1,5 @@
 #pragma once
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include <stdbool.h>
 
 #include "cubic.h"
@@ -40,7 +36,3 @@ void F4_bfgs_init(dbl eta, dbl th, dbl2 x0, dbl2 g0, dbl22 H0,
                   F4_context *context);
 bool F4_bfgs_step(dbl2 const xk, dbl2 const gk, dbl22 const Hk,
                   dbl2 xk1, dbl2 gk1, dbl22 Hk1, F4_context *context);
-
-#ifdef __cplusplus
-}
-#endif

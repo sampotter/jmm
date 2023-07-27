@@ -1,9 +1,5 @@
 #pragma once
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include "common.h"
 #include "geom.h"
 
@@ -67,7 +63,3 @@ void rtree_intersect(rtree_s const *rtree, ray3 const *ray, isect *isect,
                      robj_s const *skip_robj);
 void rtree_intersectN(rtree_s const *rtree, ray3 const *ray, size_t n,
                       isect *isects);
-
-#ifdef __cplusplus
-}
-#endif

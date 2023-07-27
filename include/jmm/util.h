@@ -1,9 +1,5 @@
 #pragma once
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include <jmm/def.h>
 
 dbl clamp(dbl x, dbl a, dbl b);
@@ -14,9 +10,5 @@ int compar_size_t(size_t const *i, size_t const *j);
 int signum(dbl x);
 dbl shrink(dbl x, dbl eps);
 bool contains(void const *arr, size_t len, void const *elt, size_t size);
-dbl toc();
+JMM_LINKAGE dbl toc();
 dbl squash(dbl x, size_t n);
-
-#ifdef __cplusplus
-}
-#endif

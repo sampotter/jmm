@@ -874,17 +874,14 @@ void eik3hh_branch_render_frames(eik3hh_branch_s const *branch,
 
           /* Get the surface normal and dot it with the eye vector for
            * Lambertian shading */
-          switch (robj_type) {
-          case ROBJ_MESH2_TRI:
+          if (robj_type == ROBJ_MESH2_TRI) {
             mesh2_tri_s const *mesh2_tri = robj_data;
             mesh2_get_unit_surface_normal(surface_mesh, mesh2_tri->l, n);
-            break;
-          case ROBJ_BMESH33_CELL:
+          } else if (robj_type == ROBJ_BMESH33_CELL) {
             bmesh33_cell_s const *bmesh33_cell = robj_data;
             bmesh33_cell_Df(bmesh33_cell, ray.org, n);
             dbl3_normalize(n);
-            break;
-          default:
+          } else {
             assert(false);
           }
           scale *= fabs(dbl3_dot(n, ray.dir));

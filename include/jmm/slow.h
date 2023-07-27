@@ -1,9 +1,5 @@
 #pragma once
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 /**
  * An enum encoding the "type" of slowness function to be
  * used. Specifically, this encodes the manner in which slowness data
@@ -36,7 +32,3 @@ static sfunc_s const SFUNC_CONSTANT = {
     .D2s = NULL
   }
 };
-
-#ifdef __cplusplus
-}
-#endif

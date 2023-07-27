@@ -1,9 +1,5 @@
 #pragma once
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include "array.h"
 #include "common.h"
 #include "geom.h"
@@ -42,8 +38,4 @@ void utetra_step(utetra_s *u);
 void utetra_get_lambda(utetra_s const *u, dbl lam[2]);
 void utetra_set_lambda(utetra_s *u, dbl const lam[2]);
 size_t utetra_get_num_iter(utetra_s const *u);
-#endif
-
-#ifdef __cplusplus
-}
 #endif

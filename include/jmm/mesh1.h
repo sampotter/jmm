@@ -1,9 +1,5 @@
 #pragma once
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include "common.h"
 #include "def.h"
 
@@ -18,7 +14,3 @@ size_t mesh1_nedges(mesh1_s const *mesh);
 
 void mesh1_ev(mesh1_s const *mesh, size_t le, uint2 l);
 void mesh1_ve(mesh1_s const *mesh, size_t l, size_t le[2]);
-
-#ifdef __cplusplus
-}
-#endif

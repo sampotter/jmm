@@ -1,9 +1,5 @@
 #pragma once
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include "common.h"
 #include "geom.h"
 #include "index.h"
@@ -43,14 +39,14 @@ typedef struct mesh3_data {
 } mesh3_data_s;
 
 void mesh3_data_init_from_bin(mesh3_data_s *data, char const *verts_path, char const *cells_path);
-void mesh3_data_init_from_off_file(mesh3_data_s *data, char const *path, dbl maxvol, bool verbose);
+JMM_LINKAGE void mesh3_data_init_from_off_file(mesh3_data_s *data, char const *path, dbl maxvol, bool verbose);
 void mesh3_data_deinit(mesh3_data_s *data);
-error_e mesh3_data_insert_vert(mesh3_data_s *data, dbl3 const x, dbl eps);
+JMM_LINKAGE error_e mesh3_data_insert_vert(mesh3_data_s *data, dbl3 const x, dbl eps);
 
-void mesh3_alloc(mesh3_s **mesh);
-void mesh3_dealloc(mesh3_s **mesh);
-void mesh3_init(mesh3_s *mesh, mesh3_data_s const *data, bool compute_bd_info, dbl const *eps);
-void mesh3_deinit(mesh3_s *mesh);
+JMM_LINKAGE void mesh3_alloc(mesh3_s **mesh);
+JMM_LINKAGE void mesh3_dealloc(mesh3_s **mesh);
+JMM_LINKAGE void mesh3_init(mesh3_s *mesh, mesh3_data_s const *data, bool compute_bd_info, dbl const *eps);
+JMM_LINKAGE void mesh3_deinit(mesh3_s *mesh);
 dbl3 const *mesh3_get_verts_ptr(mesh3_s const *mesh);
 size_t const *mesh3_get_cells_ptr(mesh3_s const *mesh);
 dbl const *mesh3_get_vert_ptr(mesh3_s const *mesh, size_t i);
@@ -62,10 +58,10 @@ void mesh3_get_centroid(mesh3_s const *mesh, size_t lc, dbl centroid[3]);
 void mesh3_get_edge_centroid(mesh3_s const *mesh, size_t e[2], dbl c[3]);
 size_t mesh3_ncells(mesh3_s const *mesh);
 size_t mesh3_nverts(mesh3_s const *mesh);
-void mesh3_get_bbox(mesh3_s const *mesh, rect3 *bbox);
+JMM_LINKAGE void mesh3_get_bbox(mesh3_s const *mesh, rect3 *bbox);
 void mesh3_get_cell_bbox(mesh3_s const *mesh, size_t i, rect3 *bbox);
 bool mesh3_cell_contains_point(mesh3_s const *mesh, size_t i, dbl const x[3]);
-bool mesh3_contains_ball(mesh3_s const *mesh, dbl3 const x, dbl r);
+JMM_LINKAGE bool mesh3_contains_ball(mesh3_s const *mesh, dbl3 const x, dbl r);
 size_t mesh3_find_cell_containing_point(mesh3_s const *mesh, dbl const x[3], size_t lc);
 bool mesh3_contains_point(mesh3_s const *mesh, dbl3 const x);
 int mesh3_nvc(mesh3_s const *mesh, size_t i);
@@ -152,7 +148,7 @@ void mesh3_get_edge_midpoint(mesh3_s const *mesh, size_t const le[2], dbl p[3]);
 void mesh3_get_face_centroid(mesh3_s const *mesh, size_t const lf[3], dbl p[3]);
 void mesh3_dump_verts(mesh3_s const *mesh, char const *path);
 void mesh3_dump_cells(mesh3_s const *mesh, char const *path);
-bool mesh3_has_vertex(mesh3_s const *mesh, dbl3 const x);
+JMM_LINKAGE bool mesh3_has_vertex(mesh3_s const *mesh, dbl3 const x);
 size_t mesh3_get_vert_index(mesh3_s const *mesh, dbl3 const x);
 dbl mesh3_linterp(mesh3_s const *mesh, dbl const *values, dbl3 const x);
 dbl mesh3_diam_2approx(mesh3_s const *mesh, size_t l);
@@ -162,7 +158,3 @@ dbl mesh3_get_vertex_tol(mesh3_s const *mesh, size_t lv);
 dbl mesh3_get_edge_tol(mesh3_s const *mesh, uint2 const le);
 dbl mesh3_get_face_tol(mesh3_s const *mesh, uint3 const lf);
 dbl mesh3_get_point_tol(mesh3_s const *mesh, dbl3 const x);
-
-#ifdef __cplusplus
-}
-#endif

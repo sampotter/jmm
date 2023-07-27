@@ -1,9 +1,5 @@
 #pragma once
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include "common.h"
 #include "cubic.h"
 #include "jet.h"
@@ -44,7 +40,3 @@ dbl bb33_df(bb33 const *bb, dbl const b[4], dbl const a[4]);
 dbl bb33_d2f(bb33 const *bb, dbl const b[4], dbl4 const a[2]);
 bool bb33_convex_hull_brackets_value(bb33 const *bb, dbl value);
 cubic_s bb33_restrict_along_interval(bb33 const *bb, dbl b0[4], dbl b1[4]);
-
-#ifdef __cplusplus
-}
-#endif

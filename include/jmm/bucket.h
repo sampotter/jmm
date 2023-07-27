@@ -1,9 +1,5 @@
 #pragma once
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include <stdbool.h>
 #include <stddef.h>
 
@@ -20,7 +16,3 @@ bucket_s *bucket_get_next(bucket_s const *bucket);
 void bucket_set_next(bucket_s *bucket, bucket_s *next);
 size_t bucket_get_size(bucket_s const *bucket);
 bool bucket_is_empty(bucket_s const *bucket);
-
-#ifdef __cplusplus
-}
-#endif
