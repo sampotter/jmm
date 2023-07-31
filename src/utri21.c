@@ -3,9 +3,8 @@
 #include <assert.h>
 
 #include <jmm/hybrid.h>
+#include <jmm/log.h>
 #include <jmm/mat.h>
-
-#include "log.h"
 
 void utri21_init(utri21_s *utri, dbl2 const xhat, dbl2 const x[2],
                  jet21t const jet[2]) {

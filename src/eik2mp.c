@@ -5,10 +5,9 @@
 #include <stdlib.h>
 
 #include <jmm/heap.h>
+#include <jmm/log.h>
 #include <jmm/mat.h>
 #include <jmm/utri21.h>
-
-#include "log.h"
 
 struct eik2mp {
   mesh22_s const *mesh;
@@ -28,7 +27,7 @@ static dbl value(eik2mp_s const *eik, int l) {
 
 static void setpos(eik2mp_s const *eik, int l, int pos) {
   // changes the index in the priority_queue (all these methods can be
-  // found in priority_queue.c 
+  // found in priority_queue.c
   eik->pos[l] = pos;
 }
 
@@ -80,7 +79,7 @@ void eik2mp_deinit(eik2mp_s *eik) {
 }
 
 size_t eik2mp_peek(eik2mp_s const *eik) {
-  // returns the value in the 0th place in the heap 
+  // returns the value in the 0th place in the heap
   return heap_front(eik->heap);
 }
 
@@ -165,7 +164,7 @@ size_t eik2mp_step(eik2mp_s *eik) {
 
   for (size_t i = 0; i < nvv; ++i) {
     size_t l = vv[i]; // neighbor of x0
-    if (eik->state[l] == FAR) { 
+    if (eik->state[l] == FAR) {
       eik->state[l] = TRIAL;
       heap_insert(eik->heap, l);
     }

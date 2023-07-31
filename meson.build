@@ -15,6 +15,7 @@ fs = import('fs')
 m_dep = meson.get_compiler('c').find_library('m', required : false)
 argp_dep = meson.get_compiler('c').find_library('argp', required : false)
 gsl_dep = dependency('gsl')
+openmp_dep = dependency('openmp')
 tetgen_dep = dependency('tetgen')
 
 jmm_lib_src = [

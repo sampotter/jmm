@@ -1,4 +1,4 @@
-executable('itd', 'itd.c', dependencies : jmm_dep)
+executable('itd', 'itd.c', dependencies : [jmm_dep, openmp_dep])
 
 files = ['scratch.py']
 

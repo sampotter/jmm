@@ -8,13 +8,13 @@
 #include <jmm/array.h>
 #include <jmm/bb.h>
 #include <jmm/eik3.h>
+#include <jmm/log.h>
 #include <jmm/mat.h>
 #include <jmm/mesh3.h>
 #include <jmm/opt.h>
 #include <jmm/uline.h>
 #include <jmm/util.h>
 
-#include "log.h"
 #include "macros.h"
 
 #define MAX_NITER 100

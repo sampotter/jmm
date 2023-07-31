@@ -5,10 +5,9 @@
 #include <stdlib.h>
 
 #include <jmm/heap.h>
+#include <jmm/log.h>
 #include <jmm/mat.h>
 #include <jmm/utri21.h>
-
-#include "log.h"
 
 struct eik2m1 {
   mesh22_s const *mesh;

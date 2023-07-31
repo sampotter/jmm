@@ -7,12 +7,12 @@
 
 #include <jmm/bmesh.h>
 #include <jmm/def.h>
+#include <jmm/log.h>
 #include <jmm/mesh2.h>
 #include <jmm/mesh3.h>
 #include <jmm/stats.h>
 #include <jmm/vec.h>
 
-#include "log.h"
 #include "macros.h"
 #include "pool.h"
 

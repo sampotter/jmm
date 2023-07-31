@@ -13,6 +13,7 @@
 #include <jmm/edge.h>
 #include <jmm/eik3_transport.h>
 #include <jmm/heap.h>
+#include <jmm/log.h>
 #include <jmm/mat.h>
 #include <jmm/mesh1.h>
 #include <jmm/mesh2.h>
@@ -25,7 +26,6 @@
 #include <jmm/utri_cache.h>
 #include <jmm/vec.h>
 
-#include "log.h"
 #include "macros.h"
 
 static bool l_OK(size_t l) {

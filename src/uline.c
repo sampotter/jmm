@@ -5,9 +5,8 @@
 #include <stdlib.h>
 
 #include <jmm/eik3.h>
+#include <jmm/log.h>
 #include <jmm/mesh3.h>
-
-#include "log.h"
 
 static size_t MAX_NUM_ITER = 100;
 

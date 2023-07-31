@@ -7,9 +7,9 @@
 #include <string.h>
 
 #include <jmm/def.h>
+#include <jmm/log.h>
 #include <jmm/vec.h>
 
-#include "log.h"
 #include "macros.h"
 #include "mesh_util.h"
 
