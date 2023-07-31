@@ -2,13 +2,15 @@ project(
   'jmm',
   'c', 'cpp', 'cython',
   license : 'BSD-3-Clause',
-  meson_version : '>=0.62.2',
+  meson_version : '>=0.64.0',
   version : '0.1.1',
   default_options : [
     'c_std=gnu99',
     'cpp_std=c++11'
   ]
 )
+
+fs = import('fs')
 
 m_dep = meson.get_compiler('c').find_library('m', required : false)
 argp_dep = meson.get_compiler('c').find_library('argp', required : false)

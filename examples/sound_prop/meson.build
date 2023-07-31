@@ -3,23 +3,8 @@ executable('simulate', 'simulate.c', dependencies : [argp_dep, jmm_dep])
 executable('render', 'render.c', dependencies : [argp_dep, jmm_dep])
 executable('slice', 'slice.c', dependencies : [argp_dep, jmm_dep])
 
-custom_target('room.off',
-  input : 'room.off',
-  output : 'room.off',
-  command : ['cp', '@INPUT@', '@OUTPUT@'],
-  install : false,
-  build_by_default : true)
+files = ['render_bin_to_img.py', 'simulate.py']
 
-custom_target('render_bin_to_img.py',
-  input : 'render_bin_to_img.py',
-  output : 'render_bin_to_img.py',
-  command : ['cp', '@INPUT@', '@OUTPUT@'],
-  install : false,
-  build_by_default : true)
-
-custom_target('simulate.py',
-  input : 'simulate.py',
-  output : 'simulate.py',
-  command : ['cp', '@INPUT@', '@OUTPUT@'],
-  install : false,
-  build_by_default : true)
+foreach file : files
+  fs.copyfile(file, file)
+endforeach
