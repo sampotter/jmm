@@ -3,5 +3,5 @@ url = https://github.com/sampotter/tetgen.git
 revision = main
 depth = 1
 
-[provides]
+[provide]
 dependency_names = tetgen, tetgen-1.6.0
