@@ -238,7 +238,7 @@ dbl dbl3_nanmax(dbl3 const u) {
 
 dbl dbl3_nanmean(dbl3 const u) {
   size_t n = 0;
-  dbl sum;
+  dbl sum = 0;
   for (size_t i = 0; i < 3; ++i) {
     if (!isnan(u[i])) {
       sum += u[i];
@@ -744,7 +744,7 @@ dbl dblN_binmedian(size_t n, dbl const *x, size_t num_bins) {
     ++bins[k];
     ++bincount;
   }
-  dbl binmedian;
+  dbl binmedian = NAN;
   size_t cumsum = 0;
   for (size_t k = 0; k < num_bins; ++k) {
     cumsum += bins[k];

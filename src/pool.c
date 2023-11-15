@@ -73,7 +73,7 @@ void pool_deinit(pool_s *pool) {
 }
 
 void *pool_get(pool_s *pool, size_t num_bytes) {
-  block_s *block;
+  block_s *block = NULL;
 
   // First, traverse the block list and see if we can allocate from
   // any of the existing blocks
@@ -82,6 +82,7 @@ void *pool_get(pool_s *pool, size_t num_bytes) {
     if (num_bytes <= block_get_free_bytes(block))
       return block_get(block, num_bytes);
   }
+  assert(block != NULL);
 
   // If we failed to do so, append new blocks to the end of free list,
   // doubling the capacity of each, until we're able to
