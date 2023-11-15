@@ -7,7 +7,7 @@
 
 #include <jmm/mat.h>
 
-static dbl44 V_inv = {
+static dbl44 const V_inv = {
   { 1,  0,  0,  0},
   { 0,  0,  1,  0},
   {-3,  3, -2, -1},
@@ -15,7 +15,7 @@ static dbl44 V_inv = {
 };
 
 cubic_s cubic_from_lagrange_data(dbl4 f) {
-  static dbl44 Vinv = {
+  static dbl44 const Vinv = {
     { 1. ,   0. ,   0. ,   0. },
     {-5.5,   9. ,  -4.5,   1. },
     { 9. , -22.5,  18. ,  -4.5},
@@ -46,7 +46,7 @@ void cubic_set_data_from_ptr(cubic_s *cubic, dbl const *data_ptr) {
 }
 
 void cubic_reverse_on_unit_interval(cubic_s *cubic) {
-  static dbl44 M = {
+  static dbl44 const M = {
     {1,  1,  1,  1},
     {0, -1, -2, -3},
     {0,  0,  1,  3},
