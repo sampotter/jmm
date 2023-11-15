@@ -1,5 +1,3 @@
-[![Build Status](https://app.travis-ci.com/sampotter/jmm.svg?branch=master)](https://app.travis-ci.com/sampotter/jmm)
-
 # libjmm
 
 This is a C library implementing a variety of *jet marching methods*
@@ -23,7 +21,7 @@ This is a C library implementing a variety of *jet marching methods*
    Notes:
    - Requires GCC-10 or higher: https://askubuntu.com/questions/466651/how-do-i-use-the-latest-gcc-on-ubuntu/1163021#1163021
    - If you want to remove the warnings about an older version of cmake, make sure you have cmake version > 3.17.  If apt isn't finding the latest version, follow the instructions here to add the apt repository directly from cmake/kitware: https://askubuntu.com/questions/355565/how-do-i-install-the-latest-version-of-cmake-from-the-command-line
-3. 
+
 ## Building
 
 This library can be built using [Meson](https://mesonbuild.com/).
