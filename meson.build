@@ -5,7 +5,7 @@ project(
   meson_version : '>=0.64.0',
   version : '0.1.1',
   default_options : [
-    'c_std=gnu99',
+    'c_std=c99',
     'cpp_std=c++11'
   ]
 )
