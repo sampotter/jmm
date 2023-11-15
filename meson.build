@@ -6,7 +6,8 @@ project(
   version : '0.1.1',
   default_options : [
     'c_std=c99',
-    'cpp_std=c++11'
+    'cpp_std=c++11',
+    'warning_level=2',
   ]
 )
 
