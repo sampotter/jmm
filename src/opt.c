@@ -157,10 +157,12 @@ void triqp2_solve(triqp2_s *qp, dbl tol) {
   }
 
   else if (p_y01_opt == p_x11_opt) {
-    if (x11_opt == 0 && y01_opt == 1) {
+    const double cost1 = fabs(x11_opt) + fabs(y01_opt - 1);
+    const double cost2 = fabs(x11_opt - 1) + fabs(y01_opt);
+    if (cost1 < cost2) {
       x[0] = 0;
       x[1] = 1;
-    } else if (x11_opt == 1 && y01_opt == 0) {
+    } else {
       assert(x10_opt == 0.5);
       x[0] = 0.5;
       x[1] = 0;
