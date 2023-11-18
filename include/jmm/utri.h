@@ -9,7 +9,7 @@ typedef struct utri utri_s;
 void utri_alloc(utri_s **utri);
 void utri_dealloc(utri_s **utri);
 void utri_init(utri_s *u, eik3_s const *eik, size_t lhat, size_t const l[2]);
-void utri_solve(utri_s *utri);
+bool utri_solve(utri_s *utri);
 par3_s utri_get_par(utri_s const *u);
 dbl utri_get_value(utri_s const *utri);
 void utri_get_jet31t(utri_s const *utri, jet31t *jet);

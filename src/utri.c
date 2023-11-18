@@ -195,27 +195,36 @@ static dbl hybrid_Dp(dbl lam, cubic_s const *p) {
   return cubic_df(p, lam);
 }
 
-void utri_solve(utri_s *utri) {
+bool utri_solve(utri_s *utri) {
   static int CALL_NUMBER = 0;
 
+  ++CALL_NUMBER;
+
   if (utri->stype == STYPE_CONSTANT) {
-    dbl lam, f[2];
+    dbl lam, f[2], Df[2];
 
     if (hybrid((hybrid_cost_func_t)hybrid_f, 0, 1, utri, &lam))
-      return;
+      return true;
 
     set_lambda(utri, 0);
     f[0] = utri->f;
+    Df[0] = utri->Df;
 
     set_lambda(utri, 1);
     f[1] = utri->f;
+    Df[1] = utri->Df;
 
-    assert(f[0] != f[1]);
-
-    if (f[0] < f[1])
+    if (f[0] < f[1] && Df[0] >= 0) {
       set_lambda(utri, 0);
-    else
+      return true;
+    }
+
+    if (f[1] < f[0] && Df[1] <= 0) {
       set_lambda(utri, 1);
+      return true;
+    }
+
+    return false;
   }
 
   else if (utri->stype == STYPE_FUNC_PTR) {
@@ -315,11 +324,11 @@ void utri_solve(utri_s *utri) {
     uline_get_topt(uline, utri->topt);
 
     uline_dealloc(&uline);
+
+    return true;
   }
 
-  else assert(false);
-
-  ++CALL_NUMBER;
+  assert(false);
 }
 
 static void get_update_inds(utri_s const *utri, size_t l[2]) {

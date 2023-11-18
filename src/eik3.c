@@ -308,7 +308,8 @@ do_utri(eik3_s *eik, size_t l, size_t l0, size_t l1, utri_cache_s *utri_cache,
   if (utri_is_degenerate(utri))
     goto cleanup;
 
-  utri_solve(utri);
+  if (!utri_solve(utri))
+    goto cleanup;
 
   if (par != NULL && utri_get_value(utri) < eik->jet[l].f)
     *par = utri_get_par(utri);
