@@ -22,7 +22,7 @@ rfac = 0.5
 eps = 1e-5
 maxvol = 1e-2
 R = 0.9
-off_path = '../../examples/sound_prop/room_small.off'
+off_path = '../../examples/data/off/room_small.off'
 
 surf_mesh = pv.read(off_path)
 
