@@ -41,8 +41,6 @@ hh = jmm.Eik3hh.new_with_pt_src(mesh, c, rfac, xsrc)
 root_branch = hh.get_root_branch()
 root_branch.solve(verbose)
 
-print('hi')
-
 branches = [(0, root_branch)]
 
 for i in range(16):
@@ -88,7 +86,6 @@ for d, branch in branches:
     rho = T(*xtgt)
     t = rho/c
 
-    print('multiply by R^depth!')
     A = R**d*get_org(*xtgt)/rho
 
     taps.append((t, A))
